@@ -1,9 +1,8 @@
 public enum ResourceType
 {
+    Food,
     Wood,
     Stone,
-    Food,
-    Gold,
-    Iron,
-    Magic,
+    Metal,
+    Coins,
 }

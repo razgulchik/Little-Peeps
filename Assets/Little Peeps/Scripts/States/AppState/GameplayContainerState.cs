@@ -12,16 +12,16 @@ public class GameplayContainerState : IState
 
     public void Enter()
     {
-        // TODO: innerFsm.ChangeState(playingState) — begin gameplay
+        innerFsm.ChangeState(playingState);
     }
 
     public void Exit()
     {
-        // TODO: clean up inner FSM; pause or destroy all gameplay objects
+        // TODO: tear down / pause the inner gameplay FSM on prestige or return to menu
     }
 
     public void Tick()
     {
-        // TODO: innerFsm.Tick()
+        innerFsm.Tick();
     }
 }

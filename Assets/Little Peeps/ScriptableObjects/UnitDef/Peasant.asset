@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: peasant
   prefab: {fileID: 1807706934372700554, guid: 8abf6f705aae1894eb19cf09b3b7f291, type: 3}
-  speed: 3
+  speed: 2
   unitType: 0

@@ -9,12 +9,13 @@ using UnityEngine;
 //   UI (Canvas) [ResourceUI × 6, AgeUI, PerkSelectionUI as child GameObjects]
 //   Pier        [Pier component + CircleCollider2D with isTrigger = true]
 //
-// Initialization order (Awake → Start):
+// Initialization (all in Awake — order-independent, see note on Awake below):
 //   1. Application.runInBackground
-//   2. Load or create contexts (MetaContext from disk, RunContext + SessionContext fresh)
-//   3. Wire contexts into systems
-//   4. Create App FSM → push BootState
-//   5. (Start) StartNewRun + transition to MainMenuState
+//   2. Load MetaContext from disk; create SessionContext (RunContext is owned by RunManager)
+//   3. Wire run-independent systems (runManager / prestigeSystem / dragController)
+//   4. RunManager.StartNewRun → wire run-dependent systems (tapSystem / perkSelectionUI)
+//   5. Create App FSM → push BootState → auto-transition to GameplayContainer
+//      (MainMenu skipped until its UI exists)
 public class GameBootstrap : MonoBehaviour
 {
     [Header("Systems")]
@@ -35,42 +36,51 @@ public class GameBootstrap : MonoBehaviour
     [Header("UI")]
     [SerializeField] private PerkSelectionUI perkSelectionUI;
 
-    private RunContext runContext;
     private MetaContext metaContext;
     private SessionContext sessionContext;
     private StateMachine appStateMachine;
 
+    // All bootstrap work runs in Awake. Unity guarantees every Awake completes before any
+    // Start, so by the time any other system's Start runs, everything is wired and the run
+    // has started — initialization is order-independent and needs NO Script Execution Order
+    // tweak. The one rule for new systems: never read injected state (contexts / other
+    // systems) in your own Awake/OnEnable — only from Start onward. See SCENE_SETUP.md.
     private void Awake()
     {
         Application.runInBackground = true;
 
-        // 1. Create / load contexts
+        // 1. Load persistent data; create the runtime-only session context.
         metaContext = saveSystem.Load();
-        runContext = new RunContext();
-        sessionContext = new SessionContext();
+        sessionContext = new SessionContext { unitPool = unitPool };
 
-        // 2. Wire contexts into systems
-        // TODO: resourceSystem.Initialize(runContext)
-        // TODO: sessionContext.unitPool = unitPool
-        // TODO: runManager.Initialize(metaContext)
-        // TODO: prestigeSystem.Initialize(metaContext)
-        // TODO: dragController.Initialize(sessionContext)
-        // TODO: tapSystem.Initialize(runContext)
-        // TODO: perkSelectionUI.Initialize(perkSystem, runContext)
+        // 2. Wire run-independent systems (Meta/Session only).
+        runManager.Initialize(metaContext);
+        prestigeSystem.Initialize(metaContext);
+        dragController.Initialize(sessionContext);
 
-        // 3. Build App FSM
+        // 3. Start the first run: RunManager creates the RunContext, seeds resources
+        //    (via ResourceSystem.Initialize) and asks IslandSystem to generate the island.
+        runManager.StartNewRun();
+        RunContext run = runManager.CurrentRun;
+
+        // 4. Wire run-dependent systems.
+        tapSystem.Initialize(run);
+        if (perkSelectionUI != null) perkSelectionUI.Initialize(perkSystem, run); // UI optional this milestone
+
+        // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
+        //    Gameplay (when async loading lands, BootState.Tick will own this transition).
+        //    The inner gameplay FSM starts in PlayingState; bouncing units / spawners run on
+        //    their own MonoBehaviours — the FSM is the orchestration backbone for later states.
         appStateMachine = new StateMachine();
-        // TODO: appStateMachine.Push(new BootState(appStateMachine, saveSystem, metaContext))
-    }
+        appStateMachine.Push(new BootState(appStateMachine, saveSystem, metaContext));
 
-    private void Start()
-    {
-        // TODO: runManager.StartNewRun() — applies GlobalUpgrade multipliers, seeds island
-        // TODO: appStateMachine.ChangeState(new MainMenuState(appStateMachine, runManager))
+        var gameplayFsm = new StateMachine();
+        var playingState = new PlayingState(gameplayFsm, run);
+        appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState));
     }
 
     private void Update()
     {
-        // TODO: appStateMachine.Tick()
+        appStateMachine.Tick();
     }
 }

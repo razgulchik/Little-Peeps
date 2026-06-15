@@ -168,11 +168,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spawnSystem: {fileID: 0}
   unitDef: {fileID: 11400000, guid: 191d0f1bb6059f94f9bf1f17f478ffa5, type: 2}
-  capacity: 1
+  capacity: 2
   restDuration: 3
   lockoutDuration: 5
-  launchSpeedMultiplier: 2.5
-  launchBoostDuration: 2
+  launchSpeedMultiplier: 3
+  launchBoostDuration: 3
   launchGap: 0.1
 --- !u!1 &3660868618199599061
 GameObject:

@@ -14,7 +14,6 @@ public class MetaContext
     // Return level for a specific upgrade; 0 if never purchased
     public int GetUpgradeLevel(UpgradeId id)
     {
-        // TODO: return globalUpgrades.TryGetValue(id, out var level) ? level : 0
-        return 0;
+        return globalUpgrades != null && globalUpgrades.TryGetValue(id, out var level) ? level : 0;
     }
 }

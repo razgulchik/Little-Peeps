@@ -18,14 +18,21 @@ public class RunManager : MonoBehaviour
     // Create a fresh RunContext, apply global upgrade multipliers, re-generate island
     public void StartNewRun()
     {
-        // TODO: CurrentRun = new RunContext(); populate resources with starting amounts * GetMultiplier(Production)
-        // TODO: resourceSystem.Initialize(CurrentRun); islandSystem.Generator.Generate(0)
+        CurrentRun = new RunContext { currentAge = 0 };
+
+        // TODO: seed CurrentRun.resources from a starting-amounts table, scaled by
+        // GetMultiplier(MultiplierType.StartingResources). For the simplest start every
+        // resource begins at 0 — ResourceSystem.Initialize fills in a ReactiveValue per type.
+
+        resourceSystem.Initialize(CurrentRun);
+        islandSystem.GenerateForRun();
     }
 
     // Sum valuePerLevel * level for all GlobalUpgrades matching the requested MultiplierType
     public float GetMultiplier(MultiplierType type)
     {
-        // TODO: base = 1f; iterate metaContext.globalUpgrades, add def.valuePerLevel * level for matching MultiplierType; return base
+        // Baseline 1.0. Once the GlobalUpgradeDef catalogue is wired, add
+        // def.valuePerLevel * metaContext.GetUpgradeLevel(def.id) for every upgrade of this type.
         return 1f;
     }
 }

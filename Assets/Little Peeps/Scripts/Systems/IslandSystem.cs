@@ -12,7 +12,10 @@ public class IslandSystem : MonoBehaviour
     public IslandGrid Grid { get; private set; }
     public IslandGenerator Generator { get; private set; }
 
-    private void Awake()
+    // Generate the island for a new run. RunManager.StartNewRun() owns the timing —
+    // IslandSystem no longer auto-builds in Awake so generation isn't duplicated or
+    // ordered by chance. Editor preview still goes through the [ContextMenu] below.
+    public void GenerateForRun()
     {
         Build();
     }

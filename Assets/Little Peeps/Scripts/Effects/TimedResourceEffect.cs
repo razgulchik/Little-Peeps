@@ -17,15 +17,15 @@ public class TimedResourceEffect : ICollisionEffect
         this.resourceSystem = resourceSystem;
     }
 
-    public void OnHit(Unit unit, Building building)
+    public void OnHit(Unit unit, CollisionTarget target)
     {
         // TODO: if unit.Type != requiredUnitType return
         if (activeCoroutine != null)
-            building.StopCoroutine(activeCoroutine);
-        activeCoroutine = building.StartCoroutine(ProductionCoroutine(building));
+            target.StopCoroutine(activeCoroutine);
+        activeCoroutine = target.StartCoroutine(ProductionCoroutine(target));
     }
 
-    private IEnumerator ProductionCoroutine(Building building)
+    private IEnumerator ProductionCoroutine(CollisionTarget target)
     {
         // TODO: Idle→Active: each frame for duration seconds, resourceSystem.AddResource(resourceType, amountPerSecond * Time.deltaTime); then Idle
         yield break;

@@ -10,7 +10,7 @@ public class ConsumeEffect : ICollisionEffect
         this.spawnSystem = spawnSystem;
     }
 
-    public void OnHit(Unit unit, Building building)
+    public void OnHit(Unit unit, CollisionTarget target)
     {
         // TODO: if unit.Type != requiredUnitType return; spawnSystem.DespawnUnit(unit)
     }

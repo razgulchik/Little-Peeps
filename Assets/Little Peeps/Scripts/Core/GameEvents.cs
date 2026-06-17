@@ -3,8 +3,8 @@ using UnityEngine;
 public struct CollisionEvent
 {
     public Unit Unit;
-    public Building Building;
-    public CollisionEvent(Unit unit, Building building) { Unit = unit; Building = building; }
+    public CollisionTarget Target;
+    public CollisionEvent(Unit unit, CollisionTarget target) { Unit = unit; Target = target; }
 }
 
 public struct ResourceChangedEvent

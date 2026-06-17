@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 // Manages resource amounts as ReactiveValues so UI auto-updates on change
 public class ResourceSystem : MonoBehaviour
 {
+    [SerializeField] private bool logChanges = true; // debug: dump all resources to console on each change
+
     private readonly Dictionary<ResourceType, ReactiveValue<float>> resources = new();
 
     // Populate ReactiveValues from RunContext starting amounts (one per ResourceType)
@@ -29,6 +32,20 @@ public class ResourceSystem : MonoBehaviour
             ResourceType = type,
             NewValue     = rv.Value,
         });
+
+        if (logChanges) LogChange(type, delta);
+    }
+
+    // Debug: print the changed resource plus all current totals to the console.
+    private void LogChange(ResourceType changed, float delta)
+    {
+        var sb = new StringBuilder();
+        foreach (ResourceType t in Enum.GetValues(typeof(ResourceType)))
+        {
+            if (sb.Length > 0) sb.Append(", ");
+            sb.Append(t).Append('=').Append(GetResource(t));
+        }
+        Debug.Log($"[Resources] {(delta >= 0 ? "+" : "")}{delta} {changed}  →  {sb}");
     }
 
     // Current amount for a resource type

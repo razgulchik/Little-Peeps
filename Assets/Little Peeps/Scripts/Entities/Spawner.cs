@@ -6,7 +6,7 @@ using UnityEngine;
 // OWN cooldown, then waits to accept ANY matching-type unit (units are shared per type, not
 // owned). capacity = number of slots and is registered into SpawnSystem's global per-type cap.
 [RequireComponent(typeof(Building))]
-public class Spawner : MonoBehaviour
+public class Spawner : MonoBehaviour, ICollisionEffect
 {
     [SerializeField] private SpawnSystem spawnSystem;
 
@@ -33,25 +33,13 @@ public class Spawner : MonoBehaviour
         public Unit unit;     // the resting unit (Occupied only)
     }
 
-    private Building building;
     private Collider2D buildingCollider;
     private List<Slot> slots;   // null until BeginWarmup runs
     private bool registered;
 
     private void Awake()
     {
-        building = GetComponent<Building>();
         buildingCollider = GetComponentInChildren<Collider2D>();
-    }
-
-    private void OnEnable()
-    {
-        EventBus<CollisionEvent>.Subscribe(OnCollision);
-    }
-
-    private void OnDisable()
-    {
-        EventBus<CollisionEvent>.Unsubscribe(OnCollision);
     }
 
     // Optional runtime injection (BuildingSystem calls this when placing a building at runtime).
@@ -176,16 +164,19 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    private void OnCollision(CollisionEvent e)
+    // ICollisionEffect — CollisionTarget.HandleHit calls this when a unit hits THIS building.
+    // Local dispatch replaced the old global CollisionEvent subscription, so there is no target
+    // filter (it is already our building) — only the unit-type check remains.
+    public void OnHit(Unit unit, CollisionTarget target)
     {
-        if (slots == null || e.Building != building || e.Unit == null || unitDef == null) return;
-        if (e.Unit.Type != unitDef.unitType) return;
+        if (slots == null || unit == null || unitDef == null) return;
+        if (unit.Type != unitDef.unitType) return;
 
         // Put the unit in the first slot that has finished its cooldown and is free.
         foreach (var slot in slots)
         {
             if (slot.state != SlotState.Free) continue;
-            OccupySlot(slot, e.Unit);
+            OccupySlot(slot, unit);
             return;
         }
         // No free slot — the unit bounces on toward another building.

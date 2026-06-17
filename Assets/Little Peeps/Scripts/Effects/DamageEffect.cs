@@ -4,8 +4,8 @@ public class DamageEffect : ICollisionEffect
     public float damageAmount;
     public UnitType requiredUnitType;
 
-    public void OnHit(Unit unit, Building building)
+    public void OnHit(Unit unit, CollisionTarget target)
     {
-        // TODO: if unit.Type != requiredUnitType return; building.TakeDamage(damageAmount)
+        // TODO: if unit.Type != requiredUnitType return; (target as Building)?.TakeDamage(damageAmount)
     }
 }

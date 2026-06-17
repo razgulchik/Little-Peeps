@@ -1,27 +1,28 @@
-// Build mode: physics paused, building tray visible, DragController active
+using UnityEngine;
+
+// Build mode: gameplay frozen (Time.timeScale = 0) and all units returned to the pool; they
+// respawn from their structures on exit. Placement / ghost / grid overlay arrive in Phase 2.
+// The 5s re-entry cooldown is owned by GameplayContainerState, not here.
 public class BuildModeState : IState
 {
-    private readonly StateMachine gameplayFsm;
-    private readonly DragController dragController;
+    private readonly SpawnSystem spawnSystem;
 
-    public BuildModeState(StateMachine gameplayFsm, DragController dragController)
+    public BuildModeState(SpawnSystem spawnSystem)
     {
-        this.gameplayFsm = gameplayFsm;
-        this.dragController = dragController;
+        this.spawnSystem = spawnSystem;
     }
 
     public void Enter()
     {
-        // TODO: Physics2D.simulationMode = SimulationMode2D.Script (pause); show building tray; enable drag input
+        Time.timeScale = 0f;
+        spawnSystem.DespawnAllAndResetSpawners();
     }
 
     public void Exit()
     {
-        // TODO: Physics2D.simulationMode = SimulationMode2D.FixedUpdate (resume); hide tray; disable drag input
+        spawnSystem.WarmupAllSpawners();
+        Time.timeScale = 1f;
     }
 
-    public void Tick()
-    {
-        // TODO: read mouse position; on click pickup/drop forward to dragController; on Escape call dragController.OnCancel, ChangeState(PlayingState)
-    }
+    public void Tick() { }
 }

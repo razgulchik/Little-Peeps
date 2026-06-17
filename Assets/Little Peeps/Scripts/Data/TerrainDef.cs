@@ -5,6 +5,6 @@ using UnityEngine;
 public class TerrainDef : ScriptableObject
 {
     public string id;
-    public List<BuildingDef> allowedBuildings;
+    public List<StructureDef> allowedBuildings;
     public List<UnitDef> allowedSpawners;
 }

@@ -13,27 +13,27 @@ public struct ResourceChangedEvent
     public float NewValue;
 }
 
-public struct BuildingPlacedEvent
+public struct StructurePlacedEvent
 {
-    public Building Building;
+    public Structure Structure;
     public Vector2Int Cell;
 }
 
-public struct BuildingRemovedEvent
+public struct StructureRemovedEvent
 {
-    public Building Building;
+    public Structure Structure;
     public Vector2Int Cell;
 }
 
-public struct BuildingDamagedEvent
+public struct StructureDamagedEvent
 {
-    public Building Building;
+    public Structure Structure;
     public float Damage;
 }
 
-public struct BuildingDestroyedEvent
+public struct StructureDestroyedEvent
 {
-    public Building Building;
+    public Structure Structure;
 }
 
 public struct AgeStartedEvent
@@ -41,14 +41,14 @@ public struct AgeStartedEvent
     public int Age;
 }
 
-public struct UnitSpawnedEvent
-{
-    public Unit Unit;
-}
+// Published by the build-mode toggle button; handled by GameplayContainerState.
+public struct BuildModeToggleRequestedEvent { }
 
-public struct UnitDespawnedEvent
+// Pushed by GameplayContainerState so the toggle button reflects mode + cooldown.
+public struct BuildModeUIStateEvent
 {
-    public Unit Unit;
+    public bool InBuildMode;   // true → button shows the resume/play icon (click resumes)
+    public bool Interactable;  // false while the 5s post-exit cooldown is running
 }
 
 public struct UnitBoostedEvent

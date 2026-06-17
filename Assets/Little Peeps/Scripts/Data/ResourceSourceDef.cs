@@ -2,7 +2,7 @@ using UnityEngine;
 
 // Per-type config for a resource source (Tree, Wheat, Stone, Forge, Church). The runtime
 // behaviour and per-instance state (hits left, depleted, respawn timer) live in the
-// ResourceSource component, which reads this def. Mirrors BuildingDef/UnitDef.
+// ResourceSource component, which reads this def. Mirrors StructureDef/UnitDef.
 [CreateAssetMenu(menuName = "LittlePeeps/ResourceSourceDef")]
 public class ResourceSourceDef : ScriptableObject
 {

@@ -1,30 +1,22 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Maintains the live registry of active units; driven by spawn/despawn events
+// Live registry of all active (out-of-pool) units. Fed directly by SpawnSystem on spawn/despawn
+// (no events — single consumer). Home for bulk operations over the current population
+// (e.g. tap-AoE boost — added later).
 public class UnitSystem : MonoBehaviour
 {
     private readonly List<Unit> activeUnits = new();
 
     public IReadOnlyList<Unit> ActiveUnits => activeUnits;
 
-    private void OnEnable()
+    public void Add(Unit unit)
     {
-        // TODO: EventBus<UnitSpawnedEvent>.Subscribe(OnUnitSpawned); EventBus<UnitDespawnedEvent>.Subscribe(OnUnitDespawned)
+        if (unit != null) activeUnits.Add(unit);
     }
 
-    private void OnDisable()
+    public void Remove(Unit unit)
     {
-        // TODO: unsubscribe both handlers
-    }
-
-    private void OnUnitSpawned(UnitSpawnedEvent e)
-    {
-        // TODO: activeUnits.Add(e.Unit)
-    }
-
-    private void OnUnitDespawned(UnitDespawnedEvent e)
-    {
-        // TODO: activeUnits.Remove(e.Unit)
+        if (unit != null) activeUnits.Remove(unit);
     }
 }

@@ -12,12 +12,12 @@ public class PlayingState : IState
 
     public void Enter()
     {
-        // TODO: resume physics simulation; show HUD; subscribe to build button and PrestigeTriggeredEvent
+        // TODO: show HUD; subscribe to PrestigeTriggeredEvent (build-mode toggle is owned by GameplayContainerState)
     }
 
     public void Exit()
     {
-        // TODO: unsubscribe from button and prestige event
+        // TODO: unsubscribe from the prestige event
     }
 
     public void Tick()

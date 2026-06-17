@@ -4,6 +4,6 @@ using UnityEngine;
 public class SessionContext
 {
     public UnitPool unitPool;
-    public Building draggedBuilding;
+    public Structure draggedStructure;
     public Vector2Int? hoveredCell;
 }

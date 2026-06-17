@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Placed on a building; drives a per-slot spawn -> travel -> return -> rest cycle.
+// Placed on a structure; drives a per-slot spawn -> travel -> return -> rest cycle.
 // Each slot is an independent place for one little person: it launches a unit, goes on its
 // OWN cooldown, then waits to accept ANY matching-type unit (units are shared per type, not
 // owned). capacity = number of slots and is registered into SpawnSystem's global per-type cap.
-[RequireComponent(typeof(Building))]
+[RequireComponent(typeof(Structure))]
 public class Spawner : MonoBehaviour, ICollisionEffect
 {
     [SerializeField] private SpawnSystem spawnSystem;
@@ -21,7 +21,7 @@ public class Spawner : MonoBehaviour, ICollisionEffect
     [Header("Launch")]
     [SerializeField] private float launchSpeedMultiplier = 2.5f;
     [SerializeField] private float launchBoostDuration = 1f;
-    [SerializeField] private float launchGap = 0.1f; // clearance between the building collider edge and the unit collider edge at launch
+    [SerializeField] private float launchGap = 0.1f; // clearance between the structure collider edge and the unit collider edge at launch
 
     private enum SlotState { Free, Cooldown, Occupied }
 
@@ -33,16 +33,16 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         public Unit unit;     // the resting unit (Occupied only)
     }
 
-    private Collider2D buildingCollider;
+    private Collider2D structureCollider;
     private List<Slot> slots;   // null until BeginWarmup runs
     private bool registered;
 
     private void Awake()
     {
-        buildingCollider = GetComponentInChildren<Collider2D>();
+        structureCollider = GetComponentInChildren<Collider2D>();
     }
 
-    // Optional runtime injection (BuildingSystem calls this when placing a building at runtime).
+    // Optional runtime injection (StructureSystem calls this when placing a structure at runtime).
     public void Initialize(SpawnSystem system)
     {
         spawnSystem = system;
@@ -64,9 +64,9 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         BeginWarmup();
     }
 
-    // Called on placement (and later by BuildingSystem on build/move). Every slot holds its
+    // Called on placement (and later by StructureSystem on build/move). Every slot holds its
     // unit resting INSIDE for restDuration before its first launch — so placing or moving a
-    // building never produces an instant launch (anti-abuse). Safe to call again on move:
+    // structure never produces an instant launch (anti-abuse). Safe to call again on move:
     // it won't re-register capacity or recreate slots, just restarts the rest delay.
     public void BeginWarmup()
     {
@@ -76,6 +76,7 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         {
             capacity = Mathf.Max(1, capacity);
             spawnSystem.RegisterCapacity(unitDef.unitType, capacity);
+            spawnSystem.RegisterSpawner(this);
             registered = true;
         }
 
@@ -89,7 +90,21 @@ public class Spawner : MonoBehaviour, ICollisionEffect
             FillSlot(slot);
     }
 
-    // Upgrade hook: grow the building to newCapacity slots at runtime. Each NEW slot spawns a
+    // Build-mode enter (called via SpawnSystem): the units this spawner referenced were just
+    // returned to the pool by DespawnAll, so our slot references are now stale. Reset slots to
+    // Free (keep capacity registered) so the next BeginWarmup re-spawns fresh resting units.
+    public void ResetSlots()
+    {
+        if (slots == null) return;
+        foreach (var slot in slots)
+        {
+            slot.state = SlotState.Free;
+            slot.unit = null;
+            slot.timer = 0f;
+        }
+    }
+
+    // Upgrade hook: grow the structure to newCapacity slots at runtime. Each NEW slot spawns a
     // new unit that rests first, then launches — i.e. behaves exactly like a freshly built slot.
     // Existing units keep running. Call this from the upgrade system.
     public void IncreaseCapacity(int newCapacity)
@@ -115,7 +130,7 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         }
     }
 
-    // Downgrade hook: shrink the building to newCapacity slots. FILLER for now — not implemented.
+    // Downgrade hook: shrink the structure to newCapacity slots. FILLER for now — not implemented.
     // TODO: when slot downgrades exist, pick which slots to remove, deal with their units
     // (resting ones via SpawnSystem.Despawn; roaming ones need a recall path), then
     // spawnSystem.UnregisterCapacity(unitDef.unitType, delta), trim `slots` and `capacity`.
@@ -164,9 +179,9 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         }
     }
 
-    // ICollisionEffect — CollisionTarget.HandleHit calls this when a unit hits THIS building.
+    // ICollisionEffect — CollisionTarget.HandleHit calls this when a unit hits THIS structure.
     // Local dispatch replaced the old global CollisionEvent subscription, so there is no target
-    // filter (it is already our building) — only the unit-type check remains.
+    // filter (it is already our structure) — only the unit-type check remains.
     public void OnHit(Unit unit, CollisionTarget target)
     {
         if (slots == null || unit == null || unitDef == null) return;
@@ -179,10 +194,10 @@ public class Spawner : MonoBehaviour, ICollisionEffect
             OccupySlot(slot, unit);
             return;
         }
-        // No free slot — the unit bounces on toward another building.
+        // No free slot — the unit bounces on toward another structure.
     }
 
-    // Take a unit into a slot to rest inside the building.
+    // Take a unit into a slot to rest inside the structure.
     private void OccupySlot(Slot slot, Unit unit)
     {
         slot.state = SlotState.Occupied;
@@ -204,24 +219,24 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         slot.timer = lockoutDuration;
     }
 
-    // Place the unit just outside the building collider along dir:
-    // building edge (along dir) + unit radius + launchGap.
+    // Place the unit just outside the structure collider along dir:
+    // structure edge (along dir) + unit radius + launchGap.
     private Vector2 SpawnPosition(Vector2 dir, Unit unit)
     {
-        if (buildingCollider == null)
+        if (structureCollider == null)
             return (Vector2)transform.position + dir * launchGap; // fallback: measure from center
 
-        Vector2 center = buildingCollider.bounds.center;
-        Vector2 extents = buildingCollider.bounds.extents;
+        Vector2 center = structureCollider.bounds.center;
+        Vector2 extents = structureCollider.bounds.extents;
 
         // Distance from the box center to its edge along dir.
         float ax = Mathf.Abs(dir.x);
         float ay = Mathf.Abs(dir.y);
         float tx = ax > 1e-4f ? extents.x / ax : float.PositiveInfinity;
         float ty = ay > 1e-4f ? extents.y / ay : float.PositiveInfinity;
-        float buildingEdge = Mathf.Min(tx, ty);
+        float structureEdge = Mathf.Min(tx, ty);
 
-        return center + dir * (buildingEdge + unit.Radius + launchGap);
+        return center + dir * (structureEdge + unit.Radius + launchGap);
     }
 
     private void OnDestroy()
@@ -229,8 +244,8 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         if (!registered) return;
 
         // Despawn units currently resting here so they don't leak as hidden objects.
-        // TODO: full global active-count reconciliation (also units this building launched
-        // that are still roaming) belongs in BuildingSystem.RemoveBuilding.
+        // TODO: full global active-count reconciliation (also units this structure launched
+        // that are still roaming) belongs in StructureSystem.RemoveStructure.
         if (slots != null && spawnSystem != null)
         {
             foreach (var slot in slots)
@@ -242,5 +257,8 @@ public class Spawner : MonoBehaviour, ICollisionEffect
 
         if (spawnSystem != null && unitDef != null)
             spawnSystem.UnregisterCapacity(unitDef.unitType, capacity);
+
+        if (spawnSystem != null)
+            spawnSystem.UnregisterSpawner(this);
     }
 }

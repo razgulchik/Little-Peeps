@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "LittlePeeps/BuildingDef")]
-public class BuildingDef : ScriptableObject
+[CreateAssetMenu(menuName = "LittlePeeps/StructureDef")]
+public class StructureDef : ScriptableObject
 {
     public string id;
     public GameObject prefab;

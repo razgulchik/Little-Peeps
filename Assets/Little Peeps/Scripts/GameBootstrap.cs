@@ -24,7 +24,7 @@ public class GameBootstrap : MonoBehaviour
     [SerializeField] private UnitPool unitPool;
     [SerializeField] private UnitSystem unitSystem;
     [SerializeField] private SpawnSystem spawnSystem;
-    [SerializeField] private BuildingSystem buildingSystem;
+    [SerializeField] private StructureSystem buildingSystem;
     [SerializeField] private DragController dragController;
     [SerializeField] private TapSystem tapSystem;
     [SerializeField] private AgeSequencer ageSequencer;
@@ -35,6 +35,9 @@ public class GameBootstrap : MonoBehaviour
 
     [Header("UI")]
     [SerializeField] private PerkSelectionUI perkSelectionUI;
+
+    [Header("Build mode")]
+    [SerializeField] private float buildModeCooldown = 5f;
 
     private MetaContext metaContext;
     private SessionContext sessionContext;
@@ -76,7 +79,8 @@ public class GameBootstrap : MonoBehaviour
 
         var gameplayFsm = new StateMachine();
         var playingState = new PlayingState(gameplayFsm, run);
-        appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState));
+        var buildModeState = new BuildModeState(spawnSystem);
+        appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown));
     }
 
     private void Update()

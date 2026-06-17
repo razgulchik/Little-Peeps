@@ -6,7 +6,7 @@ public class IslandGrid
     public class Cell
     {
         public TerrainType terrain;
-        public BuildingInstance occupant;
+        public StructureInstance occupant;
     }
 
     private Cell[,] cells;
@@ -27,17 +27,17 @@ public class IslandGrid
                 cells[x, y] = new Cell { terrain = TerrainType.Grass };
     }
 
-    // True if a building of given size can be placed at origin with matching terrain
+    // True if a structure of given size can be placed at origin with matching terrain
     public bool CanPlace(Vector2Int origin, Vector2Int size, TerrainType required)
     {
         // TODO: for each cell in [origin, origin+size): check InBounds, terrain == required, occupant == null
         return false;
     }
 
-    // Mark all cells covered by origin+size as occupied by buildingInstance
-    public void Place(Vector2Int origin, Vector2Int size, BuildingInstance buildingInstance)
+    // Mark all cells covered by origin+size as occupied by structureInstance
+    public void Place(Vector2Int origin, Vector2Int size, StructureInstance structureInstance)
     {
-        // TODO: iterate cells, set occupant = buildingInstance
+        // TODO: iterate cells, set occupant = structureInstance
     }
 
     // Clear occupant on all cells covered by origin+size
@@ -46,7 +46,7 @@ public class IslandGrid
         // TODO: iterate cells, set occupant = null
     }
 
-    // Atomically move a building: CanPlace at destination, Remove source, Place destination
+    // Atomically move a structure: CanPlace at destination, Remove source, Place destination
     public bool Move(Vector2Int from, Vector2Int size, Vector2Int to)
     {
         // TODO: if !CanPlace(to, size, terrain), return false; Remove(from, size); Place(to, size, occupant)

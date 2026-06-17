@@ -1,6 +1,6 @@
 using System;
 
-// Serializable resource-amount pair used in BuildingDef.cost and AgeDef.resourceCost
+// Serializable resource-amount pair used in StructureDef.cost and AgeDef.resourceCost
 [Serializable]
 public class ResourceCost
 {

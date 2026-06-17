@@ -1,9 +1,9 @@
 using UnityEngine;
 
-// Anything a bouncing unit can collide with that triggers effects — buildings, resource
+// Anything a bouncing unit can collide with that triggers effects — structures, resource
 // nodes, animals, etc. Owns the collision callbacks, dispatches to its ICollisionEffect
-// components, and publishes the global CollisionEvent. Building derives from this; non-building
-// objects (e.g. a tree) just add CollisionTarget + effect components like ResourceSource.
+// components, and publishes the global CollisionEvent. Structure derives from this; an object
+// can also use CollisionTarget directly + effect components like ResourceSource.
 //
 // The Rigidbody2D must sit on this (root) GameObject so the collision callbacks fire here;
 // the collider itself may live on a child (fetched via GetComponentInChildren).

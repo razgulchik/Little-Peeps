@@ -17,5 +17,5 @@ MonoBehaviour:
   amountPerHit: 1
   allowedWorkers: 00000000
   infinite: 0
-  hitsBeforeDespawn: 3
+  hitsBeforeDespawn: 1
   respawnTime: 5

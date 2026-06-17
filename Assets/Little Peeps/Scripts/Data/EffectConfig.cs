@@ -1,6 +1,6 @@
 using System;
 
-// Serializable config attached to BuildingDef; converted to ICollisionEffect at runtime
+// Serializable config attached to StructureDef; converted to ICollisionEffect at runtime
 [Serializable]
 public class EffectConfig
 {

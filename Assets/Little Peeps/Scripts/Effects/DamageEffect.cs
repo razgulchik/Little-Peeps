@@ -1,4 +1,4 @@
-// Damages the building on each hit (obstacles that wear down over time)
+// Damages the structure on each hit (obstacles that wear down over time)
 public class DamageEffect : ICollisionEffect
 {
     public float damageAmount;
@@ -6,6 +6,6 @@ public class DamageEffect : ICollisionEffect
 
     public void OnHit(Unit unit, CollisionTarget target)
     {
-        // TODO: if unit.Type != requiredUnitType return; (target as Building)?.TakeDamage(damageAmount)
+        // TODO: if unit.Type != requiredUnitType return; (target as Structure)?.TakeDamage(damageAmount)
     }
 }

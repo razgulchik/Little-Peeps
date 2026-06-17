@@ -1,9 +1,9 @@
 using UnityEngine;
 
-// Manages building drag-and-drop in BuildMode; driven by input from BuildModeState
+// Manages structure drag-and-drop in BuildMode; driven by input from BuildModeState
 public class DragController : MonoBehaviour
 {
-    [SerializeField] private BuildingSystem buildingSystem;
+    [SerializeField] private StructureSystem buildingSystem;
     [SerializeField] private IslandSystem islandSystem;
 
     private SessionContext session;
@@ -14,30 +14,30 @@ public class DragController : MonoBehaviour
         this.session = session;
     }
 
-    // Disable building collider, record it in SessionContext as the dragged building
+    // Disable structure collider, record it in SessionContext as the dragged structure
     public void OnPickup(Vector2Int cell)
     {
-        // TODO: get BuildingInstance from islandSystem.Grid; session.draggedBuilding = instance.RuntimeObject
-        // TODO: session.draggedBuilding.SetColliderEnabled(false); pickupCell = cell
+        // TODO: get StructureInstance from islandSystem.Grid; session.draggedStructure = instance.RuntimeObject
+        // TODO: session.draggedStructure.SetColliderEnabled(false); pickupCell = cell
     }
 
-    // Move dragged building transform to follow mouse world position each frame
+    // Move dragged structure transform to follow mouse world position each frame
     public void OnDrag(Vector2 worldPos)
     {
-        // TODO: session.draggedBuilding.transform.position = worldPos
+        // TODO: session.draggedStructure.transform.position = worldPos
         // TODO: session.hoveredCell = islandSystem.Grid.WorldToGrid(worldPos)
     }
 
     // Execute move command, re-enable collider, clear SessionContext
     public void OnDrop(Vector2Int targetCell)
     {
-        // TODO: new MoveBuildingCmd(buildingSystem, pickupCell, targetCell).Execute()
-        // TODO: session.draggedBuilding.SetColliderEnabled(true); session.draggedBuilding = null; session.hoveredCell = null
+        // TODO: new MoveStructureCmd(buildingSystem, pickupCell, targetCell).Execute()
+        // TODO: session.draggedStructure.SetColliderEnabled(true); session.draggedStructure = null; session.hoveredCell = null
     }
 
-    // Cancel drag: return building to its original cell
+    // Cancel drag: return structure to its original cell
     public void OnCancel()
     {
-        // TODO: set building position back to GridToWorld(pickupCell), SetColliderEnabled(true), clear session fields
+        // TODO: set structure position back to GridToWorld(pickupCell), SetColliderEnabled(true), clear session fields
     }
 }

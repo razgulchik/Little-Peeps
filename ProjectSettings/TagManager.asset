@@ -50,5 +50,8 @@ TagManager:
   - name: Overlay
     uniqueID: 395798619
     locked: 0
+  - name: Mesh
+    uniqueID: 3579993437
+    locked: 0
   m_RenderingLayers:
   - Default

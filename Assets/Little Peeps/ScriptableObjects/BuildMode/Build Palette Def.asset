@@ -9,13 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9c3a4a91d14169846ab526ecdb5af30a, type: 3}
-  m_Name: Tree
+  m_Script: {fileID: 11500000, guid: a89eed3b556ef9e488f3b07b72dd8d5e, type: 3}
+  m_Name: Build Palette Def
   m_EditorClassIdentifier: 
-  id: 
-  resource: 1
-  amountPerHit: 1
-  allowedWorkers: 0000000001000000
-  infinite: 0
-  hitsBeforeDespawn: 3
-  respawnTime: 5
+  structures:
+  - {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
+  - {fileID: 11400000, guid: 952849a7c1966d149900dc7343cee664, type: 2}

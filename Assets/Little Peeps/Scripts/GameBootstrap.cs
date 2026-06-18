@@ -37,6 +37,7 @@ public class GameBootstrap : MonoBehaviour
     [SerializeField] private PerkSelectionUI perkSelectionUI;
 
     [Header("Build mode")]
+    [SerializeField] private PlacementController placementController;
     [SerializeField] private float buildModeCooldown = 5f;
 
     private MetaContext metaContext;
@@ -79,7 +80,7 @@ public class GameBootstrap : MonoBehaviour
 
         var gameplayFsm = new StateMachine();
         var playingState = new PlayingState(gameplayFsm, run);
-        var buildModeState = new BuildModeState(spawnSystem);
+        var buildModeState = new BuildModeState(spawnSystem, placementController);
         appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown));
     }
 

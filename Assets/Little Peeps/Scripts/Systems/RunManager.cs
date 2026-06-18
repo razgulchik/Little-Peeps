@@ -5,6 +5,8 @@ public class RunManager : MonoBehaviour
 {
     [SerializeField] private ResourceSystem resourceSystem;
     [SerializeField] private IslandSystem islandSystem;
+    [SerializeField] private StructureSystem structureSystem;
+    [SerializeField] private StartingLayoutDef startingLayout;
 
     private MetaContext metaContext;
 
@@ -25,7 +27,21 @@ public class RunManager : MonoBehaviour
         // resource begins at 0 — ResourceSystem.Initialize fills in a ReactiveValue per type.
 
         resourceSystem.Initialize(CurrentRun);
+        structureSystem.Initialize(CurrentRun);
         islandSystem.GenerateForRun();
+        PlaceStartingStructures();
+    }
+
+    // Instantiate the run's starting structures from the layout asset, through the same
+    // placement path as player-built ones (grid-aligned, registered). Re-runs every new run.
+    private void PlaceStartingStructures()
+    {
+        if (startingLayout == null) return;
+        foreach (var entry in startingLayout.entries)
+        {
+            if (entry.def == null) continue;
+            structureSystem.PlaceInitial(entry.def, entry.cell);
+        }
     }
 
     // Sum valuePerLevel * level for all GlobalUpgrades matching the requested MultiplierType

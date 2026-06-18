@@ -23,6 +23,13 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
         if (def != null) hitsLeft = def.hitsBeforeDespawn;
     }
 
+    // Optional runtime injection (StructureSystem calls this when placing a structure at runtime,
+    // since a prefab can't serialize a reference to a scene system). Mirrors Spawner.Initialize.
+    public void Initialize(ResourceSystem system)
+    {
+        resourceSystem = system;
+    }
+
     private void Start()
     {
         if (def == null)

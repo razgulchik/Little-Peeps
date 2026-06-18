@@ -48,9 +48,8 @@ public class IslandSystem : MonoBehaviour
 
     private void Build()
     {
-        var origin = new Vector2(-initialSize.x * cellSize / 2f, -initialSize.y * cellSize / 2f);
-        Grid = new IslandGrid(initialSize, origin, cellSize);
-        Generator = new IslandGenerator(Grid);
+        Grid = new IslandGrid(cellSize, initialSize.x * initialSize.y);
+        Generator = new IslandGenerator(Grid, initialSize);
         Generator.Generate(0);
         RefreshTilemap();
     }
@@ -60,18 +59,13 @@ public class IslandSystem : MonoBehaviour
         if (tilemap == null || grassTile == null) return;
 
         tilemap.ClearAllTiles();
-        for (int x = 0; x < Grid.GridSize.x; x++)
+        foreach (var kv in Grid.Cells)
         {
-            for (int y = 0; y < Grid.GridSize.y; y++)
-            {
-                var cell = Grid.GetCell(new Vector2Int(x, y));
-                TileBase tile = cell.terrain == TerrainType.Grass ? grassTile : null;
-                if (tile == null) continue;
+            if (kv.Value.terrain != TerrainType.Grass) continue;
 
-                Vector2 worldPos = Grid.GridToWorld(new Vector2Int(x, y));
-                Vector3Int tilemapPos = tilemap.WorldToCell(new Vector3(worldPos.x, worldPos.y, 0f));
-                tilemap.SetTile(tilemapPos, tile);
-            }
+            Vector2 worldPos = Grid.GridToWorld(kv.Key);
+            Vector3Int tilemapPos = tilemap.WorldToCell(new Vector3(worldPos.x, worldPos.y, 0f));
+            tilemap.SetTile(tilemapPos, grassTile);
         }
     }
 }

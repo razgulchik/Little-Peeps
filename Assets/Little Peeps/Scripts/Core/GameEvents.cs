@@ -51,6 +51,13 @@ public struct BuildModeUIStateEvent
     public bool Interactable;  // false while the 5s post-exit cooldown is running
 }
 
+// Published by PlacementController when the player tries to build on a valid cell but can't
+// afford it; the BuildPanelUI plays a cue on the selected card.
+public struct BuildDeniedEvent
+{
+    public StructureDef Def;
+}
+
 public struct UnitBoostedEvent
 {
     public Unit Unit;

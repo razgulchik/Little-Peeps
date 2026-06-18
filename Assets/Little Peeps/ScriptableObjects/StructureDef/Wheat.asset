@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
-  m_Name: House
+  m_Name: Wheat
   m_EditorClassIdentifier: 
   id: house
-  displayName: House
-  icon: {fileID: 21300000, guid: bdea4098837367d45b6a42af558df699, type: 3}
-  prefab: {fileID: 2603376487552531715, guid: 1919f103cb50da741ba69a74b297a103, type: 3}
-  size: {x: 2, y: 2}
+  displayName: Tree
+  icon: {fileID: 21300000, guid: 22b2a9f7bbfd3574d9f5303a1738e7c8, type: 3}
+  prefab: {fileID: 1346494078730204555, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
+  size: {x: 1, y: 1}
   cost:
-  - resourceType: 1
+  - resourceType: 0
     amount: 0
   effects: []
   allowedTerrain: 00000000

@@ -59,4 +59,21 @@ public class ResourceSystem : MonoBehaviour
     {
         return resources.TryGetValue(type, out var rv) ? rv : null;
     }
+
+    // True if every entry in the cost list is currently affordable.
+    public bool CanAfford(List<ResourceCost> cost)
+    {
+        if (cost == null) return true;
+        for (int i = 0; i < cost.Count; i++)
+            if (GetResource(cost[i].resourceType) < cost[i].amount) return false;
+        return true;
+    }
+
+    // Deduct every entry in the cost list. Caller is responsible for checking CanAfford first.
+    public void Spend(List<ResourceCost> cost)
+    {
+        if (cost == null) return;
+        for (int i = 0; i < cost.Count; i++)
+            AddResource(cost[i].resourceType, -cost[i].amount);
+    }
 }

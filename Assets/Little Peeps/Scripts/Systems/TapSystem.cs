@@ -17,6 +17,10 @@ public class TapSystem : MonoBehaviour
 
     private void OnWorldClick(Vector2 worldPos)
     {
+        // Build mode pauses the game (timeScale 0) and the PlacementController owns clicks then —
+        // don't boost units or trigger the pier while placing structures.
+        if (Time.timeScale == 0f) return;
+
         // Pier: exact point check — click anywhere on its collider triggers prestige
         var exactHit = Physics2D.OverlapPoint(worldPos);
         if (exactHit != null && exactHit.TryGetComponent<Pier>(out _))

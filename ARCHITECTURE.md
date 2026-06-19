@@ -95,7 +95,7 @@ which run as units but are sources — harvest needs Unit×Unit collision, **def
 **Serialization note:** `Dictionary<>` is not supported by `JsonUtility`. SaveSystem must convert `globalUpgrades` to/from a `List<UpgradeLevelPair>` for JSON round-trips.
 
 ### SessionContext — runtime only, never saved
-**Owner:** GameBootstrap creates it; DragController / placement and others read/write it.
+**Owner:** reserved for runtime session state — **currently not instantiated** (the DragController that used it was removed; PlacementController keeps its own state). Kept as the future home for session-scoped data.
 
 | Field | Type | Purpose |
 |-------|------|---------|
@@ -103,7 +103,7 @@ which run as units but are sources — harvest needs Unit×Unit collision, **def
 | `draggedStructure` | `Structure` | Structure currently following the cursor in BuildMode |
 | `hoveredCell` | `Vector2Int?` | Grid cell under the cursor (for hover highlights) |
 
-**Lifecycle:** Created on Awake → fields set/cleared as the player interacts → discarded when the scene reloads.
+**Lifecycle:** none yet — no system creates or reads it at the moment. Its current fields are drag-era leftovers; revisit when real session state is added.
 
 ---
 
@@ -220,7 +220,7 @@ despawned on enter, so there is nothing to simulate anyway.
 | `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type cap; syncs UnitSystem; owns the **spawner registry**; `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode) |
 | `ResourceSystem` | MB | `ReactiveValue<float>` per resource; `AddResource` / `GetResource` |
 | `StructureSystem` | MB | Place / Remove / Move structures via IslandGrid (**stubs, Phase 2**); publishes Structure* events |
-| `DragController` | MB | **Legacy** drag-and-drop stub for BuildMode; being replaced by a click-based `PlacementController` in Phase 2 |
+| `PlacementController` | MB | BuildMode tool controller: ghost place / sell / move-drag + grid overlay; right-click cancels (replaced the old DragController) |
 | `TapSystem` | MB | Click-on-unit → `Boost`; Pier click → prestige (New Input System) |
 | `AgeSequencer` | MB | Step coroutine chain for age transitions (planned) |
 | `PerkSystem` | MB | Weighted random roll of perks; `ApplyPerk` |

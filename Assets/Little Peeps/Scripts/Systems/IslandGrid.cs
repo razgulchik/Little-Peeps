@@ -56,16 +56,23 @@ public class IslandGrid
 
     // True if a structure of given size can be placed at origin: every covered cell must exist
     // (be land), be unoccupied, and be an allowed terrain. Empty/null allowedTerrain = any.
-    public bool CanPlace(Vector2Int origin, Vector2Int size, TerrainType[] allowedTerrain)
+    public bool CanPlace(Vector2Int origin, Vector2Int size, TerrainType[] allowedTerrain, int border = 0)
     {
-        for (int x = origin.x; x < origin.x + size.x; x++)
+        // A structure occupies its footprint EXPANDED by `border` on every side — the border is just
+        // extra claimed territory, not a separate thing (a 2x2 house with border 1 occupies 4x4).
+        // The whole expanded area must be on-island and unoccupied; terrain is only checked on the
+        // actual footprint (the border is claimed spacing, any land will do).
+        for (int x = origin.x - border; x < origin.x + size.x + border; x++)
         {
-            for (int y = origin.y; y < origin.y + size.y; y++)
+            for (int y = origin.y - border; y < origin.y + size.y + border; y++)
             {
                 var cell = GetCell(new Vector2Int(x, y));
-                if (cell == null) return false;            // off-island (no such cell)
-                if (cell.occupant != null) return false;   // occupied
-                if (!IsTerrainAllowed(cell.terrain, allowedTerrain)) return false;
+                if (cell == null) return false;            // off-island (footprint or claimed border)
+                if (cell.occupant != null) return false;   // occupied (footprint or claimed border)
+
+                bool inFootprint = x >= origin.x && x < origin.x + size.x
+                                && y >= origin.y && y < origin.y + size.y;
+                if (inFootprint && !IsTerrainAllowed(cell.terrain, allowedTerrain)) return false;
             }
         }
         return true;
@@ -79,34 +86,30 @@ public class IslandGrid
         return false;
     }
 
-    // Mark all cells covered by origin+size as occupied by structureInstance
+    // Mark the structure's whole occupied territory (footprint expanded by its def.border) as occupied.
     public void Place(Vector2Int origin, Vector2Int size, StructureInstance structureInstance)
     {
-        for (int x = origin.x; x < origin.x + size.x; x++)
-            for (int y = origin.y; y < origin.y + size.y; y++)
+        int border = structureInstance.Def != null ? structureInstance.Def.border : 0;
+        for (int x = origin.x - border; x < origin.x + size.x + border; x++)
+            for (int y = origin.y - border; y < origin.y + size.y + border; y++)
             {
                 var cell = GetCell(new Vector2Int(x, y));
                 if (cell != null) cell.occupant = structureInstance;
             }
     }
 
-    // Clear occupant on all cells covered by origin+size
+    // Clear the structure's whole occupied territory (footprint expanded by its border). The border
+    // is read from the occupant at origin, so callers still pass only origin + footprint size.
     public void Remove(Vector2Int origin, Vector2Int size)
     {
-        for (int x = origin.x; x < origin.x + size.x; x++)
-            for (int y = origin.y; y < origin.y + size.y; y++)
+        var occupant = GetCell(origin)?.occupant;
+        int border = (occupant != null && occupant.Def != null) ? occupant.Def.border : 0;
+        for (int x = origin.x - border; x < origin.x + size.x + border; x++)
+            for (int y = origin.y - border; y < origin.y + size.y + border; y++)
             {
                 var cell = GetCell(new Vector2Int(x, y));
-                if (cell != null) cell.occupant = null;
+                if (cell != null && cell.occupant == occupant) cell.occupant = null;
             }
-    }
-
-    // Atomically move a structure: CanPlace at destination, Remove source, Place destination
-    public bool Move(Vector2Int from, Vector2Int size, Vector2Int to)
-    {
-        // TODO (Phase 4): read occupant + terrain from `from`; if !CanPlace(to, size, terrain)
-        // return false; Remove(from, size); Place(to, size, occupant); return true.
-        return false;
     }
 
     // World position of the CENTER of a grid cell. Anchored at the world origin, so it does not

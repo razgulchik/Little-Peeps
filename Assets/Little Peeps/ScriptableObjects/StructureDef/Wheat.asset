@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Wheat
   m_EditorClassIdentifier: 
   id: house
-  displayName: Tree
-  icon: {fileID: 21300000, guid: 22b2a9f7bbfd3574d9f5303a1738e7c8, type: 3}
-  prefab: {fileID: 1346494078730204555, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
+  displayName: Wheat
+  icon: {fileID: 21300000, guid: 78997de8989af22439db35c5c4f19496, type: 3}
+  prefab: {fileID: 831909280926080680, guid: 3a92fc7568202a34bb858fffab7e16a8, type: 3}
   size: {x: 1, y: 1}
   cost:
   - resourceType: 0

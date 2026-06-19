@@ -19,7 +19,7 @@ public class StructureSystem : MonoBehaviour
     // builds. Returns false (no-op) if the cell is blocked or the cost can't be paid.
     public bool PlaceStructure(StructureDef def, Vector2Int cell)
     {
-        if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain)) return false;
+        if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain, def.border)) return false;
         if (!resourceSystem.CanAfford(def.cost)) return false;
         resourceSystem.Spend(def.cost);
         Build(def, cell);
@@ -30,9 +30,9 @@ public class StructureSystem : MonoBehaviour
     // A failing entry is a data error in the layout — warn and skip rather than corrupt the grid.
     public void PlaceInitial(StructureDef def, Vector2Int cell)
     {
-        if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain))
+        if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain, def.border))
         {
-            Debug.LogWarning($"StartingLayout: cannot place '{def.id}' at {cell} (out of bounds, occupied, or wrong terrain) — skipped.", this);
+            Debug.LogWarning($"StartingLayout: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, or border overlap) — skipped.", this);
             return;
         }
         Build(def, cell);
@@ -78,16 +78,62 @@ public class StructureSystem : MonoBehaviour
         root.position += new Vector3(footprintCenter.x - c.x, footprintCenter.y - c.y, 0f);
     }
 
-    // Destroy structure at cell and free its grid cells
-    public void RemoveStructure(Vector2Int cell)
+    // Sell the structure occupying `cell` (any footprint cell): refund a fraction of its build
+    // cost, then remove it. Returns false if nothing is there. Applies to ANY structure
+    // (trees, starting buildings, player-built) — there is no playerPlaced distinction.
+    public bool SellStructure(Vector2Int cell)
     {
-        // TODO: get StructureInstance from grid; Destroy(instance.RuntimeObject.gameObject); grid.Remove; publish StructureRemovedEvent
+        var instance = islandSystem.Grid.GetCell(cell)?.occupant;
+        if (instance == null) return false;
+        RefundCost(instance.Def);
+        return RemoveStructure(instance.Cell);
     }
 
-    // Move structure from one cell to another; validate destination first
-    public bool MoveStructure(Vector2Int from, Vector2Int to)
+    // Remove the structure occupying `cell` (any footprint cell): free its grid cells, drop it
+    // from the run, announce it, and destroy the GameObject. Returns false if nothing is there.
+    public bool RemoveStructure(Vector2Int cell)
     {
-        // TODO: get instance; grid.Move(from, instance.Def.size, to); update transform; return success
-        return false;
+        var grid = islandSystem.Grid;
+        var instance = grid.GetCell(cell)?.occupant;
+        if (instance == null) return false;
+
+        grid.Remove(instance.Cell, instance.Def.size);
+        run.structures.Remove(instance.Cell);
+        // Publish before Destroy (deferred to end-of-frame) so listeners still see a live object.
+        EventBus<StructureRemovedEvent>.Publish(new StructureRemovedEvent { Structure = instance.RuntimeObject, Cell = instance.Cell });
+        Destroy(instance.RuntimeObject.gameObject);
+        return true;
+    }
+
+    // Refund sellRefundPercent of each cost entry to the player. Free structures (no cost) refund 0.
+    private void RefundCost(StructureDef def)
+    {
+        if (def.cost == null) return;
+        for (int i = 0; i < def.cost.Count; i++)
+            resourceSystem.AddResource(def.cost[i].resourceType, def.cost[i].amount * def.sellRefundPercent);
+    }
+
+    // Build-mode MOVE, step 1: lift a structure off the grid so it can be dragged. Frees its cells
+    // and drops it from the run, but keeps the GameObject alive + active and its Cell unchanged (so
+    // a cancel can put it back). Freeing the cells lets it be re-placed overlapping its own old
+    // footprint. PlacementController drives the drag; DropStructure commits the destination.
+    public void PickUpStructure(StructureInstance instance)
+    {
+        islandSystem.Grid.Remove(instance.Cell, instance.Def.size);
+        run.structures.Remove(instance.Cell);
+    }
+
+    // Build-mode MOVE, step 2: place a lifted structure at origin (caller has checked CanPlace, or
+    // is returning it to its original Cell on cancel). Re-registers grid + run, updates the
+    // instance's Cell, and snaps the GameObject onto the footprint.
+    public void DropStructure(StructureInstance instance, Vector2Int origin)
+    {
+        var grid = islandSystem.Grid;
+        grid.Place(origin, instance.Def.size, instance);
+        run.structures[origin] = instance;
+        instance.Cell = origin;
+
+        var sr = instance.RuntimeObject.GetComponentInChildren<SpriteRenderer>();
+        if (sr != null) CenterSpriteOnFootprint(instance.RuntimeObject.transform, sr, origin, instance.Def.size);
     }
 }

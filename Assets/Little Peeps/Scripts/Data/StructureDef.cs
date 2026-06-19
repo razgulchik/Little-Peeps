@@ -17,4 +17,9 @@ public class StructureDef : ScriptableObject
 
     // Fraction of build cost refunded when the structure is sold (0..1).
     [Range(0f, 1f)] public float sellRefundPercent = 0.5f;
+
+    // Required clear margin (in cells) around the footprint: those cells must be on-island and free
+    // of OTHER bordered structures. Keeps spawner-buildings off the map edge and apart from each
+    // other (e.g. house = 1); passive structures like trees/fields use 0 (no margin, may sit anywhere).
+    public int border = 0;
 }

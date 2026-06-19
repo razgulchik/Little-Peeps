@@ -9,12 +9,19 @@ public class SpawnSystem : MonoBehaviour
 {
     [SerializeField] private UnitPool unitPool;
     [SerializeField] private UnitSystem unitSystem;
+    [SerializeField] private IslandSystem islandSystem;   // injected into spawned units for the on-island containment backstop
 
     private readonly Dictionary<UnitType, int> capByType = new();
     private readonly Dictionary<UnitType, int> activeByType = new();
 
     private readonly List<Spawner> spawners = new();   // live spawners, for build-mode reset/warmup
     private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll
+
+    private void Start()
+    {
+        if (islandSystem == null)
+            Debug.LogWarning("SpawnSystem has no IslandSystem — units won't be kept on the island (containment backstop disabled). Wire the Island System field.", this);
+    }
 
     // A spawner registers/unregisters itself when it warms up / is destroyed.
     public void RegisterSpawner(Spawner spawner)
@@ -55,6 +62,7 @@ public class SpawnSystem : MonoBehaviour
         var unit = unitPool.Get(def);
         if (unit == null) return null;
 
+        unit.SetIsland(islandSystem);
         unit.transform.position = position;
         activeByType.TryGetValue(def.unitType, out var active);
         activeByType[def.unitType] = active + 1;

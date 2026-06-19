@@ -1,10 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 // Bottom build palette. Shows while in build mode (BuildModeUIStateEvent), spawns a card per
-// BuildPaletteDef entry, and drives the PlacementController's selection: click a card to pick a
-// structure (ghost follows the cursor), click it again to deselect. Leaving build mode clears
-// the selection. Mirrors BuildModeButton's pattern (event-driven, default-hidden in Awake).
+// BuildPaletteDef entry, and drives the PlacementController's tool: click a card to place a
+// structure, click the separate sell button to sell, click the selected card/button again (or
+// right-click in the world, or leave build mode) to clear — which drops back to the Move tool.
+// A right-click clear comes from the controller via its ToolCleared event. Mirrors BuildModeButton's
+// pattern (event-driven, default-hidden in Awake).
 public class BuildPanelUI : MonoBehaviour
 {
     [SerializeField] private BuildPaletteDef palette;
@@ -14,12 +17,18 @@ public class BuildPanelUI : MonoBehaviour
     [SerializeField] private Transform cardContainer;   // parent with a Horizontal Layout Group
     [SerializeField] private CanvasGroup canvasGroup;   // hides the panel without deactivating this listener
 
+    [Header("Sell tool")]
+    [SerializeField] private Button sellButton;          // separate sell-tool button (not a card)
+    [SerializeField] private GameObject sellHighlight;   // selected indicator on the sell button
+
     private readonly List<BuildCardUI> cards = new();
     private BuildCardUI selectedCard;
+    private bool sellSelected;
 
     private void Awake()
     {
         BuildCards();
+        SetSellHighlight(false);
         SetVisible(false);   // default hidden; no dependency on receiving an initial event
     }
 
@@ -27,12 +36,16 @@ public class BuildPanelUI : MonoBehaviour
     {
         EventBus<BuildModeUIStateEvent>.Subscribe(OnUIState);
         EventBus<BuildDeniedEvent>.Subscribe(OnBuildDenied);
+        if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
+        if (placementController != null) placementController.ToolCleared += OnToolCleared;
     }
 
     private void OnDisable()
     {
         EventBus<BuildModeUIStateEvent>.Unsubscribe(OnUIState);
         EventBus<BuildDeniedEvent>.Unsubscribe(OnBuildDenied);
+        if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
+        if (placementController != null) placementController.ToolCleared -= OnToolCleared;
     }
 
     private void BuildCards()
@@ -70,17 +83,58 @@ public class BuildPanelUI : MonoBehaviour
     {
         if (card == selectedCard) { Deselect(); return; }   // clicking the selected card deselects
 
+        ClearSell();                                        // a card and the sell tool are mutually exclusive
         if (selectedCard != null) selectedCard.SetSelected(false);
         selectedCard = card;
         selectedCard.SetSelected(true);
         placementController.Select(card.Def);
     }
 
+    // Separate sell button: toggles the Sell tool. Selecting it clears any card selection;
+    // clicking it again deselects back to the Move tool.
+    private void OnSellClicked()
+    {
+        if (sellSelected) { Deselect(); return; }
+
+        if (selectedCard != null) selectedCard.SetSelected(false);
+        selectedCard = null;
+        sellSelected = true;
+        SetSellHighlight(true);
+        placementController.SetSellMode();
+    }
+
+    // UI-initiated deselect (clicking the selected card/sell again, or leaving build mode): clear
+    // the highlights AND drive the controller back to the Move tool.
     private void Deselect()
+    {
+        ClearSelectionUI();
+        placementController.Select(null);   // null selection = Move tool
+    }
+
+    // The controller cleared the tool itself (right-click) — it's already on Move, so only sync the
+    // UI highlights; don't drive Select() again.
+    private void OnToolCleared()
+    {
+        ClearSelectionUI();
+    }
+
+    // Drop both the card highlight and the sell highlight, without touching the controller.
+    private void ClearSelectionUI()
     {
         if (selectedCard != null) selectedCard.SetSelected(false);
         selectedCard = null;
-        placementController.Select(null);
+        ClearSell();
+    }
+
+    private void ClearSell()
+    {
+        sellSelected = false;
+        SetSellHighlight(false);
+    }
+
+    private void SetSellHighlight(bool on)
+    {
+        if (sellHighlight != null) sellHighlight.SetActive(on);
     }
 
     // Resources don't change inside build mode (game paused), so refreshing on open is enough.

@@ -13,6 +13,7 @@ public class GridOverlay : MonoBehaviour
 {
     [SerializeField] private IslandSystem islandSystem;
     [SerializeField] private Color lineColor = new Color(1f, 1f, 1f, 0.6f);
+    [SerializeField] private Color occupiedColor = new Color(1f, 1f, 1f, 0.12f);   // faint fill over cells a structure occupies (its territory)
     [SerializeField] private float lineWidth = 0.04f;              // world units
     [SerializeField] private string sortingLayerName = "Ground";  // MUST be in front of grass (+ structures); the default matches the grass layer
     [SerializeField] private int sortingOrder = 1000;             // and order within that layer (above the tilemap's 0)
@@ -51,6 +52,12 @@ public class GridOverlay : MonoBehaviour
         meshRenderer.enabled = false;
     }
 
+    // Rebuild while shown — call after occupancy changes (place/sell/move) so the territory fill stays current.
+    public void Refresh()
+    {
+        if (meshRenderer != null && meshRenderer.enabled) Rebuild();
+    }
+
     // Rebuild the line mesh from the grid's current cells. Cheap (a few hundred cells), run only
     // on build-mode enter, so safe to do unconditionally even if the grid grew since last time.
     private void Rebuild()
@@ -60,6 +67,20 @@ public class GridOverlay : MonoBehaviour
 
         float cs = grid.CellSize;
         float half = lineWidth * 0.5f;
+
+        var verts = new List<Vector3>();
+        var colors = new List<Color>();
+        var tris = new List<int>();
+
+        // Territory fills first (so the grid lines draw on top of them): one full-cell quad per cell
+        // a structure occupies — this reveals each structure's claimed area, including the otherwise
+        // invisible border cells of a house.
+        foreach (var kv in grid.Cells)
+        {
+            if (kv.Value.occupant == null) continue;
+            var c = kv.Key;
+            AddQuad(verts, colors, tris, new Vector2(c.x * cs, c.y * cs), new Vector2((c.x + 1) * cs, (c.y + 1) * cs), occupiedColor);
+        }
 
         // Collect unique cell edges as lattice-point pairs (a cell's corner (lx,ly) is at world
         // (lx*cs, ly*cs)). Dedup so shared interior edges aren't drawn — and overdrawn — twice.
@@ -76,10 +97,6 @@ public class GridOverlay : MonoBehaviour
             AddEdge(edges, bl, tl);
             AddEdge(edges, br, tr);
         }
-
-        var verts = new List<Vector3>(edges.Count * 4);
-        var colors = new List<Color>(edges.Count * 4);
-        var tris = new List<int>(edges.Count * 6);
 
         foreach (var (a, b) in edges)
         {
@@ -113,5 +130,18 @@ public class GridOverlay : MonoBehaviour
         // Normalize endpoint order so a shared edge maps to one entry regardless of which cell adds it.
         if (q.x < p.x || (q.x == p.x && q.y < p.y)) (p, q) = (q, p);
         edges.Add((p, q));
+    }
+
+    // Append an axis-aligned quad spanning bottom-left `a` to top-right `b`, all one vertex color.
+    private static void AddQuad(List<Vector3> verts, List<Color> colors, List<int> tris, Vector2 a, Vector2 b, Color color)
+    {
+        int idx = verts.Count;
+        verts.Add(new Vector3(a.x, a.y, 0f));
+        verts.Add(new Vector3(a.x, b.y, 0f));
+        verts.Add(new Vector3(b.x, b.y, 0f));
+        verts.Add(new Vector3(b.x, a.y, 0f));
+        for (int i = 0; i < 4; i++) colors.Add(color);
+        tris.Add(idx + 0); tris.Add(idx + 1); tris.Add(idx + 2);
+        tris.Add(idx + 0); tris.Add(idx + 2); tris.Add(idx + 3);
     }
 }

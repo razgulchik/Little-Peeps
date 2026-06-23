@@ -24,6 +24,7 @@ public class BuildPanelUI : MonoBehaviour
     private readonly List<BuildCardUI> cards = new();
     private BuildCardUI selectedCard;
     private bool sellSelected;
+    private bool isOpen;   // true while in build mode (panel visible) — gates the sell hotkey
 
     private void Awake()
     {
@@ -36,6 +37,7 @@ public class BuildPanelUI : MonoBehaviour
     {
         EventBus<BuildModeUIStateEvent>.Subscribe(OnUIState);
         EventBus<BuildDeniedEvent>.Subscribe(OnBuildDenied);
+        EventBus<SellModeRequestedEvent>.Subscribe(OnSellHotkey);
         if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
         if (placementController != null) placementController.ToolCleared += OnToolCleared;
     }
@@ -44,6 +46,7 @@ public class BuildPanelUI : MonoBehaviour
     {
         EventBus<BuildModeUIStateEvent>.Unsubscribe(OnUIState);
         EventBus<BuildDeniedEvent>.Unsubscribe(OnBuildDenied);
+        EventBus<SellModeRequestedEvent>.Unsubscribe(OnSellHotkey);
         if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
         if (placementController != null) placementController.ToolCleared -= OnToolCleared;
     }
@@ -69,14 +72,23 @@ public class BuildPanelUI : MonoBehaviour
 
     private void Open()
     {
+        isOpen = true;
         RefreshAffordability();
         SetVisible(true);
     }
 
     private void Close()
     {
+        isOpen = false;
         Deselect();
         SetVisible(false);
+    }
+
+    // Sell hotkey: route through the same toggle path as the sell button so the highlight and the
+    // PlacementController stay in sync. Ignored when the panel is closed (not in build mode).
+    private void OnSellHotkey(SellModeRequestedEvent _)
+    {
+        if (isOpen) OnSellClicked();
     }
 
     private void OnCardClicked(BuildCardUI card)

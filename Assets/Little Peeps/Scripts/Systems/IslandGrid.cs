@@ -149,6 +149,28 @@ public class IslandGrid
         );
     }
 
+    // World-space AABB covering every existing cell (outer corners of the min/max cells). Used by the
+    // CameraController to clamp panning to the island. Empty grid → a zero-size box at the origin.
+    public Bounds WorldBounds()
+    {
+        if (cells.Count == 0) return new Bounds(Vector3.zero, Vector3.zero);
+
+        int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+        foreach (var coord in cells.Keys)
+        {
+            if (coord.x < minX) minX = coord.x;
+            if (coord.y < minY) minY = coord.y;
+            if (coord.x > maxX) maxX = coord.x;
+            if (coord.y > maxY) maxY = coord.y;
+        }
+
+        var b = new Bounds();
+        b.SetMinMax(
+            new Vector3(minX * cellSize, minY * cellSize, 0f),
+            new Vector3((maxX + 1) * cellSize, (maxY + 1) * cellSize, 0f));
+        return b;
+    }
+
     // --- Edge layer (fences on cell boundaries) -----------------------------------------------
     // Parallel to the cell API above, but keyed by Edge instead of Vector2Int. Cells and edges share
     // the same lattice, so no offset bookkeeping — an Edge just names a line between two cells.

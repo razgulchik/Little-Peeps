@@ -3,7 +3,7 @@
 Как устроен старт и как разложить объекты в `SampleScene`, чтобы сцена была «по полочкам».
 Документ держим синхронным с кодом — обновляем при добавлении/переименовании систем и полей.
 
-> Последняя сверка с кодом: **2026-06-19** (после Phase 4 build mode: sell + move).
+> Последняя сверка с кодом: **2026-06-23** (после добавления управления камерой + горячих клавиш).
 
 ## Принцип
 
@@ -35,13 +35,15 @@ SampleScene
 │   ├── AgeSequencer            → AgeSequencer
 │   ├── TapSystem               → TapSystem
 │   └── PlacementController     → PlacementController
-├── @Input                      → InputHandler
+├── @Input                      → InputHandler, GameHotkeys
 ├── Island                      → IslandSystem
 │   └── Grid                    → Grid (компонент)
 │       └── Tilemap             → Tilemap + TilemapRenderer + TilemapCollider2D
 │                                  + CompositeCollider2D + Rigidbody2D (Static)   ← граница острова
 ├── GridOverlay                 → GridOverlay        (Transform строго 0,0,0, без поворота/масштаба)
-├── Main Camera                 → Camera
+├── Main Camera                 → Camera (Orthographic) + CinemachineBrain
+├── CameraTarget                → CameraController        (пустой GO — логическая цель камеры)
+├── CinemachineCamera           → CinemachineCamera (vcam): Follow = CameraTarget, Body с damping
 ├── EventSystem                 → EventSystem + InputSystemUIInputModule  (ОБЯЗАТЕЛЕН для UI и кликов)
 ├── Canvas                      → Canvas + GraphicRaycaster
 │   ├── ResourceBar
@@ -91,6 +93,12 @@ SampleScene
 | | | validColor, invalidColor, sellHoverColor, moveHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже, зелёный «можно схватить» в Move (есть дефолты) |
 | | | territoryValidColor, territoryInvalidColor, territorySortingLayer, territorySortingOrder | ореол занимаемой территории госта: зелёный/красный α0.18, слой Ground/1001 (дефолты) |
 | @Input | **InputHandler** | **mainCamera** | Main Camera |
+| @Input | GameHotkeys | buildModeKey, sellKey, exitToMenuKey, infoKey | клавиши команд: B / X / Esc / I (дефолты, правятся в инспекторе) |
+| CameraTarget | **CameraController** | **islandSystem, viewCamera** | IslandSystem (кламп по острову); viewCamera = Main Camera (только для перевода drag-пикселей в мир) |
+| | | panSpeed, edgePanEnabled, edgeThickness | скорость WASD/стрелок (12), вкл. край-скролл, толщина края в px (12) — дефолты |
+| | | boundsMargin | насколько центр (= цель) может уйти за край острова (4) — дефолт |
+| Main Camera | **CinemachineBrain** | — | пишет позицию из активной vcam |
+| CinemachineCamera | **CinemachineCamera** (vcam) | Follow = CameraTarget, Body (damping ~0.1–0.2) | плавно следует за целью |
 | Island | **IslandSystem** | **tilemap, grassTile** | Tilemap-компонент, тайл травы (TileBase) |
 | | | initialSize, cellSize | 10×10, 1 (дефолты) |
 | GridOverlay | **GridOverlay** | **islandSystem** | IslandSystem |
@@ -193,9 +201,23 @@ Root → Button + BuildCardUI + CanvasGroup
 > Координаты сетки **знаковые** и не зависят от того, какие клетки существуют: центр клетки `c` = мир `(c+0.5)·cellSize`.
 > Дом 2×2 на `cell=(-1,-1)` занимает `(-1,-1)…(0,0)` и центрируется в мировом нуле.
 
+## Управление (камера + горячие клавиши) — как связано
+
+Три слоя ввода, расцеплённые между собой:
+
+- **`InputHandler`** — низкоуровневый роутер мыши: ЛКМ/ПКМ → мировые координаты → события `OnWorldClick`/`OnWorldRightClick`. Их слушают `TapSystem` (буст юнитов / Pier) и `PlacementController` (build mode). Камеру он не трогает.
+- **`CameraController`** (на пустом **CameraTarget**, НЕ на камере) — двигает свой transform = логическую цель камеры; поллит ввод сам, считает на `unscaledDeltaTime` → работает и в build mode (`timeScale=0`). Источники: WASD + стрелки, курсор у края экрана, **drag средней кнопкой мыши** (мир тащится под курсором). Цель клампится по `IslandGrid.WorldBounds()` + `boundsMargin`; границы перечитываются на `AgeStartedEvent` (рост острова). Плавность даёт не он, а **Cinemachine vcam**, которая следует за целью с damping; `Main Camera` несёт `CinemachineBrain` и рендерит. `viewCamera` (= Main Camera) нужен скрипту только чтобы перевести drag-пиксели в мир (его `orthographicSize` крутит brain → отражает живой зум). Зум колесом + `Confiner2D` — отдельной итерацией позже.
+- **`GameHotkeys`** (на @Input) — дискретные команды по нажатию, публикует события в `EventBus`, ни во что не лезет напрямую:
+  - **B** → `BuildModeToggleRequestedEvent` (тот же путь, что кнопка build mode → `GameplayContainerState`, с 5-сек кулдауном);
+  - **X** → `SellModeRequestedEvent` → `BuildPanelUI` тогглит инструмент Sell тем же путём, что кнопка (подсветка + контроллер синхронны); вне build mode — no-op;
+  - **Esc** → `ExitToMenuRequestedEvent` → `GameBootstrap` переводит App FSM в `MainMenuState` (выход из контейнера восстанавливает `timeScale`); меню — пока заглушка;
+  - **I** → `InfoToggleRequestedEvent` → подписчика пока нет (окно информации в бэклоге; событие уже публикуется).
+
+> ⚠️ `CameraController` использует `viewCamera.orthographicSize` (drag) — **камера должна быть Orthographic** (2D-проект, так и есть). линзу vcam тоже держать Orthographic.
+
 ## Build mode — как связано
 
-- **Вход/выход** по `BuildModeButton` (правый-нижний угол) → событие → `GameplayContainerState` переключает внутренний FSM `Playing↔BuildMode` и держит 5-сек кулдаун на повторный вход.
+- **Вход/выход** по `BuildModeButton` (правый-нижний угол) **или клавише B** → событие `BuildModeToggleRequestedEvent` → `GameplayContainerState` переключает внутренний FSM `Playing↔BuildMode` и держит 5-сек кулдаун на повторный вход.
 - **`BuildModeState.Enter`**: `Time.timeScale=0` + `SpawnSystem.DespawnAllAndResetSpawners` (юниты в пул). **`Exit`**: `SpawnSystem.WarmupAllSpawners` (юниты респавнятся из зданий) + `Time.timeScale=1`.
 - **Инструмент = что выбрано в панели** (`PlacementController`):
   - карточка → **PLACE** (гост под курсором, клик ставит),

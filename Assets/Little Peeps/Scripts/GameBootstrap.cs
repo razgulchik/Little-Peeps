@@ -5,7 +5,8 @@ using UnityEngine;
 // Required scene hierarchy:
 //   Bootstrap   [this component + all [SerializeField] system components below, or on child objects]
 //   Island      [IslandSystem + Tilemap/TilemapRenderer children]
-//   Camera      [Camera component; add a CameraController when implementing camera movement]
+//   Camera      [Camera + CinemachineBrain; a CinemachineCamera follows the CameraTarget object]
+//   CameraTarget[CameraController — moves this object; the vcam follows it with damping]
 //   UI (Canvas) [ResourceUI × 6, AgeUI, PerkSelectionUI as child GameObjects]
 //   Pier        [Pier component + CircleCollider2D with isTrigger = true]
 //
@@ -77,6 +78,21 @@ public class GameBootstrap : MonoBehaviour
         var playingState = new PlayingState(gameplayFsm, run);
         var buildModeState = new BuildModeState(spawnSystem, placementController);
         appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown));
+
+        // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM
+        // and runManager live here; leaving the container restores timeScale via its Exit().
+        EventBus<ExitToMenuRequestedEvent>.Subscribe(OnExitToMenu);
+    }
+
+    private void OnDestroy()
+    {
+        EventBus<ExitToMenuRequestedEvent>.Unsubscribe(OnExitToMenu);
+    }
+
+    private void OnExitToMenu(ExitToMenuRequestedEvent _)
+    {
+        if (appStateMachine.Current is MainMenuState) return;   // already in the menu
+        appStateMachine.ChangeState(new MainMenuState(appStateMachine, runManager));
     }
 
     private void Update()

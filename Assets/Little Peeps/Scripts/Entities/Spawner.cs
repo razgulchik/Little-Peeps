@@ -22,6 +22,7 @@ public class Spawner : MonoBehaviour, ICollisionEffect
     [SerializeField] private float launchSpeedMultiplier = 2.5f;
     [SerializeField] private float launchBoostDuration = 1f;
     [SerializeField] private float launchGap = 0.1f; // clearance between the structure collider edge and the unit collider edge at launch
+    [SerializeField] private float launchJitterDegrees = 12f; // random spread applied to the chosen cell direction so launches don't all run on exact lines
 
     private enum SlotState { Free, Cooldown, Occupied }
 
@@ -34,18 +35,38 @@ public class Spawner : MonoBehaviour, ICollisionEffect
     }
 
     private Collider2D structureCollider;
+    private Structure structure;
     private List<Slot> slots;   // null until BeginWarmup runs
     private bool registered;
+
+    // Grid context injected on placement. `grid` is the single source of truth for which perimeter
+    // directions are open; `instance.Cell` is this spawner's origin and auto-updates when it's moved
+    // (StructureSystem.DropStructure writes the new cell into the same instance we hold here). When
+    // both are null (a spawner placed directly in the scene, not via StructureSystem) we fall back to
+    // the old random-direction launch so those still work.
+    private IslandGrid grid;
+    private StructureInstance instance;
+
+    // True while every perimeter direction is blocked: the unit stays resting inside and the spawner
+    // retries each cycle. SpawnerBlocked/UnblockedEvent fire once on each transition (not per retry).
+    private bool blocked;
+
+    private readonly List<Vector2> allowedDirs = new();   // reused per launch — directions toward open perimeter cells
 
     private void Awake()
     {
         structureCollider = GetComponentInChildren<Collider2D>();
+        structure = GetComponent<Structure>();
     }
 
     // Optional runtime injection (StructureSystem calls this when placing a structure at runtime).
-    public void Initialize(SpawnSystem system)
+    // The grid + instance let the spawner pick launch directions from open neighbouring cells; both
+    // are null for scene-placed spawners, which then keep the legacy random-direction behaviour.
+    public void Initialize(SpawnSystem system, IslandGrid grid, StructureInstance instance)
     {
         spawnSystem = system;
+        this.grid = grid;
+        this.instance = instance;
     }
 
     private void Start()
@@ -208,8 +229,24 @@ public class Spawner : MonoBehaviour, ICollisionEffect
 
     private void LaunchFromSlot(Slot slot, Unit unit)
     {
-        Vector2 dir = Random.insideUnitCircle.normalized;
-        if (dir.sqrMagnitude < 1e-4f) dir = Vector2.up;
+        if (!TryPickSpawnDirection(out Vector2 dir))
+        {
+            // Surrounded on every side (edges / neighbours / fences): keep the unit resting inside and
+            // try again after another rest. Announce the block once; it clears on the next launch.
+            slot.timer = restDuration;
+            if (!blocked)
+            {
+                blocked = true;
+                EventBus<SpawnerBlockedEvent>.Publish(new SpawnerBlockedEvent { Structure = structure });
+            }
+            return;
+        }
+
+        if (blocked)
+        {
+            blocked = false;
+            EventBus<SpawnerUnblockedEvent>.Publish(new SpawnerUnblockedEvent { Structure = structure });
+        }
 
         unit.transform.position = SpawnPosition(dir, unit);
         unit.Launch(dir, launchSpeedMultiplier, launchBoostDuration);
@@ -217,6 +254,87 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         slot.unit = null;
         slot.state = SlotState.Cooldown;
         slot.timer = lockoutDuration;
+    }
+
+    // Choose a launch direction toward an OPEN perimeter cell. Without grid context (scene-placed
+    // spawner) fall back to a random direction — that path is never "blocked". Otherwise gather the
+    // open perimeter directions and pick one at random (+ a little jitter); false = none are open.
+    private bool TryPickSpawnDirection(out Vector2 dir)
+    {
+        if (grid == null || instance == null || instance.Def == null)
+        {
+            dir = RandomDirection();
+            return true;
+        }
+
+        CollectAllowedDirections(allowedDirs);
+        if (allowedDirs.Count == 0) { dir = Vector2.zero; return false; }
+
+        dir = allowedDirs[Random.Range(0, allowedDirs.Count)];
+        if (launchJitterDegrees > 0f)
+            dir = Rotate(dir, Random.Range(-launchJitterDegrees, launchJitterDegrees));
+        return true;
+    }
+
+    // Fill `buffer` with one direction per OPEN perimeter cell. We walk the cells one step outside this
+    // structure's claimed territory (footprint, plus its border if it has one) on each cardinal side; a
+    // side is open when that outer cell is land, not occupied by ANOTHER structure (or its border), and
+    // the boundary edge to it carries no fence.
+    //   - border 0 (the common case): the outer cells ARE the footprint's immediate neighbours, so a
+    //     corner house simply has its off-island sides excluded and the unit lands on that open cell.
+    //   - border >= 1: requiring the cell BEYOND the border ring to be open gives the "one clear cell
+    //     from the map edge / a neighbour" rule for free; the unit still lands in the border ring.
+    private void CollectAllowedDirections(List<Vector2> buffer)
+    {
+        buffer.Clear();
+
+        Vector2Int o = instance.Cell;
+        Vector2Int s = instance.Def.size;
+        int b = instance.Def.border;
+
+        // Inclusive bounds of the claimed territory box (footprint + border on every side).
+        int minX = o.x - b, minY = o.y - b;
+        int maxX = o.x + s.x + b - 1, maxY = o.y + s.y + b - 1;
+
+        Vector2 center = grid.OriginToWorldCenter(o, s);
+
+        for (int x = minX; x <= maxX; x++)
+        {
+            TryAddDirection(buffer, center, new Vector2Int(x, minY - 1), new Edge(new Vector2Int(x, minY), true));      // south
+            TryAddDirection(buffer, center, new Vector2Int(x, maxY + 1), new Edge(new Vector2Int(x, maxY + 1), true));  // north
+        }
+        for (int y = minY; y <= maxY; y++)
+        {
+            TryAddDirection(buffer, center, new Vector2Int(minX - 1, y), new Edge(new Vector2Int(minX, y), false));     // west
+            TryAddDirection(buffer, center, new Vector2Int(maxX + 1, y), new Edge(new Vector2Int(maxX + 1, y), false)); // east
+        }
+    }
+
+    // Add the direction toward `outerCell` if that cell is open: on-island, unoccupied, and not fenced
+    // off across `boundary` (the grid edge between the claimed territory and the outer cell).
+    private void TryAddDirection(List<Vector2> buffer, Vector2 center, Vector2Int outerCell, Edge boundary)
+    {
+        var cell = grid.GetCell(outerCell);
+        if (cell == null) return;                       // off-island (map edge, with the border as the clear cell)
+        if (cell.occupant != null) return;              // another structure or its border — don't crowd it
+        if (grid.GetEdge(boundary) != null) return;     // a fence blocks egress this way
+
+        Vector2 dir = grid.GridToWorld(outerCell) - center;
+        if (dir.sqrMagnitude < 1e-6f) return;
+        buffer.Add(dir.normalized);
+    }
+
+    private static Vector2 RandomDirection()
+    {
+        Vector2 d = Random.insideUnitCircle.normalized;
+        return d.sqrMagnitude < 1e-4f ? Vector2.up : d;
+    }
+
+    private static Vector2 Rotate(Vector2 v, float degrees)
+    {
+        float r = degrees * Mathf.Deg2Rad;
+        float cos = Mathf.Cos(r), sin = Mathf.Sin(r);
+        return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
     }
 
     // Place the unit just outside the structure collider along dir:

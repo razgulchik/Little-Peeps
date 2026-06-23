@@ -49,16 +49,19 @@ public class StructureSystem : MonoBehaviour
         var structure = go.GetComponent<Structure>();
         structure.def = def;
 
+        // The instance is the authoritative record of this structure's grid origin; build it now so a
+        // spawner can hold it and read its (move-updated) Cell when choosing a launch direction.
+        var instance = new StructureInstance { Def = def, RuntimeObject = structure, Cell = cell };
+
         // A prefab can't serialize scene-system references, so inject them before the new
         // components' Start runs (Build runs in GameBootstrap.Awake → injection happens first).
-        if (go.TryGetComponent<Spawner>(out var spawner)) spawner.Initialize(spawnSystem);
+        if (go.TryGetComponent<Spawner>(out var spawner)) spawner.Initialize(spawnSystem, grid, instance);
         if (go.TryGetComponent<ResourceSource>(out var source)) source.Initialize(resourceSystem);
 
         // Center the sprite on its footprint (shared rule — the placement ghost uses the same call).
         var sr = go.GetComponentInChildren<SpriteRenderer>();
         if (sr != null) CenterSpriteOnFootprint(go.transform, sr, cell, def.size);
 
-        var instance = new StructureInstance { Def = def, RuntimeObject = structure, Cell = cell };
         grid.Place(cell, def.size, instance);
         run.structures[cell] = instance;
 

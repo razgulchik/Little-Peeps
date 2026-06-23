@@ -184,7 +184,7 @@ Root → Button + BuildCardUI + CanvasGroup
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
 | **StructureDef** | LittlePeeps/StructureDef | id, displayName, icon, prefab, **placement (Cell=футпринт клеток / Edge=забор на ребре)**, size, cost[], allowedTerrain[] (пусто = любой биом), sellRefundPercent (0..1), border (расширяет занимаемую территорию в клетках: дом=1 → 2×2 занимает 4×4 сетки; дерево/поле=0; для Edge не используется) |
-| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, amountPerHit, allowedWorkers[] (пусто = любой), infinite, hitsBeforeDespawn, respawnTime |
+| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто), infinite, hitsBeforeDespawn, respawnTime, readySprite, harvestedSprite |
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | structures: список StructureDef для нижней панели |

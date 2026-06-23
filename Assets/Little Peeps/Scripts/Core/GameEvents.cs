@@ -39,6 +39,21 @@ public struct EdgeStructureRemovedEvent
     public Edge Edge;
 }
 
+// A spawner could not launch because every perimeter direction is blocked (map edge, a neighbouring
+// structure, or a fence). Published ONCE on the transition into the blocked state; the resting unit
+// stays inside and the spawner keeps retrying. Cleared by SpawnerUnblockedEvent on the next launch.
+public struct SpawnerBlockedEvent
+{
+    public Structure Structure;
+}
+
+// A previously blocked spawner found an open direction again and resumed launching. Published once on
+// the transition out of the blocked state (mirror of SpawnerBlockedEvent) so UI can drop its marker.
+public struct SpawnerUnblockedEvent
+{
+    public Structure Structure;
+}
+
 public struct StructureDamagedEvent
 {
     public Structure Structure;

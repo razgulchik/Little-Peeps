@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9c3a4a91d14169846ab526ecdb5af30a, type: 3}
-  m_Name: Tree
+  m_Name: Smithy
   m_EditorClassIdentifier: 
-  id: 
-  resource: 1
+  id: smothy
+  resource: 3
   workerYields:
   - worker: 0
     amount: 1
-  - worker: 1
+  - worker: 3
     amount: 2
-  infinite: 0
-  hitsBeforeDespawn: 5
+  infinite: 1
+  hitsBeforeDespawn: 3
   respawnTime: 5
-  readySprite: {fileID: 21300000, guid: 22b2a9f7bbfd3574d9f5303a1738e7c8, type: 3}
-  harvestedSprite: {fileID: 21300000, guid: 0484eb79711b6cd41a669a441f36d63b, type: 3}
+  readySprite: {fileID: 0}
+  harvestedSprite: {fileID: 0}

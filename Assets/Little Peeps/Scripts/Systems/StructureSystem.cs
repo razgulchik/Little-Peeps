@@ -58,9 +58,8 @@ public class StructureSystem : MonoBehaviour
         if (go.TryGetComponent<Spawner>(out var spawner)) spawner.Initialize(spawnSystem, grid, instance);
         if (go.TryGetComponent<ResourceSource>(out var source)) source.Initialize(resourceSystem);
 
-        // Center the sprite on its footprint (shared rule — the placement ghost uses the same call).
-        var sr = go.GetComponentInChildren<SpriteRenderer>();
-        if (sr != null) CenterSpriteOnFootprint(go.transform, sr, cell, def.size);
+        // Put the root at its footprint center (shared rule — the placement ghost uses the same call).
+        CenterOnFootprint(go.transform, cell, def.size);
 
         grid.Place(cell, def.size, instance);
         run.structures[cell] = instance;
@@ -69,16 +68,16 @@ public class StructureSystem : MonoBehaviour
         return structure;
     }
 
-    // Position a structure so its sprite's geometric middle (bounds.center — pivot-independent,
-    // accounts for pixel size / PPU / scale) sits at the footprint center. Moves the ROOT (not the
-    // sprite child) so the sprite and the collider stay in sync — critical for the physics/bounce
-    // gameplay. Shared by placed structures (Build) and the build-mode ghost (PlacementController)
-    // so the preview matches exactly. Grid occupancy is logical (by cell), unaffected by the shift.
-    public void CenterSpriteOnFootprint(Transform root, SpriteRenderer sr, Vector2Int origin, Vector2Int size)
+    // Put a structure's ROOT at its footprint center. Any visual offset baked into the prefab (the
+    // sprite child's local position) is preserved — we move the root only — so per-prefab art can be
+    // nudged by hand without the placement code fighting it. Moving the root (not the sprite child)
+    // also keeps the sprite and collider in sync, critical for the physics/bounce gameplay. Shared by
+    // placed structures (Build), Move (DropStructure) and the build-mode ghost (PlacementController)
+    // so the preview matches exactly. Grid occupancy is logical (by cell), unaffected by this.
+    public void CenterOnFootprint(Transform root, Vector2Int origin, Vector2Int size)
     {
-        Vector2 footprintCenter = islandSystem.Grid.OriginToWorldCenter(origin, size);
-        Vector3 c = sr.bounds.center;
-        root.position += new Vector3(footprintCenter.x - c.x, footprintCenter.y - c.y, 0f);
+        Vector2 center = islandSystem.Grid.OriginToWorldCenter(origin, size);
+        root.position = new Vector3(center.x, center.y, root.position.z);
     }
 
     // Sell the structure occupying `cell` (any footprint cell): refund a fraction of its build
@@ -136,8 +135,7 @@ public class StructureSystem : MonoBehaviour
         run.structures[origin] = instance;
         instance.Cell = origin;
 
-        var sr = instance.RuntimeObject.GetComponentInChildren<SpriteRenderer>();
-        if (sr != null) CenterSpriteOnFootprint(instance.RuntimeObject.transform, sr, origin, instance.Def.size);
+        CenterOnFootprint(instance.RuntimeObject.transform, origin, instance.Def.size);
     }
 
     // --- Edge-placed structures (fences) ------------------------------------------------------

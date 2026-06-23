@@ -46,8 +46,7 @@ public class PlacementController : MonoBehaviour
     private bool active;
     private StructureDef selected;
     private GameObject ghost;
-    private SpriteRenderer ghostRenderer;          // cell ghost: the single sprite (used for footprint centering)
-    private SpriteRenderer[] ghostRenderers;       // every renderer to tint (1 for a cell ghost, 2 poses for a fence)
+    private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
     private EdgeStructureVisual ghostVisual;       // non-null when the ghost is an edge structure (fence)
 
     // Faint square showing the footprint+border the ghost would claim (Place and Move).
@@ -124,21 +123,22 @@ public class PlacementController : MonoBehaviour
         else BuildCellGhost(def);
     }
 
-    // Cell ghost: a lightweight stand-in renderer copying the prefab's sprite. Centered on the
-    // footprint each frame (UpdateCellGhost).
+    // Cell ghost: instantiate the real prefab so the preview matches the placed structure 1:1 —
+    // including any sprite offset hand-tuned inside the prefab (placement centers the ROOT, so the
+    // sprite child sits exactly where it will once built). Then neutralize it: disable every
+    // behaviour (so Spawner/ResourceSource/Structure don't spawn units, register, or log) and every
+    // collider/rigidbody so it's purely visual. Centered on the footprint each frame (UpdateCellGhost).
     private void BuildCellGhost(StructureDef def)
     {
-        var sourceSr = def.prefab.GetComponentInChildren<SpriteRenderer>();
-        ghost = new GameObject("PlacementGhost");
-        ghostRenderer = ghost.AddComponent<SpriteRenderer>();
-        if (sourceSr != null)
-        {
-            ghostRenderer.sprite = sourceSr.sprite;
-            ghostRenderer.sortingLayerID = sourceSr.sortingLayerID;
-            ghostRenderer.sortingOrder = sourceSr.sortingOrder + 1;
-            ghost.transform.localScale = sourceSr.transform.lossyScale;
-        }
-        ghostRenderers = new[] { ghostRenderer };
+        ghost = Instantiate(def.prefab);
+        ghost.name = "PlacementGhost";
+
+        foreach (var mb in ghost.GetComponentsInChildren<MonoBehaviour>(true)) mb.enabled = false;
+        foreach (var col in ghost.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
+        foreach (var rb in ghost.GetComponentsInChildren<Rigidbody2D>(true)) rb.simulated = false;
+
+        ghostRenderers = ghost.GetComponentsInChildren<SpriteRenderer>(true);
+        foreach (var r in ghostRenderers) r.sortingOrder += 1;   // draw above the placed structures
     }
 
     // Edge ghost (fence): instantiate the real prefab so the preview matches 1:1 (both poses), then
@@ -197,11 +197,11 @@ public class PlacementController : MonoBehaviour
         Vector2Int origin = grid.WorldToOrigin(cursor, selected.size);
 
         // Same placement rule as a real structure — the builder owns it (ghost matches exactly).
-        structureSystem.CenterSpriteOnFootprint(ghost.transform, ghostRenderer, origin, selected.size);
+        structureSystem.CenterOnFootprint(ghost.transform, origin, selected.size);
 
         bool ok = grid.CanPlace(origin, selected.size, selected.allowedTerrain, selected.border)
                   && resourceSystem.CanAfford(selected.cost);
-        ghostRenderer.color = ok ? validColor : invalidColor;
+        TintGhost(ok ? validColor : invalidColor);
         ShowTerritory(origin, selected.size, selected.border, ok);
     }
 
@@ -313,7 +313,7 @@ public class PlacementController : MonoBehaviour
         Vector2Int origin = grid.WorldToOrigin(ScreenToWorld(), def.size);
 
         bool ok = grid.CanPlace(origin, def.size, def.allowedTerrain, def.border);
-        structureSystem.CenterSpriteOnFootprint(heldInstance.RuntimeObject.transform, heldRenderer, origin, def.size);
+        structureSystem.CenterOnFootprint(heldInstance.RuntimeObject.transform, origin, def.size);
         heldRenderer.color = ok ? validColor : invalidColor;
         ShowTerritory(origin, def.size, def.border, ok);
     }
@@ -548,7 +548,6 @@ public class PlacementController : MonoBehaviour
     {
         if (ghost != null) Destroy(ghost);
         ghost = null;
-        ghostRenderer = null;
         ghostRenderers = null;
         ghostVisual = null;
         HideTerritory();

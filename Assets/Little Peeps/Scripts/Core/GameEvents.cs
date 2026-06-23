@@ -25,6 +25,20 @@ public struct StructureRemovedEvent
     public Vector2Int Cell;
 }
 
+// Edge-placed structures (fences) have no single occupying cell, so they announce themselves by the
+// Edge they sit on instead of a Cell. Parallel to StructurePlaced/RemovedEvent (the cell path).
+public struct EdgeStructurePlacedEvent
+{
+    public Structure Structure;
+    public Edge Edge;
+}
+
+public struct EdgeStructureRemovedEvent
+{
+    public Structure Structure;
+    public Edge Edge;
+}
+
 public struct StructureDamagedEvent
 {
     public Structure Structure;

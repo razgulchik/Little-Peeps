@@ -1,6 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// How a structure snaps to the grid:
+//  - Cell: occupies a footprint of cells (houses, trees, fields) — the default.
+//  - Edge: sits on the boundary line between two cells (fences). size/border are unused for Edge.
+public enum PlacementKind { Cell, Edge }
+
 [CreateAssetMenu(menuName = "LittlePeeps/StructureDef")]
 public class StructureDef : ScriptableObject
 {
@@ -8,6 +13,7 @@ public class StructureDef : ScriptableObject
     public string displayName;
     public Sprite icon;
     public GameObject prefab;
+    public PlacementKind placement = PlacementKind.Cell;
     public Vector2Int size = Vector2Int.one;
     public List<ResourceCost> cost;
     public List<EffectConfig> effects;

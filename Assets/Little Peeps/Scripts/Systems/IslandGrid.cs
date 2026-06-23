@@ -28,10 +28,12 @@ public class IslandGrid
     }
 
     private readonly Dictionary<Vector2Int, Cell> cells;
+    private readonly Dictionary<Edge, EdgeInstance> edges = new();   // fences on cell boundaries
     private readonly float cellSize;
 
     // Read-only view for renderers / iteration (e.g. tilemap refresh).
     public IReadOnlyDictionary<Vector2Int, Cell> Cells => cells;
+    public IReadOnlyDictionary<Edge, EdgeInstance> Edges => edges;
     public float CellSize => cellSize;
 
     public IslandGrid(float cellSize, int initialCapacity = 0)
@@ -145,5 +147,60 @@ public class IslandGrid
             (origin.x + size.x / 2f) * cellSize,
             (origin.y + size.y / 2f) * cellSize
         );
+    }
+
+    // --- Edge layer (fences on cell boundaries) -----------------------------------------------
+    // Parallel to the cell API above, but keyed by Edge instead of Vector2Int. Cells and edges share
+    // the same lattice, so no offset bookkeeping — an Edge just names a line between two cells.
+
+    public EdgeInstance GetEdge(Edge edge) => edges.TryGetValue(edge, out var inst) ? inst : null;
+
+    // The two cells an edge borders (some may be off-island / not present in the grid).
+    public (Vector2Int a, Vector2Int b) EdgeCells(Edge edge)
+    {
+        return edge.horizontal
+            ? (new Vector2Int(edge.anchor.x, edge.anchor.y), new Vector2Int(edge.anchor.x, edge.anchor.y - 1))
+            : (new Vector2Int(edge.anchor.x, edge.anchor.y), new Vector2Int(edge.anchor.x - 1, edge.anchor.y));
+    }
+
+    // A fence fits an edge if the edge is free AND at least one bordering cell is land — this lets
+    // the player fence along the shoreline, not just interior boundaries.
+    public bool CanPlaceEdge(Edge edge)
+    {
+        if (edges.ContainsKey(edge)) return false;
+        var (a, b) = EdgeCells(edge);
+        return GetCell(a) != null || GetCell(b) != null;
+    }
+
+    public void PlaceEdge(Edge edge, EdgeInstance instance) => edges[edge] = instance;
+
+    public void RemoveEdge(Edge edge) => edges.Remove(edge);
+
+    // World midpoint of an edge's line segment — where the fence sprite is centered.
+    public Vector2 EdgeToWorld(Edge edge)
+    {
+        return edge.horizontal
+            ? new Vector2((edge.anchor.x + 0.5f) * cellSize, edge.anchor.y * cellSize)
+            : new Vector2(edge.anchor.x * cellSize, (edge.anchor.y + 0.5f) * cellSize);
+    }
+
+    // The grid edge nearest a world position: find the cell under the point, then pick whichever of
+    // its four sides the point is closest to (the side with the smallest perpendicular distance).
+    public Edge WorldToEdge(Vector2 worldPos)
+    {
+        float fx = worldPos.x / cellSize;
+        float fy = worldPos.y / cellSize;
+        int cx = Mathf.FloorToInt(fx);
+        int cy = Mathf.FloorToInt(fy);
+        float u = fx - cx;   // 0..1 across the cell, left→right
+        float v = fy - cy;   // 0..1 across the cell, bottom→top
+
+        float dBottom = v, dTop = 1f - v, dLeft = u, dRight = 1f - u;
+        float min = Mathf.Min(Mathf.Min(dBottom, dTop), Mathf.Min(dLeft, dRight));
+
+        if (min == dBottom) return new Edge(new Vector2Int(cx, cy), true);
+        if (min == dTop)    return new Edge(new Vector2Int(cx, cy + 1), true);
+        if (min == dLeft)   return new Edge(new Vector2Int(cx, cy), false);
+        return new Edge(new Vector2Int(cx + 1, cy), false);
     }
 }

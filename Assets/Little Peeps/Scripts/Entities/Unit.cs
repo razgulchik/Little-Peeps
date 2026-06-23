@@ -9,6 +9,7 @@ public class Unit : MonoBehaviour
 
     // World-space radius of the unit's collider (used for spawn-clearance math).
     public float Radius => bodyCollider != null ? bodyCollider.bounds.extents.x : 0f;
+    public IslandSystem Island => island;
 
     private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
@@ -16,8 +17,7 @@ public class Unit : MonoBehaviour
     private float baseSpeed;
     private Coroutine boostCoroutine;
 
-    private IslandSystem island;   // for the on-island containment backstop (injected on spawn)
-    private Vector2 lastInside;    // last known on-island position, restored if the unit escapes
+    private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
 
     // Decaying launch boost, ticked in FixedUpdate (physics-based acceleration).
     private float launchBoostTimer;
@@ -35,7 +35,7 @@ public class Unit : MonoBehaviour
         if (def != null) baseSpeed = def.speed;
     }
 
-    // Injected by SpawnSystem on spawn so the unit can keep itself on the island (containment backstop).
+    // Injected by SpawnSystem on spawn. Stored for future island-aware behavior.
     public void SetIsland(IslandSystem islandSystem) => island = islandSystem;
 
     // Launch in a direction. The unit leaves at baseSpeed * speedMultiplier and a decaying
@@ -47,7 +47,6 @@ public class Unit : MonoBehaviour
 
         // Coming back out of rest: re-enable physics and visuals.
         rb.simulated = true;
-        lastInside = rb.position;   // seed the containment backstop with the (on-island) spawn point
         if (spriteRenderer != null) spriteRenderer.enabled = true;
 
         Vector2 dir = direction.sqrMagnitude > 0.0001f ? direction.normalized : Random.insideUnitCircle.normalized;
@@ -77,8 +76,6 @@ public class Unit : MonoBehaviour
 
     private void FixedUpdate()
     {
-        KeepOnIsland();
-
         // Tap boost (if any) owns the velocity while it runs.
         if (launchBoostTimer <= 0f || boostCoroutine != null) return;
 
@@ -96,25 +93,6 @@ public class Unit : MonoBehaviour
         float factor = 1f - Mathf.Exp(-Time.fixedDeltaTime / launchTau);
         float newSpeed = Mathf.Lerp(speed, baseSpeed, factor);
         rb.linearVelocity = rb.linearVelocity.normalized * newSpeed;
-    }
-
-    // Containment backstop: if the unit has ended up off the island (e.g. tunneled through the
-    // boundary at boost speed, or got launched toward a near edge), snap it back to its last
-    // on-island position and send it back inward. The bounce wall handles normal containment; this
-    // guarantees nothing escapes for good. Cheap: one grid lookup per physics step.
-    private void KeepOnIsland()
-    {
-        if (island == null || !rb.simulated) return;
-        var grid = island.Grid;
-        if (grid == null) return;
-
-        if (grid.GetCell(grid.WorldToGrid(rb.position)) != null)
-            lastInside = rb.position;                 // still on the island — remember where
-        else
-        {
-            rb.position = lastInside;                 // escaped — pull it back to the last good spot
-            rb.linearVelocity = -rb.linearVelocity;   // and send it back inward
-        }
     }
 
     // Multiply speed for duration seconds; re-calling mid-boost resets the timer.

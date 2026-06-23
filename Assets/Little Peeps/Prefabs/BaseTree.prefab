@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 6060389242715000616}
   - component: {fileID: 4884472561083697461}
   - component: {fileID: 5286831532999077229}
-  - component: {fileID: 5480413039116781881}
   - component: {fileID: 7508964017746026031}
   m_Layer: 0
   m_Name: BaseTree
@@ -29,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 1346494078730204555}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.59, y: 1.68, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -77,18 +76,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: 952849a7c1966d149900dc7343cee664, type: 2}
---- !u!114 &5480413039116781881
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1346494078730204555}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e754c3aff41496478d157b7f9bbf2a0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &7508964017746026031
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -177,7 +164,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1266997631
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 22b2a9f7bbfd3574d9f5303a1738e7c8, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -256,8 +243,8 @@ CircleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: -0.25}
-  m_Radius: 0.2
+  m_Offset: {x: 0, y: -0.09}
+  m_Radius: 0.33
 --- !u!1 &5941663533957381302
 GameObject:
   m_ObjectHideFlags: 0

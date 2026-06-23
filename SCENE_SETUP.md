@@ -80,7 +80,7 @@ SampleScene
 | @Systems/ResourceSystem | ResourceSystem | logChanges | вкл/выкл лог ресурсов в консоль (дебаг) |
 | @Systems/StructureSystem | **StructureSystem** | **islandSystem, resourceSystem, spawnSystem** | IslandSystem, ResourceSystem, SpawnSystem |
 | @Systems/SpawnSystem | **SpawnSystem** | **unitPool, unitSystem** | UnitPool, UnitSystem |
-| | | islandSystem | IslandSystem (впрыскивается в юнитов — бэкстоп удержания на острове) |
+| | | islandSystem | IslandSystem (впрыскивается в юнитов — задел на будущее island-aware поведение) |
 | @Systems/UnitSystem | UnitSystem | — | (полей нет) |
 | @Systems/UnitPool | UnitPool | — | (полей нет; юниты инстанцируются его детьми) |
 | @Systems/PerkSystem | PerkSystem | catalogue | список PerkDef (можно пусто) |
@@ -148,6 +148,28 @@ Obstacle (отскок) vs Interactable (триггер) задаётся фла
 > Здания-источники (Forge/Church) — `Structure` + `ResourceSource` с `infinite`-дефом.
 > Юниты появятся только если у `Spawner` заполнены `spawnSystem` + `unitDef` (цикл стартует в `Spawner.Start()`).
 
+### BaseFence / заборы (Structure на РЕБРЕ грида)
+Забор не занимает клетку — он стоит на **ребре** (границе между двумя клетками). Это один префаб с
+**двумя позами-детьми**; нужная включается по ориентации ребра под курсором (`EdgeStructureVisual`).
+```
+Root            → Rigidbody2D (Static) + Structure + EdgeStructureVisual
+├── HorizontalRoot  → SpriteRenderer (fence_hor) + BoxCollider2D (тонкий бокс вдоль линии: широкий X, тонкий Y)
+└── VerticalRoot    → SpriteRenderer (fence_ver) + BoxCollider2D (тонкий бокс вдоль линии: тонкий X, широкий Y)
+```
+- Обе позы **отцентрованы в local (0,0)**: рут ставится в середину ребра (`IslandGrid.EdgeToWorld`), и
+  спрайт+коллайдер ложатся ровно на линию решётки. H-ребро = горизонтальная линия, V-ребро = вертикальная.
+- `EdgeStructureVisual`: поля **horizontalRoot**, **verticalRoot** → соответствующие дочерние объекты.
+  `Apply(horizontal)` включает одну позу, гасит другую. Дёргается при постройке, у ghost'а и при drag.
+  Коллайдер **неактивной** позы гаснет вместе с её GameObject — отдельного кода не нужно.
+- **Коллайдеры (отскок):** `isTrigger = 0`, **Material = тот же физматериал отскока, что у BaseBuilding**
+  (guid `397134329f508124e95b17766bee3c17`). Юнит уже `Collision Detection = Continuous`, поэтому сквозь
+  тонкий забор не туннелирует.
+- В `StructureDef` забора выставить **placement = Edge** (`size`/`border` для рёбер не используются).
+- Тот же префаб служит превью: ghost = его инстанс с выключенными коллайдерами и `Structure`, тинт
+  green/red на обоих рендерерах.
+- **Move/Sell:** забор перетаскивается и продаётся через тот же build-режим; клик «выигрывает» забор,
+  когда курсор в пределах ~⅓ клетки от линии ребра (иначе берётся структура в клетке под курсором).
+
 ### BuildCard (префаб карточки, инстанцируется BuildPanelUI в рантайме)
 ```
 Root → Button + BuildCardUI + CanvasGroup
@@ -161,7 +183,7 @@ Root → Button + BuildCardUI + CanvasGroup
 
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
-| **StructureDef** | LittlePeeps/StructureDef | id, displayName, icon, prefab, size, cost[], allowedTerrain[] (пусто = любой биом), sellRefundPercent (0..1), border (расширяет занимаемую территорию в клетках: дом=1 → 2×2 занимает 4×4 сетки; дерево/поле=0) |
+| **StructureDef** | LittlePeeps/StructureDef | id, displayName, icon, prefab, **placement (Cell=футпринт клеток / Edge=забор на ребре)**, size, cost[], allowedTerrain[] (пусто = любой биом), sellRefundPercent (0..1), border (расширяет занимаемую территорию в клетках: дом=1 → 2×2 занимает 4×4 сетки; дерево/поле=0; для Edge не используется) |
 | **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, amountPerHit, allowedWorkers[] (пусто = любой), infinite, hitsBeforeDespawn, respawnTime |
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |

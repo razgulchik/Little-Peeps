@@ -136,4 +136,90 @@ public class StructureSystem : MonoBehaviour
         var sr = instance.RuntimeObject.GetComponentInChildren<SpriteRenderer>();
         if (sr != null) CenterSpriteOnFootprint(instance.RuntimeObject.transform, sr, origin, instance.Def.size);
     }
+
+    // --- Edge-placed structures (fences) ------------------------------------------------------
+    // Parallel to the cell placement path above, but addressed by Edge. Shares the same validation +
+    // cost + event flow; only the grid addressing and the H/V pose differ.
+
+    // Player-driven fence placement. Validates the edge and affordability, charges the cost, builds.
+    // Returns false (no-op) if the edge is blocked or the cost can't be paid.
+    public bool PlaceEdgeStructure(StructureDef def, Edge edge)
+    {
+        if (!islandSystem.Grid.CanPlaceEdge(edge)) return false;
+        if (!resourceSystem.CanAfford(def.cost)) return false;
+        resourceSystem.Spend(def.cost);
+        BuildEdge(def, edge);
+        return true;
+    }
+
+    // Instantiate the fence prefab on the edge, set its orientation pose, register it in the grid +
+    // run, and announce it. Mirror of Build for the cell path.
+    private Structure BuildEdge(StructureDef def, Edge edge)
+    {
+        var grid = islandSystem.Grid;
+        var worldPos = grid.EdgeToWorld(edge);
+
+        var go = Instantiate(def.prefab, worldPos, Quaternion.identity);
+        var structure = go.GetComponent<Structure>();
+        structure.def = def;
+
+        // Show the pose (horizontal / vertical child) matching the edge the fence sits on.
+        if (go.TryGetComponent<EdgeStructureVisual>(out var visual)) visual.Apply(edge.horizontal);
+
+        var instance = new EdgeInstance { Def = def, RuntimeObject = structure, Edge = edge };
+        grid.PlaceEdge(edge, instance);
+        run.fences[edge] = instance;
+
+        // Fences have no single occupying cell, so they announce themselves by Edge (parallel event).
+        EventBus<EdgeStructurePlacedEvent>.Publish(new EdgeStructurePlacedEvent { Structure = structure, Edge = edge });
+        return structure;
+    }
+
+    // Sell the fence on `edge`: refund a fraction of its cost, then remove it. False if none there.
+    public bool SellEdgeStructure(Edge edge)
+    {
+        var instance = islandSystem.Grid.GetEdge(edge);
+        if (instance == null) return false;
+        RefundCost(instance.Def);
+        return RemoveEdgeStructure(edge);
+    }
+
+    // Remove the fence on `edge`: free the grid edge, drop it from the run, announce it, destroy the
+    // GameObject. Returns false if nothing is there.
+    public bool RemoveEdgeStructure(Edge edge)
+    {
+        var grid = islandSystem.Grid;
+        var instance = grid.GetEdge(edge);
+        if (instance == null) return false;
+
+        grid.RemoveEdge(edge);
+        run.fences.Remove(edge);
+        EventBus<EdgeStructureRemovedEvent>.Publish(new EdgeStructureRemovedEvent { Structure = instance.RuntimeObject, Edge = edge });
+        Destroy(instance.RuntimeObject.gameObject);
+        return true;
+    }
+
+    // Build-mode MOVE for fences, step 1: lift a fence off its edge so it can be dragged. Frees the
+    // grid edge + run entry but keeps the GameObject alive and its Edge unchanged (so a cancel can put
+    // it back). Mirror of PickUpStructure.
+    public void PickUpEdgeStructure(EdgeInstance instance)
+    {
+        islandSystem.Grid.RemoveEdge(instance.Edge);
+        run.fences.Remove(instance.Edge);
+    }
+
+    // Build-mode MOVE for fences, step 2: place a lifted fence on `edge` (caller has checked
+    // CanPlaceEdge, or is returning it to its original Edge on cancel). Re-registers grid + run,
+    // updates the instance's Edge, snaps the object onto the edge and sets the matching pose.
+    // Mirror of DropStructure.
+    public void DropEdgeStructure(EdgeInstance instance, Edge edge)
+    {
+        var grid = islandSystem.Grid;
+        grid.PlaceEdge(edge, instance);
+        run.fences[edge] = instance;
+        instance.Edge = edge;
+
+        instance.RuntimeObject.transform.position = grid.EdgeToWorld(edge);
+        if (instance.RuntimeObject.TryGetComponent<EdgeStructureVisual>(out var visual)) visual.Apply(edge.horizontal);
+    }
 }

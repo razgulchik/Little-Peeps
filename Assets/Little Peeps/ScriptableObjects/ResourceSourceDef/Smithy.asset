@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c3a4a91d14169846ab526ecdb5af30a, type: 3}
   m_Name: Smithy
   m_EditorClassIdentifier: 
-  id: smothy
+  id: smithy
   resource: 3
   workerYields:
   - worker: 0
@@ -22,5 +22,3 @@ MonoBehaviour:
   infinite: 1
   hitsBeforeDespawn: 3
   respawnTime: 5
-  readySprite: {fileID: 0}
-  harvestedSprite: {fileID: 0}

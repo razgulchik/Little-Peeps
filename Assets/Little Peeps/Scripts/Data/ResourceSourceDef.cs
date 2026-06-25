@@ -27,9 +27,7 @@ public class ResourceSourceDef : ScriptableObject
     public int hitsBeforeDespawn = 3;
     public float respawnTime = 5f;
 
-    [Header("Visual states")]
-    [Tooltip("Ready/ripe — the source can be harvested (e.g. grown wheat, full tree).")]
-    public Sprite readySprite;
-    [Tooltip("Harvested — used up, waiting to regrow (e.g. cut field, stump). Ignored for infinite sources.")]
-    public Sprite harvestedSprite;
+    // Visuals are not stored here: each state is a separate root configured in the prefab
+    // (own SpriteRenderer + Sorting Layer + pivot), swapped by ResourceSource. `infinite`
+    // already tells whether the source has two states (false) or a single visual (true).
 }

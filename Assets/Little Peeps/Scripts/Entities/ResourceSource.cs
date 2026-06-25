@@ -6,9 +6,13 @@ using UnityEngine;
 // Attach to a natural node (tree/wheat/stone) or a building-source (Forge/Church, infinite def).
 //
 // Two visual states (skipped for infinite sources):
-//   Ready     — ripe/grown, harvestable; shows def.readySprite.
-//   Harvested — used up, collider off, regrowing; shows def.harvestedSprite. After def.respawnTime
+//   Ready     — ripe/grown, harvestable; shows readyRoot.
+//   Harvested — used up, collider off, regrowing; shows harvestedRoot. After def.respawnTime
 //               it returns to Ready.
+// Each root is fully configured in the prefab (its own SpriteRenderer + Sorting Layer + pivot),
+// so a tall Ready node (wheat/tree) can Y-sort against passing units while the flat Harvested
+// node sits on a lower layer that units always walk over. Infinite sources (Forge/Church) keep
+// their single visual and leave both roots untouched.
 [RequireComponent(typeof(CollisionTarget))]
 public class ResourceSource : MonoBehaviour, ICollisionEffect
 {
@@ -17,8 +21,11 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
     [SerializeField] private ResourceSourceDef def;
     [SerializeField] private ResourceSystem resourceSystem; // scene ref — can't live in the SO
 
+    [Header("State visuals (leave empty for infinite sources)")]
+    [SerializeField] private GameObject readyRoot;
+    [SerializeField] private GameObject harvestedRoot;
+
     private CollisionTarget host;
-    private SpriteRenderer spriteRenderer;
     private int hitsLeft;
     private State state = State.Ready;
     private float respawnTimer;
@@ -26,7 +33,6 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
     private void Awake()
     {
         host = GetComponent<CollisionTarget>();
-        spriteRenderer = GetComponentInChildren<SpriteRenderer>(true);
         if (def != null) hitsLeft = def.hitsBeforeDespawn;
     }
 
@@ -44,13 +50,13 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
         if (resourceSystem == null)
             Debug.LogError($"ResourceSource on '{name}' has no ResourceSystem assigned.", this);
 
-        // Infinite sources (Forge/Church) never change state, so they don't need state sprites.
+        // Infinite sources (Forge/Church) never change state, so they don't need state roots.
         if (def != null && !def.infinite)
         {
-            if (def.readySprite == null)
-                Debug.LogError($"ResourceSource on '{name}' has no readySprite assigned.", this);
-            if (def.harvestedSprite == null)
-                Debug.LogError($"ResourceSource on '{name}' has no harvestedSprite assigned.", this);
+            if (readyRoot == null)
+                Debug.LogError($"ResourceSource on '{name}' has no readyRoot assigned.", this);
+            if (harvestedRoot == null)
+                Debug.LogError($"ResourceSource on '{name}' has no harvestedRoot assigned.", this);
         }
 
         ApplyStateVisual();
@@ -110,13 +116,13 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
         ApplyStateVisual();
     }
 
-    // Swaps the sprite to match the current state. Falls back to the sprite already on the
-    // renderer when a state sprite isn't set (e.g. infinite sources keep their single sprite).
+    // Shows the root matching the current state. Infinite sources keep their single visual, so
+    // both roots are left as the prefab set them (typically only one is present and active).
     private void ApplyStateVisual()
     {
-        if (spriteRenderer == null || def == null) return;
+        if (def == null || def.infinite) return;
 
-        var sprite = state == State.Harvested ? def.harvestedSprite : def.readySprite;
-        if (sprite != null) spriteRenderer.sprite = sprite;
+        if (readyRoot != null) readyRoot.SetActive(state == State.Ready);
+        if (harvestedRoot != null) harvestedRoot.SetActive(state == State.Harvested);
     }
 }

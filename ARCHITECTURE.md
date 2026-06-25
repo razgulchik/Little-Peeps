@@ -230,5 +230,5 @@ despawned on enter, so there is nothing to simulate anyway.
 | `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch + `CollisionEvent`; `SetColliderEnabled` |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (StructureDef) + health / `TakeDamage` (stub) |
 | `Spawner` | MB, `ICollisionEffect` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; `ResetSlots` / `BeginWarmup` |
-| `ResourceSource` | MB, `ICollisionEffect` | Resource node: grants `def.resource` per allowed-worker hit, depletes/respawns |
+| `ResourceSource` | MB, `ICollisionEffect` | Resource node: grants `def.resource` per allowed-worker hit, depletes/respawns; swaps Ready/Harvested visual roots (`SetActive`) + toggles host collider. `infinite` defs keep a single visual |
 | `BuildModeButton` | MB (UI) | Toggle button: publishes `BuildModeToggleRequestedEvent`, reflects `BuildModeUIStateEvent` |

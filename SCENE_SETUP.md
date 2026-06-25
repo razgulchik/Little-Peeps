@@ -151,10 +151,27 @@ Obstacle (отскок) vs Interactable (триггер) задаётся фла
 | | launchSpeedMultiplier, launchBoostDuration, launchGap | параметры вылета (2.5, 1, 0.1) |
 | **ResourceSource** (производит ресурсы) | def | ResourceSourceDef-ассет |
 | | resourceSystem | ResourceSystem *(или впрыснется в рантайме)* |
+| | readyRoot | дочерний объект-визуал состояния Ready *(пусто для `infinite`)* |
+| | harvestedRoot | дочерний объект-визуал состояния Harvested *(пусто для `infinite`)* |
 
 > Природные источники (Tree/Wheat/Stone) — это `Structure` + `ResourceSource` **без** `Spawner`.
 > Здания-источники (Forge/Church) — `Structure` + `ResourceSource` с `infinite`-дефом.
 > Юниты появятся только если у `Spawner` заполнены `spawnSystem` + `unitDef` (цикл стартует в `Spawner.Start()`).
+
+**Не-`infinite` источники имеют два визуальных рута** вместо одного `Visual` — `ResourceSource`
+включает один и выключает другой при истощении/восстановлении (`SetActive`). Арт каждого состояния
+(спрайт + Sorting Layer + пивот) живёт в префабе, не в дефе:
+```
+Root          → Rigidbody2D (Static) + Structure + ResourceSource
+├── Physics       → BoxCollider2D            (на хосте; гасится в Harvested через SetColliderEnabled)
+├── ReadyRoot     → SpriteRenderer (Sorting Layer Entities, пивот у основания — Y-сортируется с юнитами)
+└── HarvestedRoot → SpriteRenderer (Sorting Layer Ground — юниты всегда проходят поверх)
+```
+> Коллайдер НЕ кладётся внутрь рутов: `CollisionTarget` кэширует его в `Awake` через
+> `GetComponentInChildren`, который не видит выключенные объекты. В префабе: `ReadyRoot` активен,
+> `HarvestedRoot` выключен (код всё равно выставит состояние в `Start`, но так нет мигания кадром).
+> `infinite`-источники (Forge/Church) оставляют оба рута пустыми и используют единственный `Visual`.
+> Y-сортировка включается глобально: **Project Settings → Graphics → Transparency Sort Mode = Custom Axis (0,1,0)**.
 
 ### BaseFence / заборы (Structure на РЕБРЕ грида)
 Забор не занимает клетку — он стоит на **ребре** (границе между двумя клетками). Это один префаб с
@@ -192,7 +209,7 @@ Root → Button + BuildCardUI + CanvasGroup
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
 | **StructureDef** | LittlePeeps/StructureDef | id, displayName, icon, prefab, **placement (Cell=футпринт клеток / Edge=забор на ребре)**, size, cost[], allowedTerrain[] (пусто = любой биом), sellRefundPercent (0..1), border (расширяет занимаемую территорию в клетках: дом=1 → 2×2 занимает 4×4 сетки; дерево/поле=0; для Edge не используется) |
-| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто), infinite, hitsBeforeDespawn, respawnTime, readySprite, harvestedSprite |
+| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто), infinite, hitsBeforeDespawn, respawnTime *(визуалы состояний живут в префабе как ReadyRoot/HarvestedRoot, не в дефе)* |
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | structures: список StructureDef для нижней панели |

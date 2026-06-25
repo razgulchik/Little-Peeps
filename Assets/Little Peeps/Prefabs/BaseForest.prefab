@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 642800276374103726}
   - component: {fileID: 3584202466413991201}
   - component: {fileID: 7560134035485052476}
-  - component: {fileID: 5450856844415473507}
   - component: {fileID: 5450856844415473508}
   m_Layer: 0
   m_Name: BaseForest
@@ -77,20 +76,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: 952849a7c1966d149900dc7343cee664, type: 2}
---- !u!114 &5450856844415473507
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2082745530468544585}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac4615e2a3756cb43bffe61e0d09d943, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  def: {fileID: 11400000, guid: f859f958ef8491246bab7b0e37c3aae4, type: 2}
-  resourceSystem: {fileID: 0}
 --- !u!114 &5450856844415473508
 MonoBehaviour:
   m_ObjectHideFlags: 0

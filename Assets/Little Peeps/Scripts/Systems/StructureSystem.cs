@@ -55,8 +55,10 @@ public class StructureSystem : MonoBehaviour
 
         // A prefab can't serialize scene-system references, so inject them before the new
         // components' Start runs (Build runs in GameBootstrap.Awake → injection happens first).
-        if (go.TryGetComponent<Spawner>(out var spawner)) spawner.Initialize(spawnSystem, grid, instance);
-        if (go.TryGetComponent<ResourceSource>(out var source)) source.Initialize(resourceSystem);
+        // GetComponentsInChildren (not TryGetComponent) so composite prefabs work too: a forest is a
+        // root Structure whose child trees each carry a ResourceSource — inject every one, at any depth.
+        foreach (var spawner in go.GetComponentsInChildren<Spawner>(true)) spawner.Initialize(spawnSystem, grid, instance);
+        foreach (var source in go.GetComponentsInChildren<ResourceSource>(true)) source.Initialize(resourceSystem);
 
         // Put the root at its footprint center (shared rule — the placement ghost uses the same call).
         CenterOnFootprint(go.transform, cell, def.size);

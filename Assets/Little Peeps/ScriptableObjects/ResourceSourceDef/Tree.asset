@@ -22,5 +22,5 @@ MonoBehaviour:
   infinite: 0
   hitsBeforeDespawn: 5
   respawnTime: 5
-  readySprite: {fileID: 21300000, guid: 52f0a25cee254424d8268d9708b03e22, type: 3}
-  harvestedSprite: {fileID: 21300000, guid: 805f778034e55164a88bf81899c2c132, type: 3}
+  readySprite: {fileID: 21300000, guid: 7b8869656d84c1b4a99cf90500ed4e1d, type: 3}
+  harvestedSprite: {fileID: 21300000, guid: f377b7d622ad73a46a610b4242f77c98, type: 3}

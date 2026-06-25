@@ -63,6 +63,9 @@ public class StructureSystem : MonoBehaviour
         // Put the root at its footprint center (shared rule — the placement ghost uses the same call).
         CenterOnFootprint(go.transform, cell, def.size);
 
+        // Forest-style structures pick their interlocking layout by the row they land on.
+        ApplyRowVisual(go, cell.y);
+
         grid.Place(cell, def.size, instance);
         run.structures[cell] = instance;
 
@@ -80,6 +83,16 @@ public class StructureSystem : MonoBehaviour
     {
         Vector2 center = islandSystem.Grid.OriginToWorldCenter(origin, size);
         root.position = new Vector3(center.x, center.y, root.position.z);
+    }
+
+    // A forest carries a DualVisual whose two roots interlock by grid row: even rows show the first
+    // layout, odd rows the second, so adjacent forests form a brick-laid pattern. (row & 1) is correct
+    // for negative rows too on the signed grid. No-op for structures without a DualVisual. Shared by
+    // Build and the Move drop so a forest re-laps itself when carried to another row; the build-mode
+    // ghost mirrors this so the preview matches.
+    public static void ApplyRowVisual(GameObject go, int row)
+    {
+        if (go.TryGetComponent<DualVisual>(out var visual)) visual.Show((row & 1) == 0);
     }
 
     // Sell the structure occupying `cell` (any footprint cell): refund a fraction of its build
@@ -138,6 +151,7 @@ public class StructureSystem : MonoBehaviour
         instance.Cell = origin;
 
         CenterOnFootprint(instance.RuntimeObject.transform, origin, instance.Def.size);
+        ApplyRowVisual(instance.RuntimeObject.gameObject, origin.y);   // re-lap a moved forest onto its new row
     }
 
     // --- Edge-placed structures (fences) ------------------------------------------------------
@@ -167,7 +181,7 @@ public class StructureSystem : MonoBehaviour
         structure.def = def;
 
         // Show the pose (horizontal / vertical child) matching the edge the fence sits on.
-        if (go.TryGetComponent<EdgeStructureVisual>(out var visual)) visual.Apply(edge.horizontal);
+        if (go.TryGetComponent<DualVisual>(out var visual)) visual.Show(edge.horizontal);
 
         var instance = new EdgeInstance { Def = def, RuntimeObject = structure, Edge = edge };
         grid.PlaceEdge(edge, instance);
@@ -223,6 +237,6 @@ public class StructureSystem : MonoBehaviour
         instance.Edge = edge;
 
         instance.RuntimeObject.transform.position = grid.EdgeToWorld(edge);
-        if (instance.RuntimeObject.TryGetComponent<EdgeStructureVisual>(out var visual)) visual.Apply(edge.horizontal);
+        if (instance.RuntimeObject.TryGetComponent<DualVisual>(out var visual)) visual.Show(edge.horizontal);
     }
 }

@@ -20,7 +20,7 @@ MonoBehaviour:
   - worker: 1
     amount: 2
   infinite: 0
-  hitsBeforeDespawn: 5
+  hitsBeforeDespawn: 1
   respawnTime: 5
-  readySprite: {fileID: 21300000, guid: 7b8869656d84c1b4a99cf90500ed4e1d, type: 3}
-  harvestedSprite: {fileID: 21300000, guid: f377b7d622ad73a46a610b4242f77c98, type: 3}
+  readySprite: {fileID: 21300000, guid: 63b560b1208814d47b40240074a70f7d, type: 3}
+  harvestedSprite: {fileID: 21300000, guid: 6a8ea2ef63ebab44ea8eed751c32fb0e, type: 3}

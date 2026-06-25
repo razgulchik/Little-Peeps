@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: tree
   displayName: Tree
-  icon: {fileID: 21300000, guid: 7b8869656d84c1b4a99cf90500ed4e1d, type: 3}
-  prefab: {fileID: 1346494078730204555, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
+  icon: {fileID: 21300000, guid: 63b560b1208814d47b40240074a70f7d, type: 3}
+  prefab: {fileID: 2082745530468544585, guid: d3f241bbaf61dfa47a263281418cb045, type: 3}
   placement: 0
   size: {x: 1, y: 1}
   cost:

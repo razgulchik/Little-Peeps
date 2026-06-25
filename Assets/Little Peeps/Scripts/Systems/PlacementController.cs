@@ -47,35 +47,27 @@ public class PlacementController : MonoBehaviour
     private StructureDef selected;
     private GameObject ghost;
     private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
-    private EdgeStructureVisual ghostVisual;       // non-null when the ghost is an edge structure (fence)
+    private DualVisual ghostVisual;                // non-null when the ghost is an edge structure (fence)
+    private DualVisual ghostRowVisual;             // non-null when the cell ghost interlocks by row (forest)
 
     // Faint square showing the footprint+border the ghost would claim (Place and Move).
     private GameObject territoryGhost;
     private SpriteRenderer territoryRenderer;
     private static Sprite squareSprite;   // shared 1x1 white sprite the territory quad is scaled from
 
-    // Hover tint (Sell target / grabbable Move target): the structure currently tinted + its color.
+    // Hover tint (Sell target / grabbable Move target): the structure OR fence currently tinted. A cell
+    // structure and a fence are never both hovered (the edge wins by NearEdge precedence), so a single
+    // TintTarget holds whichever one's renderers + original colors.
     private StructureInstance hoveredInstance;
-    private SpriteRenderer hoveredRenderer;
-    private Color hoveredOriginalColor;
-
-    // Hover tint for a FENCE: the edge currently tinted + both pose renderers and their original
-    // colors. A fence and a cell structure are never both hovered (edge wins by NearEdge precedence).
     private EdgeInstance hoveredEdge;
-    private SpriteRenderer[] hoveredEdgeRenderers;
-    private Color[] hoveredEdgeOriginalColors;
+    private readonly TintTarget hoverTint = new();
 
-    // Move-mode drag: the structure lifted off the grid and following the cursor + its original color.
+    // Move-mode drag: the structure OR fence lifted off the grid and following the cursor. Only one is
+    // ever held; heldEdgeVisual drives the fence's pose while dragging; heldTint holds its tint.
     private StructureInstance heldInstance;
-    private SpriteRenderer heldRenderer;
-    private Color heldOriginalColor;
-
-    // Move-mode drag for a FENCE: the lifted edge structure + both pose renderers and their original
-    // colors (restored on release). Parallel to the cell held-state above.
     private EdgeInstance heldEdge;
-    private EdgeStructureVisual heldEdgeVisual;
-    private SpriteRenderer[] heldEdgeRenderers;
-    private Color[] heldEdgeOriginalColors;
+    private DualVisual heldEdgeVisual;
+    private readonly TintTarget heldTint = new();
 
     private void OnEnable()
     {
@@ -139,6 +131,8 @@ public class PlacementController : MonoBehaviour
 
         ghostRenderers = ghost.GetComponentsInChildren<SpriteRenderer>(true);
         foreach (var r in ghostRenderers) r.sortingOrder += 1;   // draw above the placed structures
+
+        ghostRowVisual = ghost.GetComponent<DualVisual>();   // forest: the preview interlocks by row too
     }
 
     // Edge ghost (fence): instantiate the real prefab so the preview matches 1:1 (both poses), then
@@ -148,7 +142,7 @@ public class PlacementController : MonoBehaviour
     {
         ghost = Instantiate(def.prefab);
         ghost.name = "PlacementGhost";
-        ghostVisual = ghost.GetComponent<EdgeStructureVisual>();
+        ghostVisual = ghost.GetComponent<DualVisual>();
 
         foreach (var col in ghost.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
         if (ghost.TryGetComponent<Structure>(out var s)) s.enabled = false;
@@ -198,6 +192,7 @@ public class PlacementController : MonoBehaviour
 
         // Same placement rule as a real structure — the builder owns it (ghost matches exactly).
         structureSystem.CenterOnFootprint(ghost.transform, origin, selected.size);
+        if (ghostRowVisual != null) ghostRowVisual.Show((origin.y & 1) == 0);   // forest: preview the row's layout
 
         bool ok = grid.CanPlace(origin, selected.size, selected.allowedTerrain, selected.border)
                   && resourceSystem.CanAfford(selected.cost);
@@ -213,7 +208,7 @@ public class PlacementController : MonoBehaviour
         Edge edge = grid.WorldToEdge(ScreenToWorld());
 
         ghost.transform.position = grid.EdgeToWorld(edge);
-        if (ghostVisual != null) ghostVisual.Apply(edge.horizontal);
+        if (ghostVisual != null) ghostVisual.Show(edge.horizontal);
 
         bool ok = grid.CanPlaceEdge(edge) && resourceSystem.CanAfford(selected.cost);
         TintGhost(ok ? validColor : invalidColor);
@@ -222,8 +217,9 @@ public class PlacementController : MonoBehaviour
 
     private void TintGhost(Color color) => Tint(ghostRenderers, color);
 
-    // Color every renderer in the set (skipping nulls). Used to tint a multi-renderer ghost or a
-    // dragged fence (both poses) in one call.
+    // Color every renderer in the set (skipping nulls). Used to tint the multi-renderer place ghost,
+    // which is destroyed rather than restored. (A hovered/dragged structure uses TintTarget instead,
+    // which also remembers the originals so the tint can be undone.)
     private static void Tint(SpriteRenderer[] renderers, Color color)
     {
         if (renderers == null) return;
@@ -231,20 +227,52 @@ public class PlacementController : MonoBehaviour
             if (renderers[i] != null) renderers[i].color = color;
     }
 
-    // Snapshot each renderer's current color so a tint can be undone later. Paired with RestoreColors.
-    private static Color[] CaptureColors(SpriteRenderer[] renderers)
+    // One tinted structure — a hover target or the dragged structure — bundling its renderers with the
+    // colors they had before the tint, so the tint can be applied and undone as a unit. Works the same
+    // for a cell structure (a forest is many trees) and a fence (its two poses): every renderer is
+    // taken includeInactive so a hidden visual root is covered too. Shared by hoverTint and heldTint.
+    private sealed class TintTarget
     {
-        var colors = new Color[renderers.Length];
-        for (int i = 0; i < renderers.Length; i++) colors[i] = renderers[i].color;
-        return colors;
-    }
+        private SpriteRenderer[] renderers;
+        private Color[] originalColors;
 
-    // Put back colors captured by CaptureColors (skipping nulls / destroyed renderers).
-    private static void RestoreColors(SpriteRenderer[] renderers, Color[] originalColors)
-    {
-        if (renderers == null) return;
-        for (int i = 0; i < renderers.Length; i++)
-            if (renderers[i] != null) renderers[i].color = originalColors[i];
+        public bool Active => renderers != null;
+
+        // Snapshot every renderer under `root` and the color it currently has (no tint applied yet —
+        // call Retint to color them). Replaces any previous capture without restoring it, so callers
+        // restore/forget first.
+        public void Capture(Component root)
+        {
+            renderers = root.GetComponentsInChildren<SpriteRenderer>(true);
+            originalColors = new Color[renderers.Length];
+            for (int i = 0; i < renderers.Length; i++) originalColors[i] = renderers[i].color;
+        }
+
+        // Color all captured renderers (skipping destroyed ones). Cheap to call every frame for the
+        // drag's valid/invalid tint; does not touch the remembered originals.
+        public void Retint(Color color)
+        {
+            if (renderers == null) return;
+            for (int i = 0; i < renderers.Length; i++)
+                if (renderers[i] != null) renderers[i].color = color;
+        }
+
+        // Put the original colors back (skipping destroyed renderers) and forget the target.
+        public void Restore()
+        {
+            if (renderers == null) return;
+            for (int i = 0; i < renderers.Length; i++)
+                if (renderers[i] != null) renderers[i].color = originalColors[i];
+            Forget();
+        }
+
+        // Forget the target WITHOUT restoring — for when the structure is being destroyed (Sell), so
+        // there is nothing to color back.
+        public void Forget()
+        {
+            renderers = null;
+            originalColors = null;
+        }
     }
 
     // Tint the structure under the cursor with `tint` so it reads as the hover target — used by Sell
@@ -265,9 +293,8 @@ public class PlacementController : MonoBehaviour
             {
                 ClearHover();
                 hoveredEdge = fence;
-                hoveredEdgeRenderers = fence.RuntimeObject.GetComponentsInChildren<SpriteRenderer>(true);
-                hoveredEdgeOriginalColors = CaptureColors(hoveredEdgeRenderers);
-                Tint(hoveredEdgeRenderers, tint);
+                hoverTint.Capture(fence.RuntimeObject);
+                hoverTint.Retint(tint);
             }
             return;
         }
@@ -279,26 +306,17 @@ public class PlacementController : MonoBehaviour
         if (instance != null)
         {
             hoveredInstance = instance;
-            hoveredRenderer = instance.RuntimeObject.GetComponentInChildren<SpriteRenderer>();
-            if (hoveredRenderer != null)
-            {
-                hoveredOriginalColor = hoveredRenderer.color;
-                hoveredRenderer.color = tint;
-            }
+            hoverTint.Capture(instance.RuntimeObject);
+            hoverTint.Retint(tint);
         }
     }
 
     // Restore the tinted structure / fence (if any) to its original color and forget it.
     private void ClearHover()
     {
-        if (hoveredRenderer != null) hoveredRenderer.color = hoveredOriginalColor;
+        hoverTint.Restore();
         hoveredInstance = null;
-        hoveredRenderer = null;
-
-        RestoreColors(hoveredEdgeRenderers, hoveredEdgeOriginalColors);
         hoveredEdge = null;
-        hoveredEdgeRenderers = null;
-        hoveredEdgeOriginalColors = null;
     }
 
     // Move tool: while a structure is held it follows the cursor (the real object is dragged) and is
@@ -306,7 +324,7 @@ public class PlacementController : MonoBehaviour
     private void UpdateMoveDrag()
     {
         if (heldEdge != null) { UpdateEdgeDrag(); return; }
-        if (heldInstance == null || heldRenderer == null) return;
+        if (heldInstance == null || !heldTint.Active) return;
 
         var grid = islandSystem.Grid;
         var def = heldInstance.Def;
@@ -314,7 +332,8 @@ public class PlacementController : MonoBehaviour
 
         bool ok = grid.CanPlace(origin, def.size, def.allowedTerrain, def.border);
         structureSystem.CenterOnFootprint(heldInstance.RuntimeObject.transform, origin, def.size);
-        heldRenderer.color = ok ? validColor : invalidColor;
+        StructureSystem.ApplyRowVisual(heldInstance.RuntimeObject.gameObject, origin.y);   // re-lap a dragged forest
+        heldTint.Retint(ok ? validColor : invalidColor);
         ShowTerritory(origin, def.size, def.border, ok);
     }
 
@@ -326,9 +345,9 @@ public class PlacementController : MonoBehaviour
         Edge edge = grid.WorldToEdge(ScreenToWorld());
 
         heldEdge.RuntimeObject.transform.position = grid.EdgeToWorld(edge);
-        if (heldEdgeVisual != null) heldEdgeVisual.Apply(edge.horizontal);
+        if (heldEdgeVisual != null) heldEdgeVisual.Show(edge.horizontal);
 
-        Tint(heldEdgeRenderers, grid.CanPlaceEdge(edge) ? validColor : invalidColor);
+        heldTint.Retint(grid.CanPlaceEdge(edge) ? validColor : invalidColor);
         HideTerritory();
     }
 
@@ -411,8 +430,7 @@ public class PlacementController : MonoBehaviour
             {
                 // The hover target is being destroyed — drop the refs without touching its color.
                 hoveredEdge = null;
-                hoveredEdgeRenderers = null;
-                hoveredEdgeOriginalColors = null;
+                hoverTint.Forget();
                 // No gridOverlay.Refresh(): fences occupy no cells, so the territory fill is unchanged.
             }
             return;
@@ -425,7 +443,7 @@ public class PlacementController : MonoBehaviour
         {
             // The hover target is being destroyed — drop the refs without touching its color.
             hoveredInstance = null;
-            hoveredRenderer = null;
+            hoverTint.Forget();
             gridOverlay.Refresh();   // cells freed → update the territory fill
         }
     }
@@ -460,13 +478,12 @@ public class PlacementController : MonoBehaviour
         if (occupant == null) return;   // empty cell / off-island — nothing to pick up
 
         // The structure being grabbed is the one the move-hover just tinted green — restore its true
-        // color FIRST, so we capture the real original (not the green tint) as heldOriginalColor.
+        // colors FIRST, so heldTint captures the real originals (not the green tint).
         ClearHover();
 
         structureSystem.PickUpStructure(occupant);   // frees its grid cells + run entry
         heldInstance = occupant;
-        heldRenderer = occupant.RuntimeObject.GetComponentInChildren<SpriteRenderer>();
-        if (heldRenderer != null) heldOriginalColor = heldRenderer.color;
+        heldTint.Capture(occupant.RuntimeObject);
         gridOverlay.Refresh();   // structure lifted off the grid → its territory fill clears (the ghost halo takes over)
     }
 
@@ -477,9 +494,8 @@ public class PlacementController : MonoBehaviour
         structureSystem.PickUpEdgeStructure(fence);   // frees the grid edge + run entry
 
         heldEdge = fence;
-        heldEdgeVisual = fence.RuntimeObject.GetComponent<EdgeStructureVisual>();
-        heldEdgeRenderers = fence.RuntimeObject.GetComponentsInChildren<SpriteRenderer>(true);
-        heldEdgeOriginalColors = CaptureColors(heldEdgeRenderers);
+        heldEdgeVisual = fence.RuntimeObject.GetComponent<DualVisual>();
+        heldTint.Capture(fence.RuntimeObject);
     }
 
     private void TryDrop(Vector2 worldPos)
@@ -522,19 +538,16 @@ public class PlacementController : MonoBehaviour
 
     private void ReleaseHeld()
     {
-        if (heldRenderer != null) heldRenderer.color = heldOriginalColor;
+        heldTint.Restore();
         heldInstance = null;
-        heldRenderer = null;
         HideTerritory();
     }
 
     private void ReleaseHeldEdge()
     {
-        RestoreColors(heldEdgeRenderers, heldEdgeOriginalColors);
+        heldTint.Restore();
         heldEdge = null;
         heldEdgeVisual = null;
-        heldEdgeRenderers = null;
-        heldEdgeOriginalColors = null;
         HideTerritory();
     }
 
@@ -550,6 +563,7 @@ public class PlacementController : MonoBehaviour
         ghost = null;
         ghostRenderers = null;
         ghostVisual = null;
+        ghostRowVisual = null;
         HideTerritory();
     }
 

@@ -12,8 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 286d08d42b530cd4b9d6bc482991eb1c, type: 3}
   m_Name: Starting Layout Def
   m_EditorClassIdentifier: 
-  entries:
-  - def: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
-    cell: {x: -2, y: 0}
-  - def: {fileID: 11400000, guid: 952849a7c1966d149900dc7343cee664, type: 2}
-    cell: {x: 1, y: -1}
+  entries: []

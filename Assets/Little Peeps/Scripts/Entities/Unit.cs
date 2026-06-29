@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 public class Unit : MonoBehaviour
@@ -15,7 +14,6 @@ public class Unit : MonoBehaviour
     private SpriteRenderer spriteRenderer;
     private Collider2D bodyCollider;
     private float baseSpeed;
-    private Coroutine boostCoroutine;
 
     private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
 
@@ -67,7 +65,6 @@ public class Unit : MonoBehaviour
     public void EnterRest()
     {
         launchBoostTimer = 0f;
-        if (boostCoroutine != null) { StopCoroutine(boostCoroutine); boostCoroutine = null; }
 
         rb.linearVelocity = Vector2.zero;
         rb.simulated = false;
@@ -76,8 +73,8 @@ public class Unit : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // Tap boost (if any) owns the velocity while it runs.
-        if (launchBoostTimer <= 0f || boostCoroutine != null) return;
+        // No active launch/tap boost → physics owns the velocity.
+        if (launchBoostTimer <= 0f) return;
 
         launchBoostTimer -= Time.fixedDeltaTime;
 
@@ -95,19 +92,15 @@ public class Unit : MonoBehaviour
         rb.linearVelocity = rb.linearVelocity.normalized * newSpeed;
     }
 
-    // Multiply speed for duration seconds; re-calling mid-boost resets the timer.
-    // radius is the AoE tap radius handled by TapSystem, not used here.
-    public void Boost(float speedMultiplier, float radius, float duration)
+    // Tap boost: accelerate along the current heading (random if nearly stopped), then let the
+    // decaying brake in FixedUpdate ease the speed back to baseSpeed over ~duration seconds.
+    // Re-tapping mid-boost just re-launches, resetting the decay timer. AoE/radius is owned by
+    // TapSystem; this only takes the per-unit boost amount and how long it lingers.
+    public void Boost(float speedMultiplier, float duration)
     {
-        if (boostCoroutine != null) StopCoroutine(boostCoroutine);
-        boostCoroutine = StartCoroutine(BoostRoutine(speedMultiplier, duration));
-    }
-
-    private IEnumerator BoostRoutine(float speedMultiplier, float duration)
-    {
-        rb.linearVelocity = rb.linearVelocity.normalized * baseSpeed * speedMultiplier;
-        yield return new WaitForSeconds(duration);
-        rb.linearVelocity = rb.linearVelocity.normalized * baseSpeed;
-        boostCoroutine = null;
+        Vector2 dir = rb.linearVelocity.sqrMagnitude > 0.0001f
+            ? rb.linearVelocity.normalized
+            : Random.insideUnitCircle.normalized;
+        Launch(dir, speedMultiplier, duration);
     }
 }

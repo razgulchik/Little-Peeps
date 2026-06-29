@@ -1,9 +1,17 @@
 using UnityEngine;
 
-// Handles game-object taps: boosts units in AoE radius, triggers prestige on Pier click.
+// Handles game-object taps: boosts units in an AoE radius around the cursor, triggers prestige on Pier
+// click. A ring (TapRadiusVisual) follows the cursor every frame so the player sees the boost area; it
+// only shows during normal gameplay (timeScale != 0 — build mode/pause freeze time and hide it).
 public class TapSystem : MonoBehaviour
 {
     [SerializeField] private InputHandler inputHandler;
+    [SerializeField] private TapRadiusVisual radiusVisual;
+
+    [Header("Boost (placeholder until perks/upgrades drive these)")]
+    [SerializeField] private float tapRadius = 0.5f;
+    [SerializeField] private float boostSpeedMultiplier = 2f;
+    [SerializeField] private float boostDuration = 5f;
 
     private RunContext runContext;
 
@@ -15,6 +23,19 @@ public class TapSystem : MonoBehaviour
     private void OnEnable()  => inputHandler.OnWorldClick += OnWorldClick;
     private void OnDisable() => inputHandler.OnWorldClick -= OnWorldClick;
 
+    // Drive the cursor ring: visible & following the mouse only in live gameplay.
+    private void Update()
+    {
+        if (radiusVisual == null) return;
+
+        bool active = Time.timeScale != 0f && inputHandler.HasMouse;
+        radiusVisual.SetVisible(active);
+        if (!active) return;
+
+        radiusVisual.SetRadius(tapRadius);
+        radiusVisual.transform.position = inputHandler.WorldMousePosition;
+    }
+
     private void OnWorldClick(Vector2 worldPos)
     {
         // Build mode pauses the game (timeScale 0) and the PlacementController owns clicks then —
@@ -23,22 +44,24 @@ public class TapSystem : MonoBehaviour
 
         // Pier: exact point check — click anywhere on its collider triggers prestige
         var exactHit = Physics2D.OverlapPoint(worldPos);
-        if (exactHit != null && exactHit.TryGetComponent<Pier>(out _))
+        if (exactHit != null && exactHit.GetComponentInParent<Pier>() != null)
         {
             EventBus<PrestigeTriggeredEvent>.Publish(new PrestigeTriggeredEvent());
             return;
         }
 
-        // Units: AoE boost — all units within tap radius get boosted
+        // Units: AoE boost — every unit whose collider overlaps the tap radius gets boosted.
+        // The collider lives on a child ("Physics"), so resolve the Unit via GetComponentInParent.
         var (speedMult, radius, duration) = GetBoostParams();
         var hits = Physics2D.OverlapCircleAll(worldPos, radius);
         foreach (var hit in hits)
         {
-            if (!hit.TryGetComponent<Unit>(out var unit)) continue;
-            unit.Boost(speedMult, radius, duration);
+            var unit = hit.GetComponentInParent<Unit>();
+            if (unit == null) continue;
+            unit.Boost(speedMult, duration);
             EventBus<UnitBoostedEvent>.Publish(new UnitBoostedEvent
             {
-                Unit           = unit,
+                Unit            = unit,
                 SpeedMultiplier = speedMult,
                 Radius          = radius,
                 Duration        = duration,
@@ -48,7 +71,7 @@ public class TapSystem : MonoBehaviour
 
     private (float speedMult, float radius, float duration) GetBoostParams()
     {
-        // TODO: read from runContext once perks/upgrades are implemented
-        return (2f, 0.5f, 5f);
+        // TODO: fold in runContext perks/upgrades once they're implemented.
+        return (boostSpeedMultiplier, tapRadius, boostDuration);
     }
 }

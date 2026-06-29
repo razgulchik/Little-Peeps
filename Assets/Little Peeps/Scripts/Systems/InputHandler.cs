@@ -11,13 +11,22 @@ public class InputHandler : MonoBehaviour
     public event Action<Vector2> OnWorldClick;
     public event Action<Vector2> OnWorldRightClick;
 
+    // Current mouse position in world space, refreshed every frame. HasMouse is false when no
+    // pointer device is present (don't trust WorldMousePosition then). Consumers that need to
+    // follow the cursor every frame (e.g. TapSystem's radius ring) read these instead of polling.
+    public Vector2 WorldMousePosition { get; private set; }
+    public bool HasMouse { get; private set; }
+
     private void Update()
     {
         var mouse = Mouse.current;
-        if (mouse == null) return;
+        HasMouse = mouse != null;
+        if (!HasMouse) return;
 
-        if (mouse.leftButton.wasPressedThisFrame)  OnWorldClick?.Invoke(ToWorld(mouse));
-        if (mouse.rightButton.wasPressedThisFrame) OnWorldRightClick?.Invoke(ToWorld(mouse));
+        WorldMousePosition = ToWorld(mouse);
+
+        if (mouse.leftButton.wasPressedThisFrame)  OnWorldClick?.Invoke(WorldMousePosition);
+        if (mouse.rightButton.wasPressedThisFrame) OnWorldRightClick?.Invoke(WorldMousePosition);
     }
 
     private Vector2 ToWorld(Mouse mouse)

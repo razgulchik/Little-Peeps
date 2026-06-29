@@ -92,6 +92,7 @@ MonoBehaviour:
   resourceSystem: {fileID: 0}
   readyRoot: {fileID: 2548948665812281823}
   harvestedRoot: {fileID: 1827955332502405057}
+  swapStateVisuals: 1
 --- !u!1 &1827955332502405057
 GameObject:
   m_ObjectHideFlags: 0

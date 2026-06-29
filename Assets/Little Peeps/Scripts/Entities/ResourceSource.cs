@@ -13,6 +13,12 @@ using UnityEngine;
 // so a tall Ready node (wheat/tree) can Y-sort against passing units while the flat Harvested
 // node sits on a lower layer that units always walk over. Infinite sources (Forge/Church) keep
 // their single visual and leave both roots untouched.
+//
+// swapStateVisuals controls how the two roots are composited:
+//   off (default base) — harvestedRoot is the always-on background base; readyRoot is an overlay
+//                        on top that switches off once harvested. Not mutually exclusive.
+//   on                 — mutually exclusive swap: exactly one root is shown for the current state.
+// Gameplay (collider toggle, deplete, respawn) is identical either way; only the visual differs.
 [RequireComponent(typeof(CollisionTarget))]
 public class ResourceSource : MonoBehaviour, ICollisionEffect
 {
@@ -24,6 +30,10 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
     [Header("State visuals (leave empty for infinite sources)")]
     [SerializeField] private GameObject readyRoot;
     [SerializeField] private GameObject harvestedRoot;
+    [Tooltip("On: swap one root for the other per state (mutually exclusive). " +
+             "Off (base): harvestedRoot stays on as the background; readyRoot is an overlay that " +
+             "switches off once harvested.")]
+    [SerializeField] private bool swapStateVisuals;
 
     private CollisionTarget host;
     private int hitsLeft;
@@ -116,13 +126,23 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
         ApplyStateVisual();
     }
 
-    // Shows the root matching the current state. Infinite sources keep their single visual, so
+    // Drives the two roots from the current state. Infinite sources keep their single visual, so
     // both roots are left as the prefab set them (typically only one is present and active).
     private void ApplyStateVisual()
     {
         if (def == null || def.infinite) return;
 
-        if (readyRoot != null) readyRoot.SetActive(state == State.Ready);
-        if (harvestedRoot != null) harvestedRoot.SetActive(state == State.Harvested);
+        if (!swapStateVisuals)
+        {
+            // Base: harvestedRoot is the always-on background; readyRoot overlays it while Ready.
+            if (harvestedRoot != null) harvestedRoot.SetActive(true);
+            if (readyRoot != null) readyRoot.SetActive(state == State.Ready);
+        }
+        else
+        {
+            // Mutually exclusive: exactly the root for the current state is shown.
+            if (readyRoot != null) readyRoot.SetActive(state == State.Ready);
+            if (harvestedRoot != null) harvestedRoot.SetActive(state == State.Harvested);
+        }
     }
 }

@@ -1,33 +1,48 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Unity.Cinemachine;
 
-// Drives the CameraTarget transform during gameplay AND build mode — the strategy-camera rig pattern:
-// this object is the logical target, and a Cinemachine vcam follows it with damping (the smooth motion
-// lives in Cinemachine, not here). Self-contained: polls keyboard/mouse directly (no InputHandler
-// dependency, since panning needs only a screen delta, not world coords) and runs on UNSCALED time so
-// panning still works while build mode has frozen the game (Time.timeScale = 0). Movement sources:
+// The strategy-camera "brain": drives the rig during gameplay AND build mode without being part of the
+// rig itself. The rig is three dumb objects — a CameraTarget transform (the logical center), a rendering
+// Camera + CinemachineBrain, and a CinemachineCamera (vcam) that follows the target with damping (the
+// smooth motion lives in Cinemachine, not here). This controller lives on its OWN GameObject and reaches
+// into the rig through references, so each rig object keeps a single responsibility.
+//
+// Self-contained input: polls keyboard/mouse directly (no InputHandler dependency, since panning needs
+// only a screen delta, not world coords) and runs on UNSCALED time so panning/zoom still work while build
+// mode has frozen the game (Time.timeScale = 0). Movement sources:
 //   - WASD / arrow keys       → velocity pan
 //   - cursor at a screen edge  → pan toward that edge
 //   - middle-mouse drag        → grab-and-drag the world under the cursor
+//   - mouse wheel              → zoom (to screen center) by changing the vcam's ortho size
 // The target is clamped to the island's world bounds (from IslandSystem) expanded by a configurable
 // margin, so the player can't pan off into empty space; the vcam follows the clamped target so the
-// camera stays in range too. Zoom (and a Cinemachine Confiner2D) is a later iteration.
+// camera stays in range too. (A Cinemachine Confiner2D is a later iteration.)
 //
-// Place on the CameraTarget GameObject (NOT the camera) and wire:
+// Place on a dedicated CameraController GameObject (NOT on the CameraTarget and NOT on the Camera) and wire:
+//   - cameraTarget  → the CameraTarget transform this drives (pan)
+//   - vcam          → the CinemachineCamera; we set its Lens.OrthographicSize to zoom
+//   - viewCamera    → the rendering Camera, only to convert drag pixels → world units (its ortho size is
+//                     driven by the Cinemachine brain, so it reflects the live zoom).
 //   - islandSystem  → for the bounds clamp
-//   - viewCamera    → the rendering Camera, only to convert drag pixels → world units (its ortho size
-//                     is driven by the Cinemachine brain, so it reflects the live zoom).
 // Reads the grid in Start (not Awake), per the bootstrap rule: the run + island are built in
 // GameBootstrap.Awake.
 public class CameraController : MonoBehaviour
 {
-    [SerializeField] private IslandSystem islandSystem;
+    [SerializeField] private Transform cameraTarget;      // the logical center the vcam follows; we pan it
+    [SerializeField] private CinemachineCamera vcam;      // owns the live ortho size (zoom)
     [SerializeField] private Camera viewCamera;           // rendering camera (Cinemachine brain output); drag scale only
+    [SerializeField] private IslandSystem islandSystem;
 
     [Header("Keyboard / edge pan")]
     [SerializeField] private float panSpeed = 12f;        // world units / second
     [SerializeField] private bool edgePanEnabled = true;
     [SerializeField] private float edgeThickness = 12f;   // px from the screen border that triggers edge-pan
+
+    [Header("Zoom")]
+    [SerializeField] private float zoomSpeed = 2f;        // ortho-size units per mouse-wheel notch
+    [SerializeField] private float minZoom = 3f;          // most zoomed-in ortho half-height
+    [SerializeField] private float maxZoom = 12f;         // most zoomed-out ortho half-height
 
     [Header("Bounds")]
     [SerializeField] private float boundsMargin = 4f;     // how far past the island edge the target may go
@@ -58,7 +73,11 @@ public class CameraController : MonoBehaviour
 
     private void Update()
     {
-        Vector3 pos = transform.position;
+        if (cameraTarget == null) return;
+
+        HandleZoom();
+
+        Vector3 pos = cameraTarget.position;
 
         // Middle-mouse drag takes over while held; keyboard/edge are skipped so they don't fight it.
         if (HandleDrag(ref pos))
@@ -78,6 +97,22 @@ public class CameraController : MonoBehaviour
         }
 
         ApplyPosition(pos);
+    }
+
+    // Mouse-wheel zoom toward the screen center: drive the vcam's ortho half-height between min/max.
+    // The rendering camera's ortho size is driven by the Cinemachine brain, so it follows automatically
+    // (with the vcam's damping). Discrete per-notch step, so no deltaTime scaling.
+    private void HandleZoom()
+    {
+        var mouse = Mouse.current;
+        if (mouse == null || vcam == null) return;
+
+        float scroll = mouse.scroll.ReadValue().y;
+        if (Mathf.Approximately(scroll, 0f)) return;
+
+        // scroll > 0 (wheel up) → zoom in → smaller ortho size.
+        float size = vcam.Lens.OrthographicSize - Mathf.Sign(scroll) * zoomSpeed;
+        vcam.Lens.OrthographicSize = Mathf.Clamp(size, minZoom, maxZoom);
     }
 
     // Middle-mouse drag-pan: while held, move the camera opposite the cursor's pixel delta so the
@@ -161,7 +196,7 @@ public class CameraController : MonoBehaviour
             pos.x = Mathf.Clamp(pos.x, islandBounds.min.x - boundsMargin, islandBounds.max.x + boundsMargin);
             pos.y = Mathf.Clamp(pos.y, islandBounds.min.y - boundsMargin, islandBounds.max.y + boundsMargin);
         }
-        pos.z = transform.position.z;
-        transform.position = pos;
+        pos.z = cameraTarget.position.z;
+        cameraTarget.position = pos;
     }
 }

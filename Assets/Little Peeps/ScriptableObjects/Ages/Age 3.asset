@@ -12,18 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d42896010a8f2fa4382c366b1d870752, type: 3}
   m_Name: Age 3
   m_EditorClassIdentifier: 
-  title: Age 1
+  title: Age 3
   resourceCost:
   - resourceType: 0
     amount: 0
   modifiers:
-  - id: 2
+  - id: 1
     unitScope: 0
-    resourceScope: 0
+    resourceScope: 1
     flat: 1
     percent: 0
   expansionBlocks:
-  - x: 2
-    y: -2
+  - x: -4
+    y: 2
     width: 2
     height: 2

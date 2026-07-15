@@ -23,7 +23,7 @@ MonoBehaviour:
     flat: 1
     percent: 0
   expansionBlocks:
-  - x: 2
+  - x: 3
     y: -2
     width: 2
     height: 2

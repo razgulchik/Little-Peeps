@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d42896010a8f2fa4382c366b1d870752, type: 3}
   m_Name: Age 5
   m_EditorClassIdentifier: 
-  title: Age 1
+  title: Age 5
   resourceCost:
   - resourceType: 0
     amount: 0
@@ -23,7 +23,7 @@ MonoBehaviour:
     flat: 1
     percent: 0
   expansionBlocks:
-  - x: 2
-    y: -2
-    width: 2
-    height: 2
+  - x: -5
+    y: -5
+    width: 11
+    height: 11

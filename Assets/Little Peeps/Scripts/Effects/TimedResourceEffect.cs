@@ -27,7 +27,8 @@ public class TimedResourceEffect : ICollisionEffect
 
     private IEnumerator ProductionCoroutine(CollisionTarget target)
     {
-        // TODO: Idle→Active: each frame for duration seconds, resourceSystem.AddResource(resourceType, amountPerSecond * Time.deltaTime); then Idle
+        // TODO: Idle→Active: each frame for duration seconds, resourceSystem.AddHarvest(resourceType, requiredUnitType, amountPerSecond * Time.deltaTime); then Idle
+        //       (AddHarvest routes the gain through the yield + production modifiers)
         yield break;
     }
 }

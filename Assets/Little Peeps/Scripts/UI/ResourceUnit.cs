@@ -38,17 +38,19 @@ public class ResourceUnit : MonoBehaviour
     private static readonly string[] Suffixes = { "", "k", "M", "B", "T" };
 
     // Up to 4 digits + a suffix letter (1_256_000 → "1256k", 10_000 → "10k", 999 → "999"). Steps to
-    // the next suffix only when the rounded value would need a 5th digit, so the number stays ≤ 9999.
+    // the next suffix only when the floored value would need a 5th digit, so the number stays ≤ 9999.
+    // Floors (never rounds up) so the label only shows fully-earned units — 1.5 reads as "1". The
+    // stored amount stays a precise float; only this display is truncated.
     private static string Format(float value)
     {
         int tier = 0;
         float v = value;
-        while (Mathf.Abs(v) >= 9999.5f && tier < Suffixes.Length - 1)
+        while (Mathf.Abs(v) >= 10000f && tier < Suffixes.Length - 1)
         {
             v /= 1000f;
             tier++;
         }
 
-        return Mathf.RoundToInt(v) + Suffixes[tier];
+        return Mathf.FloorToInt(v) + Suffixes[tier];
     }
 }

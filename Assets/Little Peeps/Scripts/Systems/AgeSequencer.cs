@@ -1,61 +1,91 @@
+using System;
 using System.Collections;
+using TMPro;
 using UnityEngine;
 
-// Orchestrates the age transition as an explicit sequential coroutine chain
+// Orchestrates the age transition as an explicit sequential coroutine chain: fade to black, grow the
+// island, show the age banner, (perk pick — hooked, later), fade back. Runs on UNSCALED time so it
+// still plays while AgeTransitionState freezes the game (timeScale 0). Signals completion via the
+// onComplete callback the caller passes in.
 public class AgeSequencer : MonoBehaviour
 {
     [SerializeField] private IslandSystem islandSystem;
     [SerializeField] private PerkSystem perkSystem;
 
-    // Kick off the 6-step transition sequence for the given age
-    public void StartAgeTransition(int newAge, RunContext context)
+    [Header("Transition visuals")]
+    [Tooltip("Full-screen overlay faded in/out. Its Image should have Raycast Target on so it also " +
+             "swallows UI clicks while the transition plays.")]
+    [SerializeField] private CanvasGroup fadeOverlay;
+    [SerializeField] private TMP_Text titleLabel;
+    [SerializeField] private float fadeDuration = 0.5f;
+    [SerializeField] private float titleHold = 2f;
+
+    // Kick off the transition into newAge using def, then invoke onComplete when the chain finishes.
+    public void StartAgeTransition(int newAge, AgeDef def, RunContext context, Action onComplete)
     {
-        StartCoroutine(AgeTransitionSequence(newAge, context));
+        StartCoroutine(AgeTransitionSequence(newAge, def, context, onComplete));
     }
 
-    private IEnumerator AgeTransitionSequence(int newAge, RunContext context)
+    private IEnumerator AgeTransitionSequence(int newAge, AgeDef def, RunContext context, Action onComplete)
     {
-        yield return StartCoroutine(FadeOut());
-        yield return StartCoroutine(ExpandIsland(newAge));
-        yield return StartCoroutine(SpawnNewTerrain(newAge));
-        yield return StartCoroutine(ShowAgeTitle(newAge));
-        yield return StartCoroutine(WaitForPerkSelection(newAge, context));
-        yield return StartCoroutine(FadeIn());
+        yield return FadeTo(1f);
+        ExpandIsland(def);
+        yield return null;                         // let the tilemap refresh settle a frame
+        yield return ShowAgeTitle(newAge, def);
+        yield return WaitForPerkSelection(newAge, context);
+        yield return FadeTo(0f);
+        onComplete?.Invoke();
     }
 
-    private IEnumerator FadeOut()
+    private void ExpandIsland(AgeDef def)
     {
-        // TODO: tween a full-screen overlay alpha from 0 to 1 over 0.5s using DOTween or manual Lerp
+        if (islandSystem != null) islandSystem.Expand(def);
+    }
+
+    private IEnumerator ShowAgeTitle(int newAge, AgeDef def)
+    {
+        string text = (def != null && !string.IsNullOrEmpty(def.title)) ? def.title : $"Age {newAge}";
+        if (titleLabel != null)
+        {
+            titleLabel.text = text;
+            titleLabel.gameObject.SetActive(true);
+        }
+
+        EventBus<AgeStartedEvent>.Publish(new AgeStartedEvent { Age = newAge });
+
+        yield return new WaitForSecondsRealtime(titleHold);
+
+        if (titleLabel != null) titleLabel.gameObject.SetActive(false);
+    }
+
+    // Hook for the perk-selection step (roll 3, show PerkSelectionUI, wait for a pick). Intentionally
+    // a no-op for now — perks are a later milestone; the transition just proceeds.
+    private IEnumerator WaitForPerkSelection(int newAge, RunContext context)
+    {
         yield break;
     }
 
-    private IEnumerator ExpandIsland(int age)
+    // Lerp the overlay alpha to target over fadeDuration on unscaled time. Blocks UI raycasts while the
+    // screen is (even partly) covered; stops blocking once fully transparent. Null overlay → instant.
+    private IEnumerator FadeTo(float target)
     {
-        // TODO: islandSystem.Generator.Expand(age); yield return null to let tilemap refresh
-        yield break;
-    }
+        if (fadeOverlay == null) yield break;
 
-    private IEnumerator SpawnNewTerrain(int age)
-    {
-        // TODO: instantiate visual prefabs for newly added cells based on their TerrainType
-        yield break;
-    }
+        fadeOverlay.blocksRaycasts = true;
+        float start = fadeOverlay.alpha;
 
-    private IEnumerator ShowAgeTitle(int age)
-    {
-        // TODO: activate age title UI, set text "Age N"; EventBus<AgeStartedEvent>.Publish(new AgeStartedEvent { Age = age }); yield WaitForSeconds(2); deactivate
-        yield break;
-    }
+        if (fadeDuration > 0f)
+        {
+            float t = 0f;
+            while (t < fadeDuration)
+            {
+                t += Time.unscaledDeltaTime;
+                fadeOverlay.alpha = Mathf.Lerp(start, target, t / fadeDuration);
+                yield return null;
+            }
+        }
 
-    private IEnumerator WaitForPerkSelection(int age, RunContext context)
-    {
-        // TODO: perkSystem.Roll3Perks(age, context) → show PerkSelectionUI; yield until PerkSelectedEvent fires via a local bool flag
-        yield break;
-    }
-
-    private IEnumerator FadeIn()
-    {
-        // TODO: tween overlay alpha from 1 to 0 over 0.5s
-        yield break;
+        fadeOverlay.alpha = target;
+        fadeOverlay.blocksRaycasts = target > 0f;
     }
 }

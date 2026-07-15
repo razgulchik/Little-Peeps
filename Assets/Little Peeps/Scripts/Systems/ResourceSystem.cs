@@ -10,9 +10,14 @@ public class ResourceSystem : MonoBehaviour
 
     private readonly Dictionary<ResourceType, ReactiveValue<float>> resources = new();
 
+    // The run's bonus layer, held so harvest gains can be scaled by yield/production modifiers.
+    private RunStats stats;
+
     // Populate ReactiveValues from RunContext starting amounts (one per ResourceType)
     public void Initialize(RunContext context)
     {
+        stats = context.stats;
+
         resources.Clear();
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
@@ -34,6 +39,18 @@ public class ResourceSystem : MonoBehaviour
         });
 
         if (logChanges) LogChange(type, delta);
+    }
+
+    // Credit a resource GAIN from a worker harvesting a source: applies the per-(worker, resource)
+    // yield modifier, then the global production multiplier, then adds the result. This is the one
+    // gateway for production — route every resource-generating path through it. AddResource/Spend
+    // stay raw for spends, refunds and exact changes (which must NOT be production-boosted).
+    public void AddHarvest(ResourceType type, UnitType worker, float baseAmount)
+    {
+        float amount = stats != null
+            ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type), StatId.ProductionGlobal)
+            : baseAmount;
+        AddResource(type, amount);
     }
 
     // Debug: print the changed resource plus all current totals to the console.

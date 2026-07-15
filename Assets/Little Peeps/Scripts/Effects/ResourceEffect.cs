@@ -14,6 +14,7 @@ public class ResourceEffect : ICollisionEffect
 
     public void OnHit(Unit unit, CollisionTarget target)
     {
-        // TODO: if unit.Type != requiredUnitType return; resourceSystem.AddResource(resourceType, amount)
+        // TODO: if unit.Type != requiredUnitType return; resourceSystem.AddHarvest(resourceType, unit.Type, amount)
+        //       (AddHarvest routes the gain through the yield + production modifiers)
     }
 }

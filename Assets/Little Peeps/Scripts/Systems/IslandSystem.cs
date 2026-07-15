@@ -20,20 +20,13 @@ public class IslandSystem : MonoBehaviour
         Build();
     }
 
-    private void OnEnable()
+    // Grow the island for an age: add its expansion blocks and redraw the tilemap. Driven explicitly
+    // by AgeSequencer (not an event) so expansion happens exactly once, in order, during the transition.
+    public void Expand(AgeDef def)
     {
-        // TODO: EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted)
-    }
-
-    private void OnDisable()
-    {
-        // TODO: EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted)
-    }
-
-    // Expand island and regenerate terrain when a new age begins
-    private void OnAgeStarted(AgeStartedEvent e)
-    {
-        // TODO: Generator.Expand(e.Age); RefreshTilemap()
+        if (def == null || Generator == null) return;
+        Generator.Expand(def.expansionBlocks);
+        RefreshTilemap();
     }
 
     // Right-click the component in Inspector → Generate Island

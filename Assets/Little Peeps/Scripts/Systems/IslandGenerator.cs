@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // Pure C# — decides which cells exist (the island SHAPE) and their terrain, then commits them
@@ -31,10 +32,22 @@ public class IslandGenerator
         // TODO: age > 0 — varied terrain / obstacles based on age tier.
     }
 
-    // Add the cells exposed by the next age. Growth = adding new cells via grid.SetCell (any
-    // direction / clusters); existing cells and their occupants are untouched.
-    public void Expand(int age)
+    // Add the cells of each block to the island as Grass. Blocks are absolute grid rectangles; only
+    // MISSING cells are created, so existing cells (their terrain and occupants) are left untouched —
+    // growth is purely additive and can form any shape (squares, L-corners, detached clusters).
+    public void Expand(IReadOnlyList<RectInt> blocks)
     {
-        // TODO: compute new cells from AgeDef catalogue; grid.SetCell(coord, terrain) for each.
+        if (blocks == null) return;
+
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            RectInt b = blocks[i];
+            for (int x = b.xMin; x < b.xMax; x++)
+                for (int y = b.yMin; y < b.yMax; y++)
+                {
+                    var coord = new Vector2Int(x, y);
+                    if (grid.GetCell(coord) == null) grid.SetCell(coord, TerrainType.Grass);
+                }
+        }
     }
 }

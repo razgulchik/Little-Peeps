@@ -168,7 +168,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spawnSystem: {fileID: 0}
   unitDef: {fileID: 11400000, guid: 191d0f1bb6059f94f9bf1f17f478ffa5, type: 2}
-  capacity: 2
+  capacity: 1
   restDuration: 3
   lockoutDuration: 5
   launchSpeedMultiplier: 4

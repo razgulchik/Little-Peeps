@@ -1,27 +1,25 @@
-// Spend resources and start the age transition sequence
+// Spend the age cost and apply its permanent effects: bump the age counter and push the age's stat
+// modifiers into the run. Pure state mutation — the transition animation is driven by
+// AgeTransitionState, not here, so the command stays free of any FSM / sequencer knowledge.
 public class TriggerAgeCmd : ICommand
 {
     private readonly ResourceSystem resourceSystem;
-    private readonly AgeSequencer ageSequencer;
     private readonly RunContext runContext;
     private readonly AgeDef ageDef;
 
-    public TriggerAgeCmd(ResourceSystem resourceSystem, AgeSequencer ageSequencer, RunContext runContext, AgeDef ageDef)
+    public TriggerAgeCmd(ResourceSystem resourceSystem, RunContext runContext, AgeDef ageDef)
     {
         this.resourceSystem = resourceSystem;
-        this.ageSequencer = ageSequencer;
         this.runContext = runContext;
         this.ageDef = ageDef;
     }
 
-    public bool CanExecute()
-    {
-        // TODO: for each entry in ageDef.resourceCost, check resourceSystem.GetResource(type) >= amount
-        return true;
-    }
+    public bool CanExecute() => ageDef != null && resourceSystem.CanAfford(ageDef.resourceCost);
 
     public void Execute()
     {
-        // TODO: deduct ageDef.resourceCost; runContext.currentAge++; ageSequencer.StartAgeTransition(runContext.currentAge, runContext)
+        resourceSystem.Spend(ageDef.resourceCost);
+        runContext.currentAge++;
+        runContext.stats.Add(ageDef.modifiers);   // production/yield/speed/... — all data-driven
     }
 }

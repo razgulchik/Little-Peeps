@@ -17,6 +17,14 @@ public class SpawnSystem : MonoBehaviour
     private readonly List<Spawner> spawners = new();   // live spawners, for build-mode reset/warmup
     private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll
 
+    private RunStats stats;   // injected into spawned units so their speed reflects run modifiers
+
+    // Injected by RunManager.StartNewRun so units spawned this run carry the run's stat sheet.
+    public void Initialize(RunContext run)
+    {
+        stats = run.stats;
+    }
+
     private void Start()
     {
         if (islandSystem == null)
@@ -63,6 +71,7 @@ public class SpawnSystem : MonoBehaviour
         if (unit == null) return null;
 
         unit.SetIsland(islandSystem);
+        unit.SetStats(stats);
         unit.transform.position = position;
         activeByType.TryGetValue(def.unitType, out var active);
         activeByType[def.unitType] = active + 1;

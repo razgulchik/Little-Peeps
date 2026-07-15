@@ -26,6 +26,7 @@ public class GameBootstrap : MonoBehaviour
     [SerializeField] private SpawnSystem spawnSystem;
     [SerializeField] private StructureSystem buildingSystem;
     [SerializeField] private TapSystem tapSystem;
+    [SerializeField] private AgeSystem ageSystem;
     [SerializeField] private AgeSequencer ageSequencer;
     [SerializeField] private PerkSystem perkSystem;
     [SerializeField] private PrestigeSystem prestigeSystem;
@@ -34,6 +35,7 @@ public class GameBootstrap : MonoBehaviour
 
     [Header("UI")]
     [SerializeField] private PerkSelectionUI perkSelectionUI;
+    [SerializeField] private AgeUI ageUI;
 
     [Header("Build mode")]
     [SerializeField] private PlacementController placementController;
@@ -65,7 +67,9 @@ public class GameBootstrap : MonoBehaviour
 
         // 4. Wire run-dependent systems.
         tapSystem.Initialize(run);
+        ageSystem.Initialize(run);
         if (perkSelectionUI != null) perkSelectionUI.Initialize(perkSystem, run); // UI optional this milestone
+        if (ageUI != null) ageUI.Initialize(ageSystem, run);
 
         // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
         //    Gameplay (when async loading lands, BootState.Tick will own this transition).
@@ -77,7 +81,8 @@ public class GameBootstrap : MonoBehaviour
         var gameplayFsm = new StateMachine();
         var playingState = new PlayingState(gameplayFsm, run);
         var buildModeState = new BuildModeState(spawnSystem, placementController);
-        appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown));
+        appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown,
+                                                               ageSystem, ageSequencer, resourceSystem, run));
 
         // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM
         // and runManager live here; leaving the container restores timeScale via its Exit().

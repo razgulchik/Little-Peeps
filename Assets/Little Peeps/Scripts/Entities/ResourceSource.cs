@@ -78,7 +78,9 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
         if (state == State.Harvested || def == null || resourceSystem == null || unit == null) return;
         if (!TryGetYield(unit.Type, out float amount)) return;
 
-        resourceSystem.AddResource(def.resource, amount);
+        // Through the production gateway: the base amount is scaled by the worker's yield modifier
+        // and the global production multiplier before being credited.
+        resourceSystem.AddHarvest(def.resource, unit.Type, amount);
 
         if (def.infinite) return;
         if (--hitsLeft <= 0) Deplete();

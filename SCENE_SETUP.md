@@ -3,7 +3,7 @@
 Как устроен старт и как разложить объекты в `SampleScene`, чтобы сцена была «по полочкам».
 Документ держим синхронным с кодом — обновляем при добавлении/переименовании систем и полей.
 
-> Последняя сверка с кодом: **2026-06-23** (после добавления управления камерой + горячих клавиш).
+> Последняя сверка с кодом: **2026-07-15** (после системы эпох + бонусов `RunStats`).
 
 ## Принцип
 
@@ -32,6 +32,7 @@ SampleScene
 │   ├── UnitPool                → UnitPool          (юниты из пула становятся его детьми)
 │   ├── PerkSystem              → PerkSystem
 │   ├── PrestigeSystem          → PrestigeSystem
+│   ├── AgeSystem               → AgeSystem          (каталог эпох + CanAdvance)
 │   ├── AgeSequencer            → AgeSequencer
 │   ├── TapSystem               → TapSystem
 │   └── PlacementController     → PlacementController
@@ -54,7 +55,9 @@ SampleScene
 │   │   ├── CardContainer       → Horizontal Layout Group   (сюда BuildPanelUI кладёт карточки в рантайме)
 │   │   └── SellButton          → Button
 │   │       └── SelectedHighlight                       (объект-подсветка, выключен по умолчанию)
-│   └── PerkSelectionUI         → PerkSelectionUI       (опц.)
+│   ├── PerkSelectionUI         → PerkSelectionUI       (опц.)
+│   ├── AgeTransitionOverlay    → Image (чёрный, стретч на весь экран) + CanvasGroup (Alpha 0)  ← фейд перехода эпохи
+│   └── AgeTitle                → TMP_Text (по центру, поверх оверлея; объект ВЫКЛючен по умолчанию)  ← плашка «Age N»
 └── Pier                        → Pier + Collider2D (isTrigger = true)
 ```
 
@@ -72,13 +75,15 @@ SampleScene
 | @Bootstrap | **GameBootstrap** | **resourceSystem, islandSystem, unitSystem, spawnSystem** | соответствующие компоненты |
 | | | **buildingSystem** | **StructureSystem** (поле зовётся «Building System»!) |
 | | | **tapSystem, runManager, prestigeSystem, saveSystem** | соответствующие компоненты |
+| | | **ageSystem** | AgeSystem (нужен для эпох) |
 | | | ageSequencer, perkSystem | AgeSequencer, PerkSystem |
 | | | **placementController** | PlacementController (нужен build mode) |
-| | | perkSelectionUI | PerkSelectionUI (опц., можно пусто) |
+| | | perkSelectionUI, ageUI | PerkSelectionUI (опц.), AgeUI (опц., но без него нет кнопки «Next Age») |
 | | | buildModeCooldown | 5 (сек, дефолт) |
 | @Bootstrap | SaveSystem | — | (полей нет) |
-| @Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem** | ResourceSystem, IslandSystem, StructureSystem |
+| @Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem, spawnSystem** | ResourceSystem, IslandSystem, StructureSystem, SpawnSystem (spawnSystem обязателен — иначе NPE в StartNewRun) |
 | | | startingLayout | StartingLayoutDef-ассет (опц., но без него нет стартовых построек) |
+| | | debugStartModifiers | список StatModifier для теста бонусов без эпох (опц.; в проде пусто) |
 | @Systems/ResourceSystem | ResourceSystem | logChanges | вкл/выкл лог ресурсов в консоль (дебаг) |
 | @Systems/StructureSystem | **StructureSystem** | **islandSystem, resourceSystem, spawnSystem** | IslandSystem, ResourceSystem, SpawnSystem |
 | @Systems/SpawnSystem | **SpawnSystem** | **unitPool, unitSystem** | UnitPool, UnitSystem |
@@ -87,7 +92,10 @@ SampleScene
 | @Systems/UnitPool | UnitPool | — | (полей нет; юниты инстанцируются его детьми) |
 | @Systems/PerkSystem | PerkSystem | catalogue | список PerkDef (можно пусто) |
 | @Systems/PrestigeSystem | PrestigeSystem | runManager, saveSystem | RunManager, SaveSystem |
+| @Systems/AgeSystem | **AgeSystem** | **ages, resourceSystem** | список AgeDef-ассетов по порядку; ResourceSystem |
 | @Systems/AgeSequencer | AgeSequencer | islandSystem, perkSystem | IslandSystem, PerkSystem |
+| | | fadeOverlay, titleLabel | Canvas/AgeTransitionOverlay (CanvasGroup), Canvas/AgeTitle (TMP_Text) |
+| | | fadeDuration, titleHold | 0.5, 2 (сек, дефолты) |
 | @Systems/TapSystem | **TapSystem** | **inputHandler** | InputHandler |
 | @Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, mainCamera, gridOverlay** | соответствующие компоненты |
 | | | validColor, invalidColor, sellHoverColor, moveHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже, зелёный «можно схватить» в Move (есть дефолты) |
@@ -213,6 +221,7 @@ Root → Button + BuildCardUI + CanvasGroup
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | structures: список StructureDef для нижней панели |
+| **AgeDef** | LittlePeeps/AgeDef | title, resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), expansionBlocks[] (RectInt — рост острова). Порядок задаётся списком `AgeSystem.ages`. См. BONUS_SYSTEM_GUIDE / ISLAND_EXPANSION_GUIDE |
 | PerkDef | (см. ассет) | перки для PerkSystem.catalogue |
 
 > Координаты сетки **знаковые** и не зависят от того, какие клетки существуют: центр клетки `c` = мир `(c+0.5)·cellSize`.
@@ -256,6 +265,7 @@ Script Execution Order настраивать **не нужно** (это кос
 1. `GameBootstrap.Awake`: загрузка Meta, создание Session, проводка систем; `RunManager.StartNewRun()` → создаётся RunContext, инициализируются ресурсы, `IslandSystem.GenerateForRun()` рисует остров, раскладываются стартовые постройки; App FSM → `Boot → GameplayContainer → Playing`.
 2. На экране: остров (трава), юниты появляются внутри зданий-спавнеров, отдыхают, вылетают и отскакивают; сбор ресурсов при ударах по источникам. Клик — буст юнитов в радиусе. Клик по Pier — событие `PrestigeTriggeredEvent` (обработчика пока нет).
 3. Кнопка build mode → пауза + сетка + панель: ставим/продаём/двигаем постройки; выход → юниты респавнятся.
+4. Кнопка **Next Age** (AgeUI) активна, когда хватает ресурсов на следующую эпоху: клик → затемнение → остров прирастает блоками → плашка «Age N» → развиднелось; ресурсы списаны, бонусы эпохи (StatModifier) применены к добыче/скорости. Перк-шаг перехода — пока пустой хук.
 
 ## Project settings — важное (не в сцене, но влияет)
 
@@ -263,6 +273,12 @@ Script Execution Order настраивать **не нужно** (это кос
 - **Physics 2D → Bounce Threshold = 0.1** (иначе скольжение на малых скоростях).
 - **Y-сортировка:** на URP 2D Renderer-ассете (`Assets/Settings/Renderer2D.asset`) — Transparency Sort Mode = Custom Axis, Axis (0,1,0). Юниты и постройки — на одном Sorting Layer с равным Order, сортируются по Y динамически.
 
+## Бонусы (RunStats) — коротко
+
+Прибавки к параметрам (`ProductionGlobal`, `ResourceYield`, `UnitSpeed`) задаются списком `StatModifier` в `AgeDef.modifiers` (и `RunManager.debugStartModifiers` для теста). Слой живёт в `RunContext.stats`, сбрасывается на престиже. База — в конфигах (`UnitDef.speed`, `ResourceSourceDef.workerYields`), бонус — отдельным слоем. Подробности для дизайнера: **BONUS_SYSTEM_GUIDE.md**; рост острова блоками — **ISLAND_EXPANSION_GUIDE.md**.
+
 ## Что ещё заглушка (чтобы не ждать большего)
 
-Главное меню и HUD, реальный Save на диск, переходы эпох (`AgeSequencer`), формула престижа (`PrestigeSystem`), перки (`PerkSystem`), `ResourceUI/AgeUI/PerkSelectionUI` (Initialize/Show — `// TODO`) — пока не реализованы. Существа-источники (Boar/Fox/Alpaca) и их спавнеры, Windmill, HP/бой, генерация по биомам — в бэклоге.
+Главное меню и HUD, реальный Save на диск, формула престижа (`PrestigeSystem`), перки (`PerkSystem` + перк-шаг перехода эпохи — пустой хук), `ResourceUI/PerkSelectionUI` (Initialize/Show — `// TODO`) — пока не реализованы. Сохранение прогресса эпох на диск, новые статы (вместимость/перезарядка), существа-источники (Boar/Fox/Alpaca) и их спавнеры, Windmill, HP/бой, генерация по биомам — в бэклоге.
+
+> Эпохи и бонусы `RunStats` — **реализованы** (эта веха): покупка эпохи → трата → рост острова → применение модификаторов → переход с fade + плашкой.

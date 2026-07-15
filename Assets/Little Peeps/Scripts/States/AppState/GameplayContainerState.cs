@@ -10,16 +10,28 @@ public class GameplayContainerState : IState
     private readonly BuildModeState buildModeState;
     private readonly float buildModeCooldown;
 
+    // Deps for building an AgeTransitionState on demand.
+    private readonly AgeSystem ageSystem;
+    private readonly AgeSequencer ageSequencer;
+    private readonly ResourceSystem resourceSystem;
+    private readonly RunContext runContext;
+
     private bool inBuildMode;
     private float cooldownRemaining;
 
     public GameplayContainerState(StateMachine innerFsm, PlayingState playingState,
-                                  BuildModeState buildModeState, float buildModeCooldown)
+                                  BuildModeState buildModeState, float buildModeCooldown,
+                                  AgeSystem ageSystem, AgeSequencer ageSequencer,
+                                  ResourceSystem resourceSystem, RunContext runContext)
     {
         this.innerFsm = innerFsm;
         this.playingState = playingState;
         this.buildModeState = buildModeState;
         this.buildModeCooldown = buildModeCooldown;
+        this.ageSystem = ageSystem;
+        this.ageSequencer = ageSequencer;
+        this.resourceSystem = resourceSystem;
+        this.runContext = runContext;
     }
 
     public void Enter()
@@ -28,11 +40,13 @@ public class GameplayContainerState : IState
         cooldownRemaining = 0f;
         innerFsm.ChangeState(playingState);
         EventBus<BuildModeToggleRequestedEvent>.Subscribe(OnToggleRequested);
+        EventBus<AgeAdvanceRequestedEvent>.Subscribe(OnAgeAdvanceRequested);
     }
 
     public void Exit()
     {
         EventBus<BuildModeToggleRequestedEvent>.Unsubscribe(OnToggleRequested);
+        EventBus<AgeAdvanceRequestedEvent>.Unsubscribe(OnAgeAdvanceRequested);
         // Safety: never leave the game frozen if we tear down mid-build-mode.
         if (inBuildMode) Time.timeScale = 1f;
     }
@@ -57,6 +71,17 @@ public class GameplayContainerState : IState
     {
         if (inBuildMode) ExitBuildMode();
         else EnterBuildMode();
+    }
+
+    // Start an age transition only from normal play (not build mode / not mid-transition) and only
+    // when the next age is actually affordable. AgeTransitionState owns spend + animation + return.
+    private void OnAgeAdvanceRequested(AgeAdvanceRequestedEvent _)
+    {
+        if (inBuildMode || innerFsm.Current != playingState) return;
+        if (ageSystem == null || !ageSystem.CanAdvance) return;
+
+        innerFsm.ChangeState(new AgeTransitionState(
+            innerFsm, ageSequencer, playingState, resourceSystem, runContext, ageSystem.NextAge));
     }
 
     private void EnterBuildMode()

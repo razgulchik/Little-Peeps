@@ -16,6 +16,7 @@ public class Unit : MonoBehaviour
     private float baseSpeed;
 
     private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
+    private RunStats stats;        // injected on spawn; applies the UnitSpeed modifier to def.speed
 
     // Decaying launch boost, ticked in FixedUpdate (physics-based acceleration).
     private float launchBoostTimer;
@@ -30,18 +31,30 @@ public class Unit : MonoBehaviour
 
     private void OnEnable()
     {
-        if (def != null) baseSpeed = def.speed;
+        baseSpeed = ResolveBaseSpeed();
     }
 
     // Injected by SpawnSystem on spawn. Stored for future island-aware behavior.
     public void SetIsland(IslandSystem islandSystem) => island = islandSystem;
+
+    // Injected by SpawnSystem on spawn. baseSpeed is re-resolved on each Launch (which runs after
+    // injection), so a speed bonus gained mid-run applies from the unit's next launch onward.
+    public void SetStats(RunStats runStats) => stats = runStats;
+
+    // Base movement speed with the UnitSpeed modifier applied. Falls back to the raw def value when
+    // stats aren't injected yet (e.g. a scene-placed unit, or before the first spawn injection).
+    private float ResolveBaseSpeed()
+    {
+        if (def == null) return 0f;
+        return stats != null ? stats.Apply(def.speed, StatId.UnitSpeed, def.unitType) : def.speed;
+    }
 
     // Launch in a direction. The unit leaves at baseSpeed * speedMultiplier and a decaying
     // braking force eases its speed back down to baseSpeed over ~boostDuration seconds
     // (see FixedUpdate). Direction is preserved through bounces.
     public void Launch(Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
     {
-        if (def != null) baseSpeed = def.speed;
+        baseSpeed = ResolveBaseSpeed();
 
         // Coming back out of rest: re-enable physics and visuals.
         rb.simulated = true;

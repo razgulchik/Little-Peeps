@@ -70,6 +70,9 @@ public struct AgeStartedEvent
     public int Age;
 }
 
+// Published by the AgeUI "Next Age" button; handled by GameplayContainerState (enters AgeTransition).
+public struct AgeAdvanceRequestedEvent { }
+
 // Published by the build-mode toggle button OR the build hotkey; handled by GameplayContainerState.
 public struct BuildModeToggleRequestedEvent { }
 

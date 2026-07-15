@@ -2,8 +2,10 @@
 
 > Status note: the architecture skeleton is in place; several systems are still stubs.
 > Build mode is implemented through **Phase 1** (mode toggle / pause / despawn-respawn).
-> Placement, age flow, prestige, save, and the main-menu states are not wired yet — these
-> are called out with **(stub)** / **(planned)** / **(Phase N)** below.
+> The **age flow + RunStats bonus system are implemented** (buy age → spend → grow island →
+> apply stat modifiers → fade/banner transition; perk pick inside it is still a hook). Placement,
+> prestige, save, and the main-menu states are not wired yet — called out with **(stub)** /
+> **(planned)** / **(Phase N)** below.
 
 ## Layer Diagram
 
@@ -20,7 +22,8 @@
                            │ calls
 ┌──────────────────────────▼──────────────────────────────────┐
 │  Systems  (IslandSystem · ResourceSystem · StructureSystem · │
-│   SpawnSystem · UnitSystem · TapSystem · AgeSequencer · …)    │
+│   SpawnSystem · UnitSystem · TapSystem · AgeSystem ·          │
+│   AgeSequencer · …)                                          │
 └──────┬────────────────────────────────────────┬─────────────┘
        │ uses                                   │ dispatches to
 ┌──────▼────────────────────────┐    ┌──────────▼──────────────┐
@@ -38,7 +41,8 @@
        │ defined by
 ┌──────▼───────────────────────────────────────────────────────┐
 │  Data  (ScriptableObjects + Enums)                           │
-│  StructureDef · UnitDef · ResourceSourceDef · PerkDef · AgeDef│
+│  StructureDef · UnitDef · ResourceSourceDef · PerkDef ·      │
+│  AgeDef · StatModifier · StatId                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,6 +81,7 @@ which run as units but are sources — harvest needs Unit×Unit collision, **def
 | `structures` | `Dictionary<Vector2Int, StructureInstance>` | Live structure registry (cell → instance) |
 | `currentAge` | `int` | Age index (0-based) |
 | `perksChosen` | `List<PerkDef>` | Perks already applied this run |
+| `stats` | `RunStats` | Accumulated bonus layer (age/perk/meta modifiers); see below |
 
 `StructureInstance` = `Def` (`StructureDef`) + `RuntimeObject` (`Structure`) + `Cell`.
 
@@ -107,6 +112,26 @@ which run as units but are sources — harvest needs Unit×Unit collision, **def
 
 ---
 
+## Stat System (RunStats) — base + modifiers
+
+Game parameters follow a **base + modifiers** split, so bonuses stay data-driven and reset cleanly on prestige:
+
+- **Base** values live in configs and never change: `UnitDef.speed`, `ResourceSourceDef.workerYields[worker].amount`, etc.
+- **Modifiers** accumulate on `RunContext.stats` (`RunStats`, plain C#), the per-run bonus layer. Sources (ages now; perks / meta later) just push `StatModifier` data; `RunStats` aggregates.
+- **One formula, everywhere:** `final = (base + Σflat) * (1 + Σpercent)`.
+
+`StatModifier` (Data, `[Serializable]`) = `id` (`StatId`) + `unitScope` (`UnitType`) + `resourceScope` (`ResourceType`) + `flat` + `percent`. `StatId` = `ProductionGlobal` (no scope) · `ResourceYield` (unit×resource) · `UnitSpeed` (unit). `StatMeta.ScopeOf` gives each id's scope mask; `RunStats` normalises the lookup key by that mask in **both** `Add` and `Apply`, so a stray/absent scope can never make authored data miss its query.
+
+**Consumers (where base meets modifiers):**
+- Harvest gains — `ResourceSystem.AddHarvest(type, worker, base)` applies `ResourceYield` then `ProductionGlobal`, then credits. `AddResource`/`Spend` stay raw (spends/refunds are never production-boosted). Only live harvest path today: `ResourceSource.OnHit`.
+- Unit speed — `Unit.ResolveBaseSpeed()` = `stats.Apply(def.speed, UnitSpeed, type)`, resolved on each `Launch` (cached in `baseSpeed`; injected via `SpawnSystem` → `unit.SetStats`).
+
+**Perf:** one O(1) dictionary hit on a struct key (`IEquatable`, no boxing). Reads can be per-hit (harvest); modifiers change only a couple of times per run. A dirty-flag value cache is the noted growth point if profiling ever needs it.
+
+**Extending:** a bonus on an already-wired param = pure data (author a `StatModifier`). A new param = ~2 edits (one `StatId` entry + one `Apply` at the consumer). A new scope dimension (e.g. `StructureType`) = add a field to `RunStats.Key`/`MakeKey` once. Designer-facing details: `BONUS_SYSTEM_GUIDE.md`.
+
+---
+
 ## EventBus
 
 `EventBus<T>` is a generic static publish-subscribe bus, allocation-free on `Publish` (a cached
@@ -129,7 +154,8 @@ EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);   // always unsubscribe in 
 | `StructureRemovedEvent` | `StructureSystem.RemoveStructure` (stub) | RunContext |
 | `StructureDamagedEvent` | `Structure.TakeDamage` (stub) | UI health bars |
 | `StructureDestroyedEvent` | `Structure.TakeDamage` (stub) | StructureSystem cleanup |
-| `AgeStartedEvent` | `AgeSequencer` (planned) | IslandSystem, AgeUI |
+| `AgeStartedEvent` | `AgeSequencer` (banner step) | CameraController (re-clamp bounds), AgeUI (label + button) |
+| `AgeAdvanceRequestedEvent` | `AgeUI` (Next Age button) | `GameplayContainerState` (enters AgeTransition if affordable) |
 | `UnitBoostedEvent` | `TapSystem` | analytics / VFX |
 | `PerkSelectedEvent` | `PerkSystem.ApplyPerk` | AgeSequencer, PerkSelectionUI |
 | `PrestigeTriggeredEvent` | `TapSystem` (Pier click, planned) | gameplay coordinator → PrestigeMenu |
@@ -162,17 +188,26 @@ GameplayContainer ──prestige complete──▶ MainMenu
 
 ```
 Playing ──BuildModeToggleRequestedEvent──▶ BuildMode
-BuildMode ──BuildModeToggleRequestedEvent──▶ Playing  (then 5s re-entry cooldown)
-Playing ──age condition met──▶ AgeTransition          (planned)
-AgeTransition ──sequencer done──▶ Playing             (planned)
-Playing ──PrestigeTriggeredEvent──▶ PrestigeMenu      (planned)
+BuildMode ──BuildModeToggleRequestedEvent──▶ Playing      (then 5s re-entry cooldown)
+Playing ──AgeAdvanceRequestedEvent (affordable)──▶ AgeTransition
+AgeTransition ──sequencer done──▶ Playing
+Playing ──PrestigeTriggeredEvent──▶ PrestigeMenu          (planned)
 ```
 
-**`GameplayContainerState` is the build-mode coordinator:** it subscribes to
-`BuildModeToggleRequestedEvent`, owns the **5s re-entry cooldown** (unscaled time, blocks
-re-entering build mode right after leaving — anti-respawn-abuse), switches the inner FSM between
-`PlayingState` and `BuildModeState`, and pushes `BuildModeUIStateEvent` so the button reflects
-mode + cooldown.
+**`GameplayContainerState` is the gameplay coordinator:** it subscribes to
+`BuildModeToggleRequestedEvent` and `AgeAdvanceRequestedEvent`, owns the **5s re-entry cooldown**
+(unscaled time, blocks re-entering build mode right after leaving — anti-respawn-abuse), switches
+the inner FSM between `PlayingState` / `BuildModeState` / `AgeTransitionState`, and pushes
+`BuildModeUIStateEvent` so the button reflects mode + cooldown. On an age-advance request it enters
+`AgeTransitionState` only from normal play and only when `AgeSystem.CanAdvance`.
+
+**`AgeTransitionState`:** on `Enter` runs `TriggerAgeCmd` (spend cost + `currentAge++` +
+`stats.Add(ageDef.modifiers)`), sets `Time.timeScale = 0` (this both freezes the sim AND makes
+`TapSystem` ignore world clicks — it early-returns at timeScale 0, so no UI-raycast juggling is
+needed), and starts the `AgeSequencer`; on completion it returns to `PlayingState` and restores
+`timeScale = 1`. The sequencer chain (`AgeSequencer`, unscaled time): fade to black →
+`IslandSystem.Expand(ageDef)` → "Age N" banner (+ `AgeStartedEvent`) → perk-pick **hook (no-op,
+later)** → fade back.
 
 **`BuildModeState`:** on `Enter` sets `Time.timeScale = 0` and calls
 `SpawnSystem.DespawnAllAndResetSpawners()` (all units returned to the pool); on `Exit` calls
@@ -213,19 +248,20 @@ despawned on enter, so there is nothing to simulate anyway.
 | Component | Type | Responsibility |
 |-----------|------|---------------|
 | `IslandGrid` | Plain C# | Grid data: cells (`terrain` + `occupant: StructureInstance`), placement validation (`CanPlace/Place/Remove/Move` — **stubs, Phase 2**), world↔grid conversion |
-| `IslandGenerator` | Plain C# | Procedural terrain fill / expansion per age (**currently fills all cells Grass**) |
-| `IslandSystem` | MB | Owns Grid + Generator; `GenerateForRun()`; reacts to AgeStarted (TODO) |
+| `IslandGenerator` | Plain C# | Seeds the starting island (centered Grass square); `Expand(blocks)` adds `AgeDef.expansionBlocks` — absolute `RectInt`s, only missing cells created (biome variety later) |
+| `IslandSystem` | MB | Owns Grid + Generator; `GenerateForRun()`; `Expand(AgeDef)` grows the island + redraws the tilemap (driven explicitly by `AgeSequencer`, not an event) |
 | `UnitPool` | MB | Pool per UnitDef; `Get` / `Release` |
 | `UnitSystem` | MB | Live-unit registry (`ActiveUnits`); fed by **direct `SpawnSystem` Add/Remove** (no events); home for future bulk ops (tap-AoE) |
-| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type cap; syncs UnitSystem; owns the **spawner registry**; `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode) |
-| `ResourceSystem` | MB | `ReactiveValue<float>` per resource; `AddResource` / `GetResource` |
+| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type cap; syncs UnitSystem; owns the **spawner registry**; `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode); `Initialize(RunContext)` → injects `RunStats` into each spawned unit |
+| `ResourceSystem` | MB | `ReactiveValue<float>` per resource; `AddResource` / `GetResource`; `AddHarvest(type, worker, base)` = production gateway (applies `ResourceYield` + `ProductionGlobal`); `CanAfford` / `Spend` |
 | `StructureSystem` | MB | Place / Remove / Move structures via IslandGrid (**stubs, Phase 2**); publishes Structure* events |
 | `PlacementController` | MB | BuildMode tool controller: ghost place / sell / move-drag + grid overlay; right-click cancels (replaced the old DragController) |
 | `TapSystem` | MB | Click-on-unit → `Boost`; Pier click → prestige (New Input System) |
-| `AgeSequencer` | MB | Step coroutine chain for age transitions (planned) |
-| `PerkSystem` | MB | Weighted random roll of perks; `ApplyPerk` |
+| `AgeSystem` | MB | Owns the ordered `List<AgeDef>` catalogue; `NextAge` / `CanAdvance` (queried by AgeUI + GameplayContainerState). Current age lives on RunContext, so it's stateless between runs |
+| `AgeSequencer` | MB | Coroutine chain for an age transition (fade → island expand → "Age N" banner → perk hook → fade), unscaled time; signals completion via callback. Refs: fade `CanvasGroup` + title `TMP_Text` |
+| `PerkSystem` | MB | Weighted random roll of perks; `ApplyPerk` (still stub; the age-transition perk step is a hook) |
 | `PrestigeSystem` | MB | Points formula; resets run via RunManager |
-| `RunManager` | MB | Creates RunContext; applies MetaContext multipliers; owns island generation timing |
+| `RunManager` | MB | Creates RunContext; seeds `stats` (debug modifiers now, meta later); `Initialize`s resource/structure/**spawn** systems; owns island generation timing |
 | `SaveSystem` | MB | JSON serialization of MetaContext (**stub: returns fresh MetaContext**) |
 | `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch + `CollisionEvent`; `SetColliderEnabled` |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (StructureDef) + health / `TakeDamage` (stub) |

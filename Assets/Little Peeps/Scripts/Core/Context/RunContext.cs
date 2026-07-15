@@ -9,6 +9,9 @@ public class RunContext
     public Dictionary<Edge, EdgeInstance> fences = new();
     public int currentAge;
     public List<PerkDef> perksChosen = new();
+
+    // Accumulated bonus layer (base+modifiers stat system). Fresh per run → resets on prestige.
+    public RunStats stats = new();
 }
 
 // Runtime pairing of a structure's definition and its live MonoBehaviour

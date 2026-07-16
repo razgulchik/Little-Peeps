@@ -106,6 +106,7 @@ MonoBehaviour:
   pauseMin: 0.5
   pauseMax: 2
   fallbackRadius: 2
+  visual: {fileID: 5679720817400822926}
 --- !u!1 &4141207025490524696
 GameObject:
   m_ObjectHideFlags: 0

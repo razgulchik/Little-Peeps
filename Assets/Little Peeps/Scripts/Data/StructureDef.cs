@@ -24,6 +24,11 @@ public class StructureDef : ScriptableObject
     // Fraction of build cost refunded when the structure is sold (0..1).
     [Range(0f, 1f)] public float sellRefundPercent = 0.5f;
 
+    // Wandering animals stop and turn away instead of walking across this structure's cells.
+    // Tick for solid buildings (stable, smithy, market...); leave off for trees/fields so
+    // forest animals keep roaming through them. Animals only avoid it — units still pass.
+    public bool impassable = false;
+
     // Required clear margin (in cells) around the footprint: those cells must be on-island and free
     // of OTHER bordered structures. Keeps spawner-buildings off the map edge and apart from each
     // other (e.g. house = 1); passive structures like trees/fields use 0 (no margin, may sit anywhere).

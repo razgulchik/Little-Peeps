@@ -225,6 +225,10 @@ MonoBehaviour:
   pauseMin: 0.5
   pauseMax: 2
   fallbackRadius: 2
+  visual: {fileID: 2908992283057913503}
+  personalSpace: 0.6
+  encounterImmunity: 1.5
+  lookAhead: 0.3
 --- !u!1 &6642226538634245619
 GameObject:
   m_ObjectHideFlags: 0

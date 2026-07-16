@@ -10,6 +10,10 @@ public interface IStructureSpawner
     // per-entity bookkeeping so the next Warmup starts fresh.
     void ResetForBuildMode();
 
-    // Placement and build-mode exit: (re)create this spawner's entities.
+    // Placement and build-mode exit: register (once), then (re)create this spawner's entities.
+    // Called on placement during build mode too, where it registers but SKIPS spawning (reads
+    // SpawnSystem.IsBuildMode) — the entities are created by the build-mode-exit warmup, once the
+    // flag has cleared, so a structure built mid-session doesn't materialize its entities until the
+    // player leaves build mode.
     void Warmup();
 }

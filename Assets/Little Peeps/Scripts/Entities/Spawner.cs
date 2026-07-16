@@ -108,6 +108,11 @@ public class Spawner : MonoBehaviour, ICollisionEffect, IStructureSpawner
             for (int i = 0; i < capacity; i++) slots.Add(new Slot());
         }
 
+        // Placed during build mode: register + reserve slots, but don't pull resting units from the
+        // pool yet. Build-mode exit re-runs Warmup (flag cleared) and fills the slots then, so units
+        // appear on exit together with the animals — nothing spawns while the player is building.
+        if (spawnSystem.IsBuildMode) return;
+
         foreach (var slot in slots)
             FillSlot(slot);
     }

@@ -70,6 +70,11 @@ public class AnimalSpawner : MonoBehaviour, IStructureSpawner
             registered = true;
         }
 
+        // Placed during build mode: register only. Build-mode exit runs WarmupAllSpawners with the
+        // flag already cleared, which fills the territory then — so animals appear when the player
+        // leaves build mode, not the moment the den is dropped.
+        if (spawnSystem != null && spawnSystem.IsBuildMode) return;
+
         maxAnimals = Mathf.Max(1, maxAnimals);
         while (animals.Count < maxAnimals)
             if (!SpawnAnimal()) break;   // no valid spot right now — Update keeps retrying on cooldown
@@ -88,6 +93,11 @@ public class AnimalSpawner : MonoBehaviour, IStructureSpawner
 
     private void Update()
     {
+        // No respawns while building. Explicit (not just relying on timeScale=0): a den placed in
+        // build mode has respawnTimer==0 until its first real Warmup on exit, so without this the
+        // dt==0 frame would slip past the timer check and spawn an animal mid-build.
+        if (spawnSystem != null && spawnSystem.IsBuildMode) return;
+
         if (animals.Count >= maxAnimals) return;
 
         respawnTimer -= Time.deltaTime;

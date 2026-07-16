@@ -20,6 +20,12 @@ public class SpawnSystem : MonoBehaviour
 
     private RunStats stats;   // injected into spawned units so their speed reflects run modifiers
 
+    // True between build-mode enter (DespawnAllAndResetSpawners) and exit (WarmupAllSpawners).
+    // Spawners read it so a structure PLACED during build mode registers itself but DEFERS
+    // spawning its entities to the exit warmup — nothing materializes while the player is still
+    // building; it all appears together the moment build mode ends.
+    public bool IsBuildMode { get; private set; }
+
     // Injected by RunManager.StartNewRun so units spawned this run carry the run's stat sheet.
     public void Initialize(RunContext run)
     {
@@ -98,6 +104,7 @@ public class SpawnSystem : MonoBehaviour
     // their animals themselves — animals aren't pooled units).
     public void DespawnAllAndResetSpawners()
     {
+        IsBuildMode = true;
         DespawnAll();
         for (int i = 0; i < spawners.Count; i++)
             spawners[i].ResetForBuildMode();
@@ -107,6 +114,7 @@ public class SpawnSystem : MonoBehaviour
     // the territory) — this is "everything respawns from its building".
     public void WarmupAllSpawners()
     {
+        IsBuildMode = false;
         for (int i = 0; i < spawners.Count; i++)
             spawners[i].Warmup();
     }

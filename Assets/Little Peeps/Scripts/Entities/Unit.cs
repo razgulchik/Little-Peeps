@@ -10,6 +10,12 @@ public class Unit : MonoBehaviour
     public float Radius => bodyCollider != null ? bodyCollider.bounds.extents.x : 0f;
     public IslandSystem Island => island;
 
+    // True once the unit has been roaming long enough (def.fatigueDelay) since its last launch to be
+    // willing to enter a house. Spawner.OnHit checks this so a freshly launched unit ignores houses
+    // until it tires out. Defaults to true (fatigueReadyTime == 0) so a never-launched unit isn't stuck.
+    public bool IsTired => Time.time >= fatigueReadyTime;
+    private float fatigueReadyTime;
+
     private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
     private Collider2D bodyCollider;
@@ -55,6 +61,9 @@ public class Unit : MonoBehaviour
     public void Launch(Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
     {
         baseSpeed = ResolveBaseSpeed();
+
+        // Fatigue clock restarts every launch: the unit won't enter a house until this elapses.
+        fatigueReadyTime = Time.time + (def != null ? def.fatigueDelay : 0f);
 
         // Coming back out of rest: re-enable physics and visuals.
         rb.simulated = true;

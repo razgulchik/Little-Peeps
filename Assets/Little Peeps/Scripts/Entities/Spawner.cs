@@ -208,6 +208,9 @@ public class Spawner : MonoBehaviour, ICollisionEffect
         if (slots == null || unit == null || unitDef == null) return;
         if (unit.Type != unitDef.unitType) return;
 
+        // Not tired yet — the unit just left a house and keeps roaming; it bounces on past this one.
+        if (!unit.IsTired) return;
+
         // Put the unit in the first slot that has finished its cooldown and is free.
         foreach (var slot in slots)
         {

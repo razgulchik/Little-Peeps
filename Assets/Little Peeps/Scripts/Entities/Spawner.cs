@@ -6,7 +6,7 @@ using UnityEngine;
 // OWN cooldown, then waits to accept ANY matching-type unit (units are shared per type, not
 // owned). capacity = number of slots and is registered into SpawnSystem's global per-type cap.
 [RequireComponent(typeof(Structure))]
-public class Spawner : MonoBehaviour, ICollisionEffect
+public class Spawner : MonoBehaviour, ICollisionEffect, IStructureSpawner
 {
     [SerializeField] private SpawnSystem spawnSystem;
 
@@ -36,7 +36,7 @@ public class Spawner : MonoBehaviour, ICollisionEffect
 
     private Collider2D structureCollider;
     private Structure structure;
-    private List<Slot> slots;   // null until BeginWarmup runs
+    private List<Slot> slots;   // null until Warmup runs
     private bool registered;
 
     // Grid context injected on placement. `grid` is the single source of truth for which perimeter
@@ -82,14 +82,15 @@ public class Spawner : MonoBehaviour, ICollisionEffect
             return;
         }
 
-        BeginWarmup();
+        Warmup();
     }
 
-    // Called on placement (and later by StructureSystem on build/move). Every slot holds its
-    // unit resting INSIDE for restDuration before its first launch — so placing or moving a
-    // structure never produces an instant launch (anti-abuse). Safe to call again on move:
-    // it won't re-register capacity or recreate slots, just restarts the rest delay.
-    public void BeginWarmup()
+    // IStructureSpawner — called on placement and build-mode exit (and later by StructureSystem
+    // on build/move). Every slot holds its unit resting INSIDE for restDuration before its first
+    // launch — so placing or moving a structure never produces an instant launch (anti-abuse).
+    // Safe to call again on move: it won't re-register capacity or recreate slots, just restarts
+    // the rest delay.
+    public void Warmup()
     {
         if (spawnSystem == null || unitDef == null) return;
 
@@ -111,10 +112,11 @@ public class Spawner : MonoBehaviour, ICollisionEffect
             FillSlot(slot);
     }
 
-    // Build-mode enter (called via SpawnSystem): the units this spawner referenced were just
-    // returned to the pool by DespawnAll, so our slot references are now stale. Reset slots to
-    // Free (keep capacity registered) so the next BeginWarmup re-spawns fresh resting units.
-    public void ResetSlots()
+    // IStructureSpawner — build-mode enter (called via SpawnSystem): the units this spawner
+    // referenced were just returned to the pool by DespawnAll, so our slot references are now
+    // stale. Reset slots to Free (keep capacity registered) so the next Warmup re-spawns fresh
+    // resting units.
+    public void ResetForBuildMode()
     {
         if (slots == null) return;
         foreach (var slot in slots)
@@ -130,7 +132,7 @@ public class Spawner : MonoBehaviour, ICollisionEffect
     // Existing units keep running. Call this from the upgrade system.
     public void IncreaseCapacity(int newCapacity)
     {
-        // Not warmed up yet (called before Start): just raise the target; BeginWarmup uses it.
+        // Not warmed up yet (called before Start): just raise the target; Warmup uses it.
         if (!registered || slots == null)
         {
             capacity = Mathf.Max(capacity, newCapacity);
@@ -161,7 +163,7 @@ public class Spawner : MonoBehaviour, ICollisionEffect
     }
 
     // Initialize / refill one slot: keep a resting unit (restart its rest), otherwise spawn one
-    // into rest, or leave it Free if the global cap is full. Shared by BeginWarmup and upgrades.
+    // into rest, or leave it Free if the global cap is full. Shared by Warmup and upgrades.
     private void FillSlot(Slot slot)
     {
         if (slot.state == SlotState.Occupied && slot.unit != null)

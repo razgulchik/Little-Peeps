@@ -76,7 +76,7 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
     public void OnHit(Unit unit, CollisionTarget target)
     {
         if (state == State.Harvested || def == null || resourceSystem == null || unit == null) return;
-        if (!TryGetYield(unit.Type, out float amount)) return;
+        if (!def.TryGetYield(unit.Type, out float amount)) return;
 
         // Through the production gateway: the base amount is scaled by the worker's yield modifier
         // and the global production multiplier before being credited.
@@ -92,22 +92,6 @@ public class ResourceSource : MonoBehaviour, ICollisionEffect
 
         respawnTimer -= Time.deltaTime;
         if (respawnTimer <= 0f) Respawn();
-    }
-
-    // Resolves how much `type` harvests per hit. Returns false if the worker isn't listed
-    // (an empty workerYields means nobody can harvest this source).
-    private bool TryGetYield(UnitType type, out float amount)
-    {
-        var yields = def.workerYields;
-        if (yields != null)
-            for (int i = 0; i < yields.Length; i++)
-                if (yields[i].worker == type)
-                {
-                    amount = yields[i].amount;
-                    return true;
-                }
-        amount = 0f;
-        return false;
     }
 
     // Harvested: used up, collider off, showing the harvested sprite until it regrows.

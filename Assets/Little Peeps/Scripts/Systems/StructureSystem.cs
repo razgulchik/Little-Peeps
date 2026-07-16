@@ -62,6 +62,7 @@ public class StructureSystem : MonoBehaviour
         // root Structure whose child trees each carry a ResourceSource — inject every one, at any depth.
         foreach (var spawner in go.GetComponentsInChildren<Spawner>(true)) spawner.Initialize(spawnSystem, grid, instance);
         foreach (var source in go.GetComponentsInChildren<ResourceSource>(true)) source.Initialize(resourceSystem);
+        foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
 
         // Put the root at its footprint center (shared rule — the placement ghost uses the same call).
         CenterOnFootprint(go.transform, cell, def.size);

@@ -3,8 +3,9 @@ using UnityEngine;
 
 // Coordinates unit spawning: bridges Spawner components with UnitPool, enforces a global
 // active-unit cap per UnitType (cap = sum of all registered spawner capacities), and keeps
-// UnitSystem's live registry in sync via direct calls (no events). Also owns the spawner
-// registry so build mode can despawn-all + re-warm everything on enter/exit.
+// UnitSystem's live registry in sync via direct calls (no events). Also owns the registry of
+// ALL structure spawners (unit Spawners and AnimalSpawners, via IStructureSpawner) so build
+// mode can despawn-all + re-warm everything on enter/exit.
 public class SpawnSystem : MonoBehaviour
 {
     [SerializeField] private UnitPool unitPool;
@@ -14,7 +15,7 @@ public class SpawnSystem : MonoBehaviour
     private readonly Dictionary<UnitType, int> capByType = new();
     private readonly Dictionary<UnitType, int> activeByType = new();
 
-    private readonly List<Spawner> spawners = new();   // live spawners, for build-mode reset/warmup
+    private readonly List<IStructureSpawner> spawners = new();   // live spawners (units + animals), for build-mode reset/warmup
     private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll
 
     private RunStats stats;   // injected into spawned units so their speed reflects run modifiers
@@ -32,12 +33,12 @@ public class SpawnSystem : MonoBehaviour
     }
 
     // A spawner registers/unregisters itself when it warms up / is destroyed.
-    public void RegisterSpawner(Spawner spawner)
+    public void RegisterSpawner(IStructureSpawner spawner)
     {
         if (spawner != null && !spawners.Contains(spawner)) spawners.Add(spawner);
     }
 
-    public void UnregisterSpawner(Spawner spawner)
+    public void UnregisterSpawner(IStructureSpawner spawner)
     {
         spawners.Remove(spawner);
     }
@@ -92,21 +93,22 @@ public class SpawnSystem : MonoBehaviour
         unitPool.Release(unit);
     }
 
-    // Build-mode enter: return every live unit to the pool, then clear each spawner's slot
-    // bookkeeping (the resting/flying units it referenced are now pooled).
+    // Build-mode enter: return every live unit to the pool, then let each spawner clear its
+    // per-entity bookkeeping (unit Spawners drop stale slot refs; AnimalSpawners destroy
+    // their animals themselves — animals aren't pooled units).
     public void DespawnAllAndResetSpawners()
     {
         DespawnAll();
         for (int i = 0; i < spawners.Count; i++)
-            spawners[i].ResetSlots();
+            spawners[i].ResetForBuildMode();
     }
 
-    // Build-mode exit: each spawner re-warms (spawns a fresh resting unit per slot) — this is
-    // "units respawn from their buildings".
+    // Build-mode exit: each spawner re-warms (fresh resting unit per slot / fresh animals in
+    // the territory) — this is "everything respawns from its building".
     public void WarmupAllSpawners()
     {
         for (int i = 0; i < spawners.Count; i++)
-            spawners[i].BeginWarmup();
+            spawners[i].Warmup();
     }
 
     private void DespawnAll()

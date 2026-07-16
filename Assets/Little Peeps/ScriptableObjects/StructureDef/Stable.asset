@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
+  m_Name: Stable
+  m_EditorClassIdentifier: 
+  id: house
+  displayName: House
+  icon: {fileID: 21300000, guid: bdea4098837367d45b6a42af558df699, type: 3}
+  prefab: {fileID: 2603376487552531715, guid: 1919f103cb50da741ba69a74b297a103, type: 3}
+  placement: 0
+  size: {x: 2, y: 2}
+  cost:
+  - resourceType: 1
+    amount: 0
+  effects: []
+  allowedTerrain: 00000000
+  sellRefundPercent: 0.5
+  border: 0

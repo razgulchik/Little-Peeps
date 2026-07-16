@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 // Manages run lifecycle; creates RunContext and applies MetaContext multipliers
@@ -9,12 +8,10 @@ public class RunManager : MonoBehaviour
     [SerializeField] private StructureSystem structureSystem;
     [SerializeField] private SpawnSystem spawnSystem;
     [SerializeField] private PierSystem pierSystem;
-    [SerializeField] private StartingLayoutDef startingLayout;
 
-    [Header("Debug")]
-    [Tooltip("Stat modifiers applied at run start for testing the bonus system before ages/perks " +
-             "exist. Leave empty in production — real sources (ages/perks/meta) push their own.")]
-    [SerializeField] private List<StatModifier> debugStartModifiers = new();
+    [Tooltip("The run's starting state: island size, layout, resources and modifiers. One asset per " +
+             "preset — swap it here to change what a fresh run begins with (useful for tests/debug).")]
+    [SerializeField] private StartConfigDef startConfig;
 
     private MetaContext metaContext;
 
@@ -30,30 +27,48 @@ public class RunManager : MonoBehaviour
     {
         CurrentRun = new RunContext { currentAge = 0 };
 
-        // Seed the run's bonus layer. For now only the debug list (and, once meta is implemented,
-        // MetaContext.Production etc. would be translated into StatModifiers here). Ages/perks add
-        // theirs later during the run. Consumers below only hold a reference to CurrentRun.stats and
-        // read lazily, so populating it here — before they initialise — is order-safe.
-        CurrentRun.stats.Add(debugStartModifiers);
-
-        // TODO: seed CurrentRun.resources from a starting-amounts table, scaled by
-        // GetMultiplier(MultiplierType.StartingResources). For the simplest start every
-        // resource begins at 0 — ResourceSystem.Initialize fills in a ReactiveValue per type.
+        // Seed the run's starting state from the StartConfig. Everything below only holds a
+        // reference to CurrentRun (stats/resources) and reads lazily, so populating it here —
+        // before those systems initialise — is order-safe. A missing config is tolerated: the
+        // run boots with an empty bonus layer, zero resources and IslandSystem's default size.
+        if (startConfig != null)
+        {
+            // Bonus layer: config baseline first; ages/perks (and later meta) add theirs in-run.
+            CurrentRun.stats.Add(startConfig.startingModifiers);
+            SeedStartingResources();
+        }
 
         resourceSystem.Initialize(CurrentRun);
         structureSystem.Initialize(CurrentRun);
         spawnSystem.Initialize(CurrentRun);
-        islandSystem.GenerateForRun();
+
+        if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSize);
+        else                     islandSystem.GenerateForRun();
+
         PlaceStartingStructures();
         if (pierSystem != null) pierSystem.PlaceForRun();   // after the island exists; owns its own cell
     }
 
-    // Instantiate the run's starting structures from the layout asset, through the same
+    // Fill CurrentRun.resources from the config's starting amounts, before ResourceSystem.Initialize
+    // reads them. Types not listed stay absent → ResourceSystem defaults them to 0.
+    private void SeedStartingResources()
+    {
+        var list = startConfig.startingResources;
+        if (list == null) return;
+        for (int i = 0; i < list.Count; i++)
+        {
+            var r = list[i];
+            if (r != null) CurrentRun.resources[r.resourceType] = r.amount;
+        }
+    }
+
+    // Instantiate the run's starting structures from the config's layout asset, through the same
     // placement path as player-built ones (grid-aligned, registered). Re-runs every new run.
     private void PlaceStartingStructures()
     {
-        if (startingLayout == null) return;
-        foreach (var entry in startingLayout.entries)
+        var layout = startConfig != null ? startConfig.layout : null;
+        if (layout == null) return;
+        foreach (var entry in layout.entries)
         {
             if (entry.def == null) continue;
             structureSystem.PlaceInitial(entry.def, entry.cell);

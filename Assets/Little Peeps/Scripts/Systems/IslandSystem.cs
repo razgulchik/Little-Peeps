@@ -15,9 +15,16 @@ public class IslandSystem : MonoBehaviour
     // Generate the island for a new run. RunManager.StartNewRun() owns the timing —
     // IslandSystem no longer auto-builds in Awake so generation isn't duplicated or
     // ordered by chance. Editor preview still goes through the [ContextMenu] below.
+    // The size comes from the run's StartConfig; the parameterless overload (and the
+    // context menu) fall back to the serialized initialSize when no config drives it.
     public void GenerateForRun()
     {
-        Build();
+        Build(initialSize);
+    }
+
+    public void GenerateForRun(Vector2Int size)
+    {
+        Build(size);
     }
 
     // Grow the island for an age: add its expansion blocks and redraw the tilemap. Driven explicitly
@@ -33,16 +40,16 @@ public class IslandSystem : MonoBehaviour
     [ContextMenu("Generate Island")]
     private void GenerateIsland()
     {
-        Build();
+        Build(initialSize);
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(tilemap);
 #endif
     }
 
-    private void Build()
+    private void Build(Vector2Int size)
     {
-        Grid = new IslandGrid(cellSize, initialSize.x * initialSize.y);
-        Generator = new IslandGenerator(Grid, initialSize);
+        Grid = new IslandGrid(cellSize, size.x * size.y);
+        Generator = new IslandGenerator(Grid, size);
         Generator.Generate(0);
         RefreshTilemap();
     }

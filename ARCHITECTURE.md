@@ -3,7 +3,9 @@
 > Status note: the architecture skeleton is in place; several systems are still stubs.
 > Build mode is implemented through **Phase 1** (mode toggle / pause / despawn-respawn).
 > The **age flow + RunStats bonus system are implemented** (buy age → spend → grow island →
-> apply stat modifiers → fade/banner transition; perk pick inside it is still a hook). Placement,
+> apply stat modifiers → fade/banner transition; perk pick inside it is still a hook).
+> **Animals (mobile resource nodes) are implemented** in code (Animal / AnimalWander /
+> AnimalSpawner + IStructureSpawner); their prefabs/defs are editor work. Placement,
 > prestige, save, and the main-menu states are not wired yet — called out with **(stub)** /
 > **(planned)** / **(Phase N)** below.
 
@@ -29,11 +31,13 @@
 ┌──────▼────────────────────────┐    ┌──────────▼──────────────┐
 │  Entities                     │    │  Effects                │
 │  CollisionTarget (base)       │    │  ICollisionEffect + impls│
-│   ├ Structure                 │    │  (Spawner, ResourceSource│
-│  Unit · Spawner               │    │   are MB impls; the      │
-│  ResourceSource · Pier        │    │   Effects/ classes are   │
-└──────┬────────────────────────┘    │   legacy plain-class stubs)│
-       │ uses                        └─────────────────────────┘
+│   ├ Structure                 │    │  (Spawner, ResourceSource,│
+│  Unit · Spawner · Pier        │    │   Animal are MB impls; the│
+│  ResourceSource · Animal      │    │   Effects/ classes are   │
+│  AnimalSpawner · AnimalWander │    │   legacy plain-class stubs)│
+│  IStructureSpawner (contract) │    └─────────────────────────┘
+└──────┬────────────────────────┘
+       │ uses
 ┌──────▼──────────────────────────────────────────────────────┐
 │  Core  (EventBus<T> · StateMachine · ReactiveValue<T>)       │
 │  Core/Context  (RunContext · MetaContext · SessionContext)   │
@@ -57,16 +61,26 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
 - `CollisionTarget` (base MonoBehaviour) — owns the collision callbacks, dispatches hits to its
   `ICollisionEffect` components, and publishes the global `CollisionEvent`.
 - `Structure : CollisionTarget` — adds placement identity: `def` (`StructureDef`) + health.
-- A structure carries one or both behaviour components:
+- A structure carries one (or more) behaviour components:
   - `Spawner` (produces units) — `[RequireComponent(typeof(Structure))]`.
   - `ResourceSource` (produces resources) — `[RequireComponent(typeof(CollisionTarget))]`.
+  - `AnimalSpawner` (produces animals — mobile resource nodes) — `[RequireComponent(typeof(Structure))]`.
 - Examples: House/Hut = Structure + Spawner · Forge/Church = Structure + ResourceSource (infinite) ·
   Tree/Wheat/Stone = Structure + ResourceSource (natural; **adding the `Structure` component to
-  these prefabs is Phase 2 editor work**).
+  these prefabs is Phase 2 editor work**) · Stable/Den = Structure + AnimalSpawner.
 
-Units split into gatherers (Farmer/Lumberjack/Hunter/Miner) and source-creatures (Alpaca/Boar/Fox,
-which run as units but are sources — harvest needs Unit×Unit collision, **deferred**); military
-(Swordsman) is a later third type.
+Units are gatherers (Farmer/Lumberjack/Hunter/Miner); military (Swordsman) is a later second kind.
+**Animals (Alpaca/Boar/Fox) are NOT units** — they are mobile resource nodes: a standalone
+`CollisionTarget` (not a `Structure`: no def, no grid cell, no health — the first direct use of the
+base class) + `Animal` (harvest via the same `ResourceSourceDef` pipeline as static sources;
+resource per hit, despawns after `hitsBeforeDespawn`, `infinite` never despawns) + `AnimalWander`
+(kinematic wandering). Their `UnitType` entries were removed; an animal is identified by its
+`ResourceSourceDef` asset, like a tree.
+
+Both spawner kinds implement **`IStructureSpawner`** (`ResetForBuildMode` / `Warmup`) —
+`SpawnSystem`'s registry drives build-mode transitions through the interface. Internals are
+deliberately NOT shared: the unit launch→return→rest slot cycle and the animal
+die→cooldown→replace cycle have nothing in common beyond that contract.
 
 ---
 
@@ -223,6 +237,7 @@ later)** → fade back.
 | Unit | CircleCollider2D | Rigidbody2D (Dynamic) | Bounces off obstacles; passes through interactables |
 | Structure (obstacle) | BoxCollider2D `isTrigger=false` | none (Static) | Unit bounces — `OnCollisionEnter2D` fires on the `CollisionTarget` |
 | Structure (interactable) | BoxCollider2D `isTrigger=true` | none (Static) | Unit passes through — `OnTriggerEnter2D` fires; `SetColliderEnabled(false)` during drag / on source depletion |
+| Animal (alpaca/boar/fox) | Collider2D `isTrigger=false` (child) | Rigidbody2D (**Kinematic**, root) | Units (Dynamic) bounce off it — that bounce IS the harvest hit; the kinematic body itself passes through structures/terrain (only wander destinations are validated, by AnimalSpawner) |
 | Island boundary | TilemapCollider2D (Composite Operation: Merge) + CompositeCollider2D | Rigidbody2D (Static) | Auto-updates when tiles are added on island expansion |
 | Pier | CircleCollider2D (isTrigger) | none | Own physics layer so units ignore it; player clicks to trigger prestige |
 
@@ -252,7 +267,7 @@ despawned on enter, so there is nothing to simulate anyway.
 | `IslandSystem` | MB | Owns Grid + Generator; `GenerateForRun()`; `Expand(AgeDef)` grows the island + redraws the tilemap (driven explicitly by `AgeSequencer`, not an event) |
 | `UnitPool` | MB | Pool per UnitDef; `Get` / `Release` |
 | `UnitSystem` | MB | Live-unit registry (`ActiveUnits`); fed by **direct `SpawnSystem` Add/Remove** (no events); home for future bulk ops (tap-AoE) |
-| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type cap; syncs UnitSystem; owns the **spawner registry**; `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode); `Initialize(RunContext)` → injects `RunStats` into each spawned unit |
+| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type cap; syncs UnitSystem; owns the **spawner registry** (`IStructureSpawner`: unit Spawners + AnimalSpawners); `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode); `Initialize(RunContext)` → injects `RunStats` into each spawned unit |
 | `ResourceSystem` | MB | `ReactiveValue<float>` per resource; `AddResource` / `GetResource`; `AddHarvest(type, worker, base)` = production gateway (applies `ResourceYield` + `ProductionGlobal`); `CanAfford` / `Spend` |
 | `StructureSystem` | MB | Place / Remove / Move structures via IslandGrid (**stubs, Phase 2**); publishes Structure* events. `Build`/`PlaceInitial` return the created `StructureInstance` so owners (the pier) can track + move it later |
 | `PierSystem` | MB | Owns the pier for a run: `PlaceForRun()` (called by RunManager after island gen) drops it in the island's bottom-right corner; on `AgeStartedEvent` it re-snaps to the new right edge via `StructureSystem` pick-up/drop. Anchors to the **rightmost column's own bottom** (ragged shorelines), warns if the age's right-edge growth is too short. Not part of `StartingLayoutDef` — single owner of the pier's cell |
@@ -266,6 +281,10 @@ despawned on enter, so there is nothing to simulate anyway.
 | `SaveSystem` | MB | JSON serialization of MetaContext (**stub: returns fresh MetaContext**) |
 | `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch + `CollisionEvent`; `SetColliderEnabled` |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (StructureDef) + health / `TakeDamage` (stub) |
-| `Spawner` | MB, `ICollisionEffect` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; `ResetSlots` / `BeginWarmup` |
-| `ResourceSource` | MB, `ICollisionEffect` | Resource node: grants `def.resource` per allowed-worker hit, depletes/respawns; swaps Ready/Harvested visual roots (`SetActive`) + toggles host collider. `infinite` defs keep a single visual |
+| `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit); SpawnSystem's registry is a list of these |
+| `Spawner` | MB, `ICollisionEffect`, `IStructureSpawner` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; `ResetForBuildMode` / `Warmup` |
+| `ResourceSource` | MB, `ICollisionEffect` | Static resource node: grants `def.resource` per allowed-worker hit (yield resolve = `ResourceSourceDef.TryGetYield`, shared with Animal), depletes/respawns in place; swaps Ready/Harvested visual roots (`SetActive`) + toggles host collider. `infinite` defs keep a single visual |
+| `Animal` | MB, `ICollisionEffect` | Mobile resource node: same `ResourceSourceDef` harvest per hit, but after `hitsBeforeDespawn` hits it notifies its owning AnimalSpawner and destroys itself (def.respawnTime unused — replacement cadence is the spawner's `spawnCooldown`); `infinite` never despawns |
+| `AnimalWander` | MB | Kinematic wander: point in owner's territory → walk straight → pause → repeat; without an owner (scene-placed) wanders a plain circle around its start |
+| `AnimalSpawner` | MB, `IStructureSpawner` | Keeps ≤ `maxAnimals` animals in the structure's territory (land cells within `territoryRadiusCells` of the footprint; own border counts free, occupied land is the fallback — den-in-forest); one replacement per `spawnCooldown`; territory follows the building via `instance.Cell` |
 | `BuildModeButton` | MB (UI) | Toggle button: publishes `BuildModeToggleRequestedEvent`, reflects `BuildModeUIStateEvent` |

@@ -1876,7 +1876,7 @@ MonoBehaviour:
   halfExtent: {x: 20, y: 20}
   lineColor: {r: 0.9433962, g: 0.06674972, b: 0.06674972, a: 0.32941177}
   axisColor: {r: 1, g: 1, b: 1, a: 0}
-  onlyWhenSelected: 1
+  onlyWhenSelected: 0
 --- !u!4 &721271055
 Transform:
   m_ObjectHideFlags: 0

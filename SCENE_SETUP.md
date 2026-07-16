@@ -3,7 +3,8 @@
 Как устроен старт и как разложить объекты в `SampleScene`, чтобы сцена была «по полочкам».
 Документ держим синхронным с кодом — обновляем при добавлении/переименовании систем и полей.
 
-> Последняя сверка с кодом: **2026-07-15** (после системы эпох + бонусов `RunStats`).
+> Последняя сверка с кодом: **2026-07-16** (после зверей — подвижных ресурсных ячеек:
+> `Animal` / `AnimalWander` / `AnimalSpawner` + интерфейс `IStructureSpawner`).
 
 ## Принцип
 
@@ -151,7 +152,7 @@ Root        → Rigidbody2D (Static) + Structure  [+ Spawner и/или ResourceS
 Rigidbody2D всегда на ROOT, чтобы `OnCollisionEnter2D`/`OnTriggerEnter2D` доходили до скрипта.
 Obstacle (отскок) vs Interactable (триггер) задаётся флагом `isTrigger` на коллайдере.
 
-Компоненты на постройке (комбинируются — у структуры может быть один или оба):
+Компоненты на постройке (комбинируются — у структуры может быть один или несколько):
 
 | Компонент | Поле | Что назначить |
 |-----------|------|---------------|
@@ -164,6 +165,11 @@ Obstacle (отскок) vs Interactable (триггер) задаётся фла
 | | resourceSystem | ResourceSystem *(или впрыснется в рантайме)* |
 | | readyRoot | дочерний объект-визуал состояния Ready *(пусто для `infinite`)* |
 | | harvestedRoot | дочерний объект-визуал состояния Harvested *(пусто для `infinite`)* |
+| **AnimalSpawner** (спавнит зверей — конюшня/нора) | spawnSystem, resourceSystem | SpawnSystem, ResourceSystem *(или впрыснутся в рантайме при постройке)* |
+| | animalPrefab | префаб зверя (BaseAnimal, см. ниже) |
+| | maxAnimals | макс. живых зверей одновременно (≥1) |
+| | spawnCooldown | секунд до замены собранного зверя (5) |
+| | territoryRadiusCells | радиус территории в клетках вокруг футпринта (2) |
 
 > Природные источники (Tree/Wheat/Stone) — это `Structure` + `ResourceSource` **без** `Spawner`.
 > Здания-источники (Forge/Church) — `Structure` + `ResourceSource` с `infinite`-дефом.
@@ -183,6 +189,27 @@ Root          → Rigidbody2D (Static) + Structure + ResourceSource
 > `HarvestedRoot` выключен (код всё равно выставит состояние в `Start`, но так нет мигания кадром).
 > `infinite`-источники (Forge/Church) оставляют оба рута пустыми и используют единственный `Visual`.
 > Y-сортировка включается глобально: **Project Settings → Graphics → Transparency Sort Mode = Custom Axis (0,1,0)**.
+
+### BaseAnimal (зверь — подвижная ресурсная ячейка)
+Зверь — **не юнит и не Structure**: у него нет дефа постройки, клетки на гриде и здоровья.
+Это первый «голый» `CollisionTarget` (без наследника `Structure`).
+```
+Root        → Rigidbody2D (KINEMATIC, GravityScale 0) + CollisionTarget + Animal + AnimalWander
+├── Visual  → SpriteRenderer (Sort Point = Pivot, пивот у ног)
+└── Physics → Collider2D (isTrigger = FALSE — юнит отскакивает, и этот отскок = «удар»-сбор)
+```
+- **Body Type строго Kinematic:** юнит (Dynamic) сталкивается с коллайдером зверя и отскакивает,
+  а сам зверь при движении проходит сквозь постройки и рельеф — валидируются только точки
+  назначения (их выдаёт `AnimalSpawner`: клетки суши в радиусе территории).
+- Поля `Animal`: **def** → ResourceSourceDef зверя (workerYields = кто собирает и сколько;
+  `hitsBeforeDespawn` = ударов до исчезновения; `infinite` = не исчезает никогда;
+  **`respawnTime` для зверей НЕ используется** — замену по кулдауну выдаёт `AnimalSpawner`).
+  `resourceSystem` — только для зверя, положенного в сцену руками; заспавненному впрыснет нора.
+- Поля `AnimalWander`: moveSpeed, pauseMin/pauseMax (шаг→пауза→шаг), fallbackRadius — радиус
+  блуждания в мировых юнитах, используется только без норы-владельца.
+- Здание-нора/конюшня = обычная Structure + `AnimalSpawner` (см. таблицу компонентов выше).
+- Звери уничтожаются на входе в build mode и пересоздаются на выходе — как юниты; переезд
+  здания перевозит и территорию (спавнер читает `instance.Cell`).
 
 ### BaseFence / заборы (Structure на РЕБРЕ грида)
 Забор не занимает клетку — он стоит на **ребре** (границе между двумя клетками). Это один префаб с
@@ -226,7 +253,7 @@ Root → Button + BuildCardUI + CanvasGroup
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
 | **StructureDef** | LittlePeeps/StructureDef | id, displayName, icon, prefab, **placement (Cell=футпринт клеток / Edge=забор на ребре)**, size, cost[], allowedTerrain[] (пусто = любой биом), sellRefundPercent (0..1), border (расширяет занимаемую территорию в клетках: дом=1 → 2×2 занимает 4×4 сетки; дерево/поле=0; для Edge не используется) |
-| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто), infinite, hitsBeforeDespawn, respawnTime *(визуалы состояний живут в префабе как ReadyRoot/HarvestedRoot, не в дефе)* |
+| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), infinite, hitsBeforeDespawn, respawnTime *(визуалы состояний живут в префабе как ReadyRoot/HarvestedRoot, не в дефе)*. Один и тот же деф-тип для статичных источников (Tree/Wheat/Forge) и зверей (Alpaca/Boar/Fox); **для зверей respawnTime не используется** — каденс замены задаёт `AnimalSpawner.spawnCooldown` |
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | structures: список StructureDef для нижней панели |
@@ -253,7 +280,7 @@ Root → Button + BuildCardUI + CanvasGroup
 ## Build mode — как связано
 
 - **Вход/выход** по `BuildModeButton` (правый-нижний угол) **или клавише B** → событие `BuildModeToggleRequestedEvent` → `GameplayContainerState` переключает внутренний FSM `Playing↔BuildMode` и держит 5-сек кулдаун на повторный вход.
-- **`BuildModeState.Enter`**: `Time.timeScale=0` + `SpawnSystem.DespawnAllAndResetSpawners` (юниты в пул). **`Exit`**: `SpawnSystem.WarmupAllSpawners` (юниты респавнятся из зданий) + `Time.timeScale=1`.
+- **`BuildModeState.Enter`**: `Time.timeScale=0` + `SpawnSystem.DespawnAllAndResetSpawners` (юниты в пул, зверей их норы уничтожают сами). **`Exit`**: `SpawnSystem.WarmupAllSpawners` (юниты и звери пересоздаются из зданий) + `Time.timeScale=1`. Оба вида спавнеров идут через один реестр `IStructureSpawner`.
 - **Инструмент = что выбрано в панели** (`PlacementController`):
   - карточка → **PLACE** (гост под курсором, клик ставит),
   - кнопка Sell → **SELL** (наведение красит постройку, клик продаёт с возвратом `sellRefundPercent×cost`),
@@ -272,7 +299,7 @@ Script Execution Order настраивать **не нужно** (это кос
 ## Что должно произойти при Play
 
 1. `GameBootstrap.Awake`: загрузка Meta, создание Session, проводка систем; `RunManager.StartNewRun()` → создаётся RunContext, инициализируются ресурсы, `IslandSystem.GenerateForRun()` рисует остров, раскладываются стартовые постройки, `PierSystem.PlaceForRun()` ставит Пирс в правом-нижнем углу; App FSM → `Boot → GameplayContainer → Playing`.
-2. На экране: остров (трава), юниты появляются внутри зданий-спавнеров, отдыхают, вылетают и отскакивают; сбор ресурсов при ударах по источникам. Клик — буст юнитов в радиусе. Клик по Pier — событие `PrestigeTriggeredEvent` (обработчика пока нет).
+2. На экране: остров (трава), юниты появляются внутри зданий-спавнеров, отдыхают, вылетают и отскакивают; сбор ресурсов при ударах по источникам. Если стоят конюшни/норы — вокруг них гуляют звери; юнит сшибает зверя → ресурс, после `hitsBeforeDespawn` ударов зверь исчезает и нора спавнит замену по кулдауну. Клик — буст юнитов в радиусе. Клик по Pier — событие `PrestigeTriggeredEvent` (обработчика пока нет).
 3. Кнопка build mode → пауза + сетка + панель: ставим/продаём/двигаем постройки; выход → юниты респавнятся.
 4. Кнопка **Next Age** (AgeUI) активна, когда хватает ресурсов на следующую эпоху: клик → затемнение → остров прирастает блоками → плашка «Age N» → развиднелось; ресурсы списаны, бонусы эпохи (StatModifier) применены к добыче/скорости. Перк-шаг перехода — пока пустой хук.
 
@@ -288,6 +315,7 @@ Script Execution Order настраивать **не нужно** (это кос
 
 ## Что ещё заглушка (чтобы не ждать большего)
 
-Главное меню и HUD, реальный Save на диск, формула престижа (`PrestigeSystem`), перки (`PerkSystem` + перк-шаг перехода эпохи — пустой хук), `ResourceUI/PerkSelectionUI` (Initialize/Show — `// TODO`) — пока не реализованы. Сохранение прогресса эпох на диск, новые статы (вместимость/перезарядка), существа-источники (Boar/Fox/Alpaca) и их спавнеры, Windmill, HP/бой, генерация по биомам — в бэклоге.
+Главное меню и HUD, реальный Save на диск, формула престижа (`PrestigeSystem`), перки (`PerkSystem` + перк-шаг перехода эпохи — пустой хук), `ResourceUI/PerkSelectionUI` (Initialize/Show — `// TODO`) — пока не реализованы. Сохранение прогресса эпох на диск, новые статы (вместимость/перезарядка), Windmill, HP/бой, генерация по биомам — в бэклоге.
 
-> Эпохи и бонусы `RunStats` — **реализованы** (эта веха): покупка эпохи → трата → рост острова → применение модификаторов → переход с fade + плашкой.
+> Эпохи и бонусы `RunStats` — **реализованы**: покупка эпохи → трата → рост острова → применение модификаторов → переход с fade + плашкой.
+> Звери (подвижные ресурсные ячейки: `Animal` + `AnimalWander` + `AnimalSpawner`) — **реализованы в коде** (2026-07-16); префабы зверей, их дефы и здания-норы — редакторская работа (см. BaseAnimal выше). Открытый вопрос баланса: альпака как `infinite`-источник.

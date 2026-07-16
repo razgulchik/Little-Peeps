@@ -20,8 +20,8 @@ MonoBehaviour:
   - id: 2
     unitScope: 0
     resourceScope: 0
-    flat: 1
-    percent: 0
+    flat: 0
+    percent: 0.2
   expansionBlocks:
   - x: 3
     y: 0

@@ -149,11 +149,13 @@ public class IslandGrid
         );
     }
 
-    // World-space AABB covering every existing cell (outer corners of the min/max cells). Used by the
-    // CameraController to clamp panning to the island. Empty grid → a zero-size box at the origin.
-    public Bounds WorldBounds()
+    // Cell-coordinate AABB: the min and max EXISTING cell coordinates (both inclusive). Returns false
+    // for an empty grid (out params left at zero). This is the raw integer extent — WorldBounds turns
+    // it into a world box; edge-anchored props (e.g. the pier snapping to the right edge) read it
+    // directly so they work in cell space with no float round-trip.
+    public bool CellBounds(out Vector2Int min, out Vector2Int max)
     {
-        if (cells.Count == 0) return new Bounds(Vector3.zero, Vector3.zero);
+        if (cells.Count == 0) { min = max = Vector2Int.zero; return false; }
 
         int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
         foreach (var coord in cells.Keys)
@@ -164,10 +166,21 @@ public class IslandGrid
             if (coord.y > maxY) maxY = coord.y;
         }
 
+        min = new Vector2Int(minX, minY);
+        max = new Vector2Int(maxX, maxY);
+        return true;
+    }
+
+    // World-space AABB covering every existing cell (outer corners of the min/max cells). Used by the
+    // CameraController to clamp panning to the island. Empty grid → a zero-size box at the origin.
+    public Bounds WorldBounds()
+    {
+        if (!CellBounds(out var min, out var max)) return new Bounds(Vector3.zero, Vector3.zero);
+
         var b = new Bounds();
         b.SetMinMax(
-            new Vector3(minX * cellSize, minY * cellSize, 0f),
-            new Vector3((maxX + 1) * cellSize, (maxY + 1) * cellSize, 0f));
+            new Vector3(min.x * cellSize, min.y * cellSize, 0f),
+            new Vector3((max.x + 1) * cellSize, (max.y + 1) * cellSize, 0f));
         return b;
     }
 

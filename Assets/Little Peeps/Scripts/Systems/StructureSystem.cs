@@ -26,21 +26,24 @@ public class StructureSystem : MonoBehaviour
         return true;
     }
 
-    // Free placement for run-start structures (StartingLayoutDef): no cost, but still validated.
-    // A failing entry is a data error in the layout — warn and skip rather than corrupt the grid.
-    public void PlaceInitial(StructureDef def, Vector2Int cell)
+    // Free placement for run-start structures (StartingLayoutDef, the pier): no cost, but still
+    // validated. Returns the placed instance, or null when the cell is blocked — a failing layout
+    // entry is a data error, so warn and skip rather than corrupt the grid; the pier reads the null
+    // to know it had no room.
+    public StructureInstance PlaceInitial(StructureDef def, Vector2Int cell)
     {
         if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain, def.border))
         {
             Debug.LogWarning($"StartingLayout: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, or border overlap) — skipped.", this);
-            return;
+            return null;
         }
-        Build(def, cell);
+        return Build(def, cell);
     }
 
     // Instantiate the prefab, register it in the grid + run, and announce it. Shared by every
-    // placement path (starting layout now; interactive placement in 2.3).
-    private Structure Build(StructureDef def, Vector2Int cell)
+    // placement path (starting layout now; interactive placement in 2.3). Returns the created
+    // instance so callers that need to track/move it later (e.g. the pier) can hold on to it.
+    private StructureInstance Build(StructureDef def, Vector2Int cell)
     {
         var grid = islandSystem.Grid;
         var worldPos = grid.OriginToWorldCenter(cell, def.size);
@@ -70,7 +73,7 @@ public class StructureSystem : MonoBehaviour
         run.structures[cell] = instance;
 
         EventBus<StructurePlacedEvent>.Publish(new StructurePlacedEvent { Structure = structure, Cell = cell });
-        return structure;
+        return instance;
     }
 
     // Put a structure's ROOT at its footprint center. Any visual offset baked into the prefab (the

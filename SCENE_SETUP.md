@@ -35,7 +35,8 @@ SampleScene
 │   ├── AgeSystem               → AgeSystem          (каталог эпох + CanAdvance)
 │   ├── AgeSequencer            → AgeSequencer
 │   ├── TapSystem               → TapSystem
-│   └── PlacementController     → PlacementController
+│   ├── PlacementController     → PlacementController
+│   └── PierSystem              → PierSystem          (владелец Пирса: ставит на старте, двигает при росте острова)
 ├── @Input                      → InputHandler, GameHotkeys
 ├── Island                      → IslandSystem
 │   └── Grid                    → Grid (компонент)
@@ -58,7 +59,7 @@ SampleScene
 │   ├── PerkSelectionUI         → PerkSelectionUI       (опц.)
 │   ├── AgeTransitionOverlay    → Image (чёрный, стретч на весь экран) + CanvasGroup (Alpha 0)  ← фейд перехода эпохи
 │   └── AgeTitle                → TMP_Text (по центру, поверх оверлея; объект ВЫКЛючен по умолчанию)  ← плашка «Age N»
-└── Pier                        → Pier + Collider2D (isTrigger = true)
+└── (Pier — в рантайме)         → PierSystem инстанцирует pierDef.prefab (Structure + Pier + Collider2D isTrigger); вручную в сцену НЕ кладётся
 ```
 
 > Можно навесить все менеджеры на один объект `@Systems` — компактнее, но инспектор огромный.
@@ -82,6 +83,7 @@ SampleScene
 | | | buildModeCooldown | 5 (сек, дефолт) |
 | @Bootstrap | SaveSystem | — | (полей нет) |
 | @Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem, spawnSystem** | ResourceSystem, IslandSystem, StructureSystem, SpawnSystem (spawnSystem обязателен — иначе NPE в StartNewRun) |
+| | | pierSystem | PierSystem (опц.; без него Пирса просто не будет) |
 | | | startingLayout | StartingLayoutDef-ассет (опц., но без него нет стартовых построек) |
 | | | debugStartModifiers | список StatModifier для теста бонусов без эпох (опц.; в проде пусто) |
 | @Systems/ResourceSystem | ResourceSystem | logChanges | вкл/выкл лог ресурсов в консоль (дебаг) |
@@ -100,6 +102,7 @@ SampleScene
 | @Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, mainCamera, gridOverlay** | соответствующие компоненты |
 | | | validColor, invalidColor, sellHoverColor, moveHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже, зелёный «можно схватить» в Move (есть дефолты) |
 | | | territoryValidColor, territoryInvalidColor, territorySortingLayer, territorySortingOrder | ореол занимаемой территории госта: зелёный/красный α0.18, слой Ground/1001 (дефолты) |
+| @Systems/PierSystem | PierSystem | **islandSystem, structureSystem, pierDef** | IslandSystem, StructureSystem, StructureDef Пирса (border=0, size с высотой, которую покрывает рост правого края эпох) |
 | @Input | **InputHandler** | **mainCamera** | Main Camera |
 | @Input | GameHotkeys | buildModeKey, sellKey, exitToMenuKey, infoKey | клавиши команд: B / X / Esc / I (дефолты, правятся в инспекторе) |
 | CameraTarget | **CameraController** | **islandSystem, viewCamera** | IslandSystem (кламп по острову); viewCamera = Main Camera (только для перевода drag-пикселей в мир) |
@@ -212,6 +215,12 @@ Root → Button + BuildCardUI + CanvasGroup
 ```
 Поля `BuildCardUI`: button, iconImage, costText, selectedHighlight, canvasGroup.
 
+### Пирс (Pier)
+Пирс — обычная **Structure** (footprint в клетках), но его позицией владеет `PierSystem`, а не игрок: он всегда стоит в правом-нижнем углу острова и переезжает туда заново на каждой смене эпохи (за чёрным экраном перехода).
+- **Префаб** = `Structure` + `Pier` (маркер для клика-престижа) + `Collider2D (isTrigger = true, отдельный слой)` + спрайт. Свес настила в воду клади в **дочерний** SpriteRenderer (корень двигается по footprint — оффсет сохранится), `Order in Layer` поверх воды/травы.
+- **StructureDef Пирса:** `placement = Cell`, `border = 0` (иначе потребует клетки за краем острова → `CanPlace` всегда провалится), `size` с нужной высотой, `cost` пустой (ставится бесплатно). **Не** кладётся в `StartingLayoutDef` — единственный владелец его клетки это `PierSystem`.
+- **Слот:** правые столбцы, привязка к **низу самого правого столбца** (рваный берег ок). Если правый край эпохи ниже высоты Пирса — `Debug.LogWarning`, Пирс остаётся на месте (см. заметку у AgeDef).
+
 ## ScriptableObject-ассеты
 
 | Ассет | Меню создания | Главное содержимое |
@@ -221,7 +230,7 @@ Root → Button + BuildCardUI + CanvasGroup
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | structures: список StructureDef для нижней панели |
-| **AgeDef** | LittlePeeps/AgeDef | title, resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), expansionBlocks[] (RectInt — рост острова). Порядок задаётся списком `AgeSystem.ages`. См. BONUS_SYSTEM_GUIDE / ISLAND_EXPANSION_GUIDE |
+| **AgeDef** | LittlePeeps/AgeDef | title, resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), expansionBlocks[] (RectInt — рост острова; **правый край должен расти на высоту ≥ размера Пирса**, иначе PierSystem не найдёт слот и напишет warning). Порядок задаётся списком `AgeSystem.ages`. См. BONUS_SYSTEM_GUIDE / ISLAND_EXPANSION_GUIDE |
 | PerkDef | (см. ассет) | перки для PerkSystem.catalogue |
 
 > Координаты сетки **знаковые** и не зависят от того, какие клетки существуют: центр клетки `c` = мир `(c+0.5)·cellSize`.
@@ -262,7 +271,7 @@ Script Execution Order настраивать **не нужно** (это кос
 
 ## Что должно произойти при Play
 
-1. `GameBootstrap.Awake`: загрузка Meta, создание Session, проводка систем; `RunManager.StartNewRun()` → создаётся RunContext, инициализируются ресурсы, `IslandSystem.GenerateForRun()` рисует остров, раскладываются стартовые постройки; App FSM → `Boot → GameplayContainer → Playing`.
+1. `GameBootstrap.Awake`: загрузка Meta, создание Session, проводка систем; `RunManager.StartNewRun()` → создаётся RunContext, инициализируются ресурсы, `IslandSystem.GenerateForRun()` рисует остров, раскладываются стартовые постройки, `PierSystem.PlaceForRun()` ставит Пирс в правом-нижнем углу; App FSM → `Boot → GameplayContainer → Playing`.
 2. На экране: остров (трава), юниты появляются внутри зданий-спавнеров, отдыхают, вылетают и отскакивают; сбор ресурсов при ударах по источникам. Клик — буст юнитов в радиусе. Клик по Pier — событие `PrestigeTriggeredEvent` (обработчика пока нет).
 3. Кнопка build mode → пауза + сетка + панель: ставим/продаём/двигаем постройки; выход → юниты респавнятся.
 4. Кнопка **Next Age** (AgeUI) активна, когда хватает ресурсов на следующую эпоху: клик → затемнение → остров прирастает блоками → плашка «Age N» → развиднелось; ресурсы списаны, бонусы эпохи (StatModifier) применены к добыче/скорости. Перк-шаг перехода — пока пустой хук.

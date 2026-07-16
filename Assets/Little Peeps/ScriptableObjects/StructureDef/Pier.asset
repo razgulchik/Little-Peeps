@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
+  m_Name: Pier
+  m_EditorClassIdentifier: 
+  id: pier
+  displayName: Pier
+  icon: {fileID: 21300000, guid: 617cae3a7de70fc46b5ce47ba907bdc3, type: 3}
+  prefab: {fileID: 5294570824620911686, guid: f6d4cd361eee792429e707b0d9bdd056, type: 3}
+  placement: 0
+  size: {x: 1, y: 3}
+  cost: []
+  effects: []
+  allowedTerrain: 
+  sellRefundPercent: 0
+  border: 0

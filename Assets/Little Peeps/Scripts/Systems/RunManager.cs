@@ -8,6 +8,7 @@ public class RunManager : MonoBehaviour
     [SerializeField] private IslandSystem islandSystem;
     [SerializeField] private StructureSystem structureSystem;
     [SerializeField] private SpawnSystem spawnSystem;
+    [SerializeField] private PierSystem pierSystem;
     [SerializeField] private StartingLayoutDef startingLayout;
 
     [Header("Debug")]
@@ -44,6 +45,7 @@ public class RunManager : MonoBehaviour
         spawnSystem.Initialize(CurrentRun);
         islandSystem.GenerateForRun();
         PlaceStartingStructures();
+        if (pierSystem != null) pierSystem.PlaceForRun();   // after the island exists; owns its own cell
     }
 
     // Instantiate the run's starting structures from the layout asset, through the same

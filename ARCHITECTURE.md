@@ -154,7 +154,7 @@ EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);   // always unsubscribe in 
 | `StructureRemovedEvent` | `StructureSystem.RemoveStructure` (stub) | RunContext |
 | `StructureDamagedEvent` | `Structure.TakeDamage` (stub) | UI health bars |
 | `StructureDestroyedEvent` | `Structure.TakeDamage` (stub) | StructureSystem cleanup |
-| `AgeStartedEvent` | `AgeSequencer` (banner step) | CameraController (re-clamp bounds), AgeUI (label + button) |
+| `AgeStartedEvent` | `AgeSequencer` (banner step) | CameraController (re-clamp bounds), AgeUI (label + button), PierSystem (move pier to the new right edge) |
 | `AgeAdvanceRequestedEvent` | `AgeUI` (Next Age button) | `GameplayContainerState` (enters AgeTransition if affordable) |
 | `UnitBoostedEvent` | `TapSystem` | analytics / VFX |
 | `PerkSelectedEvent` | `PerkSystem.ApplyPerk` | AgeSequencer, PerkSelectionUI |
@@ -247,21 +247,22 @@ despawned on enter, so there is nothing to simulate anyway.
 
 | Component | Type | Responsibility |
 |-----------|------|---------------|
-| `IslandGrid` | Plain C# | Grid data: cells (`terrain` + `occupant: StructureInstance`), placement validation (`CanPlace/Place/Remove/Move` — **stubs, Phase 2**), world↔grid conversion |
+| `IslandGrid` | Plain C# | Grid data: cells (`terrain` + `occupant: StructureInstance`), placement validation (`CanPlace/Place/Remove/Move` — **stubs, Phase 2**), world↔grid conversion; `CellBounds(out min,out max)` = integer cell extent (used by `WorldBounds` and `PierSystem`'s right-edge snap) |
 | `IslandGenerator` | Plain C# | Seeds the starting island (centered Grass square); `Expand(blocks)` adds `AgeDef.expansionBlocks` — absolute `RectInt`s, only missing cells created (biome variety later) |
 | `IslandSystem` | MB | Owns Grid + Generator; `GenerateForRun()`; `Expand(AgeDef)` grows the island + redraws the tilemap (driven explicitly by `AgeSequencer`, not an event) |
 | `UnitPool` | MB | Pool per UnitDef; `Get` / `Release` |
 | `UnitSystem` | MB | Live-unit registry (`ActiveUnits`); fed by **direct `SpawnSystem` Add/Remove** (no events); home for future bulk ops (tap-AoE) |
 | `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type cap; syncs UnitSystem; owns the **spawner registry**; `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode); `Initialize(RunContext)` → injects `RunStats` into each spawned unit |
 | `ResourceSystem` | MB | `ReactiveValue<float>` per resource; `AddResource` / `GetResource`; `AddHarvest(type, worker, base)` = production gateway (applies `ResourceYield` + `ProductionGlobal`); `CanAfford` / `Spend` |
-| `StructureSystem` | MB | Place / Remove / Move structures via IslandGrid (**stubs, Phase 2**); publishes Structure* events |
+| `StructureSystem` | MB | Place / Remove / Move structures via IslandGrid (**stubs, Phase 2**); publishes Structure* events. `Build`/`PlaceInitial` return the created `StructureInstance` so owners (the pier) can track + move it later |
+| `PierSystem` | MB | Owns the pier for a run: `PlaceForRun()` (called by RunManager after island gen) drops it in the island's bottom-right corner; on `AgeStartedEvent` it re-snaps to the new right edge via `StructureSystem` pick-up/drop. Anchors to the **rightmost column's own bottom** (ragged shorelines), warns if the age's right-edge growth is too short. Not part of `StartingLayoutDef` — single owner of the pier's cell |
 | `PlacementController` | MB | BuildMode tool controller: ghost place / sell / move-drag + grid overlay; right-click cancels (replaced the old DragController) |
 | `TapSystem` | MB | Click-on-unit → `Boost`; Pier click → prestige (New Input System) |
 | `AgeSystem` | MB | Owns the ordered `List<AgeDef>` catalogue; `NextAge` / `CanAdvance` (queried by AgeUI + GameplayContainerState). Current age lives on RunContext, so it's stateless between runs |
 | `AgeSequencer` | MB | Coroutine chain for an age transition (fade → island expand → "Age N" banner → perk hook → fade), unscaled time; signals completion via callback. Refs: fade `CanvasGroup` + title `TMP_Text` |
 | `PerkSystem` | MB | Weighted random roll of perks; `ApplyPerk` (still stub; the age-transition perk step is a hook) |
 | `PrestigeSystem` | MB | Points formula; resets run via RunManager |
-| `RunManager` | MB | Creates RunContext; seeds `stats` (debug modifiers now, meta later); `Initialize`s resource/structure/**spawn** systems; owns island generation timing |
+| `RunManager` | MB | Creates RunContext; seeds `stats` (debug modifiers now, meta later); `Initialize`s resource/structure/**spawn** systems; owns island generation timing; after generation places starting structures + `PierSystem.PlaceForRun()` |
 | `SaveSystem` | MB | JSON serialization of MetaContext (**stub: returns fresh MetaContext**) |
 | `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch + `CollisionEvent`; `SetColliderEnabled` |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (StructureDef) + health / `TakeDamage` (stub) |

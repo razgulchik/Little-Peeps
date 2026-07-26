@@ -1,25 +1,28 @@
-// Transition gameplay FSM to the prestige confirmation screen
-public class TriggerPrestigeCmd : ICommand
+namespace LittlePeeps
 {
-    private readonly StateMachine gameplayFsm;
-    private readonly PrestigeSystem prestigeSystem;
-    private readonly RunContext runContext;
-
-    public TriggerPrestigeCmd(StateMachine gameplayFsm, PrestigeSystem prestigeSystem, RunContext runContext)
+    // Transition gameplay FSM to the prestige confirmation screen
+    public class TriggerPrestigeCmd : ICommand
     {
-        this.gameplayFsm = gameplayFsm;
-        this.prestigeSystem = prestigeSystem;
-        this.runContext = runContext;
-    }
+        private readonly StateMachine gameplayFsm;
+        private readonly PrestigeSystem prestigeSystem;
+        private readonly RunContext runContext;
 
-    public bool CanExecute()
-    {
-        // TODO: check that the prestige condition is met (e.g., a flag set when a unit reaches Pier)
-        return true;
-    }
+        public TriggerPrestigeCmd(StateMachine gameplayFsm, PrestigeSystem prestigeSystem, RunContext runContext)
+        {
+            this.gameplayFsm = gameplayFsm;
+            this.prestigeSystem = prestigeSystem;
+            this.runContext = runContext;
+        }
 
-    public void Execute()
-    {
-        // TODO: gameplayFsm.ChangeState(new PrestigeMenuState(gameplayFsm, prestigeSystem, runContext))
+        public bool CanExecute()
+        {
+            // TODO: check that the prestige condition is met (e.g., a flag set when a unit reaches Pier)
+            return true;
+        }
+
+        public void Execute()
+        {
+            // TODO: gameplayFsm.ChangeState(new PrestigeMenuState(gameplayFsm, prestigeSystem, runContext))
+        }
     }
 }

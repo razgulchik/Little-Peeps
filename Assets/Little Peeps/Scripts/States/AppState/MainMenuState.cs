@@ -1,27 +1,30 @@
-// Title screen: allows starting a new run or opening Meta Upgrades
-public class MainMenuState : IState
+namespace LittlePeeps
 {
-    private readonly StateMachine appFsm;
-    private readonly RunManager runManager;
-
-    public MainMenuState(StateMachine appFsm, RunManager runManager)
+    // Title screen: allows starting a new run or opening Meta Upgrades
+    public class MainMenuState : IState
     {
-        this.appFsm = appFsm;
-        this.runManager = runManager;
-    }
+        private readonly StateMachine appFsm;
+        private readonly RunManager runManager;
 
-    public void Enter()
-    {
-        // TODO: show main menu UI; subscribe to Play button → ChangeState(GameplayContainerState) and Meta button → ChangeState(MetaUpgradesState)
-    }
+        public MainMenuState(StateMachine appFsm, RunManager runManager)
+        {
+            this.appFsm = appFsm;
+            this.runManager = runManager;
+        }
 
-    public void Exit()
-    {
-        // TODO: hide main menu UI; unsubscribe from button callbacks
-    }
+        public void Enter()
+        {
+            // TODO: show main menu UI; subscribe to Play button → ChangeState(GameplayContainerState) and Meta button → ChangeState(MetaUpgradesState)
+        }
 
-    public void Tick()
-    {
-        // TODO: idle — all transitions are event-driven
+        public void Exit()
+        {
+            // TODO: hide main menu UI; unsubscribe from button callbacks
+        }
+
+        public void Tick()
+        {
+            // TODO: idle — all transitions are event-driven
+        }
     }
 }

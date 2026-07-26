@@ -1,8 +1,11 @@
-public enum UpgradeId
+namespace LittlePeeps
 {
-    ProductionMultiplier,
-    SpawnRate,
-    BounceStrength,
-    PrestigeBonus,
-    StartingResources,
+    public enum UpgradeId
+    {
+        ProductionMultiplier,
+        SpawnRate,
+        BounceStrength,
+        PrestigeBonus,
+        StartingResources,
+    }
 }

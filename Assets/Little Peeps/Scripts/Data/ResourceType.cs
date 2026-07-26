@@ -1,8 +1,11 @@
-public enum ResourceType
+namespace LittlePeeps
 {
-    Food,
-    Wood,
-    Stone,
-    Metal,
-    Coins,
+    public enum ResourceType
+    {
+        Food,
+        Wood,
+        Stone,
+        Metal,
+        Coins,
+    }
 }

@@ -1,29 +1,32 @@
-// Prestige confirmation screen: shows projected points; confirm executes prestige
-public class PrestigeMenuState : IState
+namespace LittlePeeps
 {
-    private readonly StateMachine gameplayFsm;
-    private readonly PrestigeSystem prestigeSystem;
-    private readonly RunContext runContext;
-
-    public PrestigeMenuState(StateMachine gameplayFsm, PrestigeSystem prestigeSystem, RunContext runContext)
+    // Prestige confirmation screen: shows projected points; confirm executes prestige
+    public class PrestigeMenuState : IState
     {
-        this.gameplayFsm = gameplayFsm;
-        this.prestigeSystem = prestigeSystem;
-        this.runContext = runContext;
-    }
+        private readonly StateMachine gameplayFsm;
+        private readonly PrestigeSystem prestigeSystem;
+        private readonly RunContext runContext;
 
-    public void Enter()
-    {
-        // TODO: show prestige UI; display prestigeSystem.Calculate(runContext) as projected points
-    }
+        public PrestigeMenuState(StateMachine gameplayFsm, PrestigeSystem prestigeSystem, RunContext runContext)
+        {
+            this.gameplayFsm = gameplayFsm;
+            this.prestigeSystem = prestigeSystem;
+            this.runContext = runContext;
+        }
 
-    public void Exit()
-    {
-        // TODO: hide prestige UI
-    }
+        public void Enter()
+        {
+            // TODO: show prestige UI; display prestigeSystem.Calculate(runContext) as projected points
+        }
 
-    public void Tick()
-    {
-        // TODO: Confirm button → prestigeSystem.ExecutePrestige(runContext); Cancel → gameplayFsm.ChangeState(PlayingState)
+        public void Exit()
+        {
+            // TODO: hide prestige UI
+        }
+
+        public void Tick()
+        {
+            // TODO: Confirm button → prestigeSystem.ExecutePrestige(runContext); Cancel → gameplayFsm.ChangeState(PlayingState)
+        }
     }
 }

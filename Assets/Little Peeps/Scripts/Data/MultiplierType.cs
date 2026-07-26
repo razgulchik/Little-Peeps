@@ -1,8 +1,11 @@
-public enum MultiplierType
+namespace LittlePeeps
 {
-    Production,
-    SpawnRate,
-    BounceStrength,
-    PrestigePoints,
-    StartingResources,
+    public enum MultiplierType
+    {
+        Production,
+        SpawnRate,
+        BounceStrength,
+        PrestigePoints,
+        StartingResources,
+    }
 }

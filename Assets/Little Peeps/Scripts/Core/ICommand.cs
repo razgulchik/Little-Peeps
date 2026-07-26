@@ -1,5 +1,8 @@
-public interface ICommand
+namespace LittlePeeps
 {
-    bool CanExecute();
-    void Execute();
+    public interface ICommand
+    {
+        bool CanExecute();
+        void Execute();
+    }
 }

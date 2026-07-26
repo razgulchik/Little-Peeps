@@ -1,48 +1,51 @@
 using System.Collections.Generic;
 
-public interface IState
+namespace LittlePeeps
 {
-    void Enter();
-    void Exit();
-    void Tick();
-}
-
-public class StateMachine
-{
-    private readonly Stack<IState> stack = new();
-
-    public IState Current => stack.Count > 0 ? stack.Peek() : null;
-
-    // Replace top state: Exit old, Enter new
-    public void ChangeState(IState newState)
+    public interface IState
     {
-        if (stack.Count > 0)
+        void Enter();
+        void Exit();
+        void Tick();
+    }
+
+    public class StateMachine
+    {
+        private readonly Stack<IState> stack = new();
+
+        public IState Current => stack.Count > 0 ? stack.Peek() : null;
+
+        // Replace top state: Exit old, Enter new
+        public void ChangeState(IState newState)
         {
-            stack.Pop().Exit();
+            if (stack.Count > 0)
+            {
+                stack.Pop().Exit();
+            }
+            stack.Push(newState);
+            newState.Enter();
         }
-        stack.Push(newState);
-        newState.Enter();
-    }
 
-    // Push state on top; old state Exit is called (paused, not resumed on Pop)
-    public void Push(IState state)
-    {
-        Current?.Exit();
-        stack.Push(state);
-        state.Enter();
-    }
+        // Push state on top; old state Exit is called (paused, not resumed on Pop)
+        public void Push(IState state)
+        {
+            Current?.Exit();
+            stack.Push(state);
+            state.Enter();
+        }
 
-    // Return to previous state
-    public void Pop()
-    {
-        if (stack.Count == 0) return;
-        stack.Pop().Exit();
-        Current?.Enter();
-    }
+        // Return to previous state
+        public void Pop()
+        {
+            if (stack.Count == 0) return;
+            stack.Pop().Exit();
+            Current?.Enter();
+        }
 
-    // Forward update to top state
-    public void Tick()
-    {
-        Current?.Tick();
+        // Forward update to top state
+        public void Tick()
+        {
+            Current?.Tick();
+        }
     }
 }

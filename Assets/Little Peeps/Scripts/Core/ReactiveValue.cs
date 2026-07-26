@@ -1,23 +1,26 @@
 using System;
 
-public class ReactiveValue<T>
+namespace LittlePeeps
 {
-    private T value;
-
-    public event Action<T> OnChanged;
-
-    public T Value
+    public class ReactiveValue<T>
     {
-        get => value;
-        set
+        private T value;
+
+        public event Action<T> OnChanged;
+
+        public T Value
         {
-            this.value = value;
-            OnChanged?.Invoke(value);
+            get => value;
+            set
+            {
+                this.value = value;
+                OnChanged?.Invoke(value);
+            }
         }
-    }
 
-    public ReactiveValue(T initialValue)
-    {
-        value = initialValue;
+        public ReactiveValue(T initialValue)
+        {
+            value = initialValue;
+        }
     }
 }

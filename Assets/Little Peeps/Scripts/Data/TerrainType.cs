@@ -1,7 +1,10 @@
-public enum TerrainType
+namespace LittlePeeps
 {
-    Grass,
-    Woods,
-    Stone,
-    Water,
+    public enum TerrainType
+    {
+        Grass,
+        Woods,
+        Stone,
+        Water,
+    }
 }

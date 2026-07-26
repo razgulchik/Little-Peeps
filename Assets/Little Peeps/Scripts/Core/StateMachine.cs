@@ -26,7 +26,9 @@ namespace LittlePeeps
             newState.Enter();
         }
 
-        // Push state on top; old state Exit is called (paused, not resumed on Pop)
+        // Push state on top. The state below stays on the stack but is paused with Exit; Pop later
+        // resumes it with a fresh Enter, so a state must tolerate its Enter/Exit pair running more
+        // than once over its lifetime.
         public void Push(IState state)
         {
             Current?.Exit();
@@ -34,7 +36,7 @@ namespace LittlePeeps
             state.Enter();
         }
 
-        // Return to previous state
+        // Exit the top state and resume the one below it with a fresh Enter. No-op on an empty stack.
         public void Pop()
         {
             if (stack.Count == 0) return;

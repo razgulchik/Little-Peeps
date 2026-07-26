@@ -32,6 +32,15 @@ namespace LittlePeeps
                 dirty = true;
         }
 
+        // Drop every subscriber. Needed because the subscriber set is static: with Domain Reload
+        // disabled it would otherwise survive a play-mode restart and keep handlers of destroyed
+        // objects alive. Tests use it to isolate one case from the next.
+        public static void Clear()
+        {
+            subscribers.Clear();
+            dirty = true;
+        }
+
         public static void Publish(T eventData)
         {
             if (dirty)

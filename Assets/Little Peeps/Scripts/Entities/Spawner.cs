@@ -262,7 +262,7 @@ namespace LittlePeeps
                 return true;
             }
 
-            CollectAllowedDirections(allowedDirs);
+            CollectAllowedDirections(grid, instance.Cell, instance.Def.size, instance.Def.border, allowedDirs);
             if (allowedDirs.Count == 0) { dir = Vector2.zero; return false; }
 
             dir = allowedDirs[Random.Range(0, allowedDirs.Count)];
@@ -279,13 +279,16 @@ namespace LittlePeeps
         //     corner house simply has its off-island sides excluded and the unit lands on that open cell.
         //   - border >= 1: requiring the cell BEYOND the border ring to be open gives the "one clear cell
         //     from the map edge / a neighbour" rule for free; the unit still lands in the border ring.
-        private void CollectAllowedDirections(List<Vector2> buffer)
+        //
+        // Static and parameterised (rather than reading the injected `grid`/`instance` fields) so this
+        // geometry can be exercised on a bare IslandGrid with no scene, GameObject or spawner behind it.
+        public static void CollectAllowedDirections(IslandGrid grid, Vector2Int origin, Vector2Int size, int border, List<Vector2> buffer)
         {
             buffer.Clear();
 
-            Vector2Int o = instance.Cell;
-            Vector2Int s = instance.Def.size;
-            int b = instance.Def.border;
+            Vector2Int o = origin;
+            Vector2Int s = size;
+            int b = border;
 
             // Inclusive bounds of the claimed territory box (footprint + border on every side).
             int minX = o.x - b, minY = o.y - b;
@@ -295,19 +298,19 @@ namespace LittlePeeps
 
             for (int x = minX; x <= maxX; x++)
             {
-                TryAddDirection(buffer, center, new Vector2Int(x, minY - 1), new Edge(new Vector2Int(x, minY), true));      // south
-                TryAddDirection(buffer, center, new Vector2Int(x, maxY + 1), new Edge(new Vector2Int(x, maxY + 1), true));  // north
+                TryAddDirection(grid, buffer, center, new Vector2Int(x, minY - 1), new Edge(new Vector2Int(x, minY), true));      // south
+                TryAddDirection(grid, buffer, center, new Vector2Int(x, maxY + 1), new Edge(new Vector2Int(x, maxY + 1), true));  // north
             }
             for (int y = minY; y <= maxY; y++)
             {
-                TryAddDirection(buffer, center, new Vector2Int(minX - 1, y), new Edge(new Vector2Int(minX, y), false));     // west
-                TryAddDirection(buffer, center, new Vector2Int(maxX + 1, y), new Edge(new Vector2Int(maxX + 1, y), false)); // east
+                TryAddDirection(grid, buffer, center, new Vector2Int(minX - 1, y), new Edge(new Vector2Int(minX, y), false));     // west
+                TryAddDirection(grid, buffer, center, new Vector2Int(maxX + 1, y), new Edge(new Vector2Int(maxX + 1, y), false)); // east
             }
         }
 
         // Add the direction toward `outerCell` if that cell is open: on-island, unoccupied, and not fenced
         // off across `boundary` (the grid edge between the claimed territory and the outer cell).
-        private void TryAddDirection(List<Vector2> buffer, Vector2 center, Vector2Int outerCell, Edge boundary)
+        private static void TryAddDirection(IslandGrid grid, List<Vector2> buffer, Vector2 center, Vector2Int outerCell, Edge boundary)
         {
             var cell = grid.GetCell(outerCell);
             if (cell == null) return;                       // off-island (map edge, with the border as the clear cell)

@@ -16,6 +16,9 @@ namespace LittlePeeps
     // selection is cleared back to Move (the ToolCleared event tells the panel to drop its highlight).
     // Active only between Begin()/End(), called by BuildModeState. Clicks over UI are ignored so panel
     // buttons don't act on the world. The selection is driven by BuildPanelUI via Select()/SetSellMode().
+    //
+    // This class decides WHAT is targeted and what it costs; everything it DRAWS — the ghost, the
+    // territory halo, hover and drag tints — belongs to PlacementVisuals, so no renderer is touched here.
     public class PlacementController : MonoBehaviour
     {
         [SerializeField] private InputHandler inputHandler;
@@ -25,17 +28,7 @@ namespace LittlePeeps
         [SerializeField] private Camera mainCamera;
         [SerializeField] private GridOverlay gridOverlay;
 
-        [Header("Ghost tint")]
-        [SerializeField] private Color validColor = new Color(0.4f, 1f, 0.4f, 0.6f);
-        [SerializeField] private Color invalidColor = new Color(1f, 0.4f, 0.4f, 0.6f);
-        [SerializeField] private Color sellHoverColor = new Color(1f, 0.4f, 0.4f, 0.6f);   // tint of the structure under the cursor in Sell mode
-        [SerializeField] private Color moveHoverColor = new Color(0.4f, 1f, 0.4f, 0.6f);   // tint of a grabbable structure under the cursor in idle Move mode
-
-        [Header("Territory halo (ghost)")]
-        [SerializeField] private Color territoryValidColor = new Color(0.4f, 1f, 0.4f, 0.18f);
-        [SerializeField] private Color territoryInvalidColor = new Color(1f, 0.4f, 0.4f, 0.18f);
-        [SerializeField] private string territorySortingLayer = "Ground";   // same layer as the grid overlay (above the grass)
-        [SerializeField] private int territorySortingOrder = 1001;
+        [SerializeField] private PlacementVisuals visuals = new();
 
         // Raised when a right-click clears the active Place/Sell tool, so BuildPanelUI can drop its
         // card / sell-button highlight (the controller has already reset itself to the Move tool).
@@ -47,29 +40,16 @@ namespace LittlePeeps
 
         private bool active;
         private StructureDef selected;
-        private GameObject ghost;
-        private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
-        private DualVisual ghostVisual;                // non-null when the ghost is an edge structure (fence)
-        private DualVisual ghostRowVisual;             // non-null when the cell ghost interlocks by row (forest)
 
-        // Faint square showing the footprint+border the ghost would claim (Place and Move).
-        private GameObject territoryGhost;
-        private SpriteRenderer territoryRenderer;
-        private static Sprite squareSprite;   // shared 1x1 white sprite the territory quad is scaled from
-
-        // Hover tint (Sell target / grabbable Move target): the structure OR fence currently tinted. A cell
-        // structure and a fence are never both hovered (the edge wins by NearEdge precedence), so a single
-        // TintTarget holds whichever one's renderers + original colors.
+        // Hover target: the structure OR fence currently tinted. A cell structure and a fence are never
+        // both hovered (the edge wins by NearEdge precedence), so only one is ever set.
         private StructureInstance hoveredInstance;
         private EdgeInstance hoveredEdge;
-        private readonly TintTarget hoverTint = new();
 
-        // Move-mode drag: the structure OR fence lifted off the grid and following the cursor. Only one is
-        // ever held; heldEdgeVisual drives the fence's pose while dragging; heldTint holds its tint.
+        // Move-mode drag: the structure OR fence lifted off the grid and following the cursor. Only one
+        // is ever held.
         private StructureInstance heldInstance;
         private EdgeInstance heldEdge;
-        private DualVisual heldEdgeVisual;
-        private readonly TintTarget heldTint = new();
 
         private void OnEnable()
         {
@@ -86,6 +66,7 @@ namespace LittlePeeps
         // Called by BuildModeState.Enter. Show the overlay; the panel drives which structure is selected.
         public void Begin()
         {
+            visuals.Init(structureSystem);
             active = true;
             gridOverlay.Show();
         }
@@ -96,7 +77,7 @@ namespace LittlePeeps
             CancelMove();   // if mid-drag, return the structure to its origin before leaving
             active = false;
             tool = Tool.Move;
-            ClearGhost();
+            visuals.ClearGhost();
             ClearHover();
             selected = null;
             gridOverlay.Hide();
@@ -109,48 +90,8 @@ namespace LittlePeeps
             CancelMove();       // switching tools mid-drag returns the held structure to its origin
             selected = def;
             tool = def != null ? Tool.Place : Tool.Move;
-            ClearGhost();
-            ClearHover();   // leaving the previous tool — restore any tinted structure
-            if (def == null || def.prefab == null) return;
-
-            if (def.placement == PlacementKind.Edge) BuildEdgeGhost(def);
-            else BuildCellGhost(def);
-        }
-
-        // Cell ghost: instantiate the real prefab so the preview matches the placed structure 1:1 —
-        // including any sprite offset hand-tuned inside the prefab (placement centers the ROOT, so the
-        // sprite child sits exactly where it will once built). Then neutralize it: disable every
-        // behaviour (so Spawner/ResourceSource/Structure don't spawn units, register, or log) and every
-        // collider/rigidbody so it's purely visual. Centered on the footprint each frame (UpdateCellGhost).
-        private void BuildCellGhost(StructureDef def)
-        {
-            ghost = Instantiate(def.prefab);
-            ghost.name = "PlacementGhost";
-
-            foreach (var mb in ghost.GetComponentsInChildren<MonoBehaviour>(true)) mb.enabled = false;
-            foreach (var col in ghost.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
-            foreach (var rb in ghost.GetComponentsInChildren<Rigidbody2D>(true)) rb.simulated = false;
-
-            ghostRenderers = ghost.GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var r in ghostRenderers) r.sortingOrder += 1;   // draw above the placed structures
-
-            ghostRowVisual = ghost.GetComponent<DualVisual>();   // forest: the preview interlocks by row too
-        }
-
-        // Edge ghost (fence): instantiate the real prefab so the preview matches 1:1 (both poses), then
-        // neutralize it — disable colliders + the Structure behaviour so it's purely visual. The active
-        // pose and tint are set every frame in UpdateEdgeGhost.
-        private void BuildEdgeGhost(StructureDef def)
-        {
-            ghost = Instantiate(def.prefab);
-            ghost.name = "PlacementGhost";
-            ghostVisual = ghost.GetComponent<DualVisual>();
-
-            foreach (var col in ghost.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
-            if (ghost.TryGetComponent<Structure>(out var s)) s.enabled = false;
-
-            ghostRenderers = ghost.GetComponentsInChildren<SpriteRenderer>(true);   // both poses (incl. inactive)
-            foreach (var r in ghostRenderers) r.sortingOrder += 1;                  // draw above the real fences
+            ClearHover();       // leaving the previous tool — restore any tinted structure
+            visuals.BuildGhost(def);
         }
 
         // Switch to the Sell tool (BuildPanelUI's sell button calls this). No ghost in sell mode.
@@ -159,7 +100,7 @@ namespace LittlePeeps
             CancelMove();
             selected = null;
             tool = Tool.Sell;
-            ClearGhost();
+            visuals.ClearGhost();
             ClearHover();   // restart hover fresh so the next frame re-tints in the Sell color
         }
 
@@ -170,10 +111,10 @@ namespace LittlePeeps
             switch (tool)
             {
                 case Tool.Place: UpdatePlaceGhost(); break;
-                case Tool.Sell:  HideTerritory(); UpdateHover(sellHoverColor); break;   // red — "will be sold"
+                case Tool.Sell:  visuals.HideTerritory(); UpdateHover(HoverStyle.Sell); break;
                 case Tool.Move:
-                    if (heldInstance != null || heldEdge != null) UpdateMoveDrag();      // holding → drag it
-                    else { HideTerritory(); UpdateHover(moveHoverColor); }               // idle → green "grabbable" hint
+                    if (heldInstance != null || heldEdge != null) UpdateMoveDrag();          // holding → drag it
+                    else { visuals.HideTerritory(); UpdateHover(HoverStyle.Move); }          // idle → grabbable hint
                     break;
             }
         }
@@ -181,7 +122,7 @@ namespace LittlePeeps
         // Place tool: the ghost follows the cursor, tinted by buildable + affordable.
         private void UpdatePlaceGhost()
         {
-            if (selected == null || ghost == null) return;
+            if (selected == null || !visuals.HasGhost) return;
             if (selected.placement == PlacementKind.Edge) UpdateEdgeGhost();
             else UpdateCellGhost();
         }
@@ -189,17 +130,14 @@ namespace LittlePeeps
         private void UpdateCellGhost()
         {
             var grid = islandSystem.Grid;
-            Vector2 cursor = ScreenToWorld();
-            Vector2Int origin = grid.WorldToOrigin(cursor, selected.size);
+            Vector2Int origin = grid.WorldToOrigin(ScreenToWorld(), selected.size);
 
             // Same placement rule as a real structure — the builder owns it (ghost matches exactly).
-            structureSystem.CenterOnFootprint(ghost.transform, origin, selected.size);
-            if (ghostRowVisual != null) ghostRowVisual.Show((origin.y & 1) == 0);   // forest: preview the row's layout
-
             bool ok = grid.CanPlace(origin, selected.size, selected.allowedTerrain, selected.border)
                       && resourceSystem.CanAfford(selected.cost);
-            TintGhost(ok ? validColor : invalidColor);
-            ShowTerritory(origin, selected.size, selected.border, ok);
+
+            visuals.PoseCellGhost(origin, selected.size, ok);
+            visuals.ShowTerritory(grid, origin, selected.size, selected.border, ok);
         }
 
         // Edge ghost (fence): snap to the nearest grid edge, sit on its midpoint, show the matching pose,
@@ -209,79 +147,16 @@ namespace LittlePeeps
             var grid = islandSystem.Grid;
             Edge edge = grid.WorldToEdge(ScreenToWorld());
 
-            ghost.transform.position = grid.EdgeToWorld(edge);
-            if (ghostVisual != null) ghostVisual.Show(edge.horizontal);
-
             bool ok = grid.CanPlaceEdge(edge) && resourceSystem.CanAfford(selected.cost);
-            TintGhost(ok ? validColor : invalidColor);
-            HideTerritory();
+
+            visuals.PoseEdgeGhost(grid, edge, ok);
+            visuals.HideTerritory();
         }
 
-        private void TintGhost(Color color) => Tint(ghostRenderers, color);
-
-        // Color every renderer in the set (skipping nulls). Used to tint the multi-renderer place ghost,
-        // which is destroyed rather than restored. (A hovered/dragged structure uses TintTarget instead,
-        // which also remembers the originals so the tint can be undone.)
-        private static void Tint(SpriteRenderer[] renderers, Color color)
-        {
-            if (renderers == null) return;
-            for (int i = 0; i < renderers.Length; i++)
-                if (renderers[i] != null) renderers[i].color = color;
-        }
-
-        // One tinted structure — a hover target or the dragged structure — bundling its renderers with the
-        // colors they had before the tint, so the tint can be applied and undone as a unit. Works the same
-        // for a cell structure (a forest is many trees) and a fence (its two poses): every renderer is
-        // taken includeInactive so a hidden visual root is covered too. Shared by hoverTint and heldTint.
-        private sealed class TintTarget
-        {
-            private SpriteRenderer[] renderers;
-            private Color[] originalColors;
-
-            public bool Active => renderers != null;
-
-            // Snapshot every renderer under `root` and the color it currently has (no tint applied yet —
-            // call Retint to color them). Replaces any previous capture without restoring it, so callers
-            // restore/forget first.
-            public void Capture(Component root)
-            {
-                renderers = root.GetComponentsInChildren<SpriteRenderer>(true);
-                originalColors = new Color[renderers.Length];
-                for (int i = 0; i < renderers.Length; i++) originalColors[i] = renderers[i].color;
-            }
-
-            // Color all captured renderers (skipping destroyed ones). Cheap to call every frame for the
-            // drag's valid/invalid tint; does not touch the remembered originals.
-            public void Retint(Color color)
-            {
-                if (renderers == null) return;
-                for (int i = 0; i < renderers.Length; i++)
-                    if (renderers[i] != null) renderers[i].color = color;
-            }
-
-            // Put the original colors back (skipping destroyed renderers) and forget the target.
-            public void Restore()
-            {
-                if (renderers == null) return;
-                for (int i = 0; i < renderers.Length; i++)
-                    if (renderers[i] != null) renderers[i].color = originalColors[i];
-                Forget();
-            }
-
-            // Forget the target WITHOUT restoring — for when the structure is being destroyed (Sell), so
-            // there is nothing to color back.
-            public void Forget()
-            {
-                renderers = null;
-                originalColors = null;
-            }
-        }
-
-        // Tint the structure under the cursor with `tint` so it reads as the hover target — used by Sell
-        // (red, "will be sold") and by idle Move (green, "grabbable"). Cheap in steady state: only does
-        // real work (and the one GetComponentInChildren) when the hovered structure CHANGES; otherwise
-        // it's a dictionary lookup plus a reference compare per frame.
-        private void UpdateHover(Color tint)
+        // Tint the structure under the cursor so it reads as the hover target — used by Sell ("will be
+        // sold") and by idle Move ("grabbable"). Cheap in steady state: only does real work when the
+        // hovered structure CHANGES; otherwise it's a dictionary lookup plus a reference compare per frame.
+        private void UpdateHover(HoverStyle style)
         {
             var grid = islandSystem.Grid;
             Vector2 cursor = ScreenToWorld();
@@ -295,8 +170,7 @@ namespace LittlePeeps
                 {
                     ClearHover();
                     hoveredEdge = fence;
-                    hoverTint.Capture(fence.RuntimeObject);
-                    hoverTint.Retint(tint);
+                    visuals.SetHover(fence.RuntimeObject, style);
                 }
                 return;
             }
@@ -308,15 +182,14 @@ namespace LittlePeeps
             if (instance != null)
             {
                 hoveredInstance = instance;
-                hoverTint.Capture(instance.RuntimeObject);
-                hoverTint.Retint(tint);
+                visuals.SetHover(instance.RuntimeObject, style);
             }
         }
 
         // Restore the tinted structure / fence (if any) to its original color and forget it.
         private void ClearHover()
         {
-            hoverTint.Restore();
+            visuals.ClearHover();
             hoveredInstance = null;
             hoveredEdge = null;
         }
@@ -326,17 +199,16 @@ namespace LittlePeeps
         private void UpdateMoveDrag()
         {
             if (heldEdge != null) { UpdateEdgeDrag(); return; }
-            if (heldInstance == null || !heldTint.Active) return;
+            if (heldInstance == null || !visuals.HasHeld) return;
 
             var grid = islandSystem.Grid;
             var def = heldInstance.Def;
             Vector2Int origin = grid.WorldToOrigin(ScreenToWorld(), def.size);
 
             bool ok = grid.CanPlace(origin, def.size, def.allowedTerrain, def.border);
-            structureSystem.CenterOnFootprint(heldInstance.RuntimeObject.transform, origin, def.size);
-            StructureSystem.ApplyRowVisual(heldInstance.RuntimeObject.gameObject, origin.y);   // re-lap a dragged forest
-            heldTint.Retint(ok ? validColor : invalidColor);
-            ShowTerritory(origin, def.size, def.border, ok);
+
+            visuals.PoseHeldCell(origin, def.size, ok);
+            visuals.ShowTerritory(grid, origin, def.size, def.border, ok);
         }
 
         // Fence drag: the lifted fence follows the cursor snapped to the nearest edge, shows the matching
@@ -346,11 +218,8 @@ namespace LittlePeeps
             var grid = islandSystem.Grid;
             Edge edge = grid.WorldToEdge(ScreenToWorld());
 
-            heldEdge.RuntimeObject.transform.position = grid.EdgeToWorld(edge);
-            if (heldEdgeVisual != null) heldEdgeVisual.Show(edge.horizontal);
-
-            heldTint.Retint(grid.CanPlaceEdge(edge) ? validColor : invalidColor);
-            HideTerritory();
+            visuals.PoseHeldEdge(grid, edge, grid.CanPlaceEdge(edge));
+            visuals.HideTerritory();
         }
 
         private void OnWorldClick(Vector2 worldPos)
@@ -432,7 +301,7 @@ namespace LittlePeeps
                 {
                     // The hover target is being destroyed — drop the refs without touching its color.
                     hoveredEdge = null;
-                    hoverTint.Forget();
+                    visuals.ForgetHover();
                     // No gridOverlay.Refresh(): fences occupy no cells, so the territory fill is unchanged.
                 }
                 return;
@@ -445,7 +314,7 @@ namespace LittlePeeps
             {
                 // The hover target is being destroyed — drop the refs without touching its color.
                 hoveredInstance = null;
-                hoverTint.Forget();
+                visuals.ForgetHover();
                 gridOverlay.Refresh();   // cells freed → update the territory fill
             }
         }
@@ -480,12 +349,12 @@ namespace LittlePeeps
             if (occupant == null) return;   // empty cell / off-island — nothing to pick up
 
             // The structure being grabbed is the one the move-hover just tinted green — restore its true
-            // colors FIRST, so heldTint captures the real originals (not the green tint).
+            // colors FIRST, so the held capture takes the real originals (not the green tint).
             ClearHover();
 
             structureSystem.PickUpStructure(occupant);   // frees its grid cells + run entry
             heldInstance = occupant;
-            heldTint.Capture(occupant.RuntimeObject);
+            visuals.CaptureHeld(occupant.RuntimeObject);
             gridOverlay.Refresh();   // structure lifted off the grid → its territory fill clears (the ghost halo takes over)
         }
 
@@ -496,8 +365,7 @@ namespace LittlePeeps
             structureSystem.PickUpEdgeStructure(fence);   // frees the grid edge + run entry
 
             heldEdge = fence;
-            heldEdgeVisual = fence.RuntimeObject.GetComponent<DualVisual>();
-            heldTint.Capture(fence.RuntimeObject);
+            visuals.CaptureHeld(fence.RuntimeObject);
         }
 
         private void TryDrop(Vector2 worldPos)
@@ -540,73 +408,20 @@ namespace LittlePeeps
 
         private void ReleaseHeld()
         {
-            heldTint.Restore();
+            visuals.ReleaseHeld();
             heldInstance = null;
-            HideTerritory();
         }
 
         private void ReleaseHeldEdge()
         {
-            heldTint.Restore();
+            visuals.ReleaseHeld();
             heldEdge = null;
-            heldEdgeVisual = null;
-            HideTerritory();
         }
 
         private Vector2 ScreenToWorld()
         {
             Vector2 screen = Mouse.current.position.ReadValue();
             return mainCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
-        }
-
-        private void ClearGhost()
-        {
-            if (ghost != null) Destroy(ghost);
-            ghost = null;
-            ghostRenderers = null;
-            ghostVisual = null;
-            ghostRowVisual = null;
-            HideTerritory();
-        }
-
-        // Show the faint footprint+border halo for the ghost at `origin`, tinted by validity. Used by
-        // both Place (new structure) and Move (held structure) so the claimed area follows the cursor.
-        private void ShowTerritory(Vector2Int origin, Vector2Int size, int border, bool valid)
-        {
-            EnsureTerritory();
-
-            var grid = islandSystem.Grid;
-            float cs = grid.CellSize;
-            Vector2 center = grid.OriginToWorldCenter(origin, size);   // footprint center = territory center (border is symmetric)
-
-            territoryGhost.transform.position = new Vector3(center.x, center.y, 0f);
-            territoryGhost.transform.localScale = new Vector3((size.x + 2 * border) * cs, (size.y + 2 * border) * cs, 1f);
-            territoryRenderer.color = valid ? territoryValidColor : territoryInvalidColor;
-            territoryGhost.SetActive(true);
-        }
-
-        private void HideTerritory()
-        {
-            if (territoryGhost != null) territoryGhost.SetActive(false);
-        }
-
-        private void EnsureTerritory()
-        {
-            if (territoryGhost != null) return;
-
-            territoryGhost = new GameObject("PlacementTerritory");
-            territoryRenderer = territoryGhost.AddComponent<SpriteRenderer>();
-            territoryRenderer.sprite = SquareSprite();
-            territoryRenderer.sortingLayerName = territorySortingLayer;
-            territoryRenderer.sortingOrder = territorySortingOrder;
-        }
-
-        // A shared 1x1 white sprite (centered pivot, 1 px/unit) the territory quad is scaled from.
-        private static Sprite SquareSprite()
-        {
-            if (squareSprite == null)
-                squareSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 1f);
-            return squareSprite;
         }
     }
 }

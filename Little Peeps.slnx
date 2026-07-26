@@ -1,5 +1,5 @@
 ﻿<Solution>
   <Project Path="LittlePeeps.Runtime.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="LittlePeeps.Tests.EditMode.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
 </Solution>

@@ -5,7 +5,8 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // Displays 3 perk cards for the player to choose; each card fires PerkSelectedEvent on confirm
+    // Displays 3 perk cards for the player to choose. How a confirmed card reaches PerkSystem is
+    // still open — pick a callback or an event when the perk flow is actually implemented.
     public class PerkSelectionUI : MonoBehaviour
     {
         [SerializeField] private GameObject[] cardSlots;   // 3 slots; each needs a TMP_Text + Button child

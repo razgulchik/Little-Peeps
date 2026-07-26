@@ -16,12 +16,13 @@ namespace LittlePeeps
 
         public void Enter()
         {
-            // TODO: subscribe to PerkSelectedEvent; show PerkSelectionUI with perkSystem.Roll3Perks(runContext.currentAge, runContext)
+            // TODO: show PerkSelectionUI with perkSystem.Roll3Perks(runContext.currentAge, runContext)
+            //       and listen for the player's choice (mechanism not decided yet — see PerkSelectionUI)
         }
 
         public void Exit()
         {
-            // TODO: hide PerkSelectionUI; unsubscribe from PerkSelectedEvent
+            // TODO: hide PerkSelectionUI; drop the choice listener set up in Enter
         }
 
         public void Tick()

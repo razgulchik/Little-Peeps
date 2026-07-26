@@ -18,7 +18,7 @@ namespace LittlePeeps
         // Apply the perk effect and record it so it can't be rolled again this run
         public void ApplyPerk(PerkDef perk, RunContext context)
         {
-            // TODO: perk.ApplyPerk(context); context.perksChosen.Add(perk); EventBus<PerkSelectedEvent>.Publish(new PerkSelectedEvent { Perk = perk })
+            // TODO: perk.ApplyPerk(context); context.perksChosen.Add(perk)
         }
     }
 }

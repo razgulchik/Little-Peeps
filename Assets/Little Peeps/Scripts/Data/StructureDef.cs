@@ -18,7 +18,6 @@ namespace LittlePeeps
         public PlacementKind placement = PlacementKind.Cell;
         public Vector2Int size = Vector2Int.one;
         public List<ResourceCost> cost;
-        public List<EffectConfig> effects;
 
         // Biomes this structure may be placed on. Empty/null = any terrain.
         public TerrainType[] allowedTerrain;

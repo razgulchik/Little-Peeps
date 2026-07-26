@@ -3,7 +3,7 @@ namespace LittlePeeps
     // Spend the age cost and apply its permanent effects: bump the age counter and push the age's stat
     // modifiers into the run. Pure state mutation — the transition animation is driven by
     // AgeTransitionState, not here, so the command stays free of any FSM / sequencer knowledge.
-    public class TriggerAgeCmd : ICommand
+    public class TriggerAgeCmd
     {
         private readonly ResourceSystem resourceSystem;
         private readonly RunContext runContext;

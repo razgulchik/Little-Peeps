@@ -37,7 +37,6 @@ namespace LittlePeeps
         }
 
         private Collider2D structureCollider;
-        private Structure structure;
         private List<Slot> slots;   // null until Warmup runs
         private bool registered;
 
@@ -49,16 +48,11 @@ namespace LittlePeeps
         private IslandGrid grid;
         private StructureInstance instance;
 
-        // True while every perimeter direction is blocked: the unit stays resting inside and the spawner
-        // retries each cycle. SpawnerBlocked/UnblockedEvent fire once on each transition (not per retry).
-        private bool blocked;
-
         private readonly List<Vector2> allowedDirs = new();   // reused per launch — directions toward open perimeter cells
 
         private void Awake()
         {
             structureCollider = GetComponentInChildren<Collider2D>();
-            structure = GetComponent<Structure>();
         }
 
         // Optional runtime injection (StructureSystem calls this when placing a structure at runtime).
@@ -210,8 +204,8 @@ namespace LittlePeeps
         }
 
         // ICollisionEffect — CollisionTarget.HandleHit calls this when a unit hits THIS structure.
-        // Local dispatch replaced the old global CollisionEvent subscription, so there is no target
-        // filter (it is already our structure) — only the unit-type check remains.
+        // Dispatch is local, so no target filter is needed (the target is already our structure) —
+        // only the unit-type check remains.
         public void OnHit(Unit unit, CollisionTarget target)
         {
             if (slots == null || unit == null || unitDef == null) return;
@@ -244,20 +238,9 @@ namespace LittlePeeps
             if (!TryPickSpawnDirection(out Vector2 dir))
             {
                 // Surrounded on every side (edges / neighbours / fences): keep the unit resting inside and
-                // try again after another rest. Announce the block once; it clears on the next launch.
+                // try again after another rest.
                 slot.timer = restDuration;
-                if (!blocked)
-                {
-                    blocked = true;
-                    EventBus<SpawnerBlockedEvent>.Publish(new SpawnerBlockedEvent { Structure = structure });
-                }
                 return;
-            }
-
-            if (blocked)
-            {
-                blocked = false;
-                EventBus<SpawnerUnblockedEvent>.Publish(new SpawnerUnblockedEvent { Structure = structure });
             }
 
             unit.transform.position = SpawnPosition(dir, unit);

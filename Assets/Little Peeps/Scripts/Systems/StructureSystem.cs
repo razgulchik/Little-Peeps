@@ -74,8 +74,6 @@ namespace LittlePeeps
 
             grid.Place(cell, def.size, instance);
             run.structures[cell] = instance;
-
-            EventBus<StructurePlacedEvent>.Publish(new StructurePlacedEvent { Structure = structure, Cell = cell });
             return instance;
         }
 
@@ -122,8 +120,6 @@ namespace LittlePeeps
 
             grid.Remove(instance.Cell, instance.Def.size);
             run.structures.Remove(instance.Cell);
-            // Publish before Destroy (deferred to end-of-frame) so listeners still see a live object.
-            EventBus<StructureRemovedEvent>.Publish(new StructureRemovedEvent { Structure = instance.RuntimeObject, Cell = instance.Cell });
             Destroy(instance.RuntimeObject.gameObject);
             return true;
         }
@@ -192,9 +188,6 @@ namespace LittlePeeps
             var instance = new EdgeInstance { Def = def, RuntimeObject = structure, Edge = edge };
             grid.PlaceEdge(edge, instance);
             run.fences[edge] = instance;
-
-            // Fences have no single occupying cell, so they announce themselves by Edge (parallel event).
-            EventBus<EdgeStructurePlacedEvent>.Publish(new EdgeStructurePlacedEvent { Structure = structure, Edge = edge });
             return structure;
         }
 
@@ -217,7 +210,6 @@ namespace LittlePeeps
 
             grid.RemoveEdge(edge);
             run.fences.Remove(edge);
-            EventBus<EdgeStructureRemovedEvent>.Publish(new EdgeStructureRemovedEvent { Structure = instance.RuntimeObject, Edge = edge });
             Destroy(instance.RuntimeObject.gameObject);
             return true;
         }

@@ -61,13 +61,6 @@ namespace LittlePeeps
                 var unit = hit.GetComponentInParent<Unit>();
                 if (unit == null) continue;
                 unit.Boost(speedMult, duration);
-                EventBus<UnitBoostedEvent>.Publish(new UnitBoostedEvent
-                {
-                    Unit            = unit,
-                    SpeedMultiplier = speedMult,
-                    Radius          = radius,
-                    Duration        = duration,
-                });
             }
         }
 

@@ -3,9 +3,9 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Anything a bouncing unit can collide with that triggers effects — structures, resource
-    // nodes, animals, etc. Owns the collision callbacks, dispatches to its ICollisionEffect
-    // components, and publishes the global CollisionEvent. Structure derives from this; an object
-    // can also use CollisionTarget directly + effect components like ResourceSource.
+    // nodes, animals, etc. Owns the collision callbacks and dispatches to its ICollisionEffect
+    // components. Structure derives from this; an object can also use CollisionTarget directly
+    // + effect components like ResourceSource.
     //
     // The Rigidbody2D must sit on this (root) GameObject so the collision callbacks fire here;
     // the collider itself may live on a child (fetched via GetComponentInChildren).
@@ -40,8 +40,6 @@ namespace LittlePeeps
         {
             for (int i = 0; i < effects.Length; i++)
                 effects[i].OnHit(unit, this);
-
-            EventBus<CollisionEvent>.Publish(new CollisionEvent(unit, this));
         }
 
         // Enable/disable the collider (used during drag, and by ResourceSource on depletion).

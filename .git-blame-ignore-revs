@@ -1,0 +1,7 @@
+# Commits that only reshape formatting, never behaviour. Skip them in blame:
+#   git blame --ignore-revs-file .git-blame-ignore-revs <file>
+# Already configured locally via blame.ignoreRevsFile; GitHub honours this file automatically.
+
+# рефакторинг: обернул все скрипты в namespace LittlePeeps
+# C# 9 has no file-scoped namespaces, so wrapping re-indented every line of all 93 files.
+f43fe01d0a58a685b77ab289bd445824523ddfbe

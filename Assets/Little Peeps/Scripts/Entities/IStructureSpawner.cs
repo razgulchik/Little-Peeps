@@ -18,5 +18,12 @@ namespace LittlePeeps
         // flag has cleared, so a structure built mid-session doesn't materialize its entities until the
         // player leaves build mode.
         void Warmup();
+
+        // Run teardown: give everything back to SpawnSystem RIGHT NOW rather than in OnDestroy.
+        // Destroy() defers OnDestroy to the end of the frame, and a prestige ends one run and starts
+        // the next within a single frame — so the old spawner's unregistration would land AFTER the new
+        // run had already registered its own, corrupting the fresh run's books. Implementations must
+        // leave OnDestroy a no-op afterwards, and must stay safe to call twice.
+        void Teardown();
     }
 }

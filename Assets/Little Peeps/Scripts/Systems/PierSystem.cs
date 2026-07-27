@@ -32,6 +32,15 @@ namespace LittlePeeps
             pier = structureSystem.PlaceInitial(pierDef, origin);
         }
 
+        // Run teardown: forget the pier. StructureSystem.ClearAll destroys the object itself; without
+        // this we would keep an instance of the dead run, and the next AgeStarted would try to move a
+        // structure that no longer exists. PlaceForRun also nulls it, but EndRun has to be correct even
+        // when no new run follows.
+        public void ClearForRun()
+        {
+            pier = null;
+        }
+
         // The island grew this age → move the pier to the new bottom-right slot.
         private void OnAgeStarted(AgeStartedEvent _)
         {

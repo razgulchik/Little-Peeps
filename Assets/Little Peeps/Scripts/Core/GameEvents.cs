@@ -11,6 +11,15 @@ namespace LittlePeeps
         public int Age;
     }
 
+    // Published by RunManager at the end of StartNewRun, once the new run is fully built. Systems that
+    // CACHE the RunContext subscribe and re-bind, so a prestige doesn't leave them reading the run that
+    // just ended. Systems RunManager initialises itself (Resource/Structure/Spawn) are not among them —
+    // they are ordered dependencies of StartNewRun, not observers of it.
+    public struct RunStartedEvent
+    {
+        public RunContext Run;
+    }
+
     // Published by the AgeUI "Next Age" button; handled by GameplayContainerState (enters AgeTransition).
     public struct AgeAdvanceRequestedEvent { }
 

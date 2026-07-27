@@ -28,6 +28,7 @@ namespace LittlePeeps
             if (nextAgeButton != null) nextAgeButton.onClick.AddListener(OnNextAgeClicked);
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
             EventBus<ResourceChangedEvent>.Subscribe(OnResourceChanged);
+            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
         }
 
         private void OnDisable()
@@ -35,6 +36,7 @@ namespace LittlePeeps
             if (nextAgeButton != null) nextAgeButton.onClick.RemoveListener(OnNextAgeClicked);
             EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
             EventBus<ResourceChangedEvent>.Unsubscribe(OnResourceChanged);
+            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
         }
 
         private void OnNextAgeClicked()
@@ -44,6 +46,14 @@ namespace LittlePeeps
 
         private void OnAgeStarted(AgeStartedEvent e) => Refresh();
         private void OnResourceChanged(ResourceChangedEvent e) => Refresh();
+
+        // A prestige replaces the RunContext: re-bind before refreshing, or the label would keep
+        // reporting the finished run's age.
+        private void OnRunStarted(RunStartedEvent e)
+        {
+            runContext = e.Run;
+            Refresh();
+        }
 
         private void Refresh()
         {

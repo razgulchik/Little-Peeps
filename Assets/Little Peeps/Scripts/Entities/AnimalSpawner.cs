@@ -198,11 +198,21 @@ namespace LittlePeeps
                 }
         }
 
-        private void OnDestroy()
+        // IStructureSpawner — hand everything back synchronously, before the object is destroyed.
+        // See the interface for why the deferred OnDestroy is too late during a run teardown.
+        public void Teardown() => Unregister();
+
+        private void OnDestroy() => Unregister();
+
+        // Idempotent: `registered` is cleared first, so the OnDestroy following a Teardown is a no-op.
+        // ResetForBuildMode is safe to repeat on its own (it empties `animals`), but the unregistration
+        // is not — SpawnSystem would keep re-scanning a list this spawner already left.
+        private void Unregister()
         {
             ResetForBuildMode();   // destroy any remaining animals so they don't outlive their den
-            if (registered && spawnSystem != null)
-                spawnSystem.UnregisterSpawner(this);
+            if (!registered) return;
+            registered = false;
+            if (spawnSystem != null) spawnSystem.UnregisterSpawner(this);
         }
     }
 }

@@ -355,9 +355,20 @@ namespace LittlePeeps
             return center + dir * (structureEdge + unit.Radius + launchGap);
         }
 
-        private void OnDestroy()
+        // IStructureSpawner — hand everything back synchronously, before the object is destroyed.
+        // See the interface for why the deferred OnDestroy is too late during a run teardown.
+        public void Teardown() => Unregister();
+
+        private void OnDestroy() => Unregister();
+
+        // Idempotent by design: `registered` is cleared FIRST, so the OnDestroy that follows a Teardown
+        // (and any re-entrant path) does nothing. Double-running this would both halve the global cap
+        // twice and push an already-pooled unit into the pool a second time — UnitPool.Release has no
+        // guard of its own, so the same Unit would then be handed out to two callers.
+        private void Unregister()
         {
             if (!registered) return;
+            registered = false;
 
             // Despawn units currently resting here so they don't leak as hidden objects.
             // TODO: full global active-count reconciliation (also units this structure launched

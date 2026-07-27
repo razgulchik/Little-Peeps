@@ -21,11 +21,24 @@ namespace LittlePeeps.Tests
             public int value;
         }
 
+        // A second event type, so the ClearAll test can prove it reaches a bus its caller never names.
+        private struct Pong
+        {
+        }
+
         [SetUp]
-        public void ClearBusBefore() => EventBus<Ping>.Clear();
+        public void ClearBusBefore()
+        {
+            EventBus<Ping>.Clear();
+            EventBus<Pong>.Clear();
+        }
 
         [TearDown]
-        public void ClearBusAfter() => EventBus<Ping>.Clear();
+        public void ClearBusAfter()
+        {
+            EventBus<Ping>.Clear();
+            EventBus<Pong>.Clear();
+        }
 
         [Test]
         public void Publish_DeliversThePayloadToEverySubscriber()
@@ -103,6 +116,32 @@ namespace LittlePeeps.Tests
             EventBus<Ping>.Publish(default);
 
             Assert.AreEqual(0, calls);
+        }
+
+        [Test]
+        public void ClearAll_EmptiesEveryTypedBus_IncludingOnesTheCallerNeverNames()
+        {
+            // What the [RuntimeInitializeOnLoadMethod] on EventBus.ClearAll actually has to do when play
+            // mode restarts with Domain Reload disabled: reach EVERY closed EventBus<T> that has ever been
+            // touched, not a hard-coded list. Each bus registers itself on first use, so subscribing here
+            // is what puts Pong within ClearAll's reach at all.
+            int pings = 0, pongs = 0;
+            EventBus<Ping>.Subscribe(_ => pings++);
+            EventBus<Pong>.Subscribe(_ => pongs++);
+
+            EventBus.ClearAll();
+
+            EventBus<Ping>.Publish(default);
+            EventBus<Pong>.Publish(default);
+
+            Assert.AreEqual(0, pings);
+            Assert.AreEqual(0, pongs, "a bus the ClearAll caller never mentions must be cleared too");
+        }
+
+        [Test]
+        public void ClearAll_WithNothingSubscribed_DoesNothing()
+        {
+            Assert.DoesNotThrow(() => EventBus.ClearAll());
         }
 
         // --- changing the subscriber set DURING a dispatch ------------------------------------------

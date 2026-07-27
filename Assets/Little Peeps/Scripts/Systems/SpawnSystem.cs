@@ -121,6 +121,23 @@ namespace LittlePeeps
                 spawners[i].Warmup();
         }
 
+        // Run teardown: every unit back to the pool and every scrap of per-run bookkeeping dropped, so
+        // the next run starts from a clean sheet instead of inheriting caps and spawner entries.
+        //
+        // Call this AFTER StructureSystem.ClearAll, which tears the spawners down synchronously — by the
+        // time we get here the registries should already be empty and the Clear calls are the backstop
+        // that guarantees it. IsBuildMode is forced off because a run can end from inside build mode:
+        // left true, every spawner of the NEW run would register and then wait for a build-mode exit
+        // that is never coming, and the fresh village would stand empty.
+        public void ResetForNewRun()
+        {
+            IsBuildMode = false;
+            DespawnAll();
+            capByType.Clear();
+            activeByType.Clear();
+            spawners.Clear();
+        }
+
         private void DespawnAll()
         {
             if (unitSystem == null) return;

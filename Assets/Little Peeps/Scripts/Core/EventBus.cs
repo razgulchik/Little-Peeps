@@ -1,8 +1,33 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace LittlePeeps
 {
+    // Non-generic companion to EventBus<T> — the one place that can wipe EVERY typed bus at once.
+    //
+    // Each closed EventBus<T> owns its own statics and there is no way to enumerate them, so every bus
+    // registers its own Clear here the first time it is touched and ClearAll walks that list.
+    //
+    // Why it has to exist: with Domain Reload disabled (Enter Play Mode Options) statics SURVIVE leaving
+    // play mode, so a second Play would start holding handlers of MonoBehaviours the first Play already
+    // destroyed — the first Publish then calls straight into dead objects. ClearAll runs before the first
+    // scene loads, so the buses are always empty when the new session's OnEnables start subscribing.
+    public static class EventBus
+    {
+        private static readonly List<Action> clearActions = new();
+
+        // Called once per event type, from EventBus<T>'s static constructor. The delegate targets a
+        // static method, so this list never keeps a scene object alive.
+        internal static void RegisterBus(Action clear) => clearActions.Add(clear);
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        public static void ClearAll()
+        {
+            for (int i = 0; i < clearActions.Count; i++) clearActions[i]();
+        }
+    }
+
     // Typed static publish-subscribe bus. Subscribers change rarely (OnEnable/OnDisable) but
     // Publish runs hot (potentially thousands/sec), so we never allocate per Publish: a cached
     // array of subscribers is rebuilt only when the set actually changes (dirty flag).
@@ -18,6 +43,10 @@ namespace LittlePeeps
         private static readonly List<Action<T>> subscribers = new();
         private static Action<T>[] cache = Array.Empty<Action<T>>();
         private static bool dirty = false;
+
+        // Hands this closed type to the non-generic EventBus so ClearAll can reach it. Runs on first
+        // use of the bus (first Subscribe/Publish), which is necessarily before it holds a subscriber.
+        static EventBus() => EventBus.RegisterBus(Clear);
 
         public static void Subscribe(Action<T> handler)
         {

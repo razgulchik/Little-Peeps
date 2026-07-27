@@ -91,15 +91,19 @@ namespace LittlePeeps
             EventBus<ExitToMenuRequestedEvent>.Subscribe(OnExitToMenu);
         }
 
+        // The hotkey and the event stay wired, but the transition is DECLINED while MainMenuState is
+        // still a stub. Entering it used to strand the player: the container's Exit() drops the build-mode
+        // and age-advance subscriptions, the menu draws nothing and listens for nothing, and gameplay
+        // keeps running underneath with no way back. Restoring this is one line once the menu screen
+        // exists — see the ChangeState call this replaced in git history.
+        private void OnExitToMenu(ExitToMenuRequestedEvent _)
+        {
+            Debug.LogWarning("Exit to menu isn't available yet — MainMenuState has no screen. Ignoring.", this);
+        }
+
         private void OnDestroy()
         {
             EventBus<ExitToMenuRequestedEvent>.Unsubscribe(OnExitToMenu);
-        }
-
-        private void OnExitToMenu(ExitToMenuRequestedEvent _)
-        {
-            if (appStateMachine.Current is MainMenuState) return;   // already in the menu
-            appStateMachine.ChangeState(new MainMenuState(appStateMachine, runManager));
         }
 
         private void Update()

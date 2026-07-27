@@ -22,8 +22,22 @@ namespace LittlePeeps
             runContext = context;
         }
 
-        private void OnEnable()  => inputHandler.OnWorldClick += OnWorldClick;
-        private void OnDisable() => inputHandler.OnWorldClick -= OnWorldClick;
+        private void OnEnable()
+        {
+            inputHandler.OnWorldClick += OnWorldClick;
+            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+        }
+
+        private void OnDisable()
+        {
+            inputHandler.OnWorldClick -= OnWorldClick;
+            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+        }
+
+        // Re-bind after a prestige. Nothing reads runContext yet (see GetBoostParams), but the field is
+        // wired the same way as everywhere else so the first perk that touches it isn't reading a run
+        // that ended several prestiges ago.
+        private void OnRunStarted(RunStartedEvent e) => runContext = e.Run;
 
         // Drive the cursor ring: visible & following the mouse only in live gameplay.
         private void Update()

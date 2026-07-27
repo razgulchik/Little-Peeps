@@ -18,6 +18,13 @@ namespace LittlePeeps
             runContext = context;
         }
 
+        // Re-bind on every run after the first. Without this a prestige would leave NextAge/CanAdvance
+        // reading the finished run's currentAge, so the new run would resume the old one's age ladder.
+        private void OnEnable()  => EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+        private void OnDisable() => EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+
+        private void OnRunStarted(RunStartedEvent e) => runContext = e.Run;
+
         // The AgeDef for advancing into the NEXT age, or null when the final age has been reached.
         // ages[currentAge] is the definition of the transition OUT of the current age into the next.
         public AgeDef NextAge =>

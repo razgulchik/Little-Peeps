@@ -223,6 +223,58 @@ namespace LittlePeeps
             run.fences.Remove(instance.Edge);
         }
 
+        // --- Run teardown ---------------------------------------------------------------------------
+
+        // Remove EVERYTHING this run built: free the grid, tear the spawners down synchronously, destroy
+        // the objects, empty the run's registries. Called by RunManager.EndRun; no refunds, no events —
+        // the run itself is going away.
+        //
+        // The explicit Teardown before each Destroy is the whole point. Destroy() defers OnDestroy to the
+        // end of the frame, while a prestige ends one run and starts the next inside a single frame, so
+        // the old spawners would give their capacity back AFTER the new run had already claimed its own.
+        // With unequal totals (the usual case — the player built extra houses) the fresh run's cap ends
+        // up clamped at zero and the village never spawns anybody, and the deferred callbacks also push
+        // already-pooled units back into UnitPool a second time.
+        //
+        // Grid cells are freed even though IslandSystem is about to throw the whole grid away: EndRun has
+        // to be correct on its own, not only when a StartNewRun happens to follow it.
+        //
+        // run.structures is the complete picture here only because a run never ends from build mode —
+        // neither prestige nor saving is reachable from there (design rule). A structure carried by
+        // MoveTool is deliberately absent from this dictionary while in hand, so that rule is what makes
+        // the sweep total; RunManager.DebugRestartRun enforces it for the one non-gameplay trigger.
+        public void ClearAll()
+        {
+            if (run == null) return;
+            var grid = islandSystem != null ? islandSystem.Grid : null;
+
+            foreach (var instance in run.structures.Values)
+            {
+                if (grid != null) grid.Remove(instance.Cell, instance.Def.size);
+                DestroyWithTeardown(instance.RuntimeObject);
+            }
+            run.structures.Clear();
+
+            foreach (var instance in run.fences.Values)
+            {
+                if (grid != null) grid.RemoveEdge(instance.Edge);
+                DestroyWithTeardown(instance.RuntimeObject);
+            }
+            run.fences.Clear();
+        }
+
+        // Composite prefabs carry spawners at any depth (a forest is a root Structure over child trees),
+        // so this mirrors the injection loop in Build and reaches every one of them.
+        private static void DestroyWithTeardown(Structure structure)
+        {
+            if (structure == null) return;
+
+            foreach (var spawner in structure.GetComponentsInChildren<IStructureSpawner>(true))
+                spawner.Teardown();
+
+            Destroy(structure.gameObject);
+        }
+
         // Build-mode MOVE for fences, step 2: place a lifted fence on `edge` (caller has checked
         // CanPlaceEdge, or is returning it to its original Edge on cancel). Re-registers grid + run,
         // updates the instance's Edge, snaps the object onto the edge and sets the matching pose.

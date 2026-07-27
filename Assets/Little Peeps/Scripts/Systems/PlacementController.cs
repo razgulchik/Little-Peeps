@@ -41,10 +41,9 @@ namespace LittlePeeps
         private bool active;
         private StructureDef selected;
 
-        // Hover target: the structure OR fence currently tinted. A cell structure and a fence are never
-        // both hovered (the edge wins by NearEdge precedence), so only one is ever set.
-        private StructureInstance hoveredInstance;
-        private EdgeInstance hoveredEdge;
+        // What the cursor is currently tinted as the hover target — compared per frame so the tint is
+        // only rebuilt when the target actually changes.
+        private PlacementTarget hovered;
 
         // Move-mode drag: the structure OR fence lifted off the grid and following the cursor. Only one
         // is ever held.
@@ -158,40 +157,20 @@ namespace LittlePeeps
         // hovered structure CHANGES; otherwise it's a dictionary lookup plus a reference compare per frame.
         private void UpdateHover(HoverStyle style)
         {
-            var grid = islandSystem.Grid;
-            Vector2 cursor = ScreenToWorld();
+            // Same targeting the click uses, so what is highlighted and what is acted on can never differ.
+            var target = PlacementTarget.Resolve(islandSystem.Grid, ScreenToWorld());
+            if (target.Equals(hovered)) return;   // same target (or still none) — nothing to do
 
-            // A fence wins the hover when the cursor is right on an occupied edge (same precedence as click).
-            Edge edge = grid.WorldToEdge(cursor);
-            var fence = grid.GetEdge(edge);
-            if (fence != null && NearEdge(cursor, edge))
-            {
-                if (fence != hoveredEdge)                  // changed target → restore previous, tint this fence
-                {
-                    ClearHover();
-                    hoveredEdge = fence;
-                    visuals.SetHover(fence.RuntimeObject, style);
-                }
-                return;
-            }
-
-            var instance = grid.GetCell(grid.WorldToGrid(cursor))?.occupant;
-            if (instance == hoveredInstance && hoveredEdge == null) return;   // same target (or still none) — nothing to do
-
-            ClearHover();                              // restore the previous target's color (cell or fence)
-            if (instance != null)
-            {
-                hoveredInstance = instance;
-                visuals.SetHover(instance.RuntimeObject, style);
-            }
+            ClearHover();                         // restore the previous target's color (cell or fence)
+            hovered = target;
+            if (!target.IsNone) visuals.SetHover(target.RuntimeObject, style);
         }
 
         // Restore the tinted structure / fence (if any) to its original color and forget it.
         private void ClearHover()
         {
             visuals.ClearHover();
-            hoveredInstance = null;
-            hoveredEdge = null;
+            hovered = default;
         }
 
         // Move tool: while a structure is held it follows the cursor (the real object is dragged) and is
@@ -290,43 +269,23 @@ namespace LittlePeeps
 
         private void TrySell(Vector2 worldPos)
         {
-            var grid = islandSystem.Grid;
+            var target = PlacementTarget.Resolve(islandSystem.Grid, worldPos);
+            if (target.IsNone) return;   // empty cell / off-island — nothing to sell
 
-            // A fence wins the click when the cursor is right on an occupied edge — otherwise a fence
-            // along a structure's cell would be unsellable (the cell underneath would always be hit first).
-            Edge edge = grid.WorldToEdge(worldPos);
-            if (grid.GetEdge(edge) != null && NearEdge(worldPos, edge))
+            if (target.IsFence)
             {
-                if (structureSystem.SellEdgeStructure(edge))
-                {
-                    // The hover target is being destroyed — drop the refs without touching its color.
-                    hoveredEdge = null;
-                    visuals.ForgetHover();
-                    // No gridOverlay.Refresh(): fences occupy no cells, so the territory fill is unchanged.
-                }
-                return;
+                if (!structureSystem.SellEdgeStructure(target.Edge)) return;
+                // No gridOverlay.Refresh(): fences occupy no cells, so the territory fill is unchanged.
             }
-
-            Vector2Int cell = grid.WorldToGrid(worldPos);
-            var occupant = grid.GetCell(cell)?.occupant;
-            if (occupant == null) return;   // empty cell / off-island — nothing to sell
-            if (structureSystem.SellStructure(occupant.Cell))
+            else
             {
-                // The hover target is being destroyed — drop the refs without touching its color.
-                hoveredInstance = null;
-                visuals.ForgetHover();
+                if (!structureSystem.SellStructure(target.Instance.Cell)) return;
                 gridOverlay.Refresh();   // cells freed → update the territory fill
             }
-        }
 
-        // True when the cursor is within ~⅓ cell of the edge's line (perpendicular distance), i.e. the
-        // player is actually aiming at the fence rather than the cell beside it.
-        private bool NearEdge(Vector2 worldPos, Edge edge)
-        {
-            var grid = islandSystem.Grid;
-            Vector2 mid = grid.EdgeToWorld(edge);
-            float perp = edge.horizontal ? Mathf.Abs(worldPos.y - mid.y) : Mathf.Abs(worldPos.x - mid.x);
-            return perp <= grid.CellSize * 0.3f;
+            // The hover target has just been destroyed — drop it without touching its color.
+            hovered = default;
+            visuals.ForgetHover();
         }
 
         // Move tool click: nothing held → pick up the structure/fence under the cursor; holding → drop it.
@@ -338,34 +297,25 @@ namespace LittlePeeps
 
         private void TryPickUp(Vector2 worldPos)
         {
-            var grid = islandSystem.Grid;
+            var target = PlacementTarget.Resolve(islandSystem.Grid, worldPos);
+            if (target.IsNone) return;   // empty cell / off-island — nothing to pick up
 
-            // A fence wins the click when the cursor is right on an occupied edge (same precedence as Sell).
-            Edge edge = grid.WorldToEdge(worldPos);
-            var fence = grid.GetEdge(edge);
-            if (fence != null && NearEdge(worldPos, edge)) { PickUpEdge(fence); return; }
-
-            var occupant = grid.GetCell(grid.WorldToGrid(worldPos))?.occupant;
-            if (occupant == null) return;   // empty cell / off-island — nothing to pick up
-
-            // The structure being grabbed is the one the move-hover just tinted green — restore its true
+            // The object being grabbed is the one the move-hover just tinted green — restore its true
             // colors FIRST, so the held capture takes the real originals (not the green tint).
             ClearHover();
 
-            structureSystem.PickUpStructure(occupant);   // frees its grid cells + run entry
-            heldInstance = occupant;
-            visuals.CaptureHeld(occupant.RuntimeObject);
+            if (target.IsFence)
+            {
+                structureSystem.PickUpEdgeStructure(target.Fence);   // frees the grid edge + run entry
+                heldEdge = target.Fence;
+                visuals.CaptureHeld(target.RuntimeObject);
+                return;
+            }
+
+            structureSystem.PickUpStructure(target.Instance);   // frees its grid cells + run entry
+            heldInstance = target.Instance;
+            visuals.CaptureHeld(target.RuntimeObject);
             gridOverlay.Refresh();   // structure lifted off the grid → its territory fill clears (the ghost halo takes over)
-        }
-
-        // Lift a fence off its edge and start dragging it (the real object follows the cursor).
-        private void PickUpEdge(EdgeInstance fence)
-        {
-            ClearHover();
-            structureSystem.PickUpEdgeStructure(fence);   // frees the grid edge + run entry
-
-            heldEdge = fence;
-            visuals.CaptureHeld(fence.RuntimeObject);
         }
 
         private void TryDrop(Vector2 worldPos)

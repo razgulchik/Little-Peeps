@@ -1961,14 +1961,15 @@ MonoBehaviour:
   islandSystem: {fileID: 738684714}
   mainCamera: {fileID: 519420031}
   gridOverlay: {fileID: 55594376}
-  validColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
-  invalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
-  sellHoverColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
-  moveHoverColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
-  territoryValidColor: {r: 0.4, g: 1, b: 0.4, a: 0.18}
-  territoryInvalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.18}
-  territorySortingLayer: Ground
-  territorySortingOrder: 1001
+  visuals:
+    validColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
+    invalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
+    sellHoverColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
+    moveHoverColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
+    territoryValidColor: {r: 0.4, g: 1, b: 0.4, a: 0.18}
+    territoryInvalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.18}
+    territorySortingLayer: Ground
+    territorySortingOrder: 1001
 --- !u!4 &669469168
 Transform:
   m_ObjectHideFlags: 0
@@ -3574,7 +3575,6 @@ MonoBehaviour:
   buildModeKey: 16
   sellKey: 38
   exitToMenuKey: 60
-  infoKey: 23
 --- !u!1 &1588373507
 GameObject:
   m_ObjectHideFlags: 0

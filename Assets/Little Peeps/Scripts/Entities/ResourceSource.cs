@@ -16,6 +16,12 @@ namespace LittlePeeps
     // node sits on a lower layer that units always walk over. Infinite sources (Forge/Church) keep
     // their single visual and leave both roots untouched.
     //
+    // The Ready→Harvested switch is not instant: the ready root fades out over fadeOutTime while the
+    // harvested one shows through underneath, which is what reads as the field being reaped. It is
+    // presentation only — the collider is off and the regrow clock is running from the moment of the
+    // hit, so no length of fade can ever be harvested through. Speed is per-prefab: a field and a tree
+    // vanish at their own rates.
+    //
     // swapStateVisuals controls how the two roots are composited:
     //   off (default base) — harvestedRoot is the always-on background base; readyRoot is an overlay
     //                        on top that switches off once harvested. Not mutually exclusive.
@@ -43,15 +49,30 @@ namespace LittlePeeps
                  "would fly out of the cell's pivot rather than the middle of the field.")]
         [SerializeField] private Transform fxAnchor;
 
+        [Tooltip("Seconds the ready visual takes to fade out when the node is harvested; the harvested " +
+                 "sprite underneath shows through as it goes. 0 = it simply disappears. Lives on the " +
+                 "prefab rather than the def on purpose — a field and a tree are allowed to vanish at " +
+                 "different speeds.")]
+        [Min(0f)] [SerializeField] private float fadeOutTime = 0.2f;
+
+        [Tooltip("Alpha across the fade, left to right. Default is a straight 1 → 0.")]
+        [SerializeField] private AnimationCurve fadeCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
+
         private CollisionTarget host;
         private int hitsLeft;
         private State state = State.Ready;
         private float respawnTimer;
 
+        // Cached once: the fade runs per harvest and must not allocate. Covers the whole ready root, so
+        // a multi-sprite visual (trunk + crown) fades as one piece without extra wiring.
+        private SpriteRenderer[] readyRenderers;
+        private float fadeTimer = -1f;   // < 0 = not fading
+
         private void Awake()
         {
             host = GetComponent<CollisionTarget>();
             if (def != null) hitsLeft = def.hitsBeforeDespawn;
+            if (readyRoot != null) readyRenderers = readyRoot.GetComponentsInChildren<SpriteRenderer>(true);
         }
 
         // Optional runtime injection (StructureSystem calls this when placing a structure at runtime,
@@ -100,10 +121,56 @@ namespace LittlePeeps
 
         private void Update()
         {
+            if (fadeTimer >= 0f) TickFade();
+
             if (state != State.Harvested) return;
 
             respawnTimer -= Time.deltaTime;
             if (respawnTimer <= 0f) Respawn();
+        }
+
+        // Advances the fade of the ready visual. Deliberately in the existing Update rather than a
+        // coroutine: the node already ticks every frame for its regrow timer, so the fade rides along
+        // for one float compare and costs no allocation per harvest — which matters when hundreds of
+        // fields are being reaped.
+        private void TickFade()
+        {
+            fadeTimer += Time.deltaTime;
+
+            if (fadeTimer < fadeOutTime)
+            {
+                ApplyAlpha(fadeCurve.Evaluate(fadeTimer / fadeOutTime));
+                return;
+            }
+
+            EndFade();
+        }
+
+        // Settles the roots for the current state and — the part that matters — puts the alpha BACK to
+        // 1. These renderers are the same objects the regrown node shows: leaving them transparent
+        // would bring the field back invisible seconds later, far from anything that looks like a cause.
+        private void EndFade()
+        {
+            fadeTimer = -1f;
+            ApplyAlpha(1f);
+            ApplyStateVisual();
+        }
+
+        // SpriteRenderer.color is a per-renderer vertex colour, NOT a material property: tinting here
+        // creates no material instance and so cannot quietly break batching across hundreds of nodes.
+        private void ApplyAlpha(float alpha)
+        {
+            if (readyRenderers == null) return;
+
+            for (int i = 0; i < readyRenderers.Length; i++)
+            {
+                var r = readyRenderers[i];
+                if (r == null) continue;
+
+                var c = r.color;
+                c.a = alpha;
+                r.color = c;
+            }
         }
 
         // Regrow delay with the run modifier applied. The stats sheet is asked for at the point of use,
@@ -124,7 +191,24 @@ namespace LittlePeeps
             state = State.Harvested;
             respawnTimer = ResolveRespawnTime();
             host.SetColliderEnabled(false);
-            ApplyStateVisual();
+
+            if (fadeOutTime <= 0f || readyRenderers == null || readyRenderers.Length == 0)
+            {
+                ApplyStateVisual();
+                return;
+            }
+
+            // Gameplay is already over for this node — the collider is off and the regrow clock is
+            // running — so the fade is pure presentation and its length can be whatever looks right
+            // without ever handing out a free harvest.
+            //
+            // ApplyStateVisual is NOT called yet: it would switch the ready root off outright, which is
+            // the very thing being animated. The harvested sprite is brought up front by hand instead,
+            // because it is what has to show THROUGH the fading one — in swapStateVisuals mode nothing
+            // else would turn it on until the fade ended, and the field would dissolve into bare grass.
+            fadeTimer = 0f;
+            if (harvestedRoot != null) harvestedRoot.SetActive(true);
+            ApplyAlpha(1f);
         }
 
         // Ready again: regrown, harvestable, showing the ready sprite.
@@ -133,6 +217,13 @@ namespace LittlePeeps
             state = State.Ready;
             hitsLeft = def.hitsBeforeDespawn;
             host.SetColliderEnabled(true);
+
+            // A regrow can land mid-fade whenever a def's respawn time is shorter than the fade (or a
+            // perk drags it there). The node has to come back solid either way, so the fade is dropped
+            // rather than left to finish over a visual that is already Ready again.
+            fadeTimer = -1f;
+            ApplyAlpha(1f);
+
             ApplyStateVisual();
         }
 

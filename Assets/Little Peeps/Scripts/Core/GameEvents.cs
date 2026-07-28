@@ -1,9 +1,30 @@
+using UnityEngine;
+
 namespace LittlePeeps
 {
     public struct ResourceChangedEvent
     {
         public ResourceType ResourceType;
         public float NewValue;
+    }
+
+    // Published by ResourceSystem.AddHarvest for EVERY credited harvest. It sits on the single
+    // production gateway on purpose: a resource path that skipped it would have no resources either,
+    // so no source can ever ship without its feedback. Consumed by HarvestVfxSystem (pickup
+    // particles) and, later, by the floating number — neither of which the gameplay side knows about.
+    //
+    // Key visuals on `Source`, NOT on `Type`: Wheat, Boar and Fox are all Food, and Alpaka and Market
+    // are both Coins, so a per-type table would fly an ear of wheat out of a boar. Same reason
+    // AddHarvest itself takes the whole def rather than the ResourceType.
+    //
+    // `Amount` is what actually reached the wallet, after the yield and production modifiers — the
+    // number that floats up must be the number the player got.
+    public struct HarvestedEvent
+    {
+        public ResourceSourceDef Source;
+        public ResourceType Type;
+        public float Amount;
+        public Vector3 Position;
     }
 
     public struct AgeStartedEvent

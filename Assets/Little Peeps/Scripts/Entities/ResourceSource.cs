@@ -37,6 +37,12 @@ namespace LittlePeeps
                  "switches off once harvested.")]
         [SerializeField] private bool swapStateVisuals;
 
+        [Header("Harvest VFX")]
+        [Tooltip("Where the pickup effect and the floating number leave from. Empty = this transform. " +
+                 "Wheat's Visual root is offset from the prefab root, so without an anchor the ear " +
+                 "would fly out of the cell's pivot rather than the middle of the field.")]
+        [SerializeField] private Transform fxAnchor;
+
         private CollisionTarget host;
         private int hitsLeft;
         private State state = State.Ready;
@@ -83,11 +89,14 @@ namespace LittlePeeps
             // Through the production gateway: the base amount is scaled by the worker's yield modifier
             // and the global production multiplier before being credited. The def goes along because it
             // is the yield modifier's source scope, not just where the ResourceType came from.
-            resourceSystem.AddHarvest(def, unit.Type, amount);
+            resourceSystem.AddHarvest(def, unit.Type, amount, FxOrigin);
 
             if (def.infinite) return;
             if (--hitsLeft <= 0) Deplete();
         }
+
+        // Where harvest feedback leaves from. Authored in the prefab so art decides it, not code.
+        private Vector3 FxOrigin => fxAnchor != null ? fxAnchor.position : transform.position;
 
         private void Update()
         {

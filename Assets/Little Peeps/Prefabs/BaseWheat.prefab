@@ -92,6 +92,8 @@ MonoBehaviour:
   resourceSystem: {fileID: 0}
   readyRoot: {fileID: 4924945041359699940}
   harvestedRoot: {fileID: 7757070926767666809}
+  swapStateVisuals: 0
+  fxAnchor: {fileID: 3936104942616605764}
 --- !u!1 &4493039114167410941
 GameObject:
   m_ObjectHideFlags: 0
@@ -244,7 +246,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1266997631
-  m_SortingLayer: 3
+  m_SortingLayer: 1
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 58e1af972e0cb3d46bd6c1301ef8bda3, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -331,7 +333,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1301804283
-  m_SortingLayer: 2
+  m_SortingLayer: -1
   m_SortingOrder: 1
   m_Sprite: {fileID: 21300000, guid: 05195bd34bed875418b5fd9f80c87cc5, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}

@@ -19,6 +19,8 @@ MonoBehaviour:
     amount: 1
   - worker: 1
     amount: 2
+  pickupFx: {fileID: 4371847270752138857, guid: a285e262118a29846bc987227ea4bb18, type: 3}
+  pickupFxCount: 1
   infinite: 0
   hitsBeforeDespawn: 1
   respawnTime: 10

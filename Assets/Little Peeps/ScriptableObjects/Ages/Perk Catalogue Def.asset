@@ -12,4 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20c35dd51031aa34cb463dadc1e02b61, type: 3}
   m_Name: Perk Catalogue Def
   m_EditorClassIdentifier: 
-  perks: []
+  perks:
+  - {fileID: 11400000, guid: 908e75f7dcaf17f4a92d9123e15cc308, type: 2}

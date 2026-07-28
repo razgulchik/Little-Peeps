@@ -15,10 +15,16 @@ namespace LittlePeeps
         // The run's bonus layer, held so harvest gains can be scaled by yield/production modifiers.
         private RunStats stats;
 
+        // The run's production ledger (RunContext.harvested), held so AddHarvest can credit it. Bound the
+        // same way as `stats`: the dictionary belongs to the RunContext, so a new run brings a new one and
+        // the totals reset with it — nothing here has to remember to zero anything.
+        private Dictionary<ResourceType, float> harvested;
+
         // Populate ReactiveValues from RunContext starting amounts (one per ResourceType)
         public void Initialize(RunContext context)
         {
             stats = context.stats;
+            harvested = context.harvested;
 
             resources.Clear();
             foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
@@ -52,6 +58,13 @@ namespace LittlePeeps
             float amount = stats != null
                 ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type), StatId.ProductionGlobal)
                 : baseAmount;
+
+            // Book the run's production for the prestige payout. The CREDITED amount, after both
+            // multipliers — a better-built village is worth more prestige, which is the whole point of
+            // paying on production rather than on time.
+            if (harvested != null)
+                harvested[type] = (harvested.TryGetValue(type, out float total) ? total : 0f) + amount;
+
             AddResource(type, amount);
         }
 

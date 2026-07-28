@@ -8,6 +8,9 @@ namespace LittlePeeps
         [SerializeField] private RunManager runManager;
         [SerializeField] private SaveSystem saveSystem;
 
+        [Tooltip("The payout: points per age, plus a curve on everything the run harvested.")]
+        [SerializeField] private PrestigeFormula formula = new();
+
         private MetaContext metaContext;
 
         public void Initialize(MetaContext meta)
@@ -15,11 +18,15 @@ namespace LittlePeeps
             metaContext = meta;
         }
 
-        // Derive prestige points from the run's age, buildings, and resources
+        // What this run is worth in prestige points. Pure and side-effect free — the confirmation screen
+        // (B2) shows the projection by calling exactly this. The formula itself lives in PrestigeFormula
+        // so the arithmetic is inspector-tunable and testable without a scene.
+        //
+        // The records are read here rather than passed in: what has already been paid out belongs to the
+        // profile, not to the run, so no caller has to know about them to get an honest number.
         public int Calculate(RunContext context)
         {
-            // TODO: formula: base points from context.currentAge * multiplier + bonus per building type
-            return 0;
+            return formula != null ? formula.Points(context, metaContext) : 0;
         }
 
         // Award points, persist MetaContext, then start a new run

@@ -2733,10 +2733,10 @@ Transform:
   - {fileID: 1656171578}
   - {fileID: 42342359}
   - {fileID: 711440997}
+  - {fileID: 2118373958}
   - {fileID: 1346784183}
   - {fileID: 274669771}
   - {fileID: 596618326}
-  - {fileID: 2118373958}
   - {fileID: 174083671}
   - {fileID: 669469168}
   - {fileID: 340968260}
@@ -33144,8 +33144,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0abd929c01f02494dbe973c8602b18bf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  runManager: {fileID: 0}
-  saveSystem: {fileID: 0}
+  runManager: {fileID: 1015335232}
+  saveSystem: {fileID: 644132713}
+  formula:
+    pointsPerAge: 1
+    weights: []
+    defaultWeight: 1
+    coefficient: 1
+    exponent: 0.5
 --- !u!1 &2125056540
 GameObject:
   m_ObjectHideFlags: 0

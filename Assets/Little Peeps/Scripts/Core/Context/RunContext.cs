@@ -12,6 +12,12 @@ namespace LittlePeeps
         public int currentAge;
         public List<PerkDef> perksChosen = new();
 
+        // Everything PRODUCED this run, per type, as credited by ResourceSystem.AddHarvest — the single
+        // production gateway. Spends and sell refunds go through AddResource and never land here, so the
+        // prestige payout built on this ledger cannot be farmed by cycling build → sell → build.
+        // Plain numbers, so it stays inside the "run state must be rebuildable" rule for free.
+        public Dictionary<ResourceType, float> harvested = new();
+
         // Accumulated bonus layer (base+modifiers stat system). Fresh per run → resets on prestige.
         public RunStats stats = new();
     }

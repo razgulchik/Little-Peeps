@@ -13,7 +13,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  UI  (ResourceUI · AgeUI · PerkSelectionUI · BuildModeButton)│
+│  UI  (ResourcePanel · AgeUI · PerkSelectionUI · BuildPanelUI)│
 │  Subscribes to ReactiveValue<T>.OnChanged and EventBus<T>    │
 └──────────────────────────┬──────────────────────────────────┘
                            │ reads / fires events
@@ -163,7 +163,7 @@ EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);   // always unsubscribe in 
 | Struct | Published by | Consumed by |
 |--------|-------------|-------------|
 | `CollisionEvent` (carries `CollisionTarget Target`) | `CollisionTarget.HandleHit` | none yet — kept for future *global* listeners. Per-hit effects (Spawner/ResourceSource) are dispatched **locally** by CollisionTarget, not via this event. |
-| `ResourceChangedEvent` | `ResourceSystem.AddResource` | ResourceUI |
+| `ResourceChangedEvent` | `ResourceSystem.AddResource` | AgeUI (re-checks whether the next age is affordable). The resource bar does NOT use it — `ResourcePanel` binds each row to the type's `ReactiveValue`, which is why `ResourceSystem.Initialize` must reuse those objects across runs rather than replace them |
 | `StructurePlacedEvent` | `StructureSystem.PlaceStructure` (stub) | RunContext, AgeUI |
 | `StructureRemovedEvent` | `StructureSystem.RemoveStructure` (stub) | RunContext |
 | `StructureDamagedEvent` | `Structure.TakeDamage` (stub) | UI health bars |
@@ -172,7 +172,7 @@ EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);   // always unsubscribe in 
 | `AgeAdvanceRequestedEvent` | `AgeUI` (Next Age button) | `GameplayContainerState` (enters AgeTransition if affordable) |
 | `UnitBoostedEvent` | `TapSystem` | analytics / VFX |
 | `PerkSelectedEvent` | `PerkSystem.ApplyPerk` | AgeSequencer, PerkSelectionUI |
-| `PrestigeTriggeredEvent` | `TapSystem` (Pier click, planned) | gameplay coordinator → PrestigeMenu |
+| `PrestigeTriggeredEvent` | `TapSystem` (Pier click) | `PlayingState` — deliberately the STATE, not `PrestigeSystem`: the subscription then lasts exactly as long as normal play, so a run can never be ended from build mode or mid-age-transition. B2 swaps `ExecutePrestige` for a transition into `PrestigeMenuState` |
 | `BuildModeToggleRequestedEvent` | `BuildModeButton` (click) | `GameplayContainerState` |
 | `BuildModeUIStateEvent` (`InBuildMode`, `Interactable`) | `GameplayContainerState` | `BuildModeButton` (icon swap + interactable) |
 
@@ -239,7 +239,7 @@ later)** → fade back.
 | Structure (interactable) | BoxCollider2D `isTrigger=true` | none (Static) | Unit passes through — `OnTriggerEnter2D` fires; `SetColliderEnabled(false)` during drag / on source depletion |
 | Animal (alpaca/boar/fox) | Collider2D `isTrigger=false` (child) | Rigidbody2D (**Kinematic**, root) | Units (Dynamic) bounce off it — that bounce IS the harvest hit; the kinematic body itself passes through structures/terrain (only wander destinations are validated, by AnimalSpawner) |
 | Island boundary | TilemapCollider2D (Composite Operation: Merge) + CompositeCollider2D | Rigidbody2D (Static) | Auto-updates when tiles are added on island expansion |
-| Pier | CircleCollider2D (isTrigger) | none | Own physics layer so units ignore it; player clicks to trigger prestige |
+| Pier | BoxCollider2D `isTrigger=false` (on a `Physics` child) | Rigidbody2D (Static, root) | An ordinary structure that units bounce off. A click on it triggers prestige: `TapSystem` resolves the hit with `GetComponentInParent<Pier>()`, so the `Pier` marker component must sit on the prefab **root**, not next to the collider |
 
 **Collision dispatch lives in `CollisionTarget`** (the base). Both `OnCollisionEnter2D` (obstacle
 path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)` →
@@ -276,7 +276,7 @@ despawned on enter, so there is nothing to simulate anyway.
 | `AgeSystem` | MB | Owns the ordered `List<AgeDef>` catalogue; `NextAge` / `CanAdvance` (queried by AgeUI + GameplayContainerState). Current age lives on RunContext, so it's stateless between runs |
 | `AgeSequencer` | MB | Coroutine chain for an age transition (fade → island expand → "Age N" banner → perk hook → fade), unscaled time; signals completion via callback. Refs: fade `CanvasGroup` + title `TMP_Text` |
 | `PerkSystem` | MB | Weighted random roll of perks; `ApplyPerk` (still stub; the age-transition perk step is a hook) |
-| `PrestigeSystem` | MB | Points formula; resets run via RunManager |
+| `PrestigeSystem` | MB | Owns the payout. `Calculate` = `PrestigeFormula.Points(run, meta)`: an age term and a harvest term, each paid only for what it BEATS of the profile's record (`MetaContext.agePointsAwarded` / `harvestPointsAwarded`), so a run is worth how far it got, not how long it lasted. `ExecutePrestige` reads the payout and both gross terms BEFORE banking (the records it raises are what `Calculate` subtracts), then saves and restarts the run via `RunManager`. `CanPrestige` gates the pier on `pierUnlockAge` |
 | `RunManager` | MB | Creates RunContext; seeds `stats` (debug modifiers now, meta later); `Initialize`s resource/structure/**spawn** systems; owns island generation timing; after generation places starting structures + `PierSystem.PlaceForRun()` |
 | `SaveSystem` | MB | JSON serialization of MetaContext (**stub: returns fresh MetaContext**) |
 | `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch + `CollisionEvent`; `SetColliderEnabled` |

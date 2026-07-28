@@ -12,6 +12,15 @@ namespace LittlePeeps.Tests
     //
     // The fix is IStructureSpawner.Teardown: unregister synchronously, then make OnDestroy a no-op.
     //
+    // NOT COVERED HERE: the ordinary sell/remove path, where no Teardown runs and OnDestroy alone has to
+    // do the whole job. Edit Mode never invokes MonoBehaviour lifecycle callbacks for a plain
+    // MonoBehaviour — the same rule that already forces MakeSpawner to call Warmup() by hand, because
+    // Spawner.Start() would otherwise do it — so a test for it can only ever assert that Unity failed to
+    // call OnDestroy. There was one; it was red from the day it was written and has been deleted. What
+    // it actually tested beyond the tests below is "Unity calls OnDestroy", which is Unity's contract,
+    // not ours: Unregister itself is the same method Teardown calls, and is pinned twice over below.
+    // If that path ever needs real coverage it belongs in a PlayMode assembly.
+    //
     // These tests build real GameObjects, so they run in the Editor's Test Runner and are skipped by the
     // offline reflection harness (no native Unity there).
     public class RunTeardownTests
@@ -87,18 +96,6 @@ namespace LittlePeeps.Tests
             Assert.IsTrue(spawnSystem.CanSpawn(Worker), "a repeated teardown must not keep subtracting");
 
             Object.DestroyImmediate(spawner.gameObject);
-        }
-
-        [Test]
-        public void OnDestroyAlone_StillUnregisters_WhenNoTeardownRan()
-        {
-            // The ordinary single-structure path (sell/remove) never calls Teardown, so OnDestroy has to
-            // keep doing the whole job on its own — the guard must not have turned it into a no-op.
-            var spawner = MakeSpawner(2);
-            Object.DestroyImmediate(spawner.gameObject);
-
-            Assert.IsFalse(spawnSystem.CanSpawn(Worker),
-                           "destroying the only spawner must give its capacity back");
         }
 
         [Test]

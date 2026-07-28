@@ -80,11 +80,13 @@ namespace LittlePeeps
             appStateMachine = new StateMachine();
             appStateMachine.Push(new BootState(appStateMachine, saveSystem, metaContext));
 
+            //    The states are handed runManager, NOT the RunContext: they are built once here and live
+            //    through every prestige, so a captured context would be the finished run's.
             var gameplayFsm = new StateMachine();
-            var playingState = new PlayingState(gameplayFsm, run);
+            var playingState = new PlayingState(gameplayFsm, runManager);
             var buildModeState = new BuildModeState(spawnSystem, placementController);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown,
-                                                                   ageSystem, ageSequencer, resourceSystem, run));
+                                                                   ageSystem, ageSequencer, resourceSystem, runManager));
 
             // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM
             // and runManager live here; leaving the container restores timeScale via its Exit().

@@ -16,7 +16,13 @@ namespace LittlePeeps
         private readonly AgeSystem ageSystem;
         private readonly AgeSequencer ageSequencer;
         private readonly ResourceSystem resourceSystem;
-        private readonly RunContext runContext;
+
+        // The RUN MANAGER, deliberately, not a RunContext. This state outlives the run: it is built once
+        // in GameBootstrap.Awake and survives every prestige, so a captured context would be the one that
+        // has already ended. That is not hypothetical — it shipped: TriggerAgeCmd incremented the dead
+        // run while AgeUI displayed the live one, so the age label froze at 0, the island kept re-applying
+        // the first age's expansion and the cost never rose. Ask for CurrentRun at the moment it is used.
+        private readonly RunManager runManager;
 
         private bool inBuildMode;
         private float cooldownRemaining;
@@ -24,7 +30,7 @@ namespace LittlePeeps
         public GameplayContainerState(StateMachine innerFsm, PlayingState playingState,
                                       BuildModeState buildModeState, float buildModeCooldown,
                                       AgeSystem ageSystem, AgeSequencer ageSequencer,
-                                      ResourceSystem resourceSystem, RunContext runContext)
+                                      ResourceSystem resourceSystem, RunManager runManager)
         {
             this.innerFsm = innerFsm;
             this.playingState = playingState;
@@ -33,7 +39,7 @@ namespace LittlePeeps
             this.ageSystem = ageSystem;
             this.ageSequencer = ageSequencer;
             this.resourceSystem = resourceSystem;
-            this.runContext = runContext;
+            this.runManager = runManager;
         }
 
         public void Enter()
@@ -82,8 +88,12 @@ namespace LittlePeeps
             if (inBuildMode || innerFsm.Current != playingState) return;
             if (ageSystem == null || !ageSystem.CanAdvance) return;
 
+            // Read the run HERE, not in the constructor — see the runManager field.
+            var run = runManager != null ? runManager.CurrentRun : null;
+            if (run == null) return;
+
             innerFsm.ChangeState(new AgeTransitionState(
-                innerFsm, ageSequencer, playingState, resourceSystem, runContext, ageSystem.NextAge));
+                innerFsm, ageSequencer, playingState, resourceSystem, run, ageSystem.NextAge));
         }
 
         private void EnterBuildMode()

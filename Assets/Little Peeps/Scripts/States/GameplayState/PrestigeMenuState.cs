@@ -5,13 +5,16 @@ namespace LittlePeeps
     {
         private readonly StateMachine gameplayFsm;
         private readonly PrestigeSystem prestigeSystem;
-        private readonly RunContext runContext;
 
-        public PrestigeMenuState(StateMachine gameplayFsm, PrestigeSystem prestigeSystem, RunContext runContext)
+        // RunManager, not RunContext — and here it matters most: this state is the one that ENDS the run,
+        // so a captured context would be exactly the object about to be replaced. Read CurrentRun at use.
+        private readonly RunManager runManager;
+
+        public PrestigeMenuState(StateMachine gameplayFsm, PrestigeSystem prestigeSystem, RunManager runManager)
         {
             this.gameplayFsm = gameplayFsm;
             this.prestigeSystem = prestigeSystem;
-            this.runContext = runContext;
+            this.runManager = runManager;
         }
 
         public void Enter()

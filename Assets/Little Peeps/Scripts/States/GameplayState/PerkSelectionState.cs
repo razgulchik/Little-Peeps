@@ -5,13 +5,16 @@ namespace LittlePeeps
     {
         private readonly StateMachine gameplayFsm;
         private readonly PerkSystem perkSystem;
-        private readonly RunContext runContext;
 
-        public PerkSelectionState(StateMachine gameplayFsm, PerkSystem perkSystem, RunContext runContext)
+        // RunManager, not RunContext: this state is built once and survives every prestige. Read
+        // runManager.CurrentRun at the point of use — see GameplayContainerState for why.
+        private readonly RunManager runManager;
+
+        public PerkSelectionState(StateMachine gameplayFsm, PerkSystem perkSystem, RunManager runManager)
         {
             this.gameplayFsm = gameplayFsm;
             this.perkSystem = perkSystem;
-            this.runContext = runContext;
+            this.runManager = runManager;
         }
 
         public void Enter()

@@ -4,12 +4,16 @@ namespace LittlePeeps
     public class PlayingState : IState
     {
         private readonly StateMachine gameplayFsm;
-        private readonly RunContext runContext;
 
-        public PlayingState(StateMachine gameplayFsm, RunContext runContext)
+        // RunManager, not RunContext: this state is built once and survives every prestige, so a captured
+        // context would go stale the first time the player restarts. Read runManager.CurrentRun at the
+        // point of use. See GameplayContainerState for the bug this rule came from.
+        private readonly RunManager runManager;
+
+        public PlayingState(StateMachine gameplayFsm, RunManager runManager)
         {
             this.gameplayFsm = gameplayFsm;
-            this.runContext = runContext;
+            this.runManager = runManager;
         }
 
         public void Enter()

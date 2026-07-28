@@ -14,8 +14,12 @@ namespace LittlePeeps
         private readonly AgeSequencer ageSequencer;
         private readonly PlayingState playingState;
         private readonly ResourceSystem resourceSystem;
-        private readonly RunContext runContext;
         private readonly AgeDef ageDef;
+
+        // Holding the context directly IS right here, unlike the long-lived states: this object is built
+        // for one transition and discarded after it, and the run cannot be replaced mid-transition (the
+        // game is frozen and prestige is unreachable). GameplayContainerState resolves it per transition.
+        private readonly RunContext runContext;
 
         private bool complete;
 

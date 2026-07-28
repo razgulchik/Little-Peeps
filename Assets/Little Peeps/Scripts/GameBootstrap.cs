@@ -9,8 +9,12 @@ namespace LittlePeeps
     //   Island      [IslandSystem + Tilemap/TilemapRenderer children]
     //   Camera      [Camera + CinemachineBrain; a CinemachineCamera follows the CameraTarget object]
     //   CameraTarget[CameraController — moves this object; the vcam follows it with damping]
-    //   UI (Canvas) [ResourceUI × 6, AgeUI, PerkSelectionUI as child GameObjects]
-    //   Pier        [Pier component + CircleCollider2D with isTrigger = true]
+    //   UI (Canvas) [ResourcePanel (spawns a ResourceUnit per type), AgeUI, BuildPanelUI, PerkSelectionUI]
+    //
+    // The pier is NOT in this list: PierSystem instantiates it per run from the "Pier" StructureDef and
+    // parks it in the island's bottom-right corner. What that def's PREFAB needs is a Collider2D (on the
+    // root or any child) plus the Pier marker component ON THE ROOT — TapSystem resolves a click with
+    // GetComponentInParent<Pier>(), walking up from whichever collider was hit.
     //
     // Initialization (all in Awake — order-independent, see note on Awake below):
     //   1. Application.runInBackground
@@ -83,7 +87,7 @@ namespace LittlePeeps
             //    The states are handed runManager, NOT the RunContext: they are built once here and live
             //    through every prestige, so a captured context would be the finished run's.
             var gameplayFsm = new StateMachine();
-            var playingState = new PlayingState(gameplayFsm, runManager);
+            var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem);
             var buildModeState = new BuildModeState(spawnSystem, placementController);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown,
                                                                    ageSystem, ageSequencer, resourceSystem, runManager));

@@ -32,6 +32,23 @@ namespace LittlePeeps
         // Keyed by UpgradeId; tracks how many times each global upgrade has been purchased
         [NonSerialized] public Dictionary<UpgradeId, int> globalUpgrades = new();
 
+        // Bank a finished run: credit the payout and raise each record to what the run was worth GROSS.
+        //
+        // Max, never assignment. A run that fell short of a record must leave it standing — lowering it
+        // would hand the difference back as payable, and the player could then earn the same stretch
+        // again by repeating a run they had already been paid for. That is the whole mechanism, in one
+        // operator, and getting it wrong is silent: everything still works, prestige just quietly
+        // becomes farmable.
+        //
+        // Takes the gross terms rather than computing them, because the formula that produces them is
+        // authored data (PrestigeFormula) and this class is plain profile state.
+        public void BankPayout(int payout, int agePointsEarned, int harvestPointsEarned)
+        {
+            prestigePoints      += Math.Max(0, payout);
+            agePointsAwarded     = Math.Max(agePointsAwarded, agePointsEarned);
+            harvestPointsAwarded = Math.Max(harvestPointsAwarded, harvestPointsEarned);
+        }
+
         // Return level for a specific upgrade; 0 if never purchased
         public int GetUpgradeLevel(UpgradeId id)
         {

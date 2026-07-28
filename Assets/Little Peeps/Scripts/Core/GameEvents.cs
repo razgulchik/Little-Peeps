@@ -47,7 +47,8 @@ namespace LittlePeeps
         public StructureDef Def;
     }
 
-    // Published by TapSystem when the player clicks the pier. No subscriber yet — PrestigeSystem
-    // takes it once the prestige flow is implemented.
+    // Published by TapSystem when the player clicks the pier; handled by PlayingState. Deliberately by
+    // the STATE rather than by PrestigeSystem: the subscription then lasts exactly as long as normal
+    // play, so a run can never be ended from build mode or mid-age-transition.
     public struct PrestigeTriggeredEvent { }
 }

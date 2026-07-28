@@ -106,7 +106,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1266997631
-  m_SortingLayer: 3
+  m_SortingLayer: 1
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 617cae3a7de70fc46b5ce47ba907bdc3, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 50390373863031838}
   - component: {fileID: 3969856259708290692}
   - component: {fileID: 3549860522064991508}
+  - component: {fileID: 8769241039963491210}
   m_Layer: 0
   m_Name: Pier
   m_TagString: Untagged
@@ -194,6 +195,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: bba560cbe974ff841a3d97f30603d8ac, type: 2}
+--- !u!114 &8769241039963491210
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5294570824620911686}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab2f169079d9efa46bf70ae30a159c19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &6763510627704285520
 GameObject:
   m_ObjectHideFlags: 0

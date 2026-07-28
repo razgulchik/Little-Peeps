@@ -33150,8 +33150,9 @@ MonoBehaviour:
     pointsPerAge: 1
     weights: []
     defaultWeight: 1
-    coefficient: 1
+    coefficient: 0
     exponent: 0.5
+  pierUnlockAge: 3
 --- !u!1 &2125056540
 GameObject:
   m_ObjectHideFlags: 0

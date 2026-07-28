@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace LittlePeeps.Tests
 {
@@ -161,6 +162,159 @@ namespace LittlePeeps.Tests
 
             Assert.That(stats.Apply(1f, StatId.UnitSpeed, UnitType.Miner),
                         Is.EqualTo(1f).Within(Tolerance));
+        }
+    }
+
+    // The source axis (StatScope.Source) is the third scope dimension on ResourceYield. It exists
+    // because ResourceType cannot tell two sources of the same resource apart — Market and Alpaka are
+    // both Coins, Wheat and Boar are both Food — so without it a perk on alpaca silently buffs the
+    // market as well.
+    //
+    // Unlike the enum dimensions, this one has a meaningful EMPTY value: an unset source means "any
+    // source", so one modifier covers a village-wide bonus. That rule is what the bulk of these tests
+    // pin, because the read side ALWAYS passes a concrete source — a modifier that only matched an
+    // empty one could never fire at all.
+    //
+    // Separate class on purpose: these need real ResourceSourceDef instances, so they run in the
+    // Editor's Test Runner and are skipped by the offline reflection harness. A [SetUp] calling
+    // ScriptableObject.CreateInstance in the class above would take the pure arithmetic tests down
+    // with it offline, where there is no native Unity to call into.
+    public class RunStatsSourceScopeTests
+    {
+        private const float Tolerance = 1e-4f;
+
+        // Non-zero on purpose, same reasoning as RunStatsTests: Farmer and Food are both 0, so a test
+        // written on them would pass even if the scope were dropped entirely.
+        private const UnitType Worker = UnitType.Miner;
+        private const ResourceType Res = ResourceType.Stone;
+
+        private ResourceSourceDef quarry;
+        private ResourceSourceDef cave;
+
+        [SetUp]
+        public void SetUp()
+        {
+            quarry = ScriptableObject.CreateInstance<ResourceSourceDef>();
+            cave = ScriptableObject.CreateInstance<ResourceSourceDef>();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (quarry != null) Object.DestroyImmediate(quarry);
+            if (cave != null) Object.DestroyImmediate(cave);
+        }
+
+        private static StatModifier Yield(float flat = 0f, float percent = 0f,
+                                          ResourceSourceDef source = null)
+            => new StatModifier
+            {
+                id = StatId.ResourceYield,
+                unitScope = Worker,
+                resourceScope = Res,
+                sourceScope = source,
+                flat = flat,
+                percent = percent,
+            };
+
+        [Test]
+        public void SourceScopedModifier_AppliesToItsOwnSource()
+        {
+            var stats = new RunStats();
+            stats.Add(Yield(percent: 1f, source: quarry));
+
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, Worker, Res, quarry),
+                        Is.EqualTo(4f).Within(Tolerance));
+        }
+
+        [Test]
+        public void SourceScopedModifier_DoesNotLeakToAnotherSourceOfTheSameResource()
+        {
+            var stats = new RunStats();
+            stats.Add(Yield(percent: 1f, source: quarry));
+
+            // The entire reason the axis exists: same worker, same ResourceType, different source.
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, Worker, Res, cave),
+                        Is.EqualTo(2f).Within(Tolerance),
+                        "a bonus authored for one source must not reach another sharing its resource");
+        }
+
+        [Test]
+        public void ModifierWithNoSource_ReachesEverySource()
+        {
+            var stats = new RunStats();
+            stats.Add(Yield(flat: 1f));   // sourceScope left empty — "any source"
+
+            // This is the shape of every AgeDef modifier authored before the axis existed: Age 3 grants
+            // (Farmer, Wood, flat 1) with no source, because there was no source field to fill in. If an
+            // empty source meant "its own bucket" rather than "any", that bonus would go silently dead
+            // the moment a real source appears in the query — and one always does.
+            Assert.That(stats.Apply(1f, StatId.ResourceYield, Worker, Res, quarry),
+                        Is.EqualTo(2f).Within(Tolerance));
+            Assert.That(stats.Apply(1f, StatId.ResourceYield, Worker, Res, cave),
+                        Is.EqualTo(2f).Within(Tolerance));
+        }
+
+        [Test]
+        public void ModifierWithNoSource_IsNotCountedTwice_WhenTheQueryHasNoSourceEither()
+        {
+            var stats = new RunStats();
+            stats.Add(Yield(flat: 1f, percent: 0.5f));
+
+            // With no source in the query, the exact key and the "any source" key are the SAME key, so
+            // a naive "always read both buckets" adds this modifier to itself: (1+2) * 2 = 6, not 3.
+            Assert.That(stats.Apply(1f, StatId.ResourceYield, Worker, Res),
+                        Is.EqualTo(3f).Within(Tolerance));
+        }
+
+        [Test]
+        public void SourceSpecificAndSourceAgnostic_StackAdditively_LikeEveryOtherPair()
+        {
+            var stats = new RunStats();
+            stats.Add(Yield(percent: 0.5f));                  // +50% from anything
+            stats.Add(Yield(percent: 0.5f, source: quarry));  // +50% more from this one
+
+            // The buckets are summed and the formula runs ONCE: (10 + 0) * (1 + 1.0) = 20. Running it
+            // per bucket would multiply instead — 10 * 1.5 * 1.5 = 22.5 — breaking the additive-percent
+            // contract the rest of the balance is built on.
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, Worker, Res, quarry),
+                        Is.EqualTo(20f).Within(Tolerance));
+
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, Worker, Res, cave),
+                        Is.EqualTo(15f).Within(Tolerance),
+                        "the other source still gets the agnostic half and nothing more");
+        }
+
+        [Test]
+        public void FlatFromBothBuckets_IsSummedBeforeThePercent()
+        {
+            var stats = new RunStats();
+            stats.Add(Yield(flat: 1f));
+            stats.Add(Yield(flat: 2f, percent: 0.5f, source: quarry));
+
+            // (10 + 1 + 2) * 1.5 = 19.5
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, Worker, Res, quarry),
+                        Is.EqualTo(19.5f).Within(Tolerance));
+        }
+
+        [Test]
+        public void StatWithoutASourceDimension_IgnoresAStraySource()
+        {
+            var stats = new RunStats();
+            // UnitSpeed's mask has no Source, so this reference is meaningless authored data — exactly
+            // what gets left behind in a perk asset. It must not make the modifier unreachable.
+            stats.Add(new StatModifier
+            {
+                id = StatId.UnitSpeed,
+                unitScope = Worker,
+                sourceScope = quarry,
+                percent = 0.5f,
+            });
+
+            Assert.That(stats.Apply(2f, StatId.UnitSpeed, Worker), Is.EqualTo(3f).Within(Tolerance));
+            Assert.That(stats.Apply(2f, StatId.UnitSpeed, Worker, default, cave),
+                        Is.EqualTo(3f).Within(Tolerance),
+                        "and a stray source on the QUERY side is just as irrelevant");
         }
     }
 }

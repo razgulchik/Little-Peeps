@@ -81,8 +81,9 @@ namespace LittlePeeps
             if (!def.TryGetYield(unit.Type, out float amount)) return;
 
             // Through the production gateway: the base amount is scaled by the worker's yield modifier
-            // and the global production multiplier before being credited.
-            resourceSystem.AddHarvest(def.resource, unit.Type, amount);
+            // and the global production multiplier before being credited. The def goes along because it
+            // is the yield modifier's source scope, not just where the ResourceType came from.
+            resourceSystem.AddHarvest(def, unit.Type, amount);
 
             if (def.infinite) return;
             if (--hitsLeft <= 0) Deplete();

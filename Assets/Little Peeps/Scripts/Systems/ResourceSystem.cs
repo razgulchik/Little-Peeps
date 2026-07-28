@@ -59,14 +59,23 @@ namespace LittlePeeps
             if (logChanges) LogChange(type, delta);
         }
 
-        // Credit a resource GAIN from a worker harvesting a source: applies the per-(worker, resource)
-        // yield modifier, then the global production multiplier, then adds the result. This is the one
-        // gateway for production — route every resource-generating path through it. AddResource/Spend
-        // stay raw for spends, refunds and exact changes (which must NOT be production-boosted).
-        public void AddHarvest(ResourceType type, UnitType worker, float baseAmount)
+        // Credit a resource GAIN from a worker harvesting a source: applies the per-(worker, resource,
+        // source) yield modifier, then the global production multiplier, then adds the result. This is
+        // the one gateway for production — route every resource-generating path through it.
+        // AddResource/Spend stay raw for spends, refunds and exact changes (which must NOT be
+        // production-boosted).
+        //
+        // It takes the whole ResourceSourceDef rather than just its ResourceType because the def IS the
+        // yield modifier's third scope: Market and Alpaka are both Coins, Wheat and Boar are both Food,
+        // so a bonus meant for one would otherwise land on the other as well.
+        public void AddHarvest(ResourceSourceDef source, UnitType worker, float baseAmount)
         {
+            if (source == null) return;
+
+            ResourceType type = source.resource;
             float amount = stats != null
-                ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type), StatId.ProductionGlobal)
+                ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type, source),
+                              StatId.ProductionGlobal)
                 : baseAmount;
 
             // Book the run's production for the prestige payout. The CREDITED amount, after both

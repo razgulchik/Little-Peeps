@@ -45,8 +45,9 @@ namespace LittlePeeps
             if (!def.TryGetYield(unit.Type, out float amount)) return;
 
             // Same production gateway as static sources: the base amount is scaled by the worker's
-            // yield modifier and the global production multiplier before being credited.
-            resourceSystem.AddHarvest(def.resource, unit.Type, amount);
+            // yield modifier and the global production multiplier before being credited. The def also
+            // carries the source scope, so a perk on alpaca doesn't leak onto every other Coins source.
+            resourceSystem.AddHarvest(def, unit.Type, amount);
 
             if (def.infinite) return;
             if (--hitsLeft > 0) return;

@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace LittlePeeps
 {
@@ -15,6 +16,14 @@ namespace LittlePeeps
         public StatId id;
         public UnitType unitScope;
         public ResourceType resourceScope;
+
+        // Which SOURCE this applies to — drag in Tree / Wheat / Alpaka / Market. Left EMPTY it means
+        // "any source", which is what makes a village-wide bonus like "+50% Food for Farmers" one
+        // modifier instead of one per food source. Empty is therefore the useful default, not a
+        // mistake: it is also what every AgeDef modifier authored before this axis existed relies on.
+        [Tooltip("Which source this applies to (Tree, Wheat, Alpaka, ...). Leave empty for ANY source.")]
+        public ResourceSourceDef sourceScope;
+
         public float flat;
         public float percent;
     }

@@ -7,7 +7,7 @@ namespace LittlePeeps
     public enum StatId
     {
         ProductionGlobal,   // global multiplier on all resource GAINS (harvest); no scope
-        ResourceYield,      // scope: (UnitType worker, ResourceType) — amount harvested per hit
+        ResourceYield,      // scope: (UnitType worker, ResourceType, source) — amount harvested per hit
         UnitSpeed,          // scope: UnitType — movement speed
 
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
@@ -24,6 +24,13 @@ namespace LittlePeeps
         None     = 0,
         Unit     = 1 << 0,
         Resource = 1 << 1,
+
+        // The SOURCE a resource came from, as a direct ResourceSourceDef reference. Needed because
+        // ResourceType alone cannot tell two sources of the same resource apart: Market and Alpaka are
+        // both Coins, Wheat and Boar are both Food. Without it, "gold from alpaca" would silently buff
+        // the market too. Unlike the enum dimensions, this one has a meaningful EMPTY value — see
+        // RunStats.Apply: an unset source means "any source", not "no source".
+        Source   = 1 << 2,
     }
 
     public static class StatMeta
@@ -31,7 +38,7 @@ namespace LittlePeeps
         // The scope mask for a stat. Keep in sync with the StatId comments above.
         public static StatScope ScopeOf(StatId id) => id switch
         {
-            StatId.ResourceYield => StatScope.Unit | StatScope.Resource,
+            StatId.ResourceYield => StatScope.Unit | StatScope.Resource | StatScope.Source,
             StatId.UnitSpeed     => StatScope.Unit,
             _                    => StatScope.None,   // ProductionGlobal and any future global stat
         };

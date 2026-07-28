@@ -15,6 +15,12 @@ namespace LittlePeeps
         // The run's bonus layer, held so harvest gains can be scaled by yield/production modifiers.
         private RunStats stats;
 
+        // Exposed for scene objects that have no other route to the run's stats — ResourceSource is
+        // placed in the scene or spawned from a prefab and only ever gets this system injected. Read it
+        // at the point of use and do NOT cache it: a new run brings a new sheet, and Initialize rebinds
+        // this field while a cached copy would keep the finished run's bonuses forever.
+        public RunStats Stats => stats;
+
         // The run's production ledger (RunContext.harvested), held so AddHarvest can credit it. Bound the
         // same way as `stats`: the dictionary belongs to the RunContext, so a new run brings a new one and
         // the totals reset with it — nothing here has to remember to zero anything.

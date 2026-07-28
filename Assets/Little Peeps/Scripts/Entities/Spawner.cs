@@ -163,6 +163,18 @@ namespace LittlePeeps
             // TODO: implement when slot downgrades are introduced.
         }
 
+        // How long a unit rests inside before launching, with the run modifier applied. The stats sheet
+        // is asked for at the point of use, never cached: it belongs to the run, while a spawner placed
+        // in one run outlives it. A perk that shortens the rest is a NEGATIVE percent — this is the
+        // delay in seconds, not a rate.
+        private float ResolveRestDuration()
+        {
+            var stats = spawnSystem != null ? spawnSystem.Stats : null;
+            return stats != null && unitDef != null
+                ? stats.Apply(restDuration, StatId.SpawnerRecharge, unitDef.unitType)
+                : restDuration;
+        }
+
         // Initialize / refill one slot: keep a resting unit (restart its rest), otherwise spawn one
         // into rest, or leave it Free if the global cap is full. Shared by Warmup and upgrades.
         private void FillSlot(Slot slot)
@@ -170,7 +182,7 @@ namespace LittlePeeps
             if (slot.state == SlotState.Occupied && slot.unit != null)
             {
                 // Already holds a unit (e.g. moved mid-rest) — just restart its rest delay.
-                slot.timer = restDuration;
+                slot.timer = ResolveRestDuration();
                 return;
             }
 
@@ -228,7 +240,7 @@ namespace LittlePeeps
         private void OccupySlot(Slot slot, Unit unit)
         {
             slot.state = SlotState.Occupied;
-            slot.timer = restDuration;
+            slot.timer = ResolveRestDuration();
             slot.unit = unit;
             unit.EnterRest();
         }
@@ -239,7 +251,7 @@ namespace LittlePeeps
             {
                 // Surrounded on every side (edges / neighbours / fences): keep the unit resting inside and
                 // try again after another rest.
-                slot.timer = restDuration;
+                slot.timer = ResolveRestDuration();
                 return;
             }
 

@@ -57,6 +57,17 @@ namespace LittlePeeps
             return stats != null ? stats.Apply(def.speed, StatId.UnitSpeed, def.unitType) : def.speed;
         }
 
+        // How long this unit roams before it will enter a house, with the run modifier applied. Same
+        // fallback rule as ResolveBaseSpeed. A perk that keeps units out longer is a POSITIVE percent
+        // here — this is the delay in seconds, not a rate.
+        private float ResolveFatigueDelay()
+        {
+            if (def == null) return 0f;
+            return stats != null
+                ? stats.Apply(def.fatigueDelay, StatId.UnitFatigueDelay, def.unitType)
+                : def.fatigueDelay;
+        }
+
         // Launch in a direction. The unit leaves at baseSpeed * speedMultiplier and a decaying
         // braking force eases its speed back down to baseSpeed over ~boostDuration seconds
         // (see FixedUpdate). Direction is preserved through bounces.
@@ -65,7 +76,7 @@ namespace LittlePeeps
             baseSpeed = ResolveBaseSpeed();
 
             // Fatigue clock restarts every launch: the unit won't enter a house until this elapses.
-            fatigueReadyTime = Time.time + (def != null ? def.fatigueDelay : 0f);
+            fatigueReadyTime = Time.time + ResolveFatigueDelay();
 
             // Coming back out of rest: re-enable physics and visuals.
             rb.simulated = true;

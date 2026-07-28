@@ -163,6 +163,58 @@ namespace LittlePeeps.Tests
             Assert.That(stats.Apply(1f, StatId.UnitSpeed, UnitType.Miner),
                         Is.EqualTo(1f).Within(Tolerance));
         }
+
+        // --- durations ------------------------------------------------------------------------------
+
+        // Durations run on the SAME formula as everything else: the modifier scales the seconds, so a
+        // shorter wait is a negative percent. There is no second code path and no rate arithmetic — the
+        // sign in the asset is the whole mechanism.
+        [Test]
+        public void ADurationStat_IsScaledByTheOrdinaryFormula()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.SpawnerRecharge, percent: -0.25f, unit: UnitType.Miner));
+
+            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge, UnitType.Miner),
+                        Is.EqualTo(3f).Within(Tolerance), "-25% means three seconds, not five");
+        }
+
+        [Test]
+        public void ADurationStat_GoesNegativeRatherThanBlowingUp_PastMinusOneHundredPercent()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.SpawnerRecharge, percent: -1.5f, unit: UnitType.Miner));
+
+            // Deliberately NOT clamped here. A negative timer is already <= 0 at the consumer, so the
+            // worst an over-tuned stack can do is fire instantly — never Infinity, never NaN.
+            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge, UnitType.Miner),
+                        Is.LessThan(0f));
+        }
+
+        // Each new StatId needs its own line in StatMeta.ScopeOf, and the `_ => None` default means a
+        // forgotten one silently turns the stat GLOBAL — a Miner's bonus would reach every unit and
+        // nothing would look wrong. One test per scoped duration stat, on non-zero units.
+        [Test]
+        public void SpawnerRecharge_IsScopedToItsUnit()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.SpawnerRecharge, percent: -0.5f, unit: UnitType.Miner));
+
+            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge, UnitType.Lumberjack),
+                        Is.EqualTo(4f).Within(Tolerance));
+        }
+
+        [Test]
+        public void UnitFatigueDelay_IsScopedToItsUnit()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.UnitFatigueDelay, percent: 1f, unit: UnitType.Miner));
+
+            Assert.That(stats.Apply(3f, StatId.UnitFatigueDelay, UnitType.Miner),
+                        Is.EqualTo(6f).Within(Tolerance), "+100% keeps a Miner out twice as long");
+            Assert.That(stats.Apply(3f, StatId.UnitFatigueDelay, UnitType.Lumberjack),
+                        Is.EqualTo(3f).Within(Tolerance));
+        }
     }
 
     // The source axis (StatScope.Source) is the third scope dimension on ResourceYield. It exists
@@ -295,6 +347,39 @@ namespace LittlePeeps.Tests
             // (10 + 1 + 2) * 1.5 = 19.5
             Assert.That(stats.Apply(10f, StatId.ResourceYield, Worker, Res, quarry),
                         Is.EqualTo(19.5f).Within(Tolerance));
+        }
+
+        [Test]
+        public void SourceRespawn_IsScopedToItsSource_AndNotToAResource()
+        {
+            var stats = new RunStats();
+            stats.Add(new StatModifier
+            {
+                id = StatId.SourceRespawn,
+                sourceScope = quarry,
+                // A stray resource scope: SourceRespawn's mask is Source ONLY, because a source already
+                // fixes its resource. If Resource were in the mask, authoring just the source would key
+                // the modifier under Food (the enum's zero) and it would never be found again.
+                resourceScope = ResourceType.Metal,
+                percent = -0.5f,
+            });
+
+            Assert.That(stats.Apply(4f, StatId.SourceRespawn, source: quarry),
+                        Is.EqualTo(2f).Within(Tolerance), "-50% halves the regrow delay");
+            Assert.That(stats.Apply(4f, StatId.SourceRespawn, source: cave),
+                        Is.EqualTo(4f).Within(Tolerance), "and leaves every other source alone");
+        }
+
+        [Test]
+        public void SourceRespawn_WithNoSource_SpeedsUpEverything()
+        {
+            var stats = new RunStats();
+            stats.Add(new StatModifier { id = StatId.SourceRespawn, percent = -0.5f });
+
+            Assert.That(stats.Apply(4f, StatId.SourceRespawn, source: quarry),
+                        Is.EqualTo(2f).Within(Tolerance));
+            Assert.That(stats.Apply(4f, StatId.SourceRespawn, source: cave),
+                        Is.EqualTo(2f).Within(Tolerance));
         }
 
         [Test]

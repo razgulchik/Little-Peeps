@@ -97,11 +97,23 @@ namespace LittlePeeps
             if (respawnTimer <= 0f) Respawn();
         }
 
+        // Regrow delay with the run modifier applied. The stats sheet is asked for at the point of use,
+        // never cached: it belongs to the run, and a node placed in one run outlives it. A perk that
+        // speeds regrowth is a NEGATIVE percent — this is the delay in seconds, not a rate. Scoped by
+        // the def, so "trees regrow faster" leaves wheat alone; a modifier with no source hits all.
+        private float ResolveRespawnTime()
+        {
+            var stats = resourceSystem != null ? resourceSystem.Stats : null;
+            return stats != null
+                ? stats.Apply(def.respawnTime, StatId.SourceRespawn, source: def)
+                : def.respawnTime;
+        }
+
         // Harvested: used up, collider off, showing the harvested sprite until it regrows.
         private void Deplete()
         {
             state = State.Harvested;
-            respawnTimer = def.respawnTime;
+            respawnTimer = ResolveRespawnTime();
             host.SetColliderEnabled(false);
             ApplyStateVisual();
         }

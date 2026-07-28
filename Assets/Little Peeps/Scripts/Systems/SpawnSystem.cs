@@ -22,6 +22,11 @@ namespace LittlePeeps
 
         private RunStats stats;   // injected into spawned units so their speed reflects run modifiers
 
+        // Exposed for spawners, which have no other route to the run's stats. Read at the point of use
+        // and NEVER cached: Initialize rebinds this on every new run, and a cached copy would leave a
+        // spawner applying the finished run's bonuses.
+        public RunStats Stats => stats;
+
         // True between build-mode enter (DespawnAllAndResetSpawners) and exit (WarmupAllSpawners).
         // Spawners read it so a structure PLACED during build mode registers itself but DEFERS
         // spawning its entities to the exit warmup — nothing materializes while the player is still

@@ -108,6 +108,32 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void Initialize_KeepsTheSameReactiveValue_SoTheUiStaysBound()
+        {
+            // ResourcePanel binds each row to this object ONCE, in Start(), and holds it for the rest of
+            // the session. Replacing it on a new run strands the whole resource bar on the finished
+            // run's instance: nothing writes to it again, so the numbers freeze at whatever they were
+            // the moment the player prestiged while the real ones move on invisibly.
+            var slot = resourceSystem.GetReactive(Harvested);
+            float seenByTheUi = -1f;
+            slot.OnChanged += v => seenByTheUi = v;
+
+            var next = new RunContext();
+            next.resources[Harvested] = 10f;
+            resourceSystem.Initialize(next);
+
+            Assert.That(resourceSystem.GetReactive(Harvested), Is.SameAs(slot),
+                        "the slot belongs to the resource type, which outlives the run");
+            Assert.That(seenByTheUi, Is.EqualTo(10f).Within(1e-4f),
+                        "and the reset has to reach subscribers, so the bar drops to the new start");
+
+            resourceSystem.AddHarvest(Harvested, Worker, 5f);
+
+            Assert.That(seenByTheUi, Is.EqualTo(15f).Within(1e-4f),
+                        "and keep reaching them for the whole of the new run");
+        }
+
+        [Test]
         public void Initialize_BindsTheNewRunsLedger_AndLeavesTheFinishedOneAlone()
         {
             resourceSystem.AddHarvest(Harvested, Worker, 10f);

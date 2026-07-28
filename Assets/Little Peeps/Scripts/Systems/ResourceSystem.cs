@@ -26,11 +26,21 @@ namespace LittlePeeps
             stats = context.stats;
             harvested = context.harvested;
 
-            resources.Clear();
             foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
             {
                 float start = context.resources.TryGetValue(type, out var v) ? v : 0f;
-                resources[type] = new ReactiveValue<float>(start);
+
+                // REUSE the ReactiveValue; never replace it. The slot belongs to the resource TYPE,
+                // which outlives every run — only the amount inside it belongs to the run. Replacing the
+                // object on a new run would strand every subscriber on the finished run's instance,
+                // which nothing writes to again: ResourcePanel binds once in Start(), so the whole
+                // resource bar would freeze at whatever it read the moment the player prestiged, while
+                // the real numbers moved on invisibly.
+                //
+                // Assigning also publishes the reset for free, so the bar visibly drops to the new run's
+                // starting amounts instead of needing a second notification path to say so.
+                if (resources.TryGetValue(type, out var rv)) rv.Value = start;
+                else resources[type] = new ReactiveValue<float>(start);
             }
         }
 

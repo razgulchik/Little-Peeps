@@ -19,8 +19,9 @@ namespace LittlePeeps
 
         public void Enter()
         {
-            // TODO: show PerkSelectionUI with perkSystem.Roll3Perks(runContext.currentAge, runContext)
-            //       and listen for the player's choice (mechanism not decided yet — see PerkSelectionUI)
+            // TODO: show PerkSelectionUI with perkSystem.RollPerks(run.currentAge, run) and listen for
+            //       the player's choice (mechanism not decided yet — see PerkSelectionUI). An EMPTY
+            //       roll means nothing is eligible: skip the step rather than show a blank screen.
         }
 
         public void Exit()

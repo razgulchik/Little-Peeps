@@ -5,9 +5,12 @@
 > The **age flow + RunStats bonus system are implemented** (buy age → spend → grow island →
 > apply stat modifiers → fade/banner transition; perk pick inside it is still a hook).
 > **Animals (mobile resource nodes) are implemented** in code (Animal / AnimalWander /
-> AnimalSpawner + IStructureSpawner); their prefabs/defs are editor work. Placement,
-> prestige, save, and the main-menu states are not wired yet — called out with **(stub)** /
-> **(planned)** / **(Phase N)** below.
+> AnimalSpawner + IStructureSpawner); their prefabs/defs are editor work.
+> **Harvest feedback is implemented** end to end — `HarvestedEvent` off the production gateway →
+> per-source pickup particles + a universal floating number, plus the node's fade-out. The number's
+> TMP renderer is a deliberate first pass (see `HarvestNumbers`); animals get particles and numbers
+> but no fade. Placement, prestige, save, and the main-menu states are not wired yet — called out
+> with **(stub)** / **(planned)** / **(Phase N)** below.
 
 ## Layer Diagram
 
@@ -25,7 +28,7 @@
 ┌──────────────────────────▼──────────────────────────────────┐
 │  Systems  (IslandSystem · ResourceSystem · StructureSystem · │
 │   SpawnSystem · UnitSystem · TapSystem · AgeSystem ·          │
-│   AgeSequencer · …)                                          │
+│   AgeSequencer · HarvestVfxSystem · HarvestNumbers · …)       │
 └──────┬────────────────────────────────────────┬─────────────┘
        │ uses                                   │ dispatches to
 ┌──────▼────────────────────────┐    ┌──────────▼──────────────┐
@@ -137,7 +140,7 @@ Game parameters follow a **base + modifiers** split, so bonuses stay data-driven
 `StatModifier` (Data, `[Serializable]`) = `id` (`StatId`) + `unitScope` (`UnitType`) + `resourceScope` (`ResourceType`) + `flat` + `percent`. `StatId` = `ProductionGlobal` (no scope) · `ResourceYield` (unit×resource) · `UnitSpeed` (unit). `StatMeta.ScopeOf` gives each id's scope mask; `RunStats` normalises the lookup key by that mask in **both** `Add` and `Apply`, so a stray/absent scope can never make authored data miss its query.
 
 **Consumers (where base meets modifiers):**
-- Harvest gains — `ResourceSystem.AddHarvest(type, worker, base)` applies `ResourceYield` then `ProductionGlobal`, then credits. `AddResource`/`Spend` stay raw (spends/refunds are never production-boosted). Only live harvest path today: `ResourceSource.OnHit`.
+- Harvest gains — `ResourceSystem.AddHarvest(source, worker, base, position)` applies `ResourceYield` then `ProductionGlobal`, credits, and publishes `HarvestedEvent` so the visuals follow the money. `AddResource`/`Spend` stay raw (spends/refunds are never production-boosted). Live harvest paths: `ResourceSource.OnHit` and `Animal.OnHit`, both passing their `fxAnchor` as the position.
 - Unit speed — `Unit.ResolveBaseSpeed()` = `stats.Apply(def.speed, UnitSpeed, type)`, resolved on each `Launch` (cached in `baseSpeed`; injected via `SpawnSystem` → `unit.SetStats`).
 
 **Perf:** one O(1) dictionary hit on a struct key (`IEquatable`, no boxing). Reads can be per-hit (harvest); modifiers change only a couple of times per run. A dirty-flag value cache is the noted growth point if profiling ever needs it.
@@ -168,6 +171,7 @@ EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);   // always unsubscribe in 
 | `StructureRemovedEvent` | `StructureSystem.RemoveStructure` (stub) | RunContext |
 | `StructureDamagedEvent` | `Structure.TakeDamage` (stub) | UI health bars |
 | `StructureDestroyedEvent` | `Structure.TakeDamage` (stub) | StructureSystem cleanup |
+| `HarvestedEvent` (`Source`, `Type`, `Amount`, `Position`) | `ResourceSystem.AddHarvest` — i.e. the production gateway itself, NOT its callers | `HarvestVfxSystem` (pickup particles), `HarvestNumbers` (the "+1.2k"). Published from inside the gateway on purpose: any future path that generates a resource gets its feedback for free, and no harvest site can forget to fire it. Carries the whole `ResourceSourceDef`, not just the `ResourceType`, for the same reason `AddHarvest` does — Wheat/Boar/Fox are all Food and Alpaka/Market are both Coins, so the type cannot say WHAT was harvested. `Amount` is the CREDITED figure, after both multipliers, so the number on screen always matches the number on the bar |
 | `AgeStartedEvent` | `AgeSequencer` (banner step) | CameraController (re-clamp bounds), AgeUI (label + button), PierSystem (move pier to the new right edge) |
 | `AgeAdvanceRequestedEvent` | `AgeUI` (Next Age button) | `GameplayContainerState` (enters AgeTransition if affordable) |
 | `UnitBoostedEvent` | `TapSystem` | analytics / VFX |
@@ -279,11 +283,13 @@ despawned on enter, so there is nothing to simulate anyway.
 | `PrestigeSystem` | MB | Owns the payout. `Calculate` = `PrestigeFormula.Points(run, meta)`: an age term and a harvest term, each paid only for what it BEATS of the profile's record (`MetaContext.agePointsAwarded` / `harvestPointsAwarded`), so a run is worth how far it got, not how long it lasted. `ExecutePrestige` reads the payout and both gross terms BEFORE banking (the records it raises are what `Calculate` subtracts), then saves and restarts the run via `RunManager`. `CanPrestige` gates the pier on `pierUnlockAge` |
 | `RunManager` | MB | Creates RunContext; seeds `stats` (debug modifiers now, meta later); `Initialize`s resource/structure/**spawn** systems; owns island generation timing; after generation places starting structures + `PierSystem.PlaceForRun()` |
 | `SaveSystem` | MB | JSON serialization of MetaContext (**stub: returns fresh MetaContext**) |
+| `HarvestVfxSystem` | MB | Pickup particles for every harvest. **One shared emitter per `ResourceSourceDef`**, instantiated from `def.pickupFx` on that def's first harvest and reused for the session: a ParticleSystem is cheapest when one system emits many particles (a thousand ears = one draw call, no GameObject each), while spawning a system per harvest would pay the GameObject cost AND lose the batching. Moves the emitter to the harvest point and `Emit`s — deliberately not `EmitParams`, so the authored Shape module keeps working exactly as it previews. **Validates instead of silently fixing**: a prefab that isn't World-space/looping is refused and named in the console, because a value the inspector shows but the game ignores is the worst thing to hand whoever tunes it next. Skips off-screen harvests |
+| `HarvestNumbers` | MB | The floating "+1.2k" — universal, one prefab and one set of curves for every resource (unlike the particles, which are per source). Pooled world-space `TextMeshPro` (the field's TYPE forbids the UGUI variant, whose Canvas would rebuild its whole batch on every move), driven by **one flat loop over a fixed-size array** — no coroutine and no MonoBehaviour per popup. `SetText` overloads format in place, so no string is built and nothing lands on the GC. Cap + recycle-nearest-death bounds both the budget and the readability. **Tuning lives on the system, not the prefab**, so the feel survives the planned renderer swap (one mesh built from a glyph atlas = one draw call at any count) — that swap should touch this file only |
 | `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch + `CollisionEvent`; `SetColliderEnabled` |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (StructureDef) + health / `TakeDamage` (stub) |
 | `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit); SpawnSystem's registry is a list of these |
 | `Spawner` | MB, `ICollisionEffect`, `IStructureSpawner` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; `ResetForBuildMode` / `Warmup` |
-| `ResourceSource` | MB, `ICollisionEffect` | Static resource node: grants `def.resource` per allowed-worker hit (yield resolve = `ResourceSourceDef.TryGetYield`, shared with Animal), depletes/respawns in place; swaps Ready/Harvested visual roots (`SetActive`) + toggles host collider. `infinite` defs keep a single visual |
+| `ResourceSource` | MB, `ICollisionEffect` | Static resource node: grants `def.resource` per allowed-worker hit (yield resolve = `ResourceSourceDef.TryGetYield`, shared with Animal), depletes/respawns in place; swaps Ready/Harvested visual roots (`SetActive`) + toggles host collider. `infinite` defs keep a single visual. On depletion the ready root **fades** (`fadeOutTime` + curve, per prefab — a field and a tree may vanish at different speeds) revealing the harvested sprite already sitting underneath; the fade rides the existing `Update` rather than a coroutine, tints via `SpriteRenderer.color` (vertex colour — no material instance, no broken batching), and restores alpha on `Respawn`, or the field would regrow invisible. Gameplay ends at the hit (collider off, regrow ticking), so the fade can never hand out a free harvest |
 | `Animal` | MB, `ICollisionEffect` | Mobile resource node: same `ResourceSourceDef` harvest per hit, but after `hitsBeforeDespawn` hits it notifies its owning AnimalSpawner and destroys itself (def.respawnTime unused — replacement cadence is the spawner's `spawnCooldown`); `infinite` never despawns |
 | `AnimalWander` | MB | Kinematic wander: point in owner's territory → walk straight → pause → repeat; without an owner (scene-placed) wanders a plain circle around its start |
 | `AnimalSpawner` | MB, `IStructureSpawner` | Keeps ≤ `maxAnimals` animals in the structure's territory (land cells within `territoryRadiusCells` of the footprint; own border counts free, occupied land is the fallback — den-in-forest); one replacement per `spawnCooldown`; territory follows the building via `instance.Cell` |

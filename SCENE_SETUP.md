@@ -37,7 +37,8 @@ SampleScene
 │   ├── AgeSequencer            → AgeSequencer
 │   ├── TapSystem               → TapSystem
 │   ├── PlacementController     → PlacementController
-│   └── PierSystem              → PierSystem          (владелец Пирса: ставит на старте, двигает при росте острова)
+│   ├── PierSystem              → PierSystem          (владелец Пирса: ставит на старте, двигает при росте острова)
+│   └── HarvestVfx              → HarvestVfxSystem + HarvestNumbers   (эффекты сбора; эмиттеры и цифры становятся его детьми)
 ├── @Input                      → InputHandler, GameHotkeys
 ├── Island                      → IslandSystem
 │   └── Grid                    → Grid (компонент)
@@ -104,6 +105,14 @@ SampleScene
 | | | validColor, invalidColor, sellHoverColor, moveHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже, зелёный «можно схватить» в Move (есть дефолты) |
 | | | territoryValidColor, territoryInvalidColor, territorySortingLayer, territorySortingOrder | ореол занимаемой территории госта: зелёный/красный α0.18, слой Ground/1001 (дефолты) |
 | @Systems/PierSystem | PierSystem | **islandSystem, structureSystem, pierDef** | IslandSystem, StructureSystem, StructureDef Пирса (border=0, size с высотой, которую покрывает рост правого края эпох) |
+| @Systems/HarvestVfx | HarvestVfxSystem | viewCamera | Main Camera (опц. — пусто = `Camera.main` в `Awake`; нужна только чтобы не играть эффекты за экраном) |
+| | | offscreenMargin | 0.1 (дефолт) — запас вокруг экрана в долях вьюпорта |
+| | HarvestNumbers | **numberPrefab** | FX_HarvestNumber (без него цифр нет, в консоли ошибка) |
+| | | viewCamera, offscreenMargin | как выше |
+| | | lifetime, travel, travelCurve, scaleCurve, alphaCurve | 0.9 с, (0, 0.8) строго вверх, кривые полёта/масштаба/альфы — вся подгонка ощущения здесь, а не в префабе |
+| | | spawnOffset | общий сдвиг ВСЕХ цифр поверх якоря ноды (дефолт 0,0) |
+| | | spawnJitter | случайный разброс точки рождения (0.15, 0.1) — чтобы одновременные цифры не слипались в одну кляксу |
+| | | maxConcurrent | 60 (дефолт) — потолок живых цифр; сверх него перерабатывается ближайшая к смерти |
 | @Input | **InputHandler** | **mainCamera** | Main Camera |
 | @Input | GameHotkeys | buildModeKey, sellKey, exitToMenuKey, infoKey | клавиши команд: B / X / Esc / I (дефолты, правятся в инспекторе) |
 | CameraTarget | **CameraController** | **islandSystem, viewCamera** | IslandSystem (кламп по острову); viewCamera = Main Camera (только для перевода drag-пикселей в мир) |
@@ -165,6 +174,8 @@ Obstacle (отскок) vs Interactable (триггер) задаётся фла
 | | resourceSystem | ResourceSystem *(или впрыснется в рантайме)* |
 | | readyRoot | дочерний объект-визуал состояния Ready *(пусто для `infinite`)* |
 | | harvestedRoot | дочерний объект-визуал состояния Harvested *(пусто для `infinite`)* |
+| | fxAnchor | пустышка-ребёнок, откуда вылетают колосок и цифра (пусто = корень префаба). У пшеницы ≈ `Y 0.5` — верхний край поля |
+| | fadeOutTime, fadeCurve | сколько секунд тает Ready-визуал при сборе и по какой кривой (0.2 + прямая 1→0). **На префабе, а не в дефе** — поле и дерево вправе исчезать с разной скоростью |
 | **AnimalSpawner** (спавнит зверей — конюшня/нора) | spawnSystem, resourceSystem | SpawnSystem, ResourceSystem *(или впрыснутся в рантайме при постройке)* |
 | | animalPrefab | префаб зверя (BaseAnimal, см. ниже) |
 | | maxAnimals | макс. живых зверей одновременно (≥1) |
@@ -205,11 +216,52 @@ Root        → Rigidbody2D (KINEMATIC, GravityScale 0) + CollisionTarget + Anim
   `hitsBeforeDespawn` = ударов до исчезновения; `infinite` = не исчезает никогда;
   **`respawnTime` для зверей НЕ используется** — замену по кулдауну выдаёт `AnimalSpawner`).
   `resourceSystem` — только для зверя, положенного в сцену руками; заспавненному впрыснет нора.
+  `fxAnchor` — пустышка, откуда вылетают колосок и цифра (пусто = корень); ставить на тело зверя.
+- **Затухания у зверя нет:** он не истощается на месте, а уничтожается на последнем ударе
+  (`Destroy`), так что гасить нечего. Партиклы и цифра при этом работают как у всех — их платит
+  общий шлюз. Плавная смерть потребовала бы развести «мертво для игры» и «ещё на экране»
+  (коллайдер и `AnimalWander` выключить сразу, иначе труп продолжит гулять и платить ресурсы).
 - Поля `AnimalWander`: moveSpeed, pauseMin/pauseMax (шаг→пауза→шаг), fallbackRadius — радиус
   блуждания в мировых юнитах, используется только без норы-владельца.
 - Здание-нора/конюшня = обычная Structure + `AnimalSpawner` (см. таблицу компонентов выше).
 - Звери уничтожаются на входе в build mode и пересоздаются на выходе — как юниты; переезд
   здания перевозит и территорию (спавнер читает `instance.Cell`).
+
+### FX_Pickup_* (эффект сбора — по одному на источник)
+Префаб с одной `ParticleSystem`: колосок из поля, бревно из дерева, мясо из кабана. Кладётся в
+`ResourceSourceDef.pickupFx`. **Не в сцену и не в префаб ноды** — систему инстанцирует
+`HarvestVfxSystem`, по одному общему эмиттеру на деф, и переиспользует до конца сессии.
+
+Три требования, которые система проверяет и о нарушении пишет в консоль с именем ассета:
+
+| Настройка | Значение | Почему |
+|-----------|----------|--------|
+| **Main → Simulation Space** | **World** | эмиттер один на все поля и переезжает в точку каждого сбора; в Local уже летящие колоски утащило бы за ним |
+| **Main → Looping** | **ON** | система играется один раз и дальше кормится вручную; не-зацикленная сама остановится после Duration и молча проглотит все последующие сборы |
+| **Emission → Rate over Time / Distance** | **0** | иначе эмиттер будет сыпать частицы в точке последнего сбора между ударами (это warning, не ошибка) |
+
+Сколько частиц за сбор — не в префабе, а в `ResourceSourceDef.pickupFxCount`.
+Смещение относительно якоря ноды — **Shape → Position** внутри самого префаба: якорь отвечает
+«откуда вообще идёт отклик у этого объекта», точная посадка эффекта — дело эффекта.
+Слой сортировки — в модуле **Renderer**: `Overlay`, `Order in Layer` = 0 (цифра идёт поверх, см. ниже).
+
+В плеймоде живые эмиттеры видны детьми объекта `HarvestVfx` как `PickupFx_Wheat`, `PickupFx_Tree` —
+удобно крутить на живую, но правки на них не сохраняются, это копии; править надо префаб.
+
+### FX_HarvestNumber (всплывающая цифра — одна на всю игру)
+```
+Root → TextMeshPro (МИРОВОЙ, НЕ TextMeshProUGUI)
+```
+Кладётся в `HarvestNumbers.numberPrefab`. Тип поля в коде — `TextMeshPro`, поэтому UGUI-вариант
+просто не назначится: он живёт на Canvas, а Canvas перестраивает весь батч на любое движение.
+
+- **Extra Settings → Order in Layer = 100**, слой `Overlay`. Слой старше порядка: если развести
+  цифру и партиклы по разным слоям, `Order in Layer` уже ничего не решит. Зазор в сотню — чтобы
+  потом было куда втиснуть эффект между ними, не перенумеровывая всё.
+- **Масштаб префаба** придётся сильно уменьшить: мировой TMP огромен рядом с клеткой в 1 юнит.
+  Код его не затирает — `scaleCurve` умножает масштаб префаба, а не заменяет его.
+- Шрифт, размер, цвет и обводка — целиком дело префаба. Движение и тайминги — на компоненте
+  `HarvestNumbers`, чтобы ощущение пережило смену рендерера (см. ARCHITECTURE).
 
 ### BaseFence / заборы (Structure на РЕБРЕ грида)
 Забор не занимает клетку — он стоит на **ребре** (границе между двумя клетками). Это один префаб с
@@ -253,7 +305,7 @@ Root → Button + BuildCardUI + CanvasGroup
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
 | **StructureDef** | LittlePeeps/StructureDef | id, displayName, icon, prefab, **placement (Cell=футпринт клеток / Edge=забор на ребре)**, size, cost[], allowedTerrain[] (пусто = любой биом), sellRefundPercent (0..1), border (расширяет занимаемую территорию в клетках: дом=1 → 2×2 занимает 4×4 сетки; дерево/поле=0; для Edge не используется) |
-| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), infinite, hitsBeforeDespawn, respawnTime *(визуалы состояний живут в префабе как ReadyRoot/HarvestedRoot, не в дефе)*. Один и тот же деф-тип для статичных источников (Tree/Wheat/Forge) и зверей (Alpaca/Boar/Fox); **для зверей respawnTime не используется** — каденс замены задаёт `AnimalSpawner.spawnCooldown` |
+| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), infinite, hitsBeforeDespawn, respawnTime *(визуалы состояний живут в префабе как ReadyRoot/HarvestedRoot, не в дефе)*, **pickupFx** (префаб FX_Pickup_* — эффект вылета ресурса; пусто = только цифра, без частиц) + **pickupFxCount** (частиц за сбор). `pickupFx` — единственный визуал в дефе, и намеренно: он отвечает на вопрос «что именно добыли», а на него нельзя ответить типом ресурса (Wheat/Boar/Fox все Food, Alpaka/Market оба Coins). Один и тот же деф-тип для статичных источников (Tree/Wheat/Forge) и зверей (Alpaca/Boar/Fox); **для зверей respawnTime не используется** — каденс замены задаёт `AnimalSpawner.spawnCooldown` |
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | structures: список StructureDef для нижней панели |

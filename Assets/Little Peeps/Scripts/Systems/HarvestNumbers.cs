@@ -160,14 +160,49 @@ namespace LittlePeeps
 
         private void Place(TextMeshPro view, Vector3 origin, float k)
         {
+            Place(view, origin, k, baseScale);
+        }
+
+        private void Place(TextMeshPro view, Vector3 origin, float k, Vector3 referenceScale)
+        {
             var tr = view.transform;
             tr.position = origin + (Vector3)(travel * travelCurve.Evaluate(k));
-            tr.localScale = baseScale * scaleCurve.Evaluate(k);
+            tr.localScale = referenceScale * scaleCurve.Evaluate(k);
 
             // TMP_Text.alpha recolours the existing vertices; assigning .color or .text would instead
             // mark the mesh dirty and rebuild it, which is the one thing worth avoiding per frame.
             view.alpha = alphaCurve.Evaluate(k);
         }
+
+#if UNITY_EDITOR
+        // Narrow editor-only surface used by HarvestFeedbackPreview. Keeping the sampling here means
+        // the Edit Mode preview and the runtime popup cannot quietly acquire different motion maths.
+        internal float EditorPreviewLifetime => lifetime;
+
+        internal TextMeshPro CreateEditorPreviewView(Transform parent, float amount)
+        {
+            if (numberPrefab == null) return null;
+
+            var view = Instantiate(numberPrefab, parent);
+            view.name = $"{numberPrefab.name} (Preview)";
+            SetAmount(view, amount);
+            return view;
+        }
+
+        internal Vector3 ResolveEditorPreviewOrigin(Vector3 harvestPosition, Vector2 normalizedJitter)
+        {
+            return harvestPosition + new Vector3(
+                spawnOffset.x + normalizedJitter.x * spawnJitter.x,
+                spawnOffset.y + normalizedJitter.y * spawnJitter.y,
+                0f);
+        }
+
+        internal void PlaceEditorPreview(TextMeshPro view, Vector3 origin, float normalizedTime)
+        {
+            if (view == null || numberPrefab == null) return;
+            Place(view, origin, Mathf.Clamp01(normalizedTime), numberPrefab.transform.localScale);
+        }
+#endif
 
         // Writes the amount straight into the label's char buffer. TMP's SetText overloads take the
         // value as an argument and format in place, so no string is built and nothing lands on the GC —

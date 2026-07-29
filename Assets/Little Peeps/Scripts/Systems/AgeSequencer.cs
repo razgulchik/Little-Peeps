@@ -22,6 +22,21 @@ namespace LittlePeeps
         [SerializeField] private float fadeDuration = 0.5f;
         [SerializeField] private float titleHold = 2f;
 
+        // The prefab is authored transparent, but an alpha-zero CanvasGroup still participates in UI
+        // raycasts when blocksRaycasts is left on. Its centred title would then create an invisible
+        // click-blocking strip across the island while placement hover (which does not query UI) stayed
+        // green. Establish the idle state explicitly before any input can be processed.
+        private void Awake()
+        {
+            if (fadeOverlay != null)
+            {
+                fadeOverlay.alpha = 0f;
+                fadeOverlay.blocksRaycasts = false;
+            }
+
+            if (titleLabel != null) titleLabel.gameObject.SetActive(false);
+        }
+
         // Kick off the transition into newAge using def, then invoke onComplete when the chain finishes.
         public void StartAgeTransition(int newAge, AgeDef def, RunContext context, Action onComplete)
         {

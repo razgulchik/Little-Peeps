@@ -15,6 +15,12 @@ namespace LittlePeeps
         // The run's bonus layer, held so harvest gains can be scaled by yield/production modifiers.
         private RunStats stats;
 
+        // Exposed for scene objects that have no other route to the run's stats — ResourceSource is
+        // placed in the scene or spawned from a prefab and only ever gets this system injected. Read it
+        // at the point of use and do NOT cache it: a new run brings a new sheet, and Initialize rebinds
+        // this field while a cached copy would keep the finished run's bonuses forever.
+        public RunStats Stats => stats;
+
         // The run's production ledger (RunContext.harvested), held so AddHarvest can credit it. Bound the
         // same way as `stats`: the dictionary belongs to the RunContext, so a new run brings a new one and
         // the totals reset with it — nothing here has to remember to zero anything.
@@ -59,14 +65,29 @@ namespace LittlePeeps
             if (logChanges) LogChange(type, delta);
         }
 
-        // Credit a resource GAIN from a worker harvesting a source: applies the per-(worker, resource)
-        // yield modifier, then the global production multiplier, then adds the result. This is the one
-        // gateway for production — route every resource-generating path through it. AddResource/Spend
-        // stay raw for spends, refunds and exact changes (which must NOT be production-boosted).
-        public void AddHarvest(ResourceType type, UnitType worker, float baseAmount)
+        // Credit a resource GAIN from a worker harvesting a source: applies the per-(worker, resource,
+        // source) yield modifier, then the global production multiplier, then adds the result. This is
+        // the one gateway for production — route every resource-generating path through it.
+        // AddResource/Spend stay raw for spends, refunds and exact changes (which must NOT be
+        // production-boosted).
+        //
+        // It takes the whole ResourceSourceDef rather than just its ResourceType because the def IS the
+        // yield modifier's third scope: Market and Alpaka are both Coins, Wheat and Boar are both Food,
+        // so a bonus meant for one would otherwise land on the other as well.
+        //
+        // `position` is where the harvest physically happened, and it is required rather than optional
+        // for the same reason the credit is: this is the ONE place that knows a harvest was credited AND
+        // by how much, so it is the only place that can announce it without a second path to keep in
+        // sync. Feedback therefore rides the gateway — a future production route added here gets its
+        // visuals for free, and one that skipped this method would have no resources either.
+        public void AddHarvest(ResourceSourceDef source, UnitType worker, float baseAmount, Vector3 position)
         {
+            if (source == null) return;
+
+            ResourceType type = source.resource;
             float amount = stats != null
-                ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type), StatId.ProductionGlobal)
+                ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type, source),
+                              StatId.ProductionGlobal)
                 : baseAmount;
 
             // Book the run's production for the prestige payout. The CREDITED amount, after both
@@ -76,6 +97,16 @@ namespace LittlePeeps
                 harvested[type] = (harvested.TryGetValue(type, out float total) ? total : 0f) + amount;
 
             AddResource(type, amount);
+
+            // Announced AFTER crediting and with the CREDITED amount: what flies out of the field and
+            // what floats up over it must be what actually reached the wallet, bonuses included.
+            EventBus<HarvestedEvent>.Publish(new HarvestedEvent
+            {
+                Source   = source,
+                Type     = type,
+                Amount   = amount,
+                Position = position,
+            });
         }
 
         // Debug: print the changed resource plus all current totals to the console.

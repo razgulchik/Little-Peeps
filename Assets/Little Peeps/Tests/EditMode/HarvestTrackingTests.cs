@@ -20,6 +20,12 @@ namespace LittlePeeps.Tests
         private ResourceSystem resourceSystem;
         private RunContext run;
 
+        // AddHarvest takes the whole source def, since the def is the yield modifier's source scope.
+        // It also takes the harvest position, which these tests pass as zero throughout: what is pinned
+        // here is the ledger, and the position only rides along to the visuals.
+        private ResourceSourceDef stoneSource;
+        private ResourceSourceDef woodSource;
+
         // Non-zero on purpose: Stone is not ResourceType 0 and Miner is not UnitType 0, so a per-type
         // ledger that ignored its key would still fail these. Same reasoning as RunStatsTests.
         private const ResourceType Harvested = ResourceType.Stone;
@@ -31,6 +37,11 @@ namespace LittlePeeps.Tests
             systemsGo = new GameObject("ResourceSystem");
             resourceSystem = systemsGo.AddComponent<ResourceSystem>();
 
+            stoneSource = ScriptableObject.CreateInstance<ResourceSourceDef>();
+            stoneSource.resource = Harvested;
+            woodSource = ScriptableObject.CreateInstance<ResourceSourceDef>();
+            woodSource.resource = ResourceType.Wood;
+
             run = new RunContext();
             resourceSystem.Initialize(run);
         }
@@ -39,9 +50,12 @@ namespace LittlePeeps.Tests
         public void TearDown()
         {
             if (systemsGo != null) Object.DestroyImmediate(systemsGo);
+            if (stoneSource != null) Object.DestroyImmediate(stoneSource);
+            if (woodSource != null) Object.DestroyImmediate(woodSource);
 
             // AddResource publishes on a static bus; don't leave this test's traffic wired to the next.
             EventBus<ResourceChangedEvent>.Clear();
+            EventBus<HarvestedEvent>.Clear();
         }
 
         private float Ledger(ResourceType type)
@@ -50,7 +64,7 @@ namespace LittlePeeps.Tests
         [Test]
         public void AddHarvest_CreditsTheWalletAndTheLedgerAlike()
         {
-            resourceSystem.AddHarvest(Harvested, Worker, 3f);
+            resourceSystem.AddHarvest(stoneSource, Worker, 3f, Vector3.zero);
 
             Assert.That(resourceSystem.GetResource(Harvested), Is.EqualTo(3f).Within(1e-4f));
             Assert.That(Ledger(Harvested), Is.EqualTo(3f).Within(1e-4f));
@@ -64,7 +78,7 @@ namespace LittlePeeps.Tests
             // how many times a worker walked, and no perk or age would ever move it.
             run.stats.Add(new StatModifier { id = StatId.ProductionGlobal, percent = 1f });
 
-            resourceSystem.AddHarvest(Harvested, Worker, 3f);
+            resourceSystem.AddHarvest(stoneSource, Worker, 3f, Vector3.zero);
 
             Assert.That(Ledger(Harvested), Is.EqualTo(6f).Within(1e-4f));
         }
@@ -72,9 +86,9 @@ namespace LittlePeeps.Tests
         [Test]
         public void AddHarvest_AccumulatesPerType()
         {
-            resourceSystem.AddHarvest(Harvested, Worker, 3f);
-            resourceSystem.AddHarvest(Harvested, Worker, 4f);
-            resourceSystem.AddHarvest(ResourceType.Wood, Worker, 5f);
+            resourceSystem.AddHarvest(stoneSource, Worker, 3f, Vector3.zero);
+            resourceSystem.AddHarvest(stoneSource, Worker, 4f, Vector3.zero);
+            resourceSystem.AddHarvest(woodSource, Worker, 5f, Vector3.zero);
 
             Assert.That(Ledger(Harvested), Is.EqualTo(7f).Within(1e-4f));
             Assert.That(Ledger(ResourceType.Wood), Is.EqualTo(5f).Within(1e-4f));
@@ -95,7 +109,7 @@ namespace LittlePeeps.Tests
         public void BuildingAndSellingInACycle_EarnsNoPrestige()
         {
             // The exploit, played out: harvest once, then spend and refund the same amount forever.
-            resourceSystem.AddHarvest(Harvested, Worker, 10f);
+            resourceSystem.AddHarvest(stoneSource, Worker, 10f, Vector3.zero);
 
             for (int i = 0; i < 5; i++)
             {
@@ -127,7 +141,7 @@ namespace LittlePeeps.Tests
             Assert.That(seenByTheUi, Is.EqualTo(10f).Within(1e-4f),
                         "and the reset has to reach subscribers, so the bar drops to the new start");
 
-            resourceSystem.AddHarvest(Harvested, Worker, 5f);
+            resourceSystem.AddHarvest(stoneSource, Worker, 5f, Vector3.zero);
 
             Assert.That(seenByTheUi, Is.EqualTo(15f).Within(1e-4f),
                         "and keep reaching them for the whole of the new run");
@@ -136,13 +150,13 @@ namespace LittlePeeps.Tests
         [Test]
         public void Initialize_BindsTheNewRunsLedger_AndLeavesTheFinishedOneAlone()
         {
-            resourceSystem.AddHarvest(Harvested, Worker, 10f);
+            resourceSystem.AddHarvest(stoneSource, Worker, 10f, Vector3.zero);
             var finished = run;
 
             // What a prestige does: a fresh RunContext, then ResourceSystem.Initialize against it.
             run = new RunContext();
             resourceSystem.Initialize(run);
-            resourceSystem.AddHarvest(Harvested, Worker, 2f);
+            resourceSystem.AddHarvest(stoneSource, Worker, 2f, Vector3.zero);
 
             Assert.That(Ledger(Harvested), Is.EqualTo(2f).Within(1e-4f),
                         "the new run starts its own count, not the finished run's");

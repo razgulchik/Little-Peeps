@@ -26,6 +26,16 @@ namespace LittlePeeps
                  "(e.g. Farmer 1, Lumberjack 2). Empty = nobody can harvest this source.")]
         public WorkerYield[] workerYields;
 
+        [Header("Harvest VFX")]
+        [Tooltip("Pickup effect fired at the harvest point on every credited hit: the ear of wheat " +
+                 "leaving a reaped field, a log, a coin. A self-contained ParticleSystem prefab — every " +
+                 "curve, the sprite and the sorting layer are the artist's. Empty = this source has no " +
+                 "pickup effect (only the floating number).")]
+        public ParticleSystem pickupFx;
+
+        [Tooltip("Particles emitted per harvest hit.")]
+        [Min(1)] public int pickupFxCount = 1;
+
         [Header("Depletion / respawn")]
         public bool infinite = false;
         public int hitsBeforeDespawn = 3;
@@ -48,8 +58,13 @@ namespace LittlePeeps
             return false;
         }
 
-        // Visuals are not stored here: each state is a separate root configured in the prefab
+        // The node's BODY is not stored here: each state is a separate root configured in the prefab
         // (own SpriteRenderer + Sorting Layer + pivot), swapped by ResourceSource. `infinite`
         // already tells whether the source has two states (false) or a single visual (true).
+        //
+        // `pickupFx` is the exception and belongs here rather than in the prefab, because it answers
+        // "what was harvested", not "what does this object look like" — the same question the yield
+        // modifiers ask, and they are scoped by this def for the same reason. Keying it on ResourceType
+        // instead would fly an ear of wheat out of a boar: both are Food.
     }
 }

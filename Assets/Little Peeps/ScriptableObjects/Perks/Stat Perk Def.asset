@@ -9,13 +9,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d42896010a8f2fa4382c366b1d870752, type: 3}
-  m_Name: Age 1
+  m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
+  m_Name: Stat Perk Def
   m_EditorClassIdentifier: 
-  title: Age 1
-  resourceCost:
-  - resourceType: 0
-    amount: 0
+  id: perk_01
+  title: Farm God
+  description: 
+  weight: 1
+  minAge: 0
   modifiers:
   - id: 5
     unitScope: 0
@@ -23,8 +24,3 @@ MonoBehaviour:
     sourceScope: {fileID: 11400000, guid: 31767cd1cafbb69428e75771e561bfa0, type: 2}
     flat: 0
     percent: -0.9
-  expansionBlocks:
-  - x: 3
-    y: -2
-    width: 3
-    height: 3

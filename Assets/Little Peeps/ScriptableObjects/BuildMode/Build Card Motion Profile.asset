@@ -27,7 +27,7 @@ MonoBehaviour:
   resourceIconOffset: {x: -14, y: 0}
   resourceTextRectSize: {x: 27, y: 10}
   resourceTextOffset: {x: 0, y: 0}
-  resourceTextFontSize: 8
+  resourceTextFontSize: 14
   restingThickness: 1
   hoveredThickness: 3
   restingShadowSize: {x: 57, y: 6}
@@ -168,7 +168,7 @@ MonoBehaviour:
   shineStopPosition: {x: 150, y: 0}
   shineTravelDuration: 1.5
   shineInterval: 1
-  shineAlpha: 0.05
+  shineAlpha: 0.5
   unaffordableAlpha: 0.55
   lockedArtworkAlpha: 0.3
   hoverSortingOrder: 100

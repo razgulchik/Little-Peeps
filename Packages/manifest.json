@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.annulusgames.lit-motion": "https://github.com/annulusgames/LitMotion.git?path=src/LitMotion/Assets/LitMotion#v2.0.2",
+    "com.annulusgames.lit-motion": "2.0.2",
     "com.unity.cinemachine": "3.1.7",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.feature.2d": "2.0.1",
@@ -45,5 +45,14 @@
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0"
-  }
+  },
+  "scopedRegistries": [
+    {
+      "name": "package.openupm.com",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.annulusgames"
+      ]
+    }
+  ]
 }

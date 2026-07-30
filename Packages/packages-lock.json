@@ -1,15 +1,15 @@
 {
   "dependencies": {
     "com.annulusgames.lit-motion": {
-      "version": "https://github.com/annulusgames/LitMotion.git?path=src/LitMotion/Assets/LitMotion#v2.0.2",
+      "version": "2.0.2",
       "depth": 0,
-      "source": "git",
+      "source": "registry",
       "dependencies": {
         "com.unity.burst": "1.6.0",
         "com.unity.collections": "1.5.1",
         "com.unity.mathematics": "1.0.1"
       },
-      "hash": "0b4c588ee75a07198841d92aab653e6b39445089"
+      "url": "https://package.openupm.com"
     },
     "com.unity.2d.animation": {
       "version": "10.2.2",

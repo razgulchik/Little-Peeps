@@ -19,6 +19,10 @@ namespace LittlePeeps
         public Vector2Int size = Vector2Int.one;
         public List<ResourceCost> cost;
 
+        [Tooltip("Run age at which this structure becomes available in the build palette. " +
+                 "Zero keeps it available from the beginning.")]
+        [Min(0)] public int requiredAge;
+
         // Biomes this structure may be placed on. Empty/null = any terrain.
         public TerrainType[] allowedTerrain;
 

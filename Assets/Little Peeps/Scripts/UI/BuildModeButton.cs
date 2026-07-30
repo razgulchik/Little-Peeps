@@ -1,18 +1,19 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace LittlePeeps
 {
     // Bottom-right toggle button. A click publishes BuildModeToggleRequestedEvent; the button
-    // reflects mode + cooldown from BuildModeUIStateEvent (icon swap + interactable). It defaults
+    // reflects mode + cooldown from BuildModeUIStateEvent (label swap + interactable). It defaults
     // to the playing state in Awake, so it does not depend on receiving an initial event.
     [RequireComponent(typeof(Button))]
     public class BuildModeButton : MonoBehaviour
     {
         [SerializeField] private Button button;
-        [SerializeField] private Image iconImage;   // graphic whose sprite is swapped
-        [SerializeField] private Sprite buildIcon;   // shown while playing (click → enter build mode)
-        [SerializeField] private Sprite playIcon;    // shown in build mode (click → resume play)
+        [SerializeField] private TMP_Text modeText;
+        [SerializeField] private string buildLabel = "B";
+        [SerializeField] private string playLabel = ">";
 
         private void Reset()
         {
@@ -50,8 +51,8 @@ namespace LittlePeeps
         private void ApplyState(bool inBuildMode, bool interactable)
         {
             if (button != null) button.interactable = interactable;
-            if (iconImage != null && buildIcon != null && playIcon != null)
-                iconImage.sprite = inBuildMode ? playIcon : buildIcon;
+            if (modeText != null)
+                modeText.text = inBuildMode ? playLabel : buildLabel;
         }
     }
 }

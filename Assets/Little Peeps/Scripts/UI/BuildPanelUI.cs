@@ -17,6 +17,7 @@ namespace LittlePeeps
         [SerializeField] private ResourceSystem resourceSystem;
         [SerializeField] private BuildCardUI cardPrefab;
         [SerializeField] private Transform cardContainer;   // parent with a Horizontal Layout Group
+        [SerializeField] private BuildPanelScroller scroller;
         [SerializeField] private CanvasGroup canvasGroup;   // hides the panel without deactivating this listener
 
         [Header("Sell tool")]
@@ -27,6 +28,7 @@ namespace LittlePeeps
         private BuildCardUI selectedCard;
         private bool sellSelected;
         private bool isOpen;   // true while in build mode (panel visible) — gates the sell hotkey
+        private int currentAge;
 
         private void Awake()
         {
@@ -40,6 +42,8 @@ namespace LittlePeeps
             EventBus<BuildModeUIStateEvent>.Subscribe(OnUIState);
             EventBus<BuildDeniedEvent>.Subscribe(OnBuildDenied);
             EventBus<SellModeRequestedEvent>.Subscribe(OnSellHotkey);
+            EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
+            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
             if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared += OnToolCleared;
         }
@@ -49,6 +53,8 @@ namespace LittlePeeps
             EventBus<BuildModeUIStateEvent>.Unsubscribe(OnUIState);
             EventBus<BuildDeniedEvent>.Unsubscribe(OnBuildDenied);
             EventBus<SellModeRequestedEvent>.Unsubscribe(OnSellHotkey);
+            EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
+            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
             if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared -= OnToolCleared;
         }
@@ -64,6 +70,8 @@ namespace LittlePeeps
                 card.Init(def, OnCardClicked);
                 cards.Add(card);
             }
+
+            if (scroller != null) scroller.ResetToInitialPosition();
         }
 
         private void OnUIState(BuildModeUIStateEvent e)
@@ -75,14 +83,16 @@ namespace LittlePeeps
         private void Open()
         {
             isOpen = true;
-            RefreshAffordability();
+            RefreshCards();
             SetVisible(true);
+            if (scroller != null) scroller.RefreshBounds();
         }
 
         private void Close()
         {
             isOpen = false;
             Deselect();
+            foreach (var card in cards) card.ResetInteractionVisuals();
             SetVisible(false);
         }
 
@@ -95,6 +105,7 @@ namespace LittlePeeps
 
         private void OnCardClicked(BuildCardUI card)
         {
+            if (card == null || card.IsLocked) return;
             if (card == selectedCard) { Deselect(); return; }   // clicking the selected card deselects
 
             ClearSell();                                        // a card and the sell tool are mutually exclusive
@@ -152,15 +163,33 @@ namespace LittlePeeps
         }
 
         // Resources don't change inside build mode (game paused), so refreshing on open is enough.
-        private void RefreshAffordability()
+        private void RefreshCards()
         {
             foreach (var card in cards)
-                card.SetAffordable(resourceSystem.CanAfford(card.Def.cost));
+            {
+                bool locked = card.Def != null && currentAge < card.Def.requiredAge;
+                card.SetLocked(locked, currentAge);
+                card.SetAffordable(resourceSystem == null || resourceSystem.CanAfford(card.Def.cost));
+
+                if (locked && card == selectedCard) Deselect();
+            }
+        }
+
+        private void OnAgeStarted(AgeStartedEvent e)
+        {
+            currentAge = e.Age;
+            RefreshCards();
+        }
+
+        private void OnRunStarted(RunStartedEvent e)
+        {
+            currentAge = e.Run != null ? e.Run.currentAge : 0;
+            RefreshCards();
         }
 
         private void OnBuildDenied(BuildDeniedEvent e)
         {
-            if (selectedCard != null) selectedCard.PlayDeniedCue();
+            if (selectedCard != null && selectedCard.Def == e.Def) selectedCard.PlayDeniedCue();
         }
 
         // Hide via CanvasGroup (not SetActive) so this component stays active and keeps listening for

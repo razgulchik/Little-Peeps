@@ -5,7 +5,8 @@
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "Unity.Cinemachine",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "LitMotion"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

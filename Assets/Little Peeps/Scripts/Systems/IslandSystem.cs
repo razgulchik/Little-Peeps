@@ -9,7 +9,12 @@ namespace LittlePeeps
         [SerializeField] private Vector2Int initialSize = new Vector2Int(10, 10);
         [SerializeField] private float cellSize = 1f;
         [SerializeField] private Tilemap tilemap;
-        [SerializeField] private TileBase grassTile;
+
+        // Coastline outline. The art draws the island's edge OUTSIDE the land cell, so these tiles land on
+        // water cells and need their own tilemap — one WITHOUT a collider, or the ground collider would
+        // grow a cell past the coast in every direction.
+        [SerializeField] private Tilemap trimTilemap;
+        [SerializeField] private IslandTileSet tileSet;
 
         public IslandGrid Grid { get; private set; }
         public IslandGenerator Generator { get; private set; }
@@ -45,6 +50,7 @@ namespace LittlePeeps
             Build(initialSize);
     #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(tilemap);
+            if (trimTilemap != null) UnityEditor.EditorUtility.SetDirty(trimTilemap);
     #endif
         }
 
@@ -56,19 +62,12 @@ namespace LittlePeeps
             RefreshTilemap();
         }
 
+        // Full repaint of both tile layers from the grid. Every cell the grid holds is land — the outline
+        // ring around it is worked out by the painter, not stored, so the island never has to be generated
+        // oversized to leave room for its own edge.
         private void RefreshTilemap()
         {
-            if (tilemap == null || grassTile == null) return;
-
-            tilemap.ClearAllTiles();
-            foreach (var kv in Grid.Cells)
-            {
-                if (kv.Value.terrain != TerrainType.Grass) continue;
-
-                Vector2 worldPos = Grid.GridToWorld(kv.Key);
-                Vector3Int tilemapPos = tilemap.WorldToCell(new Vector3(worldPos.x, worldPos.y, 0f));
-                tilemap.SetTile(tilemapPos, grassTile);
-            }
+            IslandTilePainter.Repaint(Grid, tileSet, tilemap, trimTilemap);
         }
     }
 }

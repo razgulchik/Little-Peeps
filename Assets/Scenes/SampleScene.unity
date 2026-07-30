@@ -1320,8 +1320,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 8462019345012848002}
+  m_Children: []
   m_Father: {fileID: 1009994986}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &321352748
@@ -1337,93 +1336,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   numberPrefab: {fileID: 9040422927677507743, guid: 32db83d453d3514489201e5866cfadf6, type: 3}
+  motion: {fileID: 11400000, guid: 93a0095aef944401a286792d7ecb1510, type: 2}
   viewCamera: {fileID: 519420031}
   offscreenMargin: 0.1
-  lifetime: 0.9
-  travel: {x: 0, y: 0.8}
-  travelCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  scaleCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  alphaCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 0.6
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spawnOffset: {x: 0, y: 0.3}
-  spawnJitter: {x: 0.15, y: 0.1}
   maxConcurrent: 60
 --- !u!1 &340968259
 GameObject:
@@ -1580,7 +1495,7 @@ Camera:
   far clip plane: 1000
   field of view: 34
   orthographic: 1
-  orthographic size: 5.625
+  orthographic size: 5.6484375
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -2020,7 +1935,7 @@ MonoBehaviour:
   halfExtent: {x: 11, y: 11}
   lineColor: {r: 0.9433962, g: 0.06674972, b: 0.06674972, a: 0.32941177}
   axisColor: {r: 1, g: 1, b: 1, a: 0}
-  onlyWhenSelected: 1
+  onlyWhenSelected: 0
 --- !u!4 &721271055
 Transform:
   m_ObjectHideFlags: 0

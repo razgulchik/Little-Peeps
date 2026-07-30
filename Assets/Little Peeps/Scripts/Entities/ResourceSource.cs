@@ -156,22 +156,9 @@ namespace LittlePeeps
             ApplyStateVisual();
         }
 
-        // SpriteRenderer.color is a per-renderer vertex colour, NOT a material property: tinting here
-        // creates no material instance and so cannot quietly break batching across hundreds of nodes.
-        private void ApplyAlpha(float alpha)
-        {
-            if (readyRenderers == null) return;
-
-            for (int i = 0; i < readyRenderers.Length; i++)
-            {
-                var r = readyRenderers[i];
-                if (r == null) continue;
-
-                var c = r.color;
-                c.a = alpha;
-                r.color = c;
-            }
-        }
+        // Shared with the Edit Mode preview (see HarvestFade), so the tool cannot fade a node any
+        // differently from the way the game does.
+        private void ApplyAlpha(float alpha) => HarvestFade.ApplyAlpha(readyRenderers, alpha);
 
         // Regrow delay with the run modifier applied. The stats sheet is asked for at the point of use,
         // never cached: it belongs to the run, and a node placed in one run outlives it. A perk that

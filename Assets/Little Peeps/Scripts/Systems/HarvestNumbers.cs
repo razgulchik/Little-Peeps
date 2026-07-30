@@ -17,8 +17,9 @@ namespace LittlePeeps
     // UGUI text lives on a Canvas, and a Canvas rebuilds its whole batch whenever anything on it
     // moves; a hundred drifting numbers would rebuild it a hundred times a frame.
     //
-    // The tuning lives HERE rather than on the prefab, on purpose: the feel then survives a change of
-    // renderer, which is the whole point of treating the TMP version as a first pass.
+    // This class owns the PLUMBING — the pool, the cap, the culling, the event. The FEEL lives in
+    // HarvestNumberMotionDef, an asset shared with the Edit Mode authoring tool, so that tuning the
+    // motion never means touching the scene and the tool cannot drift away from what the game does.
     //
     // Place on the same GameObject as HarvestVfxSystem.
     public class HarvestNumbers : MonoBehaviour
@@ -27,41 +28,14 @@ namespace LittlePeeps
                  "over the village; font, size, outline and colour are all the prefab's business.")]
         [SerializeField] private TextMeshPro numberPrefab;
 
+        [Tooltip("How the number travels, swells and fades. An asset, so the same motion drives the " +
+                 "Edit Mode preview under Window > Little Peeps > Harvest Feedback.")]
+        [SerializeField] private HarvestNumberMotionDef motion;
+
         [Tooltip("Used only to skip numbers nobody can see. Empty = Camera.main is taken on Awake.")]
         [SerializeField] private Camera viewCamera;
 
         [SerializeField, Range(0f, 0.5f)] private float offscreenMargin = 0.1f;
-
-        [Header("Motion")]
-        [Tooltip("Seconds from spawn to gone.")]
-        [Min(0.05f)] [SerializeField] private float lifetime = 0.9f;
-
-        [Tooltip("Total travel in world units, reached at the end of the curve below. Straight up by " +
-                 "default: the number reads as a readout, and letting it drift sideways only makes it " +
-                 "compete with the pickup, which is the thing that IS supposed to fly off diagonally. " +
-                 "X is kept tunable in case a lean is wanted later.")]
-        [SerializeField] private Vector2 travel = new Vector2(0f, 0.8f);
-
-        [Tooltip("How far along `travel` the number is, across its life. A curve that flattens out " +
-                 "reads as the number shooting out and settling.")]
-        [SerializeField] private AnimationCurve travelCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-
-        [Tooltip("Scale across the life. A short spike above 1 at the start gives it a pop.")]
-        [SerializeField] private AnimationCurve scaleCurve = AnimationCurve.Constant(0f, 1f, 1f);
-
-        [Tooltip("Alpha across the life.")]
-        [SerializeField] private AnimationCurve alphaCurve =
-            new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(0.6f, 1f), new Keyframe(1f, 0f));
-
-        [Tooltip("Shifts EVERY number, in world units, on top of whatever the source's Fx Anchor says. " +
-                 "The division of labour: the anchor is per-object and answers 'where does this thing's " +
-                 "feedback come from' (a tree's top edge is not a field's); this is the global nudge, " +
-                 "for lifting all numbers a little without editing prefabs one at a time.")]
-        [SerializeField] private Vector2 spawnOffset = Vector2.zero;
-
-        [Tooltip("Random spawn offset in world units, so numbers from the same spot don't stack into " +
-                 "one unreadable blob. Every hit still gets its own number.")]
-        [SerializeField] private Vector2 spawnJitter = new Vector2(0.15f, 0.1f);
 
         [Tooltip("Most numbers alive at once; past the cap the one nearest death is recycled. This is a " +
                  "readability valve as much as a budget — beyond a certain density nobody can read them.")]
@@ -78,9 +52,7 @@ namespace LittlePeeps
         private int count;
         private readonly Stack<TextMeshPro> pool = new();
 
-        // The prefab's own scale, which scaleCurve multiplies rather than replaces. A world-space TMP
-        // is enormous next to a one-unit tile, so the prefab is always scaled right down — writing a
-        // raw curve value into localScale would throw that away and blow every number up to tile size.
+        // The prefab's own scale, which the motion's scale curve multiplies rather than replaces.
         private Vector3 baseScale = Vector3.one;
 
         private void Awake()
@@ -105,11 +77,13 @@ namespace LittlePeeps
         {
             if (numberPrefab == null)
                 Debug.LogError($"HarvestNumbers on '{name}' has no numberPrefab assigned.", this);
+            if (motion == null)
+                Debug.LogError($"HarvestNumbers on '{name}' has no motion asset assigned.", this);
         }
 
         private void OnHarvested(HarvestedEvent e)
         {
-            if (numberPrefab == null) return;
+            if (numberPrefab == null || motion == null) return;
             if (!IsOnScreen(e.Position)) return;
 
             if (count == active.Length)
@@ -122,13 +96,11 @@ namespace LittlePeeps
             var view = Get();
             if (view == null) return;
 
-            Vector3 origin = e.Position + new Vector3(
-                spawnOffset.x + Random.Range(-spawnJitter.x, spawnJitter.x),
-                spawnOffset.y + Random.Range(-spawnJitter.y, spawnJitter.y),
-                0f);
+            Vector3 origin = motion.ResolveOrigin(
+                e.Position, new Vector2(Random.Range(-1f, 1f), Random.Range(-1f, 1f)));
 
-            SetAmount(view, e.Amount);
-            Place(view, origin, 0f);
+            HarvestNumberFormat.Write(view, e.Amount);
+            motion.Apply(view, origin, 0f, baseScale);
 
             active[count++] = new Entry { view = view, origin = origin, t = 0f };
         }
@@ -138,7 +110,10 @@ namespace LittlePeeps
         // loop never walks holes.
         private void Update()
         {
+            if (motion == null) return;
+
             float dt = Time.deltaTime;
+            float lifetime = Mathf.Max(0.0001f, motion.lifetime);
 
             for (int i = 0; i < count; i++)
             {
@@ -154,86 +129,7 @@ namespace LittlePeeps
                     continue;
                 }
 
-                Place(e.view, e.origin, k);
-            }
-        }
-
-        private void Place(TextMeshPro view, Vector3 origin, float k)
-        {
-            Place(view, origin, k, baseScale);
-        }
-
-        private void Place(TextMeshPro view, Vector3 origin, float k, Vector3 referenceScale)
-        {
-            var tr = view.transform;
-            tr.position = origin + (Vector3)(travel * travelCurve.Evaluate(k));
-            tr.localScale = referenceScale * scaleCurve.Evaluate(k);
-
-            // TMP_Text.alpha recolours the existing vertices; assigning .color or .text would instead
-            // mark the mesh dirty and rebuild it, which is the one thing worth avoiding per frame.
-            view.alpha = alphaCurve.Evaluate(k);
-        }
-
-#if UNITY_EDITOR
-        // Narrow editor-only surface used by HarvestFeedbackPreview. Keeping the sampling here means
-        // the Edit Mode preview and the runtime popup cannot quietly acquire different motion maths.
-        internal float EditorPreviewLifetime => lifetime;
-
-        internal TextMeshPro CreateEditorPreviewView(Transform parent, float amount)
-        {
-            if (numberPrefab == null) return null;
-
-            var view = Instantiate(numberPrefab, parent);
-            view.name = $"{numberPrefab.name} (Preview)";
-            SetAmount(view, amount);
-            return view;
-        }
-
-        internal Vector3 ResolveEditorPreviewOrigin(Vector3 harvestPosition, Vector2 normalizedJitter)
-        {
-            return harvestPosition + new Vector3(
-                spawnOffset.x + normalizedJitter.x * spawnJitter.x,
-                spawnOffset.y + normalizedJitter.y * spawnJitter.y,
-                0f);
-        }
-
-        internal void PlaceEditorPreview(TextMeshPro view, Vector3 origin, float normalizedTime)
-        {
-            if (view == null || numberPrefab == null) return;
-            Place(view, origin, Mathf.Clamp01(normalizedTime), numberPrefab.transform.localScale);
-        }
-#endif
-
-        // Writes the amount straight into the label's char buffer. TMP's SetText overloads take the
-        // value as an argument and format in place, so no string is built and nothing lands on the GC —
-        // which matters when this runs on every single harvest in the village.
-        //
-        // "{0:1}" is TMP's own spec for one decimal place, not string.Format's.
-        private static void SetAmount(TextMeshPro label, float amount)
-        {
-            if (amount < 1000f)
-            {
-                // A whole number reads better bare: "+1", not "+1.0". Yields stay whole until a
-                // percentage modifier lands on them, so most of the game this is the branch taken.
-                if (Mathf.Approximately(amount, Mathf.Round(amount))) label.SetText("+{0:0}", amount);
-                else label.SetText("+{0:1}", amount);
-                return;
-            }
-
-            float v = amount;
-            int tier = 0;
-            while (v >= 1000f && tier < 4)
-            {
-                v /= 1000f;
-                tier++;
-            }
-
-            switch (tier)
-            {
-                case 1:  label.SetText("+{0:1}k", v); break;
-                case 2:  label.SetText("+{0:1}M", v); break;
-                case 3:  label.SetText("+{0:1}B", v); break;
-                default: label.SetText("+{0:1}T", v); break;
+                motion.Apply(e.view, e.origin, k, baseScale);
             }
         }
 

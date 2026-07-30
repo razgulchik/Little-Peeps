@@ -1,0 +1,174 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e972daf544a4ba7a72508df1e2fd09a, type: 3}
+  m_Name: Build Card Motion Profile
+  m_EditorClassIdentifier: 
+  restingCardSize: {x: 57, y: 76}
+  hoveredCardSize: {x: 69, y: 88}
+  selectionFramePadding: {x: 4, y: 4}
+  selectedLift: 4
+  hoverLift: 12
+  restingItemContainerSize: {x: 47, y: 47}
+  hoveredItemContainerSize: {x: 59, y: 59}
+  restingItemContainerPosition: {x: 0, y: 10}
+  hoveredItemContainerPosition: {x: 0, y: 10}
+  resourcePanelBackgroundSize: {x: 30, y: 10}
+  resourcePanelBottomOffset: {x: 0, y: 14}
+  resourceIconSize: {x: 13, y: 13}
+  resourceIconOffset: {x: -14, y: 0}
+  resourceTextRectSize: {x: 27, y: 10}
+  resourceTextOffset: {x: 0, y: 0}
+  resourceTextFontSize: 8
+  restingThickness: 1
+  hoveredThickness: 3
+  restingShadowSize: {x: 57, y: 6}
+  hoveredShadowSize: {x: 67, y: 10}
+  restingShadowOffset: {x: 0, y: -37}
+  hoveredShadowOffset: {x: 0, y: -35}
+  restingShadowAlpha: 0.75
+  hoveredShadowAlpha: 0.48
+  hoverInDuration: 0.16
+  hoverOutDuration: 0.18
+  hoverInEase:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 2.2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  hoverOutEase:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 2.2
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  maxTiltX: 4
+  maxTiltY: 7
+  maxRoll: 1.25
+  tiltXResponseCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: -1
+      value: -1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  tiltYResponseCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: -1
+      value: -1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  tiltResetDuration: 0.14
+  tiltResetEase:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  shineScale: {x: 15, y: 1}
+  shineRotation: 45
+  shineStartPosition: {x: -150, y: 0}
+  shineStopPosition: {x: 150, y: 0}
+  shineTravelDuration: 1.5
+  shineInterval: 1
+  shineAlpha: 0.05
+  unaffordableAlpha: 0.55
+  lockedArtworkAlpha: 0.3
+  hoverSortingOrder: 100

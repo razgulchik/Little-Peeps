@@ -80,7 +80,9 @@ namespace LittlePeeps
         [Header("Shine")]
         public Vector2 shineScale = Vector2.one;
         public float shineRotation = -15f;
+        [Tooltip("Card-local reference pixels measured from the card center.")]
         public Vector2 shineStartPosition = new(-58f, 0f);
+        [Tooltip("Card-local reference pixels measured from the card center.")]
         public Vector2 shineStopPosition = new(58f, 0f);
         [Min(0.05f)] public float shineTravelDuration = 0.72f;
         [Min(0f)] public float shineInterval = 0.18f;

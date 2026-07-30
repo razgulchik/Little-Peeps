@@ -22,6 +22,7 @@ namespace LittlePeeps
         private Canvas rootCanvas;
         private float minX;
         private float maxX;
+        private readonly Vector3[] cardWorldCorners = new Vector3[4];
 
         private void Awake()
         {
@@ -51,11 +52,24 @@ namespace LittlePeeps
         {
             if (viewport == null || cardRect == null) return true;
 
-            Bounds cardBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, cardRect);
+            // CalculateRelativeRectTransformBounds includes every active descendant. That makes the
+            // hover test depend on the flying visual, shadow, and especially the very wide shine:
+            // activating shine can push the calculated bounds outside the viewport, turn hover off,
+            // hide shine, and repeat every frame. Use only the fixed layout/click slot's own corners.
+            cardRect.GetWorldCorners(cardWorldCorners);
+            float cardMinX = float.PositiveInfinity;
+            float cardMaxX = float.NegativeInfinity;
+            for (int i = 0; i < cardWorldCorners.Length; i++)
+            {
+                float localX = viewport.InverseTransformPoint(cardWorldCorners[i]).x;
+                cardMinX = Mathf.Min(cardMinX, localX);
+                cardMaxX = Mathf.Max(cardMaxX, localX);
+            }
+
             Rect viewportRect = viewport.rect;
             const float pixelTolerance = 0.5f;
-            return cardBounds.min.x >= viewportRect.xMin - pixelTolerance &&
-                   cardBounds.max.x <= viewportRect.xMax + pixelTolerance;
+            return cardMinX >= viewportRect.xMin - pixelTolerance &&
+                   cardMaxX <= viewportRect.xMax + pixelTolerance;
         }
 
         public void OnPointerDown(PointerEventData eventData) => NotifyPointerDown();

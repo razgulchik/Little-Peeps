@@ -3,7 +3,6 @@ using LitMotion;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace LittlePeeps
@@ -84,6 +83,7 @@ namespace LittlePeeps
             scroller = GetComponentInParent<BuildPanelScroller>();
             uiCanvas = GetComponentInParent<Canvas>();
             interactionCanvasGroups = GetComponentsInParent<CanvasGroup>(true);
+            ConfigureShineLocalSpace();
 
             if (iconImage != null) iconImage.sprite = def.icon;
             RefreshCost(def);
@@ -200,11 +200,13 @@ namespace LittlePeeps
                 ? uiCanvas.worldCamera
                 : null;
 
-            Mouse mouse = Mouse.current;
             RectTransform rect = hitRect != null ? hitRect : transform as RectTransform;
-            if (mouse == null || !CanHover(rect)) return false;
+            if (!CanHover(rect)) return false;
 
-            screenPosition = mouse.position.ReadValue();
+            // Legacy Input.mousePosition is intentionally used here. With both input backends
+            // enabled, Input System's Mouse.current can alternate device state between frames in
+            // the Editor Game view, making hover enter/exit flap every frame on part of the panel.
+            screenPosition = Input.mousePosition;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     rect, screenPosition, eventCamera, out Vector2 local))
                 return false;
@@ -403,10 +405,13 @@ namespace LittlePeeps
             if (motionProfile == null || shineTransform == null || shineImage == null) return;
             StopShine();
 
+            RectTransform localShine = shineTransform;
+            Vector2 shineStartPosition = motionProfile.shineStartPosition;
+            Vector2 shineStopPosition = motionProfile.shineStopPosition;
             shineTransform.localScale = new Vector3(
                 motionProfile.shineScale.x, motionProfile.shineScale.y, 1f);
             shineTransform.localRotation = Quaternion.Euler(0f, 0f, motionProfile.shineRotation);
-            shineTransform.anchoredPosition = motionProfile.shineStartPosition;
+            shineTransform.anchoredPosition = shineStartPosition;
 
             Color c = shineImage.color;
             c.a = motionProfile.shineAlpha;
@@ -414,13 +419,38 @@ namespace LittlePeeps
             shineImage.gameObject.SetActive(true);
 
             shineMotion = LMotion.Create(
-                    motionProfile.shineStartPosition, motionProfile.shineStopPosition,
+                    shineStartPosition, shineStopPosition,
                     motionProfile.shineTravelDuration)
                 .WithEase(Ease.Linear)
                 .WithDelay(motionProfile.shineInterval, DelayType.EveryLoop)
                 .WithLoops(-1, LoopType.Restart)
                 .WithScheduler(MotionScheduler.InitializationIgnoreTimeScale)
-                .Bind(position => shineTransform.anchoredPosition = position);
+                .Bind(position =>
+                {
+                    if (localShine != null)
+                        localShine.anchoredPosition = position;
+                });
+        }
+
+        private void ConfigureShineLocalSpace()
+        {
+            if (shineViewport == null || shineTransform == null) return;
+
+            // Each instantiated card owns a self-contained shine coordinate system. Explicitly
+            // normalize it so neither the horizontal layout nor the card's canvas position can
+            // become part of the authored start/stop coordinates.
+            shineViewport.anchorMin = Vector2.one * 0.5f;
+            shineViewport.anchorMax = Vector2.one * 0.5f;
+            shineViewport.pivot = Vector2.one * 0.5f;
+            shineViewport.anchoredPosition = Vector2.zero;
+            shineViewport.localRotation = Quaternion.identity;
+            shineViewport.localScale = Vector3.one;
+
+            if (shineTransform.parent != shineViewport)
+                shineTransform.SetParent(shineViewport, false);
+            shineTransform.anchorMin = Vector2.one * 0.5f;
+            shineTransform.anchorMax = Vector2.one * 0.5f;
+            shineTransform.pivot = Vector2.one * 0.5f;
         }
 
         private void StopShine()

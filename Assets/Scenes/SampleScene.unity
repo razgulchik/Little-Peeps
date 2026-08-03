@@ -1877,11 +1877,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 551a2b14adb8972458d2f252ee13bae5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  islandSystem: {fileID: 738684714}
   cellSize: 1
-  halfExtent: {x: 11, y: 11}
-  lineColor: {r: 0.9433962, g: 0.06674972, b: 0.06674972, a: 0.32941177}
+  halfExtent: {x: 10, y: 6}
+  drawLabels: 1
+  labelFontSize: 10
+  onlyWhenSelected: 0
+  lineColor: {r: 0.9924528, g: 0.9924528, b: 0.9924528, a: 0.32941177}
   axisColor: {r: 1, g: 1, b: 1, a: 0}
-  onlyWhenSelected: 1
+  labelColor: {r: 1, g: 1, b: 1, a: 1}
+  landColor: {r: 0.4, g: 1, b: 0.5, a: 0.5}
+  originColor: {r: 1, g: 0.6, b: 0.1, a: 1}
 --- !u!4 &721271055
 Transform:
   m_ObjectHideFlags: 0
@@ -1948,57 +1954,6 @@ MonoBehaviour:
   tilemap: {fileID: 236949917}
   trimTilemap: {fileID: 2097111794}
   tileSet: {fileID: 11400000, guid: 482a098c87513114da67c647d23725a8, type: 2}
---- !u!1 &780965380
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 780965382}
-  - component: {fileID: 780965381}
-  m_Layer: 0
-  m_Name: IslandGridGizmo
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &780965381
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 780965380}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 01a50523b2484bd69279b64c9a585145, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  islandSystem: {fileID: 738684714}
-  drawCells: 1
-  drawLabels: 1
-  cellColor: {r: 1, g: 1, b: 1, a: 0.25}
-  labelColor: {r: 1, g: 1, b: 1, a: 1}
-  originColor: {r: 1, g: 0.6, b: 0.1, a: 1}
-  labelFontSize: 10
---- !u!4 &780965382
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 780965380}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1009994985
 GameObject:
   m_ObjectHideFlags: 0
@@ -31551,5 +31506,4 @@ SceneRoots:
   - {fileID: 1009994986}
   - {fileID: 738684713}
   - {fileID: 721271055}
-  - {fileID: 780965382}
   - {fileID: 40523889}

@@ -6,6 +6,10 @@ namespace LittlePeeps
     {
         public UnitDef def;
 
+        [Tooltip("Container child holding every SpriteRenderer the unit is drawn from. Resting toggles " +
+                 "this whole object, so hiding stays correct however many parts the art is built from.")]
+        [SerializeField] private GameObject visualRoot;
+
         public UnitType Type => def != null ? def.unitType : default;
 
         // World-space radius of the unit's collider (used for spawn-clearance math).
@@ -19,7 +23,6 @@ namespace LittlePeeps
         private float fatigueReadyTime;
 
         private Rigidbody2D rb;
-        private SpriteRenderer spriteRenderer;
         private Collider2D bodyCollider;
         private float baseSpeed;
 
@@ -33,13 +36,18 @@ namespace LittlePeeps
         private void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
-            spriteRenderer = GetComponentInChildren<SpriteRenderer>(true);
             bodyCollider = GetComponentInChildren<Collider2D>(true);
         }
 
         private void OnEnable()
         {
             baseSpeed = ResolveBaseSpeed();
+        }
+
+        private void Start()
+        {
+            if (visualRoot == null)
+                Debug.LogError($"Unit on '{name}' has no visualRoot assigned.", this);
         }
 
         // Injected by SpawnSystem on spawn. Stored for future island-aware behavior.
@@ -78,9 +86,11 @@ namespace LittlePeeps
             // Fatigue clock restarts every launch: the unit won't enter a house until this elapses.
             fatigueReadyTime = Time.time + ResolveFatigueDelay();
 
-            // Coming back out of rest: re-enable physics and visuals.
+            // Coming back out of rest: re-enable physics and visuals. Toggling the whole visual root
+            // rather than one renderer's `enabled` also stops and restarts the Animator that lives on
+            // it, so a running clip can never draw a resting unit back onto the screen.
             rb.simulated = true;
-            if (spriteRenderer != null) spriteRenderer.enabled = true;
+            if (visualRoot != null) visualRoot.SetActive(true);
 
             Vector2 dir = direction.sqrMagnitude > 0.0001f ? direction.normalized : Random.insideUnitCircle.normalized;
             rb.linearVelocity = dir * baseSpeed * Mathf.Max(1f, speedMultiplier);
@@ -103,7 +113,7 @@ namespace LittlePeeps
 
             rb.linearVelocity = Vector2.zero;
             rb.simulated = false;
-            if (spriteRenderer != null) spriteRenderer.enabled = false;
+            if (visualRoot != null) visualRoot.SetActive(false);
         }
 
         private void FixedUpdate()

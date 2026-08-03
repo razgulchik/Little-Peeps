@@ -209,6 +209,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: 710836cfba095204593dcde7e61b3afd, type: 2}
   resourceSystem: {fileID: 0}
+  fxAnchor: {fileID: 2908992283057913503}
 --- !u!114 &6397397186826937979
 MonoBehaviour:
   m_ObjectHideFlags: 0

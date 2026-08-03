@@ -90,6 +90,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: e0054fbed09707348934a51a09164497, type: 2}
   resourceSystem: {fileID: 0}
+  fxAnchor: {fileID: 5679720817400822926}
 --- !u!114 &5847658590040728538
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -107,6 +108,9 @@ MonoBehaviour:
   pauseMax: 2
   fallbackRadius: 2
   visual: {fileID: 5679720817400822926}
+  personalSpace: 0.6
+  encounterImmunity: 1.5
+  lookAhead: 0.3
 --- !u!1 &4141207025490524696
 GameObject:
   m_ObjectHideFlags: 0

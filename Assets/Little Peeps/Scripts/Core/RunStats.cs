@@ -62,14 +62,31 @@ namespace LittlePeeps
 
         private readonly Dictionary<Key, Accum> mods = new();
 
-        // Zero out the scope dimensions a stat does not use, so authored data and queries always agree
-        // on the key regardless of stray scope values. Add and Apply MUST both go through this.
+        // The one place a scope tuple is turned into a key. Two corrections happen here, and Add and
+        // Apply MUST both go through them or authored data and queries stop meeting:
+        //
+        //   1. dimensions the stat does not use are zeroed, so stray authored values cannot shift a key;
+        //   2. a resource that came with a source is REPLACED by that source's own.
         private static Key MakeKey(StatId id, UnitType u, ResourceType r, ResourceSourceDef s)
         {
             var scope = StatMeta.ScopeOf(id);
             if ((scope & StatScope.Unit) == 0) u = default;
             if ((scope & StatScope.Resource) == 0) r = default;
             if ((scope & StatScope.Source) == 0) s = null;
+
+            // A source fixes its own resource — Tree is Wood, Wheat is Food — so on a stat carrying both
+            // dimensions the authored pair can DISAGREE, and (Food, Tree) would file the modifier under
+            // a combination the read side never asks for: a bonus that is bought, saved, and silently
+            // does nothing. Derive instead of trusting, on both sides, and the two still meet. It also
+            // makes the Resource field redundant whenever a source is filled in, which is exactly what
+            // StatModifierDrawer relies on to hide it.
+            //
+            // Unity's == here rather than the ReferenceEquals used everywhere else in this class: this
+            // reference is about to be DEREFERENCED, so a destroyed asset must read as "no source"
+            // instead of throwing. Key's identity comparisons stay on ReferenceEquals, for the reason
+            // given there.
+            if ((scope & StatScope.Resource) != 0 && s != null) r = s.resource;
+
             return new Key(id, u, r, s);
         }
 

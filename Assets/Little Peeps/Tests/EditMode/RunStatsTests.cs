@@ -246,8 +246,15 @@ namespace LittlePeeps.Tests
         [SetUp]
         public void SetUp()
         {
+            // Both fakes must actually PRODUCE Res, not just be paired with it in the modifiers below.
+            // MakeKey derives the resource from the source, so a fake left on the enum's default would
+            // key every source-scoped modifier under Food while the source-less ones stayed on Res, and
+            // the "any source" bucket would stop matching — failing these tests for a reason that has
+            // nothing to do with what they are pinning.
             quarry = ScriptableObject.CreateInstance<ResourceSourceDef>();
+            quarry.resource = Res;
             cave = ScriptableObject.CreateInstance<ResourceSourceDef>();
+            cave.resource = Res;
         }
 
         [TearDown]
@@ -289,6 +296,30 @@ namespace LittlePeeps.Tests
             Assert.That(stats.Apply(2f, StatId.ResourceYield, Worker, Res, cave),
                         Is.EqualTo(2f).Within(Tolerance),
                         "a bonus authored for one source must not reach another sharing its resource");
+        }
+
+        [Test]
+        public void AResourceThatDisagreesWithItsSource_IsCorrectedToTheSourcesOwn()
+        {
+            var stats = new RunStats();
+            stats.Add(new StatModifier
+            {
+                id = StatId.ResourceYield,
+                unitScope = Worker,
+                // A resource the source does not produce. Reachable by hand-editing YAML, by code, or
+                // by an asset authored before the source axis existed. Taken at face value it would key
+                // the modifier under (Coins, quarry) while the read side always asks for
+                // (quarry.resource, quarry) — bought, saved, and silently dead.
+                resourceScope = ResourceType.Coins,
+                sourceScope = quarry,
+                percent = 1f,
+            });
+
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, Worker, Res, quarry),
+                        Is.EqualTo(4f).Within(Tolerance), "the source's own resource wins");
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, Worker, Res, cave),
+                        Is.EqualTo(2f).Within(Tolerance),
+                        "and correcting it must not turn the modifier into a source-agnostic one");
         }
 
         [Test]

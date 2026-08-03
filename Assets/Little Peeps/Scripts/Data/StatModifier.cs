@@ -6,7 +6,9 @@ namespace LittlePeeps
     // One authored contribution to a stat, declared as DATA on a source (AgeDef / PerkDef / a debug
     // list / later meta upgrades). Sources just describe modifiers; RunStats aggregates them and owns
     // the single stacking formula. A scope field is ignored when the stat's StatMeta.ScopeOf mask does
-    // not include that dimension.
+    // not include that dimension — which is also why this struct is drawn by StatModifierDrawer and
+    // not by the default inspector: the drawer reads that same mask and shows only the fields that
+    // survive it, so nothing on screen is a value the runtime will throw away.
     //
     //   flat    — added to the base value.
     //   percent — added into the additive percent bucket (0.10 = +10%).

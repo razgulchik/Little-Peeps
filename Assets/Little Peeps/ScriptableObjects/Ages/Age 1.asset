@@ -17,12 +17,12 @@ MonoBehaviour:
   - resourceType: 0
     amount: 0
   modifiers:
-  - id: 5
+  - id: 1
     unitScope: 0
-    resourceScope: 1
-    sourceScope: {fileID: 11400000, guid: 31767cd1cafbb69428e75771e561bfa0, type: 2}
+    resourceScope: 0
+    sourceScope: {fileID: 0}
     flat: 0
-    percent: -0.1
+    percent: 0.05
   expansionBlocks:
   - x: -3
     y: -2

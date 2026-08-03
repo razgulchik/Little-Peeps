@@ -20,10 +20,11 @@ MonoBehaviour:
   - id: 1
     unitScope: 0
     resourceScope: 1
+    sourceScope: {fileID: 11400000, guid: f859f958ef8491246bab7b0e37c3aae4, type: 2}
     flat: 1
     percent: 0
   expansionBlocks:
-  - x: -4
-    y: 2
-    width: 2
-    height: 2
+  - x: -5
+    y: -4
+    width: 8
+    height: 8

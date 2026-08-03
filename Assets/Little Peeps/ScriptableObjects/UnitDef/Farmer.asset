@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 177e1f339659320428451e63794bf119, type: 3}
-  m_Name: Peasant
+  m_Name: Farmer
   m_EditorClassIdentifier: 
-  id: peasant
+  id: farmer
   prefab: {fileID: 1807706934372700554, guid: 8abf6f705aae1894eb19cf09b3b7f291, type: 3}
   speed: 2
   unitType: 0

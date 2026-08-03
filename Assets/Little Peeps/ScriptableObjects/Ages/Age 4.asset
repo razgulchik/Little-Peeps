@@ -20,10 +20,11 @@ MonoBehaviour:
   - id: 2
     unitScope: 0
     resourceScope: 0
+    sourceScope: {fileID: 0}
     flat: 0
     percent: 0.2
   expansionBlocks:
-  - x: 3
-    y: 0
-    width: 3
-    height: 3
+  - x: -5
+    y: -4
+    width: 10
+    height: 10

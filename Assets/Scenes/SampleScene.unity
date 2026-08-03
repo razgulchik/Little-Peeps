@@ -1879,7 +1879,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   islandSystem: {fileID: 738684714}
   cellSize: 1
-  halfExtent: {x: 10, y: 6}
+  halfExtent: {x: 5, y: 5}
   drawLabels: 1
   labelFontSize: 10
   onlyWhenSelected: 0

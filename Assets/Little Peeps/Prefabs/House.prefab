@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 249872939212404820}
-  - component: {fileID: 4084827004219496862}
+  - component: {fileID: 2203177157788100884}
   m_Layer: 0
   m_Name: Physics
   m_TagString: Untagged
@@ -32,7 +32,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3867302214612423989}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!61 &4084827004219496862
+--- !u!61 &2203177157788100884
 BoxCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -42,7 +42,7 @@ BoxCollider2D:
   m_Enabled: 1
   serializedVersion: 3
   m_Density: 1
-  m_Material: {fileID: 6200000, guid: 397134329f508124e95b17766bee3c17, type: 2}
+  m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -66,7 +66,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: -0.032043934}
+  m_Offset: {x: 0, y: 0}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -76,7 +76,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1.87, y: 1.6259122}
+  m_Size: {x: 1.86, y: 1.93}
   m_EdgeRadius: 0
 --- !u!1 &1988411104556470154
 GameObject:
@@ -178,7 +178,7 @@ GameObject:
   - component: {fileID: 3357912009212520022}
   - component: {fileID: 7576926083405738824}
   m_Layer: 0
-  m_Name: BaseBuilding
+  m_Name: House
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -338,7 +338,7 @@ SpriteRenderer:
   m_SortingLayerID: 1266997631
   m_SortingLayer: 1
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 5fd7cbddea58d4c4894e88fd95e3cf69, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 9c7edba6195cb4e458235fadcc0b1764, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

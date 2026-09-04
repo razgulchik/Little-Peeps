@@ -66,7 +66,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0.08902258, y: -0.2857195}
+  m_Offset: {x: -0.0021539927, y: -0.072974}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -76,7 +76,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1.9416817, y: 1.4450054}
+  m_Size: {x: 1.9914148, y: 1.7710307}
   m_EdgeRadius: 0
 --- !u!1 &2370982438646303343
 GameObject:
@@ -152,7 +152,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1266997631
-  m_SortingLayer: 3
+  m_SortingLayer: 1
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: ac12f2c826392134ea869ddc0053ac2a, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -255,6 +255,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: c0d549710b3163043bb80bc6ba21d711, type: 2}
   resourceSystem: {fileID: 0}
+  readyRoot: {fileID: 0}
+  harvestedRoot: {fileID: 0}
+  swapStateVisuals: 0
+  fxAnchor: {fileID: 0}
+  fadeOutTime: 0.2
+  fadeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: -1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: -1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &8198576868374667533
 GameObject:
   m_ObjectHideFlags: 0
@@ -280,7 +309,7 @@ Transform:
   m_GameObject: {fileID: 8198576868374667533}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.0625, y: 0.125, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

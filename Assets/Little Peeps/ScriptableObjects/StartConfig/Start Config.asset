@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e9493be5fc683e448c91e5c5552f192, type: 3}
   m_Name: Start Config
   m_EditorClassIdentifier: 
-  islandSize: {x: 5, y: 5}
+  islandSize: {x: 15, y: 15}
   layout: {fileID: 11400000, guid: a973933529caeb0478701c65e141c8aa, type: 2}
   startingResources:
   - resourceType: 0

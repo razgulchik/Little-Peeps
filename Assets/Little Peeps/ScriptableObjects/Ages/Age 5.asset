@@ -17,12 +17,12 @@ MonoBehaviour:
   - resourceType: 0
     amount: 0
   modifiers:
-  - id: 2
+  - id: 0
     unitScope: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
     flat: 0
-    percent: 0.2
+    percent: 0.05
   expansionBlocks:
   - x: -5
     y: -5

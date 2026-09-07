@@ -1126,17 +1126,7 @@ MonoBehaviour:
   resourceIconImage: {fileID: 2514}
   costText: {fileID: 3220693561937864027}
   artworkCanvasGroup: {fileID: 2703}
-  resourceIcons:
-  - type: 0
-    sprite: {fileID: 21300000, guid: 571bd0bdf0c73394dab8b2625abd6070, type: 3}
-  - type: 1
-    sprite: {fileID: 21300000, guid: b6644d41bae78b4408324d5b12df0abf, type: 3}
-  - type: 2
-    sprite: {fileID: 21300000, guid: 40e36202bf3327548b5d448dc4774b9d, type: 3}
-  - type: 3
-    sprite: {fileID: 21300000, guid: bca67df0faec0894bba1a3e34f9614c8, type: 3}
-  - type: 4
-    sprite: {fileID: 21300000, guid: ef4d65db1c156a1489d6bbad4fb53cc9, type: 3}
+  iconSet: {fileID: 11400000, guid: a8b6247b3cd9d1a58b1b4d63f81e733d, type: 2}
   shineViewport: {fileID: 2302}
   shineTransform: {fileID: 2312}
   shineImage: {fileID: 2314}

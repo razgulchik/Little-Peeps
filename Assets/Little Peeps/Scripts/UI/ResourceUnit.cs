@@ -7,6 +7,11 @@ namespace LittlePeeps
     // One row of the ResourcePanel: an icon plus an abbreviated amount label (e.g. "128.9k").
     // Owns its own ReactiveValue subscription so it auto-updates and cleans itself up in OnDestroy
     // (no reliance on the panel to unsubscribe). The panel just maps a type to an icon and binds it.
+    //
+    // The same unit also serves as a PRICE tag (AgeCostPanel, and any cost readout added later) via the
+    // fixed-amount Bind overload: a price is a number the player reads in exactly the same visual
+    // language as their wallet, so it shares the prefab and the abbreviation rules rather than growing
+    // a parallel widget that would drift from them.
     public class ResourceUnit : MonoBehaviour
     {
         [SerializeField] private Image icon;
@@ -14,10 +19,20 @@ namespace LittlePeeps
 
         private ReactiveValue<float> reactive;
 
+        // The colour the prefab authored for the label. Captured before anything can tint it, so
+        // ClearTint restores the designed look instead of a hard-coded white.
+        private Color baseLabelColor = Color.white;
+
+        private void Awake()
+        {
+            if (label != null) baseLabelColor = label.color;
+        }
+
         // Wire this unit to a resource: show its icon and start tracking its amount. Renders the
         // current value immediately so the unit is correct before the first change arrives.
         public void Bind(Sprite iconSprite, ReactiveValue<float> value)
         {
+            Unsubscribe();
             if (icon != null) icon.sprite = iconSprite;
 
             reactive = value;
@@ -27,33 +42,38 @@ namespace LittlePeeps
             OnValueChanged(reactive.Value);
         }
 
-        private void OnDestroy()
+        // Show a FIXED amount — a price, not a running total. Drops any live subscription first: a unit
+        // that was tracking a wallet and is then re-bound to a price must stop following the wallet, or
+        // the next harvest would overwrite the price with the player's balance.
+        public void Bind(Sprite iconSprite, float amount)
+        {
+            Unsubscribe();
+            if (icon != null) icon.sprite = iconSprite;
+            OnValueChanged(amount);
+        }
+
+        // Recolour the amount label — used by cost panels to flag a price the player can't pay yet.
+        public void Tint(Color color)
+        {
+            if (label != null) label.color = color;
+        }
+
+        public void ClearTint()
+        {
+            if (label != null) label.color = baseLabelColor;
+        }
+
+        private void OnDestroy() => Unsubscribe();
+
+        private void Unsubscribe()
         {
             if (reactive != null) reactive.OnChanged -= OnValueChanged;
+            reactive = null;
         }
 
         private void OnValueChanged(float newValue)
         {
-            if (label != null) label.text = Format(newValue);
-        }
-
-        private static readonly string[] Suffixes = { "", "k", "M", "B", "T" };
-
-        // Up to 4 digits + a suffix letter (1_256_000 → "1256k", 10_000 → "10k", 999 → "999"). Steps to
-        // the next suffix only when the floored value would need a 5th digit, so the number stays ≤ 9999.
-        // Floors (never rounds up) so the label only shows fully-earned units — 1.5 reads as "1". The
-        // stored amount stays a precise float; only this display is truncated.
-        private static string Format(float value)
-        {
-            int tier = 0;
-            float v = value;
-            while (Mathf.Abs(v) >= 10000f && tier < Suffixes.Length - 1)
-            {
-                v /= 1000f;
-                tier++;
-            }
-
-            return Mathf.FloorToInt(v) + Suffixes[tier];
+            if (label != null) label.text = ResourceFormat.Abbreviate(newValue);
         }
     }
 }

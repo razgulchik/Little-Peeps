@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   title: Age 5
   resourceCost:
-  - resourceType: 0
-    amount: 0
+  - resourceType: 3
+    amount: 10
   modifiers:
   - id: 2
     unitScope: 0

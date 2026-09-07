@@ -15,7 +15,7 @@ MonoBehaviour:
   title: Age 1
   resourceCost:
   - resourceType: 0
-    amount: 0
+    amount: 10
   modifiers:
   - id: 1
     unitScope: 0

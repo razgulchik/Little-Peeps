@@ -12,13 +12,6 @@ namespace LittlePeeps
     [RequireComponent(typeof(Button))]
     public class BuildCardUI : MonoBehaviour, IPointerDownHandler
     {
-        [Serializable]
-        private struct ResourceIcon
-        {
-            public ResourceType type;
-            public Sprite sprite;
-        }
-
         [Header("Interaction")]
         [SerializeField] private Button button;
         [SerializeField] private RectTransform hitRect;
@@ -41,7 +34,7 @@ namespace LittlePeeps
         [SerializeField] private Image resourceIconImage;
         [SerializeField] private TMP_Text costText;
         [SerializeField] private CanvasGroup artworkCanvasGroup;
-        [SerializeField] private ResourceIcon[] resourceIcons;
+        [SerializeField] private ResourceIconSet iconSet;
 
         [Header("Shine")]
         [SerializeField] private RectTransform shineViewport;
@@ -474,29 +467,9 @@ namespace LittlePeeps
             if (!hasCost) return;
 
             ResourceCost cost = def.cost[0];
-            if (resourceIconImage != null) resourceIconImage.sprite = FindResourceIcon(cost.resourceType);
-            if (costText != null) costText.text = FormatAmount(cost.amount);
-        }
-
-        private Sprite FindResourceIcon(ResourceType type)
-        {
-            if (resourceIcons == null) return null;
-            for (int i = 0; i < resourceIcons.Length; i++)
-                if (resourceIcons[i].type == type) return resourceIcons[i].sprite;
-            return null;
-        }
-
-        private static string FormatAmount(float value)
-        {
-            string[] suffixes = { "", "k", "M", "B", "T" };
-            int tier = 0;
-            float display = value;
-            while (Mathf.Abs(display) >= 10000f && tier < suffixes.Length - 1)
-            {
-                display /= 1000f;
-                tier++;
-            }
-            return Mathf.FloorToInt(display) + suffixes[tier];
+            if (resourceIconImage != null)
+                resourceIconImage.sprite = iconSet != null ? iconSet.IconFor(cost.resourceType) : null;
+            if (costText != null) costText.text = ResourceFormat.Abbreviate(cost.amount);
         }
 
         private static string ToRoman(int value)

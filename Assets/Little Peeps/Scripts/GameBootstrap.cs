@@ -9,7 +9,8 @@ namespace LittlePeeps
     //   Island      [IslandSystem + Tilemap/TilemapRenderer children]
     //   Camera      [Camera + CinemachineBrain; a CinemachineCamera follows the CameraTarget object]
     //   CameraTarget[CameraController — moves this object; the vcam follows it with damping]
-    //   UI (Canvas) [ResourcePanel (spawns a ResourceUnit per type), AgeUI, BuildPanelUI, PerkSelectionUI]
+    //   UI (Canvas) [ResourcePanel (spawns a ResourceUnit per type), AgeUI, AgeCostPanel (spawns a
+    //                ResourceUnit per next-age cost entry), BuildPanelUI, PerkSelectionUI]
     //
     // The pier is NOT in this list: PierSystem instantiates it per run from the "Pier" StructureDef and
     // parks it in the island's bottom-right corner. What that def's PREFAB needs is a Collider2D (on the
@@ -42,6 +43,7 @@ namespace LittlePeeps
         [Header("UI")]
         [SerializeField] private PerkSelectionUI perkSelectionUI;
         [SerializeField] private AgeUI ageUI;
+        [SerializeField] private AgeCostPanel ageCostPanel;
 
         [Header("Build mode")]
         [SerializeField] private PlacementController placementController;
@@ -76,6 +78,7 @@ namespace LittlePeeps
             ageSystem.Initialize(run);
             if (perkSelectionUI != null) perkSelectionUI.Initialize(perkSystem, run); // UI optional this milestone
             if (ageUI != null) ageUI.Initialize(ageSystem, run);
+            if (ageCostPanel != null) ageCostPanel.Initialize(ageSystem, resourceSystem, run);
 
             // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
             //    Gameplay (when async loading lands, BootState.Tick will own this transition).

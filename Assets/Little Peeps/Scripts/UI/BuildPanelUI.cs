@@ -71,7 +71,7 @@ namespace LittlePeeps
                 cards.Add(card);
             }
 
-            if (scroller != null) scroller.ResetToInitialPosition();
+            if (scroller != null) scroller.ResetToStart();
         }
 
         private void OnUIState(BuildModeUIStateEvent e)

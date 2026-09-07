@@ -25,11 +25,15 @@ namespace LittlePeeps
 
         private void OnRunStarted(RunStartedEvent e) => runContext = e.Run;
 
+        // The whole ladder, in order: ages[i] is the transition INTO age i+1. Exposed so the timeline
+        // column can draw every age, not only the next one.
+        public IReadOnlyList<AgeDef> Ages => ages;
+
         // The AgeDef for the transition OUT of `age` and INTO the next one, or null past the last age.
         // A pure catalogue lookup that touches no run state, so a caller which learned the age from an
-        // event payload (the cost UI does) gets the right answer no matter whether this system's own
-        // RunStartedEvent handler happened to run before or after theirs — EventBus makes no promise
-        // about subscriber order, and nothing here should depend on one.
+        // event payload (the cost and timeline UI do) gets the right answer no matter whether this
+        // system's own RunStartedEvent handler happened to run before or after theirs — EventBus makes
+        // no promise about subscriber order, and nothing here should depend on one.
         public AgeDef TransitionFrom(int age) => (age >= 0 && age < ages.Count) ? ages[age] : null;
 
         // The AgeDef for advancing into the NEXT age, or null when the final age has been reached.

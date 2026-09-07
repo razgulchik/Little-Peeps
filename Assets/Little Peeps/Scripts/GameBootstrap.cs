@@ -44,6 +44,7 @@ namespace LittlePeeps
         [SerializeField] private PerkSelectionUI perkSelectionUI;
         [SerializeField] private AgeUI ageUI;
         [SerializeField] private AgeCostPanel ageCostPanel;
+        [SerializeField] private AgeTimelinePanel ageTimelinePanel;
 
         [Header("Build mode")]
         [SerializeField] private PlacementController placementController;
@@ -79,6 +80,7 @@ namespace LittlePeeps
             if (perkSelectionUI != null) perkSelectionUI.Initialize(perkSystem, run); // UI optional this milestone
             if (ageUI != null) ageUI.Initialize(ageSystem, run);
             if (ageCostPanel != null) ageCostPanel.Initialize(ageSystem, resourceSystem, run);
+            if (ageTimelinePanel != null) ageTimelinePanel.Initialize(ageSystem, run);
 
             // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
             //    Gameplay (when async loading lands, BootState.Tick will own this transition).

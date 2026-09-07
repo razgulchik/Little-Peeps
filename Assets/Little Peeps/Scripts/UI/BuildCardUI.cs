@@ -135,7 +135,7 @@ namespace LittlePeeps
             IsLocked = value;
             if (lockedOverlay != null) lockedOverlay.SetActive(value);
             if (lockedText != null && Def != null)
-                lockedText.text = $"Open on\nthe Age {ToRoman(Mathf.Max(1, Def.requiredAge))}";
+                lockedText.text = $"Open on\nthe Age {RomanNumeral.From(Def.requiredAge)}";
 
             if (button != null) button.interactable = !value;
             if (value)
@@ -470,28 +470,6 @@ namespace LittlePeeps
             if (resourceIconImage != null)
                 resourceIconImage.sprite = iconSet != null ? iconSet.IconFor(cost.resourceType) : null;
             if (costText != null) costText.text = ResourceFormat.Abbreviate(cost.amount);
-        }
-
-        private static string ToRoman(int value)
-        {
-            (int value, string numeral)[] numerals =
-            {
-                (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
-                (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
-                (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")
-            };
-
-            value = Mathf.Max(1, value);
-            var result = new System.Text.StringBuilder();
-            for (int i = 0; i < numerals.Length; i++)
-            {
-                while (value >= numerals[i].value)
-                {
-                    result.Append(numerals[i].numeral);
-                    value -= numerals[i].value;
-                }
-            }
-            return result.ToString();
         }
 
         private static Vector2 PixelSnap(Vector2 value) =>

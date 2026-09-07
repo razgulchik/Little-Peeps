@@ -12,9 +12,11 @@ namespace LittlePeeps
     {
         [SerializeField] private RectTransform viewport;
         [SerializeField] private RectTransform content;
-        [SerializeField, Min(0f)] private float edgePadding = 8f;
+        // Gap held in front of the strip at either scroll stop. It has to clear the horizontal softness
+        // of the viewport RectMask2D (12) plus the hover growth of a card (57 -> 69, so 6 per side), or
+        // the outermost card fades into the mask while it rests against the stop.
+        [SerializeField, Min(0f)] private float edgePadding = 18f;
         [SerializeField, Min(1f)] private float wheelStep = 24f;
-        [SerializeField] private float initialPosition = -8f;
 
         public bool IsDragging { get; private set; }
         public bool ShouldSuppressClick { get; private set; }
@@ -42,10 +44,13 @@ namespace LittlePeeps
             ShouldSuppressClick = false;
         }
 
-        public void ResetToInitialPosition()
+        // The strip always opens hard against the left stop, so the first card is whole at any resolution.
+        // maxX is that stop by construction: content is anchored and pivoted to the left edge of the
+        // viewport, so anchoredPosition.x is exactly the gap in front of the first card.
+        public void ResetToStart()
         {
             RefreshBounds();
-            SetContentX(initialPosition);
+            SetContentX(maxX);
         }
 
         public bool CanHover(RectTransform cardRect)

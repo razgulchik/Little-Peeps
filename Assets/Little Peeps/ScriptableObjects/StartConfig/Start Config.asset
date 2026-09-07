@@ -16,7 +16,13 @@ MonoBehaviour:
   layout: {fileID: 11400000, guid: a973933529caeb0478701c65e141c8aa, type: 2}
   startingResources:
   - resourceType: 0
-    amount: 10
+    amount: 10000
   - resourceType: 1
-    amount: 10
+    amount: 10000
+  - resourceType: 2
+    amount: 10000
+  - resourceType: 3
+    amount: 10000
+  - resourceType: 4
+    amount: 10000
   startingModifiers: []

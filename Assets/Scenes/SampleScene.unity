@@ -139,6 +139,14 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 719410424745182492, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 719410424745182492, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0.6666565
+      objectReference: {fileID: 0}
     - target: {fileID: 909874677969472112, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: resourceSystem
       value: 
@@ -432,6 +440,18 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3586261921018415007, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3788472438019738882, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3788472438019738882, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3788472438019738882, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 0
       objectReference: {fileID: 0}
@@ -4211,6 +4231,7 @@ MonoBehaviour:
   perkSelectionUI: {fileID: 0}
   ageUI: {fileID: 715140271}
   ageCostPanel: {fileID: 1970227764}
+  ageTimelinePanel: {fileID: 1613394137}
   placementController: {fileID: 669469167}
   buildModeCooldown: 2
 --- !u!4 &644132715
@@ -4831,6 +4852,17 @@ MonoBehaviour:
   buildModeKey: 16
   sellKey: 38
   exitToMenuKey: 60
+--- !u!114 &1613394137 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 920375059152678463, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+  m_PrefabInstance: {fileID: 40523889}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a48d5362451d06b8b7e791317e640b9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1656171577
 GameObject:
   m_ObjectHideFlags: 0

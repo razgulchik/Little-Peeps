@@ -14,3 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   perks:
   - {fileID: 11400000, guid: 908e75f7dcaf17f4a92d9123e15cc308, type: 2}
+  - {fileID: 11400000, guid: 6e4212509c8bf024e85058c41190bfa9, type: 2}
+  - {fileID: 11400000, guid: fe1f362fee66dd14c86ac44ad0042957, type: 2}

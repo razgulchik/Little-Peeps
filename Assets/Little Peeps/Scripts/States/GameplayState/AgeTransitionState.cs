@@ -3,7 +3,7 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Inner gameplay state that owns one age advance: spends + applies the age (TriggerAgeCmd), freezes
-    // the game, plays the AgeSequencer transition, then returns to PlayingState when it completes.
+    // the game, plays the AgeSequencer transition, then hands over to the perk pick when it completes.
     //
     // Input block: timeScale 0 stops the sim AND makes TapSystem ignore world clicks (it early-returns at
     // timeScale 0), so pier/boost taps can't fire mid-transition — no UI-raycast juggling needed. The
@@ -13,6 +13,7 @@ namespace LittlePeeps
         private readonly StateMachine gameplayFsm;
         private readonly AgeSequencer ageSequencer;
         private readonly PlayingState playingState;
+        private readonly PerkSelectionState perkSelectionState;
         private readonly ResourceSystem resourceSystem;
         private readonly AgeDef ageDef;
 
@@ -23,12 +24,18 @@ namespace LittlePeeps
 
         private bool complete;
 
+        // The age never actually happened (see Enter). Kept apart from `complete` because the two exits
+        // lead to different places: a real transition owes the player a perk, an aborted one does not.
+        private bool aborted;
+
         public AgeTransitionState(StateMachine gameplayFsm, AgeSequencer ageSequencer, PlayingState playingState,
-                                  ResourceSystem resourceSystem, RunContext runContext, AgeDef ageDef)
+                                  PerkSelectionState perkSelectionState, ResourceSystem resourceSystem,
+                                  RunContext runContext, AgeDef ageDef)
         {
             this.gameplayFsm = gameplayFsm;
             this.ageSequencer = ageSequencer;
             this.playingState = playingState;
+            this.perkSelectionState = perkSelectionState;
             this.resourceSystem = resourceSystem;
             this.runContext = runContext;
             this.ageDef = ageDef;
@@ -37,18 +44,20 @@ namespace LittlePeeps
         public void Enter()
         {
             complete = false;
+            aborted = false;
 
             var cmd = new TriggerAgeCmd(resourceSystem, runContext, ageDef);
             if (!cmd.CanExecute())
             {
                 // Cost changed between the button press and here — bail straight back to playing.
                 complete = true;
+                aborted = true;
                 return;
             }
 
             cmd.Execute();                       // spend + currentAge++ + apply modifiers
             Time.timeScale = 0f;                 // freeze + block world input for the transition
-            ageSequencer.StartAgeTransition(runContext.currentAge, ageDef, runContext, () => complete = true);
+            ageSequencer.StartAgeTransition(runContext.currentAge, ageDef, () => complete = true);
         }
 
         public void Exit()
@@ -58,7 +67,12 @@ namespace LittlePeeps
 
         public void Tick()
         {
-            if (complete) gameplayFsm.ChangeState(playingState);
+            if (!complete) return;
+
+            // Straight back to play when nothing was spent and no age was entered: the perk pick is the
+            // reward for an age transition, so an aborted one must not hand one out.
+            if (aborted) gameplayFsm.ChangeState(playingState);
+            else gameplayFsm.ChangeState(perkSelectionState);
         }
     }
 }

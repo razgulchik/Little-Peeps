@@ -6,13 +6,17 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Orchestrates the age transition as an explicit sequential coroutine chain: fade to black, grow the
-    // island, show the age banner, (perk pick — hooked, later), fade back. Runs on UNSCALED time so it
-    // still plays while AgeTransitionState freezes the game (timeScale 0). Signals completion via the
-    // onComplete callback the caller passes in.
+    // island, show the age banner, fade back. Runs on UNSCALED time so it still plays while
+    // AgeTransitionState freezes the game (timeScale 0). Signals completion via the onComplete callback
+    // the caller passes in.
+    //
+    // Pure choreography, deliberately: every step here takes a KNOWN amount of time. The perk pick used
+    // to hang off the end of this chain as an empty hook, and was moved out to PerkSelectionState — a
+    // step that waits on a human is a mode, not a beat in an animation, and it has to run after the fade
+    // so the player can see the island the perk may go on to change.
     public class AgeSequencer : MonoBehaviour
     {
         [SerializeField] private IslandSystem islandSystem;
-        [SerializeField] private PerkSystem perkSystem;
 
         [Header("Transition visuals")]
         [Tooltip("Full-screen overlay faded in/out. Its Image should have Raycast Target on so it also " +
@@ -38,18 +42,17 @@ namespace LittlePeeps
         }
 
         // Kick off the transition into newAge using def, then invoke onComplete when the chain finishes.
-        public void StartAgeTransition(int newAge, AgeDef def, RunContext context, Action onComplete)
+        public void StartAgeTransition(int newAge, AgeDef def, Action onComplete)
         {
-            StartCoroutine(AgeTransitionSequence(newAge, def, context, onComplete));
+            StartCoroutine(AgeTransitionSequence(newAge, def, onComplete));
         }
 
-        private IEnumerator AgeTransitionSequence(int newAge, AgeDef def, RunContext context, Action onComplete)
+        private IEnumerator AgeTransitionSequence(int newAge, AgeDef def, Action onComplete)
         {
             yield return FadeTo(1f);
             ExpandIsland(def);
             yield return null;                         // let the tilemap refresh settle a frame
             yield return ShowAgeTitle(newAge, def);
-            yield return WaitForPerkSelection(newAge, context);
             yield return FadeTo(0f);
             onComplete?.Invoke();
         }
@@ -73,13 +76,6 @@ namespace LittlePeeps
             yield return new WaitForSecondsRealtime(titleHold);
 
             if (titleLabel != null) titleLabel.gameObject.SetActive(false);
-        }
-
-        // Hook for the perk-selection step (roll 3, show PerkSelectionUI, wait for a pick). Intentionally
-        // a no-op for now — perks are a later milestone; the transition just proceeds.
-        private IEnumerator WaitForPerkSelection(int newAge, RunContext context)
-        {
-            yield break;
         }
 
         // Lerp the overlay alpha to target over fadeDuration on unscaled time. Blocks UI raycasts while the

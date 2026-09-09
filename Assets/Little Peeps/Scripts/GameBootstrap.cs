@@ -77,7 +77,6 @@ namespace LittlePeeps
             // 4. Wire run-dependent systems.
             tapSystem.Initialize(run);
             ageSystem.Initialize(run);
-            if (perkSelectionUI != null) perkSelectionUI.Initialize(perkSystem, run); // UI optional this milestone
             if (ageUI != null) ageUI.Initialize(ageSystem, run);
             if (ageCostPanel != null) ageCostPanel.Initialize(ageSystem, resourceSystem, run);
             if (ageTimelinePanel != null) ageTimelinePanel.Initialize(ageSystem, run);
@@ -94,7 +93,9 @@ namespace LittlePeeps
             var gameplayFsm = new StateMachine();
             var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem);
             var buildModeState = new BuildModeState(spawnSystem, placementController);
-            appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState, buildModeCooldown,
+            var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkSelectionUI, runManager, playingState);
+            appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState,
+                                                                   perkSelectionState, buildModeCooldown,
                                                                    ageSystem, ageSequencer, resourceSystem, runManager));
 
             // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM

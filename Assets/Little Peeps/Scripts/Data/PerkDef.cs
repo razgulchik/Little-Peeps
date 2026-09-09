@@ -17,6 +17,9 @@ namespace LittlePeeps
 
         [TextArea] public string description;
 
+        [Tooltip("Shown on the selection card. Optional — a card with no icon just leaves the slot empty.")]
+        public Sprite icon;
+
         [Tooltip("Relative roll weight against the other eligible perks. 0 takes it out of the pool " +
                  "without removing it from the catalogue.")]
         public float weight = 1f;

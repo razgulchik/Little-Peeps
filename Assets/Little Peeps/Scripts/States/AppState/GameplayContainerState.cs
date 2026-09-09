@@ -10,6 +10,7 @@ namespace LittlePeeps
         private readonly StateMachine innerFsm;
         private readonly PlayingState playingState;
         private readonly BuildModeState buildModeState;
+        private readonly PerkSelectionState perkSelectionState;
         private readonly float buildModeCooldown;
 
         // Deps for building an AgeTransitionState on demand.
@@ -28,13 +29,15 @@ namespace LittlePeeps
         private float cooldownRemaining;
 
         public GameplayContainerState(StateMachine innerFsm, PlayingState playingState,
-                                      BuildModeState buildModeState, float buildModeCooldown,
+                                      BuildModeState buildModeState, PerkSelectionState perkSelectionState,
+                                      float buildModeCooldown,
                                       AgeSystem ageSystem, AgeSequencer ageSequencer,
                                       ResourceSystem resourceSystem, RunManager runManager)
         {
             this.innerFsm = innerFsm;
             this.playingState = playingState;
             this.buildModeState = buildModeState;
+            this.perkSelectionState = perkSelectionState;
             this.buildModeCooldown = buildModeCooldown;
             this.ageSystem = ageSystem;
             this.ageSequencer = ageSequencer;
@@ -93,12 +96,22 @@ namespace LittlePeeps
             if (run == null) return;
 
             innerFsm.ChangeState(new AgeTransitionState(
-                innerFsm, ageSequencer, playingState, resourceSystem, run, ageSystem.NextAge));
+                innerFsm, ageSequencer, playingState, perkSelectionState, resourceSystem, run, ageSystem.NextAge));
         }
 
         private void EnterBuildMode()
         {
             if (cooldownRemaining > 0f) return;   // re-entry blocked during cooldown
+
+            // Build mode is reachable only from normal play, the same rule OnAgeAdvanceRequested already
+            // enforces. It needs saying twice because the toggle has a SECOND publisher: GameHotkeys sends
+            // the same event from a key press, and a key press runs in Update — past every UI raycast and
+            // unaffected by timeScale. Without this, pressing the build key during an age transition or a
+            // perk pick dropped that state mid-flight: its Exit restored timeScale, the units were
+            // despawned behind the fade, and the sequencer coroutine finished onto a state no longer on
+            // the stack, so the run never returned to playing on its own.
+            if (innerFsm.Current != playingState) return;
+
             inBuildMode = true;
             innerFsm.ChangeState(buildModeState);
             PublishUIState();

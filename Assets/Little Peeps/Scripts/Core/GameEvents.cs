@@ -72,4 +72,13 @@ namespace LittlePeeps
     // the STATE rather than by PrestigeSystem: the subscription then lasts exactly as long as normal
     // play, so a run can never be ended from build mode or mid-age-transition.
     public struct PrestigeTriggeredEvent { }
+
+    // Published by PerkSelectionUI when the player confirms a card; handled by PerkSelectionState, which
+    // applies the perk and returns to normal play. The UI deliberately does NOT apply it itself: that is
+    // what let the old stub cache a RunContext, and a cached run goes stale the first time a prestige
+    // starts a new one.
+    public struct PerkSelectedEvent
+    {
+        public PerkDef Perk;
+    }
 }

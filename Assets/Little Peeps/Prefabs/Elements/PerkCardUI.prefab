@@ -69,7 +69,7 @@ MonoBehaviour:
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
-  m_FillMethod: 4
+  m_FillMethod: 0
   m_FillAmount: 1
   m_FillClockwise: 1
   m_FillOrigin: 0
@@ -172,8 +172,8 @@ MonoBehaviour:
   descriptionLabel: {fileID: 8171452406467403650}
   iconImage: {fileID: 5371354725629840788}
   holdFill: {fileID: 4400692035739036871}
-  heldHighlight: {fileID: 7297720823570932324}
-  holdDuration: 0
+  hoverHighlight: {fileID: 7297720823570932324}
+  holdDuration: 1
 --- !u!1 &4043997892169345667
 GameObject:
   m_ObjectHideFlags: 0

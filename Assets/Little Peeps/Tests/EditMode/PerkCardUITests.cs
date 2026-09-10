@@ -22,6 +22,7 @@ namespace LittlePeeps.Tests
         private GameObject go;
         private PerkCardUI card;
         private PerkDef perk;
+        private GameObject highlight;
         private int confirmCount;
         private PerkDef confirmedWith;
 
@@ -50,8 +51,14 @@ namespace LittlePeeps.Tests
         // instead of quietly leaving the card on its default and the tests passing on nothing.
         private void Arrange(float holdDuration)
         {
+            // A real child object rather than a stand-in: the card toggles it with SetActive and the
+            // tests read activeSelf straight back, so nothing about the frame is faked.
+            highlight = new GameObject("HoverFrame");
+            highlight.transform.SetParent(go.transform);
+
             var so = new SerializedObject(card);
             so.FindProperty("holdDuration").floatValue = holdDuration;
+            so.FindProperty("hoverHighlight").objectReferenceValue = highlight;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             card.Init(perk, p => { confirmCount++; confirmedWith = p; });
@@ -109,6 +116,76 @@ namespace LittlePeeps.Tests
             card.OnPointerUp(Pointer());
 
             Assert.That(confirmCount, Is.Zero);
+        }
+
+        // --- hover frame ---
+        //
+        // The frame belongs to HOVER and to nothing else. It used to be raised in OnPointerDown, which
+        // made the card look dead until pressed and made the frame read as "chosen" rather than "under
+        // the cursor". These pin the split so it cannot quietly collapse back into the press.
+
+        [Test]
+        public void ANewCardStartsWithoutAFrame()
+        {
+            Arrange(holdDuration: 1f);
+
+            Assert.That(highlight.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void HoveringShowsTheFrame()
+        {
+            Arrange(holdDuration: 1f);
+
+            card.OnPointerEnter(Pointer());
+
+            Assert.That(highlight.activeSelf, Is.True);
+        }
+
+        [Test]
+        public void LeavingHidesTheFrame()
+        {
+            Arrange(holdDuration: 1f);
+
+            card.OnPointerEnter(Pointer());
+            card.OnPointerExit(Pointer());
+
+            Assert.That(highlight.activeSelf, Is.False);
+        }
+
+        // The actual bug this stage fixes: a press with no hover before it must not conjure the frame.
+        [Test]
+        public void PressingAloneDoesNotRaiseTheFrame()
+        {
+            Arrange(holdDuration: 1f);
+
+            card.OnPointerDown(Pointer());
+
+            Assert.That(highlight.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void ALockedCardDoesNotHighlightOnHover()
+        {
+            Arrange(holdDuration: 1f);
+            card.SetInteractable(false);
+
+            card.OnPointerEnter(Pointer());
+
+            Assert.That(highlight.activeSelf, Is.False);
+        }
+
+        // A sibling card was confirmed while the cursor sat on this one: it must stop looking pickable
+        // immediately, not when the panel finally hides.
+        [Test]
+        public void LockingACardDropsTheFrameItWasShowing()
+        {
+            Arrange(holdDuration: 1f);
+            card.OnPointerEnter(Pointer());
+
+            card.SetInteractable(false);
+
+            Assert.That(highlight.activeSelf, Is.False);
         }
 
         [Test]

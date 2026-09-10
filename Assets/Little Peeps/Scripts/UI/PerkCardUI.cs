@@ -2,6 +2,7 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace LittlePeeps
@@ -16,7 +17,8 @@ namespace LittlePeeps
     //
     // Everything is timed on UNSCALED time: the perk pick runs at timeScale 0, so a scaled timer would
     // never advance and the card could never be confirmed at all.
-    public class PerkCardUI : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
+    public class PerkCardUI : MonoBehaviour, IPointerEnterHandler, IPointerDownHandler, IPointerUpHandler,
+                                             IPointerExitHandler
     {
         [SerializeField] private TMP_Text titleLabel;
         [SerializeField] private TMP_Text descriptionLabel;
@@ -26,8 +28,10 @@ namespace LittlePeeps
                  "one the player holds for a second against no feedback, which reads as a dead button.")]
         [SerializeField] private Image holdFill;
 
-        [Tooltip("Optional. Enabled while the card is being held; the selected-card frame goes here.")]
-        [SerializeField] private GameObject heldHighlight;
+        [Tooltip("Optional. The frame shown while the cursor is over the card. HOVER only — being held " +
+                 "is what holdFill shows, and the two are deliberately separate visuals.")]
+        [FormerlySerializedAs("heldHighlight")]
+        [SerializeField] private GameObject hoverHighlight;
 
         [Tooltip("Seconds of holding needed to confirm. 0 makes the card an ordinary click, which still " +
                  "confirms on release rather than on press.")]
@@ -49,6 +53,7 @@ namespace LittlePeeps
             this.onConfirmed = onConfirmed;
 
             interactable = true;
+            SetHovered(false);
             CancelHold();
 
             if (titleLabel != null) titleLabel.text = def != null ? def.title : string.Empty;
@@ -69,7 +74,14 @@ namespace LittlePeeps
         public void SetInteractable(bool value)
         {
             interactable = value;
-            if (!interactable) CancelHold();
+
+            // A card locked while the cursor happens to be resting on it must drop its frame too, or the
+            // losing cards keep looking pickable for as long as the panel stays up.
+            if (!interactable)
+            {
+                SetHovered(false);
+                CancelHold();
+            }
         }
 
         private void Update()
@@ -85,6 +97,16 @@ namespace LittlePeeps
             if (held >= holdDuration) Confirm();
         }
 
+        // Hover is its OWN visual, independent of the press: the frame says "this is the card under your
+        // cursor", the fill says "and you are choosing it". Both used to hang off OnPointerDown, which
+        // left the card looking inert until pressed and made the frame read as a selection marker.
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (!interactable) return;
+
+            SetHovered(true);
+        }
+
         public void OnPointerDown(PointerEventData eventData)
         {
             if (!interactable) return;
@@ -92,7 +114,6 @@ namespace LittlePeeps
             holding = true;
             held = 0f;
             ApplyProgress(0f);
-            if (heldHighlight != null) heldHighlight.SetActive(true);
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -105,10 +126,16 @@ namespace LittlePeeps
             if (confirmOnRelease && interactable) Confirm();
         }
 
-        // Sliding off the card abandons the hold. This is the escape hatch the whole interaction is
-        // built around, so it has to work while the pointer is still down.
+        // Leaving does two separate things: it drops the hover frame, and it abandons any hold in
+        // progress. The second is the escape hatch the whole interaction is built around, so it has to
+        // keep working while the pointer is still down.
+        //
+        // Coming back does NOT resume the hold: the timer is already at zero, and silently restarting it
+        // under a finger that never moved is the exact accident the hold exists to prevent. A new press
+        // is required.
         public void OnPointerExit(PointerEventData eventData)
         {
+            SetHovered(false);
             CancelHold();
         }
 
@@ -117,7 +144,11 @@ namespace LittlePeeps
             holding = false;
             held = 0f;
             ApplyProgress(0f);
-            if (heldHighlight != null) heldHighlight.SetActive(false);
+        }
+
+        private void SetHovered(bool hovered)
+        {
+            if (hoverHighlight != null) hoverHighlight.SetActive(hovered);
         }
 
         private void ApplyProgress(float t)

@@ -173,6 +173,11 @@ MonoBehaviour:
   iconImage: {fileID: 5371354725629840788}
   holdFill: {fileID: 4400692035739036871}
   hoverHighlight: {fileID: 7297720823570932324}
+  scaleTarget: {fileID: 0}
+  pressedScale: 0.97
+  pressDuration: 0.07
+  releaseDuration: 0.12
+  scaleEase: 5
   holdDuration: 1
 --- !u!1 &4043997892169345667
 GameObject:

@@ -29,8 +29,8 @@ namespace LittlePeeps
         public int agePointsAwarded;
         public int harvestPointsAwarded;
 
-        // Keyed by UpgradeId; tracks how many times each global upgrade has been purchased
-        [NonSerialized] public Dictionary<UpgradeId, int> globalUpgrades = new();
+        // Keyed by GlobalUpgradeDef.id; tracks how many levels of each global upgrade have been purchased
+        [NonSerialized] public Dictionary<string, int> globalUpgrades = new();
 
         // Bank a finished run: credit the payout and raise each record to what the run was worth GROSS.
         //
@@ -50,7 +50,7 @@ namespace LittlePeeps
         }
 
         // Return level for a specific upgrade; 0 if never purchased
-        public int GetUpgradeLevel(UpgradeId id)
+        public int GetUpgradeLevel(string id)
         {
             return globalUpgrades != null && globalUpgrades.TryGetValue(id, out var level) ? level : 0;
         }

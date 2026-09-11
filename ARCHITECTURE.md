@@ -1,55 +1,60 @@
 # Little Peeps — Architecture
 
-> Status note: the architecture skeleton is in place; several systems are still stubs.
-> Build mode is implemented through **Phase 1** (mode toggle / pause / despawn-respawn).
-> The **age flow + RunStats bonus system are implemented** (buy age → spend → grow island →
-> apply stat modifiers → fade/banner transition; perk pick inside it is still a hook).
-> **Animals (mobile resource nodes) are implemented** in code (Animal / AnimalWander /
-> AnimalSpawner + IStructureSpawner); their prefabs/defs are editor work.
-> **Harvest feedback is implemented** end to end — `HarvestedEvent` off the production gateway →
-> per-source pickup particles + a universal floating number, plus the node's fade-out. The number's
-> TMP renderer is a deliberate first pass (see `HarvestNumbers`); animals get particles and numbers
-> but no fade. Placement, prestige, save, and the main-menu states are not wired yet — called out
-> with **(stub)** / **(planned)** / **(Phase N)** below.
+> Status note (synced with the code on 2026-09-11): the run loop is closed end to end in code.
+> **Build mode** is complete — Place / Sell / Move tools, fences on grid edges, hover tints, ghost,
+> grid overlay. **Ages + the RunStats bonus system** are in (buy age → spend → grow island → apply
+> stat modifiers → fade/banner → perk pick). **Perks** are authored as assets, rolled per age and
+> picked on their own screen (hold-to-confirm). **Prestige** pays out from a per-profile record
+> formula; the pier click prestiges immediately — the confirmation screen is not built yet.
+> **Animals** (mobile resource nodes) and **harvest feedback** (particles + floating numbers) are in.
+> **Meta → run is in progress** (`GlobalUpgradeDef` exists with `id` + `description` only; no
+> catalogue, no purchase path, nothing applied at run start yet). Still stubs, marked **(stub)**
+> below: `SaveSystem` (every launch starts with a fresh `MetaContext`), `MainMenuState`,
+> `MetaUpgradesState`, `PrestigeMenuState`.
 
 ## Layer Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  UI  (ResourcePanel · AgeUI · PerkSelectionUI · BuildPanelUI)│
+│  UI  (ResourcePanel · AgeUI · AgeCostPanel · AgeTimelinePanel │
+│       · BuildPanelUI · PerkSelectionUI · BuildModeButton)     │
 │  Subscribes to ReactiveValue<T>.OnChanged and EventBus<T>    │
 └──────────────────────────┬──────────────────────────────────┘
                            │ reads / fires events
 ┌──────────────────────────▼──────────────────────────────────┐
 │  States  (AppState FSM / GameplayState FSM)                  │
-│  Commands  (PlaceStructure · MoveStructure · DestroyStructure)│
+│  Commands  (TriggerAgeCmd)                                   │
 └──────────────────────────┬──────────────────────────────────┘
                            │ calls
 ┌──────────────────────────▼──────────────────────────────────┐
-│  Systems  (IslandSystem · ResourceSystem · StructureSystem · │
-│   SpawnSystem · UnitSystem · TapSystem · AgeSystem ·          │
-│   AgeSequencer · HarvestVfxSystem · HarvestNumbers · …)       │
+│  Systems  (RunManager · IslandSystem · ResourceSystem ·      │
+│   StructureSystem · SpawnSystem · UnitSystem · TapSystem ·   │
+│   AgeSystem · AgeSequencer · PerkSystem · PrestigeSystem ·   │
+│   PierSystem · PlacementController + tools · Harvest* · …)   │
 └──────┬────────────────────────────────────────┬─────────────┘
        │ uses                                   │ dispatches to
 ┌──────▼────────────────────────┐    ┌──────────▼──────────────┐
 │  Entities                     │    │  Effects                │
-│  CollisionTarget (base)       │    │  ICollisionEffect + impls│
-│   ├ Structure                 │    │  (Spawner, ResourceSource,│
-│  Unit · Spawner · Pier        │    │   Animal are MB impls; the│
-│  ResourceSource · Animal      │    │   Effects/ classes are   │
-│  AnimalSpawner · AnimalWander │    │   legacy plain-class stubs)│
-│  IStructureSpawner (contract) │    └─────────────────────────┘
+│  CollisionTarget (base)       │    │  ICollisionEffect impls:│
+│   ├ Structure                 │    │  Spawner · ResourceSource│
+│  Unit · Spawner · Pier        │    │  · Animal (all MBs)     │
+│  ResourceSource · Animal      │    └─────────────────────────┘
+│  AnimalSpawner · AnimalWander │
+│  IStructureSpawner (contract) │
 └──────┬────────────────────────┘
        │ uses
 ┌──────▼──────────────────────────────────────────────────────┐
-│  Core  (EventBus<T> · StateMachine · ReactiveValue<T>)       │
+│  Core  (EventBus<T> · StateMachine · ReactiveValue<T> ·      │
+│         RunStats)                                            │
 │  Core/Context  (RunContext · MetaContext · SessionContext)   │
 └──────┬───────────────────────────────────────────────────────┘
        │ defined by
 ┌──────▼───────────────────────────────────────────────────────┐
 │  Data  (ScriptableObjects + Enums)                           │
-│  StructureDef · UnitDef · ResourceSourceDef · PerkDef ·      │
-│  AgeDef · StatModifier · StatId                              │
+│  StructureDef · UnitDef · ResourceSourceDef · AgeDef ·       │
+│  PerkDef / StatPerkDef · PerkCatalogueDef · GlobalUpgradeDef │
+│  StartConfigDef · StartingLayoutDef · BuildPaletteDef ·      │
+│  PrestigeFormula · StatModifier · StatId                     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -61,24 +66,29 @@ Rule: layers only depend downward. UI never writes to Systems directly — it re
 
 Everything that stands on the grid is a **Structure**; behaviour lives in components:
 
-- `CollisionTarget` (base MonoBehaviour) — owns the collision callbacks, dispatches hits to its
-  `ICollisionEffect` components, and publishes the global `CollisionEvent`.
-- `Structure : CollisionTarget` — adds placement identity: `def` (`StructureDef`) + health.
+- `CollisionTarget` (base MonoBehaviour) — owns the collision callbacks and dispatches hits to its
+  `ICollisionEffect` components. Dispatch is **local**: there is no global collision event.
+- `Structure : CollisionTarget` — adds placement identity: `def` (`StructureDef`). No health — a
+  structure is removed by selling it, never by damage.
 - A structure carries one (or more) behaviour components:
   - `Spawner` (produces units) — `[RequireComponent(typeof(Structure))]`.
   - `ResourceSource` (produces resources) — `[RequireComponent(typeof(CollisionTarget))]`.
   - `AnimalSpawner` (produces animals — mobile resource nodes) — `[RequireComponent(typeof(Structure))]`.
-- Examples: House/Hut = Structure + Spawner · Forge/Church = Structure + ResourceSource (infinite) ·
-  Tree/Wheat/Stone = Structure + ResourceSource (natural; **adding the `Structure` component to
-  these prefabs is Phase 2 editor work**) · Stable/Den = Structure + AnimalSpawner.
+- Examples: House/Hut = Structure + Spawner · Market = Structure + ResourceSource (infinite) ·
+  Tree/Wheat = Structure + ResourceSource (natural) · Stable/Den = Structure + AnimalSpawner.
+
+**Two placement kinds** (`StructureDef.placement`): `Cell` — a footprint of cells (the default), keyed
+by `Vector2Int` in `RunContext.structures`; `Edge` — sits on the boundary line between two cells
+(fences), keyed by `Edge` in `RunContext.fences`. Cells and edges share one integer lattice
+(`Edge.cs`), so there is no offset between the two coordinate spaces. `StructureDef.requiredAge`
+gates a card in the build palette until the run reaches that age.
 
 Units are gatherers (Farmer/Lumberjack/Hunter/Miner); military (Swordsman) is a later second kind.
 **Animals (Alpaca/Boar/Fox) are NOT units** — they are mobile resource nodes: a standalone
-`CollisionTarget` (not a `Structure`: no def, no grid cell, no health — the first direct use of the
-base class) + `Animal` (harvest via the same `ResourceSourceDef` pipeline as static sources;
-resource per hit, despawns after `hitsBeforeDespawn`, `infinite` never despawns) + `AnimalWander`
-(kinematic wandering). Their `UnitType` entries were removed; an animal is identified by its
-`ResourceSourceDef` asset, like a tree.
+`CollisionTarget` (not a `Structure`: no def, no grid cell — the first direct use of the base class)
++ `Animal` (harvest via the same `ResourceSourceDef` pipeline as static sources; resource per hit,
+despawns after `hitsBeforeDespawn`, `infinite` never despawns) + `AnimalWander` (kinematic
+wandering). An animal is identified by its `ResourceSourceDef` asset, like a tree.
 
 Both spawner kinds implement **`IStructureSpawner`** (`ResetForBuildMode` / `Warmup`) —
 `SpawnSystem`'s registry drives build-mode transitions through the interface. Internals are
@@ -90,42 +100,57 @@ die→cooldown→replace cycle have nothing in common beyond that contract.
 ## Three Contexts
 
 ### RunContext — resets on prestige
-**Owner:** RunManager creates it in `StartNewRun()`; most systems receive it at init.
+**Owner:** `RunManager` creates it in `StartNewRun()`. Long-lived FSM states take the `RunManager`
+and read `CurrentRun` at the point of use; MonoBehaviour systems that cache it re-bind on
+`RunStartedEvent`. Never hold a `RunContext` in an object that outlives the run — that exact bug
+shipped once (see `GameplayContainerState`).
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `resources` | `Dictionary<ResourceType, float>` | Current resource amounts |
-| `structures` | `Dictionary<Vector2Int, StructureInstance>` | Live structure registry (cell → instance) |
-| `currentAge` | `int` | Age index (0-based) |
-| `perksChosen` | `List<PerkDef>` | Perks already applied this run |
-| `stats` | `RunStats` | Accumulated bonus layer (age/perk/meta modifiers); see below |
+| `resources` | `Dictionary<ResourceType, float>` | Current resource amounts (float; display floors at show time) |
+| `structures` | `Dictionary<Vector2Int, StructureInstance>` | Live cell-structure registry (origin cell → instance) |
+| `fences` | `Dictionary<Edge, EdgeInstance>` | Live edge-structure registry |
+| `currentAge` | `int` | Age index (0-based; counts transitions bought) |
+| `perksChosen` | `List<PerkDef>` | Perks already applied this run (excluded from later rolls) |
+| `harvested` | `Dictionary<ResourceType, float>` | Everything PRODUCED this run, credited by `AddHarvest` only — the prestige ledger; spends/refunds never land here |
+| `stats` | `RunStats` | Accumulated bonus layer; see below |
 
-`StructureInstance` = `Def` (`StructureDef`) + `RuntimeObject` (`Structure`) + `Cell`.
+`StructureInstance` = `Def` + `RuntimeObject` (`Structure`) + `Cell`; `EdgeInstance` is the same with
+an `Edge`. `RuntimeObject` is never saved — it is rebuilt from the def. **Rule:** do not introduce
+run state that cannot be rebuilt from a def + an id; that is what keeps a run save small.
 
-**Lifecycle:** Created → populated by RunManager (with GlobalUpgrade multipliers) → mutated by ResourceSystem / StructureSystem / PerkSystem → discarded on `ExecutePrestige()`.
+**Lifecycle:** `StartNewRun` tears the previous run down first (`EndRun`: pier → structures → spawn
+system, order load-bearing), creates a fresh context, seeds it from `StartConfigDef` (island size,
+starting layout, resources, baseline modifiers), initialises the run-scoped systems, places the
+starting structures + pier, and publishes `RunStartedEvent` LAST so observers re-bind to a fully
+built run. Prestige and the debug "Restart Run" context menu both go through this one path.
 
-### MetaContext — persists to disk (JSON)
-**Owner:** SaveSystem loads it; PrestigeSystem writes it; RunManager reads multipliers from it.
+### MetaContext — persists to disk (JSON) — persistence is a **(stub)**
+**Owner:** `SaveSystem` loads it (currently always fresh); `PrestigeSystem` writes it via
+`BankPayout`; the meta-upgrade path that will read `globalUpgrades` at run start is in progress.
 
 | Field | Type | Purpose |
 |-------|------|---------|
 | `prestigePoints` | `int` | Currency for global upgrades |
-| `globalUpgrades` | `Dictionary<UpgradeId, int>` | Level of each purchased upgrade |
+| `agePointsAwarded` | `int` | Record: age-term points already paid to this profile |
+| `harvestPointsAwarded` | `int` | Record: harvest-term points already paid |
+| `globalUpgrades` | `Dictionary<string, int>` | Level per upgrade, keyed by `GlobalUpgradeDef.id` (`[NonSerialized]`) |
 
-**Lifecycle:** Loaded on Boot → mutated by MetaUpgradesState (spend points) and PrestigeSystem (earn points) → saved to disk whenever either mutates it. *(SaveSystem.Load currently returns a fresh MetaContext — real JSON persistence is planned.)*
+A run earns only what it BEATS: `payout = max(0, ageTerm − agePointsAwarded) + max(0, harvestTerm −
+harvestPointsAwarded)`; `BankPayout` raises each record with `Max`, never assignment. The records are
+stored as POINTS so both terms subtract the same way; the cost is that retuning `PrestigeFormula`
+does not re-price what was already paid.
 
-**Serialization note:** `Dictionary<>` is not supported by `JsonUtility`. SaveSystem must convert `globalUpgrades` to/from a `List<UpgradeLevelPair>` for JSON round-trips.
+**Lifecycle:** loaded on Boot → mutated by `PrestigeSystem` (earn) and, later, the meta-upgrade
+purchase (spend) → saved whenever either mutates it *(SaveSystem.Save is a no-op today)*.
+
+**Serialization note:** `Dictionary<>` is not supported by `JsonUtility`. When saves land,
+`globalUpgrades` must round-trip through a serializable list of (id, level) pairs.
 
 ### SessionContext — runtime only, never saved
-**Owner:** reserved for runtime session state — **currently not instantiated** (the DragController that used it was removed; PlacementController keeps its own state). Kept as the future home for session-scoped data.
-
-| Field | Type | Purpose |
-|-------|------|---------|
-| `unitPool` | `UnitPool` | Reference for any system that needs to spawn/despawn units |
-| `draggedStructure` | `Structure` | Structure currently following the cursor in BuildMode |
-| `hoveredCell` | `Vector2Int?` | Grid cell under the cursor (for hover highlights) |
-
-**Lifecycle:** none yet — no system creates or reads it at the moment. Its current fields are drag-era leftovers; revisit when real session state is added.
+**Currently not instantiated and referenced by nothing** — a drag-era leftover kept as the future
+home for session-scoped data. Its fields (`unitPool`, `draggedStructure`, `hoveredCell`) are stale;
+`PlacementController` and the tools keep their own state.
 
 ---
 
@@ -133,19 +158,49 @@ die→cooldown→replace cycle have nothing in common beyond that contract.
 
 Game parameters follow a **base + modifiers** split, so bonuses stay data-driven and reset cleanly on prestige:
 
-- **Base** values live in configs and never change: `UnitDef.speed`, `ResourceSourceDef.workerYields[worker].amount`, etc.
-- **Modifiers** accumulate on `RunContext.stats` (`RunStats`, plain C#), the per-run bonus layer. Sources (ages now; perks / meta later) just push `StatModifier` data; `RunStats` aggregates.
-- **One formula, everywhere:** `final = (base + Σflat) * (1 + Σpercent)`.
+- **Base** values live in configs and never change: `UnitDef.speed`, `UnitDef.fatigueDelay`,
+  `ResourceSourceDef.workerYields[worker].amount`, `ResourceSourceDef.respawnTime`, `Spawner`'s rest
+  duration, etc.
+- **Modifiers** accumulate on `RunContext.stats` (`RunStats`, plain C#). Sources only push
+  `StatModifier` data: `StartConfigDef.startingModifiers` (run baseline, seeded by `RunManager`),
+  `AgeDef.modifiers` (via `TriggerAgeCmd`), `StatPerkDef.modifiers` (via `ApplyPerk`), and — in
+  progress — meta upgrades at run start.
+- **One formula, everywhere:** `final = (base + Σflat) * (1 + Σpercent)`. Durations are ordinary
+  stats on this same formula: a modifier scales the SECONDS, so "regrows faster" is authored as a
+  NEGATIVE percent. No clamp, on purpose — a negative duration just fires instantly.
 
-`StatModifier` (Data, `[Serializable]`) = `id` (`StatId`) + `unitScope` (`UnitType`) + `resourceScope` (`ResourceType`) + `flat` + `percent`. `StatId` = `ProductionGlobal` (no scope) · `ResourceYield` (unit×resource) · `UnitSpeed` (unit). `StatMeta.ScopeOf` gives each id's scope mask; `RunStats` normalises the lookup key by that mask in **both** `Add` and `Apply`, so a stray/absent scope can never make authored data miss its query.
+`StatModifier` (Data, `[Serializable]` struct) = `id` (`StatId`) + `unitScope` (`UnitType`) +
+`resourceScope` (`ResourceType`) + `sourceScope` (`ResourceSourceDef`, may be EMPTY) + `flat` +
+`percent`. Drawn by `Editor/StatModifierDrawer`, which reads `StatMeta.ScopeOf` and shows only the
+scope fields the stat actually uses.
 
-**Consumers (where base meets modifiers):**
-- Harvest gains — `ResourceSystem.AddHarvest(source, worker, base, position)` applies `ResourceYield` then `ProductionGlobal`, credits, and publishes `HarvestedEvent` so the visuals follow the money. `AddResource`/`Spend` stay raw (spends/refunds are never production-boosted). Live harvest paths: `ResourceSource.OnHit` and `Animal.OnHit`, both passing their `fxAnchor` as the position.
-- Unit speed — `Unit.ResolveBaseSpeed()` = `stats.Apply(def.speed, UnitSpeed, type)`, resolved on each `Launch` (cached in `baseSpeed`; injected via `SpawnSystem` → `unit.SetStats`).
+| `StatId` | Scope | Consumer (`stats.Apply` site) |
+|----------|-------|-------------------------------|
+| `ProductionGlobal` | none | `ResourceSystem.AddHarvest` — multiplier on every credited harvest |
+| `ResourceYield` | unit × resource × source | `ResourceSystem.AddHarvest` — amount per hit |
+| `UnitSpeed` | unit | `Unit.ResolveBaseSpeed` (resolved on each `Launch`) |
+| `SpawnerRecharge` | unit | `Spawner` — seconds a unit rests inside before launching |
+| `UnitFatigueDelay` | unit | `Unit` — seconds a unit roams before it will enter a house |
+| `SourceRespawn` | source | `ResourceSource` — seconds a depleted source takes to regrow |
 
-**Perf:** one O(1) dictionary hit on a struct key (`IEquatable`, no boxing). Reads can be per-hit (harvest); modifiers change only a couple of times per run. A dirty-flag value cache is the noted growth point if profiling ever needs it.
+**Scope normalisation:** `StatMeta.ScopeOf` gives each id's mask; `RunStats.MakeKey` zeroes the
+dimensions a stat does not use and derives `resource` from `source` when both are present, in
+**both** `Add` and `Apply`, so authored data and the query can never silently miss each other.
+**Trap:** the `_ => StatScope.None` default means a new `StatId` without its own line there becomes
+GLOBAL — every scoped stat has a test pinning its mask; add one for each new scoped stat.
 
-**Extending:** a bonus on an already-wired param = pure data (author a `StatModifier`). A new param = ~2 edits (one `StatId` entry + one `Apply` at the consumer). A new scope dimension (e.g. `StructureType`) = add a field to `RunStats.Key`/`MakeKey` once. Designer-facing details: `BONUS_SYSTEM_GUIDE.md`.
+**The source axis:** an EMPTY `sourceScope` means *any source*, not *its own bucket* — `Apply` sums
+the exact-source bucket and the any-source bucket and runs the formula ONCE (twice would multiply
+the percents). Rule: `Source` is the only dimension with a meaningful empty value; `Farmer` / `Food`
+are enum zeros, not wildcards.
+
+**Perf:** one O(1) dictionary hit on a struct key (`IEquatable`, identity hash on the source, no
+boxing) — two for a source-scoped query. Reads can be per-hit; modifiers change a few times per run.
+`RunStats` is never serialised: saves store the sources and the sheet is rebuilt.
+
+**Extending:** a bonus on an already-wired param = pure data. A new param = one `StatId` entry + its
+`ScopeOf` line + one `Apply` at the consumer (+ the scope test). A new scope dimension = a field on
+`RunStats.Key`/`MakeKey` once. Designer-facing details: `BONUS_SYSTEM_GUIDE.md`.
 
 ---
 
@@ -153,7 +208,10 @@ Game parameters follow a **base + modifiers** split, so bonuses stay data-driven
 
 `EventBus<T>` is a generic static publish-subscribe bus, allocation-free on `Publish` (a cached
 subscriber array is rebuilt only when the subscriber set changes). Each event type gets its own
-static subscriber list.
+static subscriber list. **Snapshot semantics are a contract:** a handler unsubscribed mid-dispatch
+still receives the event in flight. `EventBus.ClearAll()` runs on
+`[RuntimeInitializeOnLoadMethod(SubsystemRegistration)]`, so a play-mode restart with domain reload
+off never carries stale subscribers over.
 
 ```csharp
 EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
@@ -161,46 +219,50 @@ EventBus<AgeStartedEvent>.Publish(new AgeStartedEvent { Age = 2 });
 EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);   // always unsubscribe in OnDisable/Exit
 ```
 
-**Event catalogue:**
+**Event catalogue** (`Core/GameEvents.cs`):
 
 | Struct | Published by | Consumed by |
 |--------|-------------|-------------|
-| `CollisionEvent` (carries `CollisionTarget Target`) | `CollisionTarget.HandleHit` | none yet — kept for future *global* listeners. Per-hit effects (Spawner/ResourceSource) are dispatched **locally** by CollisionTarget, not via this event. |
-| `ResourceChangedEvent` | `ResourceSystem.AddResource` | AgeUI (re-checks whether the next age is affordable). The resource bar does NOT use it — `ResourcePanel` binds each row to the type's `ReactiveValue`, which is why `ResourceSystem.Initialize` must reuse those objects across runs rather than replace them |
-| `StructurePlacedEvent` | `StructureSystem.PlaceStructure` (stub) | RunContext, AgeUI |
-| `StructureRemovedEvent` | `StructureSystem.RemoveStructure` (stub) | RunContext |
-| `StructureDamagedEvent` | `Structure.TakeDamage` (stub) | UI health bars |
-| `StructureDestroyedEvent` | `Structure.TakeDamage` (stub) | StructureSystem cleanup |
-| `HarvestedEvent` (`Source`, `Type`, `Amount`, `Position`) | `ResourceSystem.AddHarvest` — i.e. the production gateway itself, NOT its callers | `HarvestVfxSystem` (pickup particles), `HarvestNumbers` (the "+1.2k"). Published from inside the gateway on purpose: any future path that generates a resource gets its feedback for free, and no harvest site can forget to fire it. Carries the whole `ResourceSourceDef`, not just the `ResourceType`, for the same reason `AddHarvest` does — Wheat/Boar/Fox are all Food and Alpaka/Market are both Coins, so the type cannot say WHAT was harvested. `Amount` is the CREDITED figure, after both multipliers, so the number on screen always matches the number on the bar |
-| `AgeStartedEvent` | `AgeSequencer` (banner step) | CameraController (re-clamp bounds), AgeUI (label + button), PierSystem (move pier to the new right edge) |
-| `AgeAdvanceRequestedEvent` | `AgeUI` (Next Age button) | `GameplayContainerState` (enters AgeTransition if affordable) |
-| `UnitBoostedEvent` | `TapSystem` | analytics / VFX |
-| `PerkSelectedEvent` | `PerkSystem.ApplyPerk` | AgeSequencer, PerkSelectionUI |
-| `PrestigeTriggeredEvent` | `TapSystem` (Pier click) | `PlayingState` — deliberately the STATE, not `PrestigeSystem`: the subscription then lasts exactly as long as normal play, so a run can never be ended from build mode or mid-age-transition. B2 swaps `ExecutePrestige` for a transition into `PrestigeMenuState` |
-| `BuildModeToggleRequestedEvent` | `BuildModeButton` (click) | `GameplayContainerState` |
-| `BuildModeUIStateEvent` (`InBuildMode`, `Interactable`) | `GameplayContainerState` | `BuildModeButton` (icon swap + interactable) |
+| `RunStartedEvent` (`Run`) | `RunManager.StartNewRun`, as its LAST step | `AgeSystem`, `TapSystem`, `AgeUI`, `AgeCostPanel`, `AgeTimelinePanel`, `BuildPanelUI` — every MonoBehaviour that caches the run re-binds here. On the very first run it reaches nobody (their `OnEnable` has not run yet), which is why `GameBootstrap` still injects by hand |
+| `ResourceChangedEvent` (`ResourceType`, `NewValue`) | `ResourceSystem.AddResource` | `AgeUI`, `AgeCostPanel` (affordability). The resource bar does NOT use it — `ResourcePanel` binds each row to the type's `ReactiveValue`, which is why `ResourceSystem.Initialize` must REUSE those objects across runs rather than replace them |
+| `HarvestedEvent` (`Source`, `Type`, `Amount`, `Position`) | `ResourceSystem.AddHarvest` — the production gateway itself, NOT its callers | `HarvestVfxSystem` (pickup particles), `HarvestNumbers` (the "+1.2k"). Published from inside the gateway on purpose: any future production path gets its feedback for free. Carries the whole `ResourceSourceDef` because Wheat/Boar/Fox are all Food and Alpaka/Market are both Coins. `Amount` is the CREDITED figure, after both multipliers |
+| `AgeStartedEvent` (`Age`) | `AgeSequencer` (banner step) | `CameraController` (re-clamp bounds), `PierSystem` (re-snap to the new right edge), `AgeUI`, `AgeCostPanel`, `AgeTimelinePanel`, `BuildPanelUI` (unlock cards by `requiredAge`) |
+| `AgeAdvanceRequestedEvent` | `AgeUI` (Next Age button) | `GameplayContainerState` — enters `AgeTransitionState` only from `PlayingState` and only if affordable |
+| `BuildModeToggleRequestedEvent` | `BuildModeButton` (click), `GameHotkeys` (B) | `GameplayContainerState`. The key path runs in `Update` past every UI raycast and regardless of timeScale, so the container guards on the CURRENT inner state — any new inner state needs the same guard |
+| `SellModeRequestedEvent` | `GameHotkeys` (X) | `BuildPanelUI` (toggles the sell button) |
+| `ExitToMenuRequestedEvent` | `GameHotkeys` (Esc) | `GameBootstrap` — DECLINED with a warning while `MainMenuState` is a stub, because entering it stranded the player (B3 restores the transition) |
+| `BuildModeUIStateEvent` (`InBuildMode`, `Interactable`) | `GameplayContainerState` | `BuildModeButton` (icon swap + interactable), `BuildPanelUI` (show/hide) |
+| `BuildDeniedEvent` (`Def`) | `PlaceTool` (unaffordable / blocked click) | `BuildPanelUI` → the selected card plays its denied cue |
+| `PrestigeTriggeredEvent` | `TapSystem` (pier click) | `PlayingState` — deliberately the STATE, not `PrestigeSystem`: the subscription lasts exactly as long as normal play, so a run can never end from build mode or mid-transition. B2 swaps the direct `ExecutePrestige` for a `PrestigeMenuState` |
+| `PerkSelectedEvent` (`Perk`) | `PerkSelectionUI` (a card's hold completed) | `PerkSelectionState` — applies via `PerkSystem`, hides the screen, returns to `PlayingState` |
 
-> **Unit spawn/despawn use NO events.** `SpawnSystem` keeps `UnitSystem`'s live registry in sync
-> via direct `unitSystem.Add` / `Remove` calls (single consumer, rare population changes — building
-> enter/exit is rest/launch, not spawn/despawn). The old `UnitSpawnedEvent`/`UnitDespawnedEvent`
-> were removed.
+> **No events for:** unit spawn/despawn (`SpawnSystem` calls `UnitSystem.Add/Remove` directly — single
+> consumer), collisions (`CollisionTarget` dispatches to its own `ICollisionEffect`s), structure
+> place/remove (callers use the `StructureSystem` return values), unit boosts. The skeleton's
+> `CollisionEvent` / `Structure*Event` / `UnitBoostedEvent` were removed as dead.
 
 ---
 
 ## State Machines
 
+`StateMachine` contract, pinned by tests: `Push` runs the new state's `Enter` over the current one;
+`Pop` runs the revealed state's `Enter` a SECOND time. Do not insert a state inside a transition that
+must not re-run its `Enter` (that is why the perk pick is a sibling of `AgeTransitionState`, not a
+push on top of it).
+
 ### App FSM  (`appStateMachine` in GameBootstrap)
 
 ```
-Boot ──load complete──▶ MainMenu        (MainMenu/MetaUpgrades planned, not wired)
-MainMenu ──play──▶ GameplayContainer
-MainMenu ──meta──▶ MetaUpgrades
-MetaUpgrades ──back──▶ MainMenu
-GameplayContainer ──prestige complete──▶ MainMenu
+Boot ──(synchronous)──▶ GameplayContainer          ← current path
+Boot ──▶ MainMenu ──play──▶ GameplayContainer        (stub — B3)
+MainMenu ──meta──▶ MetaUpgrades ──back──▶ MainMenu    (stub — B4)
+GameplayContainer ──Esc──▶ MainMenu                   (declined until B3)
 ```
 
-**Current path:** GameBootstrap.Awake pushes `Boot`, then transitions straight to
-`GameplayContainer` (MainMenu is skipped until its UI exists).
+`GameBootstrap.Awake` does all wiring (order-independent: every `Awake` completes before any
+`Start`, so systems must not read injected state before `Start`). It pushes `BootState`, then
+`ChangeState`s straight into `GameplayContainerState`. All long-lived states receive the
+`RunManager`, never a `RunContext`.
 
 ### Gameplay FSM  (`innerFsm` inside `GameplayContainerState`)
 
@@ -208,29 +270,40 @@ GameplayContainer ──prestige complete──▶ MainMenu
 Playing ──BuildModeToggleRequestedEvent──▶ BuildMode
 BuildMode ──BuildModeToggleRequestedEvent──▶ Playing      (then 5s re-entry cooldown)
 Playing ──AgeAdvanceRequestedEvent (affordable)──▶ AgeTransition
-AgeTransition ──sequencer done──▶ Playing
-Playing ──PrestigeTriggeredEvent──▶ PrestigeMenu          (planned)
+AgeTransition ──sequencer done──▶ PerkSelection ──perk confirmed / nothing to offer──▶ Playing
+AgeTransition ──aborted (cost changed)──▶ Playing         (no perk owed)
+Playing ──PrestigeTriggeredEvent──▶ ExecutePrestige → StartNewRun     (B2 inserts PrestigeMenu here)
 ```
 
 **`GameplayContainerState` is the gameplay coordinator:** it subscribes to
 `BuildModeToggleRequestedEvent` and `AgeAdvanceRequestedEvent`, owns the **5s re-entry cooldown**
-(unscaled time, blocks re-entering build mode right after leaving — anti-respawn-abuse), switches
-the inner FSM between `PlayingState` / `BuildModeState` / `AgeTransitionState`, and pushes
-`BuildModeUIStateEvent` so the button reflects mode + cooldown. On an age-advance request it enters
-`AgeTransitionState` only from normal play and only when `AgeSystem.CanAdvance`.
+(unscaled time, anti-respawn-abuse), switches the inner FSM, and pushes `BuildModeUIStateEvent` so
+the button reflects mode + cooldown. **Both** entry points check the current inner state — build
+mode and an age advance start only from `PlayingState`. It builds a fresh `AgeTransitionState` per
+transition (the one state allowed to hold a `RunContext`: it dies with the transition).
 
-**`AgeTransitionState`:** on `Enter` runs `TriggerAgeCmd` (spend cost + `currentAge++` +
-`stats.Add(ageDef.modifiers)`), sets `Time.timeScale = 0` (this both freezes the sim AND makes
-`TapSystem` ignore world clicks — it early-returns at timeScale 0, so no UI-raycast juggling is
-needed), and starts the `AgeSequencer`; on completion it returns to `PlayingState` and restores
-`timeScale = 1`. The sequencer chain (`AgeSequencer`, unscaled time): fade to black →
-`IslandSystem.Expand(ageDef)` → "Age N" banner (+ `AgeStartedEvent`) → perk-pick **hook (no-op,
-later)** → fade back.
+**`AgeTransitionState`:** on `Enter` runs `TriggerAgeCmd` (spend + `currentAge++` +
+`stats.Add(ageDef.modifiers)`), sets `Time.timeScale = 0` (freezes the sim AND makes `TapSystem`
+ignore world clicks — it early-returns at timeScale 0), and starts the `AgeSequencer` (unscaled
+time: fade → `IslandSystem.Expand` → "Age N" banner + `AgeStartedEvent` → fade back). Completion
+hands over to `PerkSelectionState`; an abort (the cost changed between click and spend) goes
+straight back to `PlayingState`, because no age happened and no perk is owed.
+
+**`PerkSelectionState`:** the pick as its own MODE, after the transition has fully finished, so the
+player chooses over the island they just grew (and a future world-changing perk has a world to
+change). `Enter` rolls via `PerkSystem.RollPerks` and shows `PerkSelectionUI` at `timeScale 0`
+(unscaled timers everywhere — the EventSystem still runs); an empty roll skips the screen entirely.
+`PerkSelectedEvent` → `PerkSystem.ApplyPerk` → back to `PlayingState`.
 
 **`BuildModeState`:** on `Enter` sets `Time.timeScale = 0` and calls
 `SpawnSystem.DespawnAllAndResetSpawners()` (all units returned to the pool); on `Exit` calls
-`SpawnSystem.WarmupAllSpawners()` (units respawn from their structures) and restores
-`Time.timeScale = 1`. Placement / ghost / grid overlay arrive in Phase 2.
+`SpawnSystem.WarmupAllSpawners()` and restores `timeScale = 1`. `PlacementController` drives the
+tools while here. **Invariant:** a run is never ended or saved from build mode — `MoveTool` can hold
+a structure OFF the grid mid-drag, and that invariant is what makes `EndRun`'s sweep over
+`run.structures` complete. The debug "Restart Run" refuses from build mode for the same reason.
+
+**`PlayingState`:** subscribes to `PrestigeTriggeredEvent` for exactly its own lifetime and calls
+`PrestigeSystem.ExecutePrestige` directly (no confirmation yet).
 
 ---
 
@@ -247,9 +320,9 @@ later)** → fade back.
 
 **Collision dispatch lives in `CollisionTarget`** (the base). Both `OnCollisionEnter2D` (obstacle
 path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)` →
-`effect.OnHit(...)` for each `ICollisionEffect` component on the target → publish `CollisionEvent`.
-`Structure : CollisionTarget` adds `def`/health. The Rigidbody2D sits on the root so callbacks
-fire there; the collider may live on a child (fetched via `GetComponentInChildren`).
+`effect.OnHit(...)` for each `ICollisionEffect` component on the target. `Structure :
+CollisionTarget` adds `def`. The Rigidbody2D sits on the root so callbacks fire there; the collider
+may live on a child (fetched via `GetComponentInChildren`).
 
 **Obstacle vs Interactable** — set via `isTrigger` on the prefab's collider; same `HandleHit` path
 for both. No separate CollisionSystem.
@@ -257,8 +330,21 @@ for both. No separate CollisionSystem.
 **Per-structure colliders (no CompositeCollider2D on structures)** — each has its own BoxCollider2D
 so it can be enabled/disabled individually during drag and on resource-source depletion.
 
-**Build-mode pause** uses `Time.timeScale = 0` (not `Physics2D.simulationMode`); units are
-despawned on enter, so there is nothing to simulate anyway.
+**Pauses** (build mode, age transition, perk pick) all use `Time.timeScale = 0` (not
+`Physics2D.simulationMode`); build mode despawns the units first, so there is nothing to simulate.
+
+---
+
+## Assemblies & Tests
+
+One runtime assembly, `LittlePeeps.Runtime` (single `namespace LittlePeeps`; folders give the
+structure), plus `LittlePeeps.Editor` (drawers, the `HarvestFeedbackWindow`) and
+`LittlePeeps.Tests.EditMode` under `Assets/Little Peeps/Tests/EditMode`. Tests cover the risk
+points, one file each: `RunStats`, `IslandGrid`, `EventBus`, `StateMachine`, spawner directions,
+run teardown, harvest ledger, prestige formula + payout, perk roll, perk state + card, placement
+target. **Edit Mode runs NO MonoBehaviour lifecycle callbacks** (no `[ExecuteAlways]` anywhere), so a
+test may never depend on Unity invoking `Start`/`OnDestroy` — call the method by hand. Anything that
+must prove a callback belongs in a PlayMode assembly (none yet).
 
 ---
 
@@ -266,31 +352,41 @@ despawned on enter, so there is nothing to simulate anyway.
 
 | Component | Type | Responsibility |
 |-----------|------|---------------|
-| `IslandGrid` | Plain C# | Grid data: cells (`terrain` + `occupant: StructureInstance`), placement validation (`CanPlace/Place/Remove/Move` — **stubs, Phase 2**), world↔grid conversion; `CellBounds(out min,out max)` = integer cell extent (used by `WorldBounds` and `PierSystem`'s right-edge snap) |
-| `IslandGenerator` | Plain C# | Seeds the starting island (centered Grass square); `Expand(blocks)` adds `AgeDef.expansionBlocks` — absolute `RectInt`s, only missing cells created (biome variety later) |
-| `IslandSystem` | MB | Owns Grid + Generator; `GenerateForRun()`; `Expand(AgeDef)` grows the island + redraws the tilemap (driven explicitly by `AgeSequencer`, not an event) |
+| `RunManager` | MB | The one way a run starts and ends. `StartNewRun` = `EndRun` + fresh `RunContext` seeded from `StartConfigDef` (island size, `StartingLayoutDef`, resources, baseline modifiers) → init resource/structure/spawn systems → island → starting structures → `PierSystem.PlaceForRun` → `RunStartedEvent`. `EndRun` tears down pier → structures → spawn system (order load-bearing: spawners despawn their resting units, then SpawnSystem collects the roamers). `[ContextMenu("Restart Run")]` debug trigger, refused from build mode |
+| `IslandGrid` | Plain C# | Grid data: sparse cells (`terrain` + `occupant`), placement validation (`CanPlace/Place/Remove` with footprint, allowed terrain, border), edge registry (`CanPlaceEdge/PlaceEdge/RemoveEdge`), world↔grid and world↔edge conversion; `CellBounds` / `WorldBounds` for the camera and the pier |
+| `IslandGenerator` | Plain C# | Seeds the starting island (centered Grass square); `Expand(blocks)` adds `AgeDef.expansionBlocks` — absolute `RectInt`s, only missing cells created |
+| `IslandSystem` | MB | Owns Grid + Generator + tile painter; `GenerateForRun(size)`; `Expand(AgeDef)` grows the island and redraws the tilemap (driven explicitly by `AgeSequencer`, not an event) |
+| `StructureSystem` | MB | Place / Sell / Remove / PickUp / Drop for BOTH cell and edge structures; `PlaceStructure` validates + spends, `PlaceInitial` is the free run-start path (layout, pier); `ClearAll` sweeps the run's registries on `EndRun`. Returns the created instance so owners (the pier) can track and move it |
+| `PlacementController` | MB | Build-mode input router: the panel selection chooses the tool — card → `PlaceTool`, sell button → `SellTool`, nothing → `MoveTool` (default). Right-click cancels the tool's action or clears the selection (`ToolCleared` → panel) |
+| `IPlacementTool` / `PlaceTool` / `MoveTool` / `SellTool` | Plain C# | One tool active at a time. Contract: `Exit` leaves NOTHING behind (no ghost, no tint, no half-finished drag). `PlaceTool` is one instance per `StructureDef` (ghost, cell or edge); `MoveTool` is the only tool with state between clicks and the only one that holds a structure off the grid; `SellTool` refunds `sellRefundPercent` |
+| `PlacementTarget` | Plain C# | THE answer to "what is under the cursor" — fence on an edge, structure on a cell, or nothing — shared by Sell, Move pick-up and the hover highlight, so the fence-wins rule exists once |
+| `PlacementVisuals` / `HoverHighlight` / `GridOverlay` | MB | Everything build mode DRAWS that is not a real structure: ghost + territory halo + hover/drag tints (visuals); cursor-target tint with meaning chosen by the tool (highlight); one procedural quad mesh outlining every cell (overlay — thin quads, not `MeshTopology.Lines`, which URP 2D draws unreliably) |
 | `UnitPool` | MB | Pool per UnitDef; `Get` / `Release` |
-| `UnitSystem` | MB | Live-unit registry (`ActiveUnits`); fed by **direct `SpawnSystem` Add/Remove** (no events); home for future bulk ops (tap-AoE) |
-| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type cap; syncs UnitSystem; owns the **spawner registry** (`IStructureSpawner`: unit Spawners + AnimalSpawners); `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode); `Initialize(RunContext)` → injects `RunStats` into each spawned unit |
-| `ResourceSystem` | MB | `ReactiveValue<float>` per resource; `AddResource` / `GetResource`; `AddHarvest(type, worker, base)` = production gateway (applies `ResourceYield` + `ProductionGlobal`); `CanAfford` / `Spend` |
-| `StructureSystem` | MB | Place / Remove / Move structures via IslandGrid (**stubs, Phase 2**); publishes Structure* events. `Build`/`PlaceInitial` return the created `StructureInstance` so owners (the pier) can track + move it later |
-| `PierSystem` | MB | Owns the pier for a run: `PlaceForRun()` (called by RunManager after island gen) drops it in the island's bottom-right corner; on `AgeStartedEvent` it re-snaps to the new right edge via `StructureSystem` pick-up/drop. Anchors to the **rightmost column's own bottom** (ragged shorelines), warns if the age's right-edge growth is too short. Not part of `StartingLayoutDef` — single owner of the pier's cell |
-| `PlacementController` | MB | BuildMode tool controller: ghost place / sell / move-drag + grid overlay; right-click cancels (replaced the old DragController) |
-| `TapSystem` | MB | Click-on-unit → `Boost`; Pier click → prestige (New Input System) |
-| `AgeSystem` | MB | Owns the ordered `List<AgeDef>` catalogue; `NextAge` / `CanAdvance` (queried by AgeUI + GameplayContainerState). Current age lives on RunContext, so it's stateless between runs |
-| `AgeSequencer` | MB | Coroutine chain for an age transition (fade → island expand → "Age N" banner → perk hook → fade), unscaled time; signals completion via callback. Refs: fade `CanvasGroup` + title `TMP_Text` |
-| `PerkSystem` | MB | Weighted random roll of perks; `ApplyPerk` (still stub; the age-transition perk step is a hook) |
-| `PrestigeSystem` | MB | Owns the payout. `Calculate` = `PrestigeFormula.Points(run, meta)`: an age term and a harvest term, each paid only for what it BEATS of the profile's record (`MetaContext.agePointsAwarded` / `harvestPointsAwarded`), so a run is worth how far it got, not how long it lasted. `ExecutePrestige` reads the payout and both gross terms BEFORE banking (the records it raises are what `Calculate` subtracts), then saves and restarts the run via `RunManager`. `CanPrestige` gates the pier on `pierUnlockAge` |
-| `RunManager` | MB | Creates RunContext; seeds `stats` (debug modifiers now, meta later); `Initialize`s resource/structure/**spawn** systems; owns island generation timing; after generation places starting structures + `PierSystem.PlaceForRun()` |
-| `SaveSystem` | MB | JSON serialization of MetaContext (**stub: returns fresh MetaContext**) |
-| `HarvestVfxSystem` | MB | Pickup particles for every harvest. **One shared emitter per `ResourceSourceDef`**, instantiated from `def.pickupFx` on that def's first harvest and reused for the session: a ParticleSystem is cheapest when one system emits many particles (a thousand ears = one draw call, no GameObject each), while spawning a system per harvest would pay the GameObject cost AND lose the batching. Moves the emitter to the harvest point and `Emit`s — deliberately not `EmitParams`, so the authored Shape module keeps working exactly as it previews. **Validates instead of silently fixing**: a prefab that isn't World-space/looping is refused and named in the console, because a value the inspector shows but the game ignores is the worst thing to hand whoever tunes it next. Skips off-screen harvests |
-| `HarvestNumbers` | MB | The floating "+1.2k" — universal, one prefab and one set of curves for every resource (unlike the particles, which are per source). Pooled world-space `TextMeshPro` (the field's TYPE forbids the UGUI variant, whose Canvas would rebuild its whole batch on every move), driven by **one flat loop over a fixed-size array** — no coroutine and no MonoBehaviour per popup. `SetText` overloads format in place, so no string is built and nothing lands on the GC. Cap + recycle-nearest-death bounds both the budget and the readability. **Tuning lives on the system, not the prefab**, so the feel survives the planned renderer swap (one mesh built from a glyph atlas = one draw call at any count) — that swap should touch this file only |
-| `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch + `CollisionEvent`; `SetColliderEnabled` |
-| `Structure` | MB : CollisionTarget | Placement identity: `def` (StructureDef) + health / `TakeDamage` (stub) |
-| `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit); SpawnSystem's registry is a list of these |
-| `Spawner` | MB, `ICollisionEffect`, `IStructureSpawner` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; `ResetForBuildMode` / `Warmup` |
-| `ResourceSource` | MB, `ICollisionEffect` | Static resource node: grants `def.resource` per allowed-worker hit (yield resolve = `ResourceSourceDef.TryGetYield`, shared with Animal), depletes/respawns in place; swaps Ready/Harvested visual roots (`SetActive`) + toggles host collider. `infinite` defs keep a single visual. On depletion the ready root **fades** (`fadeOutTime` + curve, per prefab — a field and a tree may vanish at different speeds) revealing the harvested sprite already sitting underneath; the fade rides the existing `Update` rather than a coroutine, tints via `SpriteRenderer.color` (vertex colour — no material instance, no broken batching), and restores alpha on `Respawn`, or the field would regrow invisible. Gameplay ends at the hit (collider off, regrow ticking), so the fade can never hand out a free harvest |
-| `Animal` | MB, `ICollisionEffect` | Mobile resource node: same `ResourceSourceDef` harvest per hit, but after `hitsBeforeDespawn` hits it notifies its owning AnimalSpawner and destroys itself (def.respawnTime unused — replacement cadence is the spawner's `spawnCooldown`); `infinite` never despawns |
-| `AnimalWander` | MB | Kinematic wander: point in owner's territory → walk straight → pause → repeat; without an owner (scene-placed) wanders a plain circle around its start |
-| `AnimalSpawner` | MB, `IStructureSpawner` | Keeps ≤ `maxAnimals` animals in the structure's territory (land cells within `territoryRadiusCells` of the footprint; own border counts free, occupied land is the fallback — den-in-forest); one replacement per `spawnCooldown`; territory follows the building via `instance.Cell` |
-| `BuildModeButton` | MB (UI) | Toggle button: publishes `BuildModeToggleRequestedEvent`, reflects `BuildModeUIStateEvent` |
+| `UnitSystem` | MB | Live-unit registry (`ActiveUnits`); fed by **direct `SpawnSystem` Add/Remove** (no events); home for future bulk ops |
+| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type capacity; syncs UnitSystem; owns the **spawner registry** (`IStructureSpawner`: unit Spawners + AnimalSpawners); `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode, `IsBuildMode`); `ResetForNewRun`; `Initialize(RunContext)` injects `RunStats` into each spawned unit |
+| `ResourceSystem` | MB | One `ReactiveValue<float>` per resource type, REUSED across runs (`Initialize` assigns into the existing slot — replacing it froze the bar after a prestige). `AddHarvest(source, worker, base, position)` is the single production gateway (applies `ResourceYield` + `ProductionGlobal`, books `harvested`, publishes `HarvestedEvent`); `AddResource` / `Spend` / `CanAfford` stay raw for spends and refunds |
+| `PierSystem` | MB | Owns the pier for a run: `PlaceForRun()` (after island gen) drops it in the bottom-right corner; on `AgeStartedEvent` re-snaps to the new right edge via `StructureSystem` pick-up/drop; `ClearForRun()` on teardown. Not part of `StartingLayoutDef` — single owner of the pier's cell |
+| `TapSystem` | MB | Click on the world: boosts units in an AoE radius around the cursor; a click on the pier publishes `PrestigeTriggeredEvent`. Early-returns at `timeScale 0`, which is what makes every pause also an input block. Re-binds on `RunStartedEvent` |
+| `AgeSystem` | MB | Owns the ordered `List<AgeDef>` catalogue; `TransitionFrom(age)` / `NextAge` / `CanAdvance`. Current age lives on `RunContext`, so the system is stateless between runs; re-binds on `RunStartedEvent` |
+| `AgeSequencer` | MB | Coroutine chain for an age transition (fade → island expand → "Age N" banner → fade), unscaled time; signals completion via callback. Pure choreography: every step takes a KNOWN time — the perk pick, which waits on a human, lives in `PerkSelectionState` instead |
+| `PerkSystem` | MB | `RollPerks(age, run)`: weighted draw WITHOUT replacement from `PerkCatalogueDef`, filtered by `minAge` and `perksChosen`, fewer than `choicesOffered` when fewer are eligible (never filler). `ApplyPerk` calls `perk.ApplyPerk(run)` and records it. Validates ids at startup (empty / duplicate = a future lost-perk bug). Never casts to `StatPerkDef` — a perk with behaviour is its own `PerkDef` subclass |
+| `PrestigeSystem` | MB | Owns the payout. `Calculate` = `PrestigeFormula.Points(run, meta)`: an age term (`pointsPerAge × currentAge`) and a harvest term (`coefficient × weightedHarvest^exponent`), each paid only for what it BEATS of the profile's record. `ExecutePrestige` reads the payout and both gross terms BEFORE banking, saves (no-op today), then `RunManager.StartNewRun`. `CanPrestige` gates the pier on `pierUnlockAge` |
+| `SaveSystem` | MB | JSON persistence of `MetaContext` (**stub**: `Load` returns a fresh context, `Save` does nothing) |
+| `GameHotkeys` | MB | Discrete hotkeys → events (B build mode, X sell, Esc exit-to-menu), bindings editable in the inspector. Runs in `Update`, past UI raycasts and timeScale — consumers guard |
+| `InputHandler` | MB | Raw input router (screen → world); read by `CameraController`, `PlacementController`, `TapSystem` |
+| `CameraController` | MB | Continuous camera movement; `RefreshBounds` re-clamps to `IslandGrid.WorldBounds` on `AgeStartedEvent` |
+| `HarvestVfxSystem` | MB | Pickup particles for every harvest. **One shared emitter per `ResourceSourceDef`**, instantiated from `def.pickupFx` on first harvest and reused (one system emitting many particles = one draw call). Moves the emitter and `Emit`s — deliberately not `EmitParams`, so the authored Shape module keeps working. **Validates instead of silently fixing** a prefab that isn't World-space/looping. Skips off-screen harvests |
+| `HarvestNumbers` | MB | The floating "+1.2k" — universal, one prefab and one set of curves for every resource. Pooled world-space `TextMeshPro`, driven by one flat loop over a fixed-size array (no coroutine, no MonoBehaviour per popup); `SetText` overloads format in place, nothing lands on the GC. Cap + recycle-nearest-death. **Tuning lives on the system, not the prefab** |
+| `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch; `SetColliderEnabled` |
+| `Structure` | MB : CollisionTarget | Placement identity: `def` (`StructureDef`) |
+| `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit) |
+| `Spawner` | MB, `ICollisionEffect`, `IStructureSpawner` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; rest duration through `SpawnerRecharge`; launch boost (`launchSpeedMultiplier` / `launchBoostDuration`) |
+| `Unit` | MB | Bouncing gatherer: `Launch` (resolves speed through `UnitSpeed`), `EnterRest`, fatigue timer through `UnitFatigueDelay`, tap `Boost`; holds `RunStats` via `SetStats` |
+| `ResourceSource` | MB, `ICollisionEffect` | Static resource node: grants `def.resource` per allowed-worker hit (yield via `ResourceSourceDef.TryGetYield`, shared with Animal), depletes and respawns in place (respawn through `SourceRespawn`); swaps Ready/Harvested visual roots + toggles the host collider; `infinite` defs keep a single visual. On depletion the ready root **fades** (`fadeOutTime` + curve, per prefab) via `SpriteRenderer.color` — gameplay ends at the hit, so the fade can never hand out a free harvest |
+| `Animal` | MB, `ICollisionEffect` | Mobile resource node: same `ResourceSourceDef` harvest per hit; after `hitsBeforeDespawn` it notifies its owning AnimalSpawner and destroys itself (`def.respawnTime` unused — cadence is the spawner's `spawnCooldown`); `infinite` never despawns |
+| `AnimalWander` | MB | Kinematic wander: point in owner's territory → walk straight → pause → repeat; without an owner wanders a plain circle around its start |
+| `AnimalSpawner` | MB, `IStructureSpawner` | Keeps ≤ `maxAnimals` animals in the structure's territory (land cells within `territoryRadiusCells`); one replacement per `spawnCooldown`; territory follows the building via `instance.Cell` |
+| `ResourcePanel` / `ResourceUnit` | MB (UI) | Top resource bar: one `ResourceUnit` per `ResourceIconSet` entry, bound to its `ReactiveValue`; the icon set's order IS the display order |
+| `AgeUI` / `AgeCostPanel` / `AgeTimelinePanel` | MB (UI) | Next-age button + label; the price tag (one `ResourceUnit` per cost entry, same prefab as the bar); the timeline of bought ages (layout-driven: a bottom-aligned Vertical Layout Group + RectMask2D do the "slide up") |
+| `BuildModeButton` / `BuildPanelUI` / `BuildCardUI` | MB (UI) | Toggle button (publishes toggle, reflects `BuildModeUIStateEvent`); the build palette (a card per `BuildPaletteDef` entry, locked below `requiredAge`, sell button, drives the controller's tool selection; hidden via `CanvasGroup`, stays active to keep listening); one card (fixed root = slot, `AnimatedVisual` child moves, LitMotion) |
+| `PerkSelectionUI` / `PerkCardUI` | MB (UI) | The perk screen: owns the cards and nothing else — publishes `PerkSelectedEvent`, holds no run. Hidden via `CanvasGroup`, never `SetActive(false)` (an inactive panel's `Awake` would fire inside `Show()` and re-hide it). A card confirms on HOLD (release, never press, even at `holdDuration 0`), unscaled time; frame = hover, scale = press (LitMotion), fill = hold — three independent visuals |

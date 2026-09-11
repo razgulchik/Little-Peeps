@@ -20,7 +20,7 @@ namespace LittlePeeps
     // Initialization (all in Awake — order-independent, see note on Awake below):
     //   1. Application.runInBackground
     //   2. Load MetaContext from disk (RunContext is owned by RunManager)
-    //   3. Wire run-independent systems (runManager / prestigeSystem)
+    //   3. Wire run-independent systems (prestigeSystem)
     //   4. RunManager.StartNewRun → wire run-dependent systems (tapSystem / perkSelectionUI)
     //   5. Create App FSM → push BootState → auto-transition to GameplayContainer
     //      (MainMenu skipped until its UI exists)
@@ -66,7 +66,6 @@ namespace LittlePeeps
             metaContext = saveSystem.Load();
 
             // 2. Wire run-independent systems (Meta only).
-            runManager.Initialize(metaContext);
             prestigeSystem.Initialize(metaContext);
 
             // 3. Start the first run: RunManager creates the RunContext, seeds resources

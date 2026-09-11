@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Manages run lifecycle; creates RunContext and applies MetaContext multipliers
+    // Manages run lifecycle: creates and tears down RunContext.
     public class RunManager : MonoBehaviour
     {
         [SerializeField] private ResourceSystem resourceSystem;
@@ -15,16 +15,9 @@ namespace LittlePeeps
                  "preset — swap it here to change what a fresh run begins with (useful for tests/debug).")]
         [SerializeField] private StartConfigDef startConfig;
 
-        private MetaContext metaContext;
-
         public RunContext CurrentRun { get; private set; }
 
-        public void Initialize(MetaContext meta)
-        {
-            metaContext = meta;
-        }
-
-        // Create a fresh RunContext, apply global upgrade multipliers, re-generate island.
+        // Create a fresh RunContext and re-generate the island.
         // Also the prestige entry point: it tears the previous run down FIRST, so there is exactly one
         // way to start a run and it can never be the one that leaks. On the very first call (from
         // GameBootstrap.Awake) EndRun sees no run and returns immediately. Everything below therefore
@@ -134,14 +127,6 @@ namespace LittlePeeps
                 if (entry.def == null) continue;
                 structureSystem.PlaceInitial(entry.def, entry.cell);
             }
-        }
-
-        // Sum valuePerLevel * level for all GlobalUpgrades matching the requested MultiplierType
-        public float GetMultiplier(MultiplierType type)
-        {
-            // Baseline 1.0. Once the GlobalUpgradeDef catalogue is wired, add
-            // def.valuePerLevel * metaContext.GetUpgradeLevel(def.id) for every upgrade of this type.
-            return 1f;
         }
     }
 }

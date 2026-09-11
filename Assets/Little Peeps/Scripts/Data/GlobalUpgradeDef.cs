@@ -5,9 +5,9 @@ namespace LittlePeeps
     [CreateAssetMenu(menuName = "LittlePeeps/GlobalUpgradeDef")]
     public class GlobalUpgradeDef : ScriptableObject
     {
-        public UpgradeId id;
+        [Tooltip("Stable key for saves and for the level MetaContext stores. Must be unique across the " +
+                 "catalogue and must not be empty.")]
+        public string id;
         [TextArea] public string description;
-        public MultiplierType multiplierType;
-        public float valuePerLevel;
     }
 }

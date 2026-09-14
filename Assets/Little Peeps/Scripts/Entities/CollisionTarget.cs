@@ -4,20 +4,24 @@ namespace LittlePeeps
 {
     // Anything a bouncing unit can collide with that triggers effects — structures, resource
     // nodes, animals, etc. Owns the collision callbacks and dispatches to its ICollisionEffect
-    // components. Structure derives from this; an object can also use CollisionTarget directly
-    // + effect components like ResourceSource.
+    // components, after every IHitGate on the target has let the hit through. Structure derives
+    // from this; an object can also use CollisionTarget directly + effect components like
+    // ResourceSource.
     //
     // The Rigidbody2D must sit on this (root) GameObject so the collision callbacks fire here;
-    // the collider itself may live on a child (fetched via GetComponentInChildren).
+    // the body colliders may live on children (fetched via GetComponentsInChildren). A VisitZone
+    // child brings its own Rigidbody2D and so keeps its trigger events to itself — see there.
     public class CollisionTarget : MonoBehaviour
     {
-        private Collider2D bodyCollider;
+        private Collider2D[] colliders;
         private ICollisionEffect[] effects;
+        private IHitGate[] gates;
 
         protected virtual void Awake()
         {
-            bodyCollider = GetComponentInChildren<Collider2D>();
+            colliders = GetComponentsInChildren<Collider2D>();
             effects = GetComponents<ICollisionEffect>();
+            gates = GetComponentsInChildren<IHitGate>();
         }
 
         // Obstacle path: unit bounces off (collider isTrigger = false)
@@ -36,16 +40,21 @@ namespace LittlePeeps
             if (unit != null) HandleHit(unit);
         }
 
+        // Gates first: a refused hit is a plain bounce with no effect. Only then do effects run.
         private void HandleHit(Unit unit)
         {
+            for (int i = 0; i < gates.Length; i++)
+                if (!gates[i].TryConsume(unit)) return;
             for (int i = 0; i < effects.Length; i++)
                 effects[i].OnHit(unit, this);
         }
 
-        // Enable/disable the collider (used during drag, and by ResourceSource on depletion).
+        // Enable/disable every collider on the target (ResourceSource uses it on depletion). Includes a
+        // VisitZone's trigger: with Physics2D.callbacksOnDisable on, disabling it exits every unit inside.
         public void SetColliderEnabled(bool enabled)
         {
-            if (bodyCollider != null) bodyCollider.enabled = enabled;
+            for (int i = 0; i < colliders.Length; i++)
+                colliders[i].enabled = enabled;
         }
     }
 }

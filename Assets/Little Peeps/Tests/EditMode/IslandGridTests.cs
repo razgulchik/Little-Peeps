@@ -289,5 +289,35 @@ namespace LittlePeeps.Tests
             // The two anchoring conventions must not drift apart: a 1x1 footprint IS its cell.
             Assert.AreEqual(grid.GridToWorld(C(-3, 2)), grid.OriginToWorldCenter(C(-3, 2), C(1, 1)));
         }
+
+        [Test]
+        public void OriginToWorldAnchor_IsTheBottomCentre_OfTheFootprint()
+        {
+            var grid = new IslandGrid(1f);
+
+            // 2x2 at (-2,-2) covers x in -2..-1 (middle -1) and y in -2..-1 (bottom edge -2).
+            Assert.AreEqual(new Vector2(-1f, -2f), grid.OriginToWorldAnchor(C(-2, -2), C(2, 2)));
+            // 3x1 at (1,3): x middle 2.5, bottom edge 3.
+            Assert.AreEqual(new Vector2(2.5f, 3f), grid.OriginToWorldAnchor(C(1, 3), C(3, 1)));
+        }
+
+        [TestCase(1f)]
+        [TestCase(0.32f)]
+        public void OriginToWorldAnchor_SitsHalfTheFootprintHeight_BelowTheCentre(float cellSize)
+        {
+            var grid = new IslandGrid(cellSize);
+            Vector2Int[] sizes = { C(1, 1), C(2, 2), C(2, 3) };
+
+            // The root's drop from the logical centre is exactly what the prefab's collider/visual
+            // offsets are authored against — it must come from the footprint, never from the art.
+            foreach (var size in sizes)
+            {
+                var origin = C(-3, 2);
+                var center = grid.OriginToWorldCenter(origin, size);
+                var anchor = grid.OriginToWorldAnchor(origin, size);
+                Assert.AreEqual(center.x, anchor.x, 1e-5f, $"x, size {size}");
+                Assert.AreEqual(center.y - size.y * cellSize / 2f, anchor.y, 1e-5f, $"y, size {size}");
+            }
+        }
     }
 }

@@ -39,7 +39,7 @@ namespace LittlePeeps
         [SerializeField] private string territorySortingLayer = "Ground";   // same layer as the grid overlay (above the grass)
         [SerializeField] private int territorySortingOrder = 1001;
 
-        // Needed for CenterOnFootprint, which the builder also uses — sharing it is what makes the preview
+        // Needed for AnchorOnFootprint, which the builder also uses — sharing it is what makes the preview
         // land exactly where the real structure will.
         private StructureSystem structureSystem;
 
@@ -125,8 +125,8 @@ namespace LittlePeeps
         {
             if (ghost == null) return;
 
-            // Same centering the builder uses, so the preview matches the placed structure exactly.
-            structureSystem.CenterOnFootprint(ghost.transform, origin, size);
+            // Same anchoring the builder uses, so the preview matches the placed structure exactly.
+            structureSystem.AnchorOnFootprint(ghost.transform, origin, size);
             if (ghostRowVisual != null) ghostRowVisual.Show((origin.y & 1) == 0);   // forest: preview the row's layout
             TintGhost(valid);
         }
@@ -224,12 +224,12 @@ namespace LittlePeeps
             heldVisual = root.GetComponent<DualVisual>();
         }
 
-        // Drag pose for a cell structure: centered on `origin`, re-lapped to its new row, tinted by validity.
+        // Drag pose for a cell structure: anchored on `origin`, re-lapped to its new row, tinted by validity.
         public void PoseHeldCell(Vector2Int origin, Vector2Int size, bool valid)
         {
             if (heldRoot == null) return;
 
-            structureSystem.CenterOnFootprint(heldRoot, origin, size);
+            structureSystem.AnchorOnFootprint(heldRoot, origin, size);
             StructureSystem.ApplyRowVisual(heldRoot.gameObject, origin.y);   // re-lap a dragged forest
             heldTint.Retint(valid ? validColor : invalidColor);
         }

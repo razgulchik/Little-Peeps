@@ -132,8 +132,9 @@ namespace LittlePeeps
             );
         }
 
-        // Origin (bottom-left) cell for a footprint of `size` centered nearest worldCenter.
-        // Inverse of OriginToWorldCenter; same centering used for the placement ghost.
+        // Origin (bottom-left) cell for a footprint of `size` centered nearest worldCenter. Inverse of
+        // OriginToWorldCenter: the FOOTPRINT stays centered under the cursor in build mode; the root then
+        // sits at OriginToWorldAnchor within it.
         public Vector2Int WorldToOrigin(Vector2 worldCenter, Vector2Int size)
         {
             return new Vector2Int(
@@ -142,12 +143,26 @@ namespace LittlePeeps
             );
         }
 
-        // World position of the center of a footprint of `size` anchored at origin.
+        // World position of the center of a footprint of `size` anchored at origin. The LOGICAL center:
+        // exit directions (Spawner), the territory halo and the cursor mapping read it. The structure's
+        // root does not sit here — see OriginToWorldAnchor.
         public Vector2 OriginToWorldCenter(Vector2Int origin, Vector2Int size)
         {
             return new Vector2(
                 (origin.x + size.x / 2f) * cellSize,
                 (origin.y + size.y / 2f) * cellSize
+            );
+        }
+
+        // World position of the bottom-center point of a footprint of `size` anchored at origin. Where a
+        // structure's ROOT goes (StructureSystem.AnchorOnFootprint): 2D art is pivoted at its base, so a
+        // sprite lands standing on the footprint's bottom edge and rises from there — a facade taller
+        // than its footprint overhangs the cells above instead of straddling them.
+        public Vector2 OriginToWorldAnchor(Vector2Int origin, Vector2Int size)
+        {
+            return new Vector2(
+                (origin.x + size.x / 2f) * cellSize,
+                origin.y * cellSize
             );
         }
 

@@ -48,8 +48,10 @@ namespace LittlePeeps
         private StructureInstance Build(StructureDef def, Vector2Int cell)
         {
             var grid = islandSystem.Grid;
-            var worldPos = grid.OriginToWorldCenter(cell, def.size);
 
+            // Born at its footprint anchor (shared rule — the placement ghost uses the same point), so
+            // anything reading its position in Awake already sees the final spot.
+            var worldPos = grid.OriginToWorldAnchor(cell, def.size);
             var go = Instantiate(def.prefab, worldPos, Quaternion.identity);
             var structure = go.GetComponent<Structure>();
             structure.def = def;
@@ -66,9 +68,6 @@ namespace LittlePeeps
             foreach (var source in go.GetComponentsInChildren<ResourceSource>(true)) source.Initialize(resourceSystem);
             foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
 
-            // Put the root at its footprint center (shared rule — the placement ghost uses the same call).
-            CenterOnFootprint(go.transform, cell, def.size);
-
             // Forest-style structures pick their interlocking layout by the row they land on.
             ApplyRowVisual(go, cell.y);
 
@@ -77,16 +76,19 @@ namespace LittlePeeps
             return instance;
         }
 
-        // Put a structure's ROOT at its footprint center. Any visual offset baked into the prefab (the
-        // sprite child's local position) is preserved — we move the root only — so per-prefab art can be
-        // nudged by hand without the placement code fighting it. Moving the root (not the sprite child)
-        // also keeps the sprite and collider in sync, critical for the physics/bounce gameplay. Shared by
-        // placed structures (Build), Move (DropStructure) and the build-mode ghost (PlacementController)
-        // so the preview matches exactly. Grid occupancy is logical (by cell), unaffected by this.
-        public void CenterOnFootprint(Transform root, Vector2Int origin, Vector2Int size)
+        // Put a structure's ROOT at its footprint anchor: the bottom-center of the footprint. Prefab art is
+        // pivoted at its base, so the sprite stands on the footprint's bottom edge and rises from there;
+        // everything inside the prefab (sprite children, the Physics collider) is authored relative to
+        // that base. Any visual offset baked into the prefab (a child's local position) is preserved — we
+        // move the root only — so per-prefab art can be nudged by hand without the placement code
+        // fighting it. Moving the root (not the sprite child) also keeps the sprite and collider in sync,
+        // critical for the physics/bounce gameplay. Shared by Build, Move (DropStructure) and the
+        // build-mode ghost (PlacementVisuals) so the preview matches exactly. Grid occupancy is logical
+        // (by cell), unaffected by this.
+        public void AnchorOnFootprint(Transform root, Vector2Int origin, Vector2Int size)
         {
-            Vector2 center = islandSystem.Grid.OriginToWorldCenter(origin, size);
-            root.position = new Vector3(center.x, center.y, root.position.z);
+            Vector2 anchor = islandSystem.Grid.OriginToWorldAnchor(origin, size);
+            root.position = new Vector3(anchor.x, anchor.y, root.position.z);
         }
 
         // A forest carries a DualVisual whose two roots interlock by grid row: even rows show the first
@@ -152,7 +154,7 @@ namespace LittlePeeps
             run.structures[origin] = instance;
             instance.Cell = origin;
 
-            CenterOnFootprint(instance.RuntimeObject.transform, origin, instance.Def.size);
+            AnchorOnFootprint(instance.RuntimeObject.transform, origin, instance.Def.size);
             ApplyRowVisual(instance.RuntimeObject.gameObject, origin.y);   // re-lap a moved forest onto its new row
         }
 

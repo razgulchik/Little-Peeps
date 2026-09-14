@@ -59,6 +59,7 @@ namespace LittlePeeps
         [SerializeField] private AnimationCurve fadeCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
 
         private CollisionTarget host;
+        private IYieldScale[] yieldScales;
         private int hitsLeft;
         private State state = State.Ready;
         private float respawnTimer;
@@ -71,6 +72,9 @@ namespace LittlePeeps
         private void Awake()
         {
             host = GetComponent<CollisionTarget>();
+            // Own GameObject only, not children: a scale belongs to the source it sits on, and in a
+            // composite prefab (forest) each child tree is its own source with its own scales.
+            yieldScales = GetComponents<IYieldScale>();
             if (def != null) hitsLeft = def.hitsBeforeDespawn;
             if (readyRoot != null) readyRenderers = readyRoot.GetComponentsInChildren<SpriteRenderer>(true);
         }
@@ -81,6 +85,14 @@ namespace LittlePeeps
         {
             resourceSystem = system;
         }
+
+        // The run's stat sheet, for add-ons on this source that resolve their own numbers (ForgeHeat).
+        // Null before injection or outside a run — callers fall back to their base value.
+        public RunStats Stats => resourceSystem != null ? resourceSystem.Stats : null;
+
+        // Whether a worker of this type gets paid here at all. The def decides; exposed so a gate on
+        // this object can tell a paying hit from a stray bounce BEFORE OnHit settles it.
+        public bool Accepts(UnitType type) => def != null && def.TryGetYield(type, out _);
 
         private void Start()
         {
@@ -106,6 +118,10 @@ namespace LittlePeeps
         {
             if (state == State.Harvested || def == null || resourceSystem == null || unit == null) return;
             if (!def.TryGetYield(unit.Type, out float amount)) return;
+
+            // Add-on scales (ForgeHeat) multiply the BASE amount, so they sit under the run's modifiers
+            // exactly like a bigger authored yield would — see IYieldScale.
+            for (int i = 0; i < yieldScales.Length; i++) amount *= yieldScales[i].Factor(unit);
 
             // Through the production gateway: the base amount is scaled by the worker's yield modifier
             // and the global production multiplier before being credited. The def goes along because it

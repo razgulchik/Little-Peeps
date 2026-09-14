@@ -17,6 +17,13 @@ namespace LittlePeeps
         UnitFatigueDelay,   // scope: UnitType — seconds a unit roams before it will enter a house
         SourceRespawn,      // scope: source — seconds a depleted resource source takes to regrow
 
+        // Forge heat (ForgeHeat). All unscoped: there is one forge. ForgeCoolingTime is a duration like
+        // the three above — "cools faster" is a NEGATIVE percent.
+        ForgeHeatPerHit,    // no scope — heat one paying hit adds to the forge
+        ForgeMaxHeat,       // no scope — heat at which the forge overheats
+        ForgeCoolingTime,   // no scope — seconds the forge takes to cool from full to zero
+        ForgeHotYield,      // no scope — pure multiplier on forge yield at full heat; reads ×1 until a perk adds to it
+
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
         // HouseCapacity,   // scope: UnitType — worker slots per spawner (materialised → resolve at warmup)
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
@@ -53,6 +60,13 @@ namespace LittlePeeps
             // the second dimension would add nothing but a way to author a mismatched key. Left empty
             // it means every source, exactly as on ResourceYield.
             StatId.SourceRespawn    => StatScope.Source,
+
+            // Listed although they fall through to None anyway, so the choice reads as made rather than
+            // forgotten: the one forge needs no Source axis, and "the forge" is not a resource either.
+            StatId.ForgeHeatPerHit  => StatScope.None,
+            StatId.ForgeMaxHeat     => StatScope.None,
+            StatId.ForgeCoolingTime => StatScope.None,
+            StatId.ForgeHotYield    => StatScope.None,
 
             // ProductionGlobal and any future global stat. NOTE this default is why a forgotten entry
             // above is dangerous: the stat silently becomes global instead of scoped.

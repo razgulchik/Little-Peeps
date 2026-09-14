@@ -12,16 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
   m_Name: Stat Perk Def 3
   m_EditorClassIdentifier: 
-  id: perk_04
-  title: Wood God
-  description: Perk 4
+  id: perk_03
+  title: Capacity God
+  description: Perk 3
   icon: {fileID: 21300000, guid: 85e6f953c50488e4a9e7e93afe95b340, type: 3}
   weight: 1
-  minAge: 0
+  minAge: 1
   modifiers:
-  - id: 1
+  - id: 3
     unitScope: 0
-    resourceScope: 1
+    resourceScope: 0
     sourceScope: {fileID: 0}
     flat: 0
-    percent: 0.9
+    percent: -0.9

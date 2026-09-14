@@ -1,10 +1,7 @@
 fileFormatVersion: 2
-guid: e8edfe53efba4ed4eaa222068c55ce78
+guid: 5c0bf24b45915cd41acc9498641e2c33
 TextureImporter:
-  internalIDToNameTable:
-  - first:
-      213: 7741014237132286520
-    second: Game Screen_0
+  internalIDToNameTable: []
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -50,7 +47,7 @@ TextureImporter:
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
-  spritePivot: {x: 0.5, y: 0.5}
+  spritePivot: {x: 1, y: 0.5}
   spritePixelsToUnits: 16
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
@@ -113,23 +110,23 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Game Screen_0
+      name: treee_wllw_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 640
-        height: 360
+        width: 12
+        height: 14
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 83ae28d5f6b9d6b60800000000000000
-      internalID: 7741014237132286520
+      spriteID: 9f01ae4edcb0d1560800000000000000
+      internalID: 7285992751092076793
       vertices: []
       indices: 
       edges: []
@@ -139,7 +136,7 @@ TextureImporter:
     physicsShape: []
     bones: []
     spriteID: 5e97eb03825dee720800000000000000
-    internalID: 0
+    internalID: 1537655665
     vertices: []
     indices: 
     edges: []
@@ -148,7 +145,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Game Screen_0: 7741014237132286520
+      treee_wllw_0: 7285992751092076793
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

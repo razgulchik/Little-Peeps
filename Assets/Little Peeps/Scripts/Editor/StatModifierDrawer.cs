@@ -149,7 +149,7 @@ namespace LittlePeeps.EditorTools
                 {
                     var field = EditorGUI.PrefixLabel(
                         r, new GUIContent("Stat", "What this modifier changes."));
-                    var shown = new GUIContent(Category(scope) + " / " + Label(id));
+                    var shown = new GUIContent(MenuPath(id).Replace("/", " / "));
                     if (EditorGUI.DropdownButton(field, shown, FocusType.Keyboard))
                         ShowStatMenu(property, id);
                     break;
@@ -268,7 +268,7 @@ namespace LittlePeeps.EditorTools
             var menu = new GenericMenu();
             foreach (var id in AllIds)
             {
-                menu.AddItem(new GUIContent(Category(StatMeta.ScopeOf(id)) + "/" + Label(id)),
+                menu.AddItem(new GUIContent(MenuPath(id)),
                              id == current,
                              () =>
                              {
@@ -296,6 +296,9 @@ namespace LittlePeeps.EditorTools
             var derived = DerivedSource(scope, f);
 
             var who = new List<string>();
+            // A stat that belongs to a THING (Forge, House) names it first: with no scope to speak of,
+            // "Hot yield +50%" alone would not say whose yield.
+            if (Owner(id) is string owner) who.Add(owner);
             if ((scope & StatScope.Unit) != 0) who.Add(EnumName(f.unit));
             // The resource the RUNTIME will key on, which is the source's own whenever there is one --
             // reading back the raw field here would let the header state something MakeKey overrules.
@@ -318,8 +321,33 @@ namespace LittlePeeps.EditorTools
                  + (value.Count > 0 ? string.Join(", ", value) : "no effect");
         }
 
-        // Derived from the scope mask rather than a hand-kept list, so a stat added later lands in a
-        // sensible group whether or not anyone remembers this file.
+        // Where a stat sits in the picker. Two kinds of home: a stat that belongs to a THING (a building's
+        // own numbers) is filed under that thing by hand in Group, because no scope mask can say "this is
+        // the forge's"; everything else is derived from its mask by Category, so a stat added later still
+        // lands in a sensible group whether or not anyone remembers this file.
+        private static string MenuPath(StatId id) =>
+            (Group(id) ?? Category(StatMeta.ScopeOf(id))) + "/" + Label(id);
+
+        // Hand-kept, and only for stats that HAVE an owner: a building's parameters go under
+        // Structures/<building>, however they happen to be scoped (SpawnerRecharge is scoped by unit
+        // type, but it is still how long a HOUSE holds someone). Null = no owner, use Category.
+        private static string Group(StatId id) => id switch
+        {
+            StatId.SpawnerRecharge  => "Structures/House",
+            StatId.ForgeHeatPerHit  => "Structures/Forge",
+            StatId.ForgeMaxHeat     => "Structures/Forge",
+            StatId.ForgeCoolingTime => "Structures/Forge",
+            StatId.ForgeHotYield    => "Structures/Forge",
+            _ => null,
+        };
+
+        // The owning thing alone ("Forge"), for the summary line. Last segment of the group path.
+        private static string Owner(StatId id)
+        {
+            string group = Group(id);
+            return group == null ? null : group.Substring(group.LastIndexOf('/') + 1);
+        }
+
         private static string Category(StatScope scope)
         {
             if ((scope & StatScope.Resource) != 0) return "Resources";
@@ -336,6 +364,11 @@ namespace LittlePeeps.EditorTools
             StatId.SpawnerRecharge => "Spawner recharge",
             StatId.UnitFatigueDelay => "Fatigue delay",
             StatId.SourceRespawn => "Respawn time",
+            // Short on purpose: these sit under Structures/Forge, and the summary line names the owner.
+            StatId.ForgeHeatPerHit => "Heat per hit",
+            StatId.ForgeMaxHeat => "Max heat",
+            StatId.ForgeCoolingTime => "Cooling time",
+            StatId.ForgeHotYield => "Hot yield",
             _ => ObjectNames.NicifyVariableName(id.ToString()),
         };
 
@@ -356,10 +389,16 @@ namespace LittlePeeps.EditorTools
                 StatId.SpawnerRecharge => "Seconds a unit rests in a spawner. Negative percent = launches sooner.",
                 StatId.UnitFatigueDelay => "Seconds a unit roams before entering a house. Negative percent = rests sooner.",
                 StatId.SourceRespawn => "Seconds a depleted source takes to regrow. Negative percent = regrows faster.",
+                StatId.ForgeHeatPerHit => "Heat one paying forge hit adds. Negative percent = more hits before it overheats.",
+                StatId.ForgeMaxHeat => "Heat at which the forge overheats and stops paying until it has cooled to zero.",
+                StatId.ForgeCoolingTime => "Seconds the forge takes to cool from full to zero. Negative percent = cools faster.",
+                StatId.ForgeHotYield => "Multiplies forge yield at full heat, scaling down with heat. Reads x1 until a perk adds percent.",
                 _ => "",
             };
 
-            if (scope != StatScope.None) return hint;
+            // An owned stat (Structures/...) has no scopes by nature, not by omission -- the warning is
+            // for a stat that fell into Global by accident, and it would only mislead here.
+            if (scope != StatScope.None || Group(id) != null) return hint;
 
             const string global = "Applies globally - no scopes.";
             return string.IsNullOrEmpty(hint) ? global : hint + " " + global;

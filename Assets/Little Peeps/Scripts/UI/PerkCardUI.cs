@@ -98,7 +98,7 @@ namespace LittlePeeps
             ScaleTo(1f, 0f);          // snap, not tween: a fresh card must not animate in from nowhere
 
             if (titleLabel != null) titleLabel.text = def != null ? def.title : string.Empty;
-            if (descriptionLabel != null) descriptionLabel.text = def != null ? def.description : string.Empty;
+            if (descriptionLabel != null) descriptionLabel.text = def != null ? def.DescriptionText : string.Empty;
 
             if (iconImage != null)
             {

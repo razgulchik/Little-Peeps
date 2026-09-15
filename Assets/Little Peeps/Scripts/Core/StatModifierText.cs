@@ -32,6 +32,24 @@ namespace LittlePeeps
                 : $"{magnitude} {subject.text}";
         }
 
+        // One line per modifier, for a card with room for more than one (a perk's description). A
+        // modifier that changes nothing is skipped rather than left as a blank line, so an empty result
+        // means the whole list changes nothing — the same signal the single form gives. Null-safe.
+        public static string Describe(IReadOnlyList<StatModifier> modifiers)
+        {
+            if (modifiers == null || modifiers.Count == 0) return string.Empty;
+
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < modifiers.Count; i++)
+            {
+                string line = Describe(modifiers[i]);
+                if (line.Length == 0) continue;
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append(line);
+            }
+            return sb.ToString();
+        }
+
         // flat and percent are independent buckets on the one formula, so an author may set both and
         // both are then shown — dropping one would understate the bonus.
         private static string Magnitude(StatModifier m)

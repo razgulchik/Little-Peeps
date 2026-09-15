@@ -17,6 +17,10 @@ namespace LittlePeeps
                  "empty to affect every source, or drag one in to target just that one.")]
         public List<StatModifier> modifiers;
 
+        // Every modifier, one line each. Unlike the age card (82px, "one age, one bonus") a perk's
+        // description has room, so nothing a perk does stays unsaid unless an author overrides.
+        public override string GeneratedDescription => StatModifierText.Describe(modifiers);
+
         public override void ApplyPerk(RunContext context)
         {
             // Null-safe on both sides: RunStats.Add ignores a null list, so an empty perk asset is inert

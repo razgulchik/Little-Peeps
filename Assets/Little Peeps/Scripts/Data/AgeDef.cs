@@ -31,8 +31,12 @@ namespace LittlePeeps
         // "one age, one bonus" is the design rule, so the card speaks for the first and anything more
         // has to be worded into the override deliberately.
         public string BonusText =>
-            !string.IsNullOrWhiteSpace(bonusOverride) ? bonusOverride
-            : (modifiers != null && modifiers.Count > 0) ? StatModifierText.Describe(modifiers[0])
-            : string.Empty;
+            !string.IsNullOrWhiteSpace(bonusOverride) ? bonusOverride : GeneratedBonusText;
+
+        // The line the data alone would put on the card — the first modifier's. Public so the
+        // inspector previews exactly what the card would show, instead of keeping its own copy of
+        // the "first modifier" rule.
+        public string GeneratedBonusText =>
+            (modifiers != null && modifiers.Count > 0) ? StatModifierText.Describe(modifiers[0]) : string.Empty;
     }
 }

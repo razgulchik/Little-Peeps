@@ -10,9 +10,11 @@ namespace LittlePeeps
         public float speed = 5f;
         public UnitType unitType;
 
-        // Seconds after a unit leaves a house before fatigue sets in. Until it elapses the unit keeps
-        // roaming and refuses to enter ANY house (even one with a free slot), so it doesn't immediately
-        // duck into the house next door right after launching.
+        // Seconds of WORK a unit gets after its launch boost settles, before fatigue sets in. Until then
+        // it harvests and refuses to enter ANY house (so it never ducks straight back into the house next
+        // door); once tired it harvests nothing and the next house of its type takes it in. A tap
+        // re-launches and restarts the whole thing. 0 is not "off": it means the unit works only while
+        // boosted — tired the moment its boost settles.
         public float fatigueDelay = 2f;
     }
 }

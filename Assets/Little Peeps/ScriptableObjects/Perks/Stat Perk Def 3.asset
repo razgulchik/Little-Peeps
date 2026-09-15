@@ -14,10 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: perk_03
   title: Capacity God
-  description: "\u041A\u043E\u043B-\u0432\u043E \u0432\u043C\u0435\u0449\u0430\u0435\u043C\u044B\u0445
-    \u0436\u0438\u0442\u0435\u043B\u0435\u0439 \u0432 \u0434\u043E\u043C\u0430\u0445
-    \u0443\u0432\u0435\u043B\u0438\u0447\u0438\u0432\u0430\u0435\u0442\u0441\u044F
-    \u043D\u0430 +1"
+  description: +1 HOUSE SLOTS (FARMER)
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 0

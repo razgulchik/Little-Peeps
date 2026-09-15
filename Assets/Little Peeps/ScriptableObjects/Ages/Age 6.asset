@@ -23,6 +23,7 @@ MonoBehaviour:
     sourceScope: {fileID: 0}
     flat: 0
     percent: 0.5
+  bonusOverride: +50% SPEED (FARMER)
   expansionBlocks:
   - x: -6
     y: -6

@@ -10,7 +10,7 @@ namespace LittlePeeps
     // Warmup, and the result — slots.Count — is what is registered into SpawnSystem's global per-type
     // cap and what OnDestroy gives back.
     [RequireComponent(typeof(Structure))]
-    public class Spawner : MonoBehaviour, ICollisionEffect, IStructureSpawner
+    public class Spawner : MonoBehaviour, IShelter, IStructureSpawner
     {
         [SerializeField] private SpawnSystem spawnSystem;
 
@@ -238,16 +238,14 @@ namespace LittlePeeps
             }
         }
 
-        // ICollisionEffect — CollisionTarget.HandleHit calls this when a unit hits THIS structure.
-        // Dispatch is local, so no target filter is needed (the target is already our structure) —
-        // only the unit-type check remains.
-        public void OnHit(Unit unit, CollisionTarget target)
+        // IShelter — CollisionTarget.HandleHit calls this when a TIRED unit hits THIS structure; a
+        // working unit's hit is routed past every shelter, so no fatigue check is needed here. Dispatch
+        // is local, so no target filter is needed either (the target is already our structure) — only
+        // the unit-type check remains.
+        public void OnTiredHit(Unit unit)
         {
             if (slots == null || unit == null || unitDef == null) return;
             if (unit.Type != unitDef.unitType) return;
-
-            // Not tired yet — the unit just left a house and keeps roaming; it bounces on past this one.
-            if (!unit.IsTired) return;
 
             // Put the unit in the first slot that has finished its cooldown and is free.
             foreach (var slot in slots)

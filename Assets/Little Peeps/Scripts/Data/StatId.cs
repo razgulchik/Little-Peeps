@@ -14,7 +14,7 @@ namespace LittlePeeps
         // SECONDS, so "regrows faster" is authored as a NEGATIVE percent. Each is named after the field
         // it scales, never after a speed, so the sign is obvious from the name at the point of use.
         SpawnerRecharge,    // scope: UnitType — seconds a unit rests inside a spawner before launching
-        UnitFatigueDelay,   // scope: UnitType — seconds a unit roams before it will enter a house
+        UnitFatigueDelay,   // scope: UnitType — seconds a unit works (after its boost settles) before it tires
         SourceRespawn,      // scope: source — seconds a depleted resource source takes to regrow
 
         // Forge heat (ForgeHeat). All unscoped: there is one forge. ForgeCoolingTime is a duration like

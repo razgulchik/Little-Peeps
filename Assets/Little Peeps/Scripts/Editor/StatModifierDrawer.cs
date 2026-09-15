@@ -391,7 +391,7 @@ namespace LittlePeeps.EditorTools
                 StatId.ResourceYield => "How much one hit yields.",
                 StatId.UnitSpeed => "Unit movement speed.",
                 StatId.SpawnerRecharge => "Seconds a unit rests in a spawner. Negative percent = launches sooner.",
-                StatId.UnitFatigueDelay => "Seconds a unit roams before entering a house. Negative percent = rests sooner.",
+                StatId.UnitFatigueDelay => "Seconds a unit works after its boost settles before it tires. Negative percent = tires sooner.",
                 StatId.SourceRespawn => "Seconds a depleted source takes to regrow. Negative percent = regrows faster.",
                 StatId.HouseCapacity => "Worker slots per house. Rounds DOWN: +50% on a 1-slot house does nothing - author Flat +1 for one more slot.",
                 StatId.ForgeHeatPerHit => "Heat one paying forge hit adds. Negative percent = more hits before it overheats.",

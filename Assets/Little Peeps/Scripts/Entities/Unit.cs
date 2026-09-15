@@ -16,11 +16,14 @@ namespace LittlePeeps
         public float Radius => bodyCollider != null ? bodyCollider.bounds.extents.x : 0f;
         public IslandSystem Island => island;
 
-        // True once the unit has been roaming long enough (def.fatigueDelay) since its last launch to be
-        // willing to enter a house. Spawner.OnHit checks this so a freshly launched unit ignores houses
-        // until it tires out. Defaults to true (fatigueReadyTime == 0) so a never-launched unit isn't stuck.
-        public bool IsTired => Time.time >= fatigueReadyTime;
-        private float fatigueReadyTime;
+        // Fatigue. A unit that is not tired is WORKING: it harvests and refuses to enter a house. Once
+        // tired the two flip — it harvests nothing, and the next house of its type takes it in.
+        // CollisionTarget.HandleHit routes every hit by this one flag. The countdown is reset on every
+        // Launch (house or tap) and runs only while the unit is NOT boosted — see FixedUpdate — so a
+        // unit can never tire mid-boost: its work time is the boost plus def.fatigueDelay. Tired by
+        // default (fatigueLeft == 0) so a never-launched unit isn't stuck.
+        public bool IsTired => fatigueLeft <= 0f;
+        private float fatigueLeft;
 
         private Rigidbody2D rb;
         private Collider2D bodyCollider;
@@ -65,9 +68,9 @@ namespace LittlePeeps
             return stats != null ? stats.Apply(def.speed, StatId.UnitSpeed, def.unitType) : def.speed;
         }
 
-        // How long this unit roams before it will enter a house, with the run modifier applied. Same
-        // fallback rule as ResolveBaseSpeed. A perk that keeps units out longer is a POSITIVE percent
-        // here — this is the delay in seconds, not a rate.
+        // How long this unit works after its boost settles before it tires, with the run modifier
+        // applied. Same fallback rule as ResolveBaseSpeed. A perk that keeps units working longer is a
+        // POSITIVE percent here — this is the delay in seconds, not a rate.
         private float ResolveFatigueDelay()
         {
             if (def == null) return 0f;
@@ -83,8 +86,10 @@ namespace LittlePeeps
         {
             baseSpeed = ResolveBaseSpeed();
 
-            // Fatigue clock restarts every launch: the unit won't enter a house until this elapses.
-            fatigueReadyTime = Time.time + ResolveFatigueDelay();
+            // Fatigue restarts on every launch: a full fatigueDelay of work, counted from the moment the
+            // boost settles (FixedUpdate). A tap on a tired unit is this same Launch — that is what puts
+            // it back to work.
+            fatigueLeft = ResolveFatigueDelay();
 
             // Coming back out of rest: re-enable physics and visuals. Toggling the whole visual root
             // rather than one renderer's `enabled` also stops and restarts the Animator that lives on
@@ -106,10 +111,13 @@ namespace LittlePeeps
             }
         }
 
-        // Pull the unit inside a building: stop and hide it while it rests.
+        // Pull the unit inside a building: stop and hide it while it rests. Resting is not working, so
+        // the fatigue countdown is dropped too — Launch hands out a fresh one on the way out anyway;
+        // this only keeps IsTired truthful while the unit is inside.
         public void EnterRest()
         {
             launchBoostTimer = 0f;
+            fatigueLeft = 0f;
 
             rb.linearVelocity = Vector2.zero;
             rb.simulated = false;
@@ -118,8 +126,14 @@ namespace LittlePeeps
 
         private void FixedUpdate()
         {
-            // No active launch/tap boost → physics owns the velocity.
-            if (launchBoostTimer <= 0f) return;
+            // No active launch/tap boost → physics owns the velocity, and the fatigue clock runs. It
+            // does NOT run while boosted: a boosted unit is at work by definition, so its countdown
+            // waits until the boost has settled.
+            if (launchBoostTimer <= 0f)
+            {
+                if (fatigueLeft > 0f) fatigueLeft -= Time.fixedDeltaTime;
+                return;
+            }
 
             launchBoostTimer -= Time.fixedDeltaTime;
 
@@ -139,7 +153,8 @@ namespace LittlePeeps
 
         // Tap boost: accelerate along the current heading (random if nearly stopped), then let the
         // decaying brake in FixedUpdate ease the speed back to baseSpeed over ~duration seconds.
-        // Re-tapping mid-boost just re-launches, resetting the decay timer. AoE/radius is owned by
+        // Re-tapping mid-boost just re-launches, resetting the decay timer — and, like every Launch,
+        // restarting fatigue: tapping a tired unit is how it gets back to work. AoE/radius is owned by
         // TapSystem; this only takes the per-unit boost amount and how long it lingers.
         public void Boost(float speedMultiplier, float duration)
         {

@@ -23,6 +23,7 @@ MonoBehaviour:
     sourceScope: {fileID: 0}
     flat: 0
     percent: 0.05
+  bonusOverride: +5% ALL PRODUCTION
   expansionBlocks:
   - x: -5
     y: -5

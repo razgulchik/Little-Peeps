@@ -27,6 +27,7 @@ MonoBehaviour:
     sourceScope: {fileID: 11400000, guid: f859f958ef8491246bab7b0e37c3aae4, type: 2}
     flat: 1
     percent: 0
+  bonusOverride: +1 WOOD (FARMER, TREE)
   expansionBlocks:
   - x: -5
     y: -4

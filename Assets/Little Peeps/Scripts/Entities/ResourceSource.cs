@@ -17,10 +17,11 @@ namespace LittlePeeps
     // their single visual and leave both roots untouched.
     //
     // The Ready→Harvested switch is not instant: the ready root fades out over fadeOutTime while the
-    // harvested one shows through underneath, which is what reads as the field being reaped. It is
-    // presentation only — the collider is off and the regrow clock is running from the moment of the
-    // hit, so no length of fade can ever be harvested through. Speed is per-prefab: a field and a tree
-    // vanish at their own rates.
+    // harvested one shows through underneath, which is what reads as the field being reaped. A second
+    // curve on the same clock squashes and stretches the ready root vertically — the kick of the reap.
+    // It is presentation only — the collider is off and the regrow clock is running from the moment
+    // of the hit, so no length of fade can ever be harvested through. Speed and shape are per-prefab:
+    // a field and a tree vanish at their own rates.
     //
     // swapStateVisuals controls how the two roots are composited:
     //   off (default base) — harvestedRoot is the always-on background base; readyRoot is an overlay
@@ -58,6 +59,11 @@ namespace LittlePeeps
         [Tooltip("Alpha across the fade, left to right. Default is a straight 1 → 0.")]
         [SerializeField] private AnimationCurve fadeCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
 
+        [Tooltip("Vertical scale of the ready visual across the fade, left to right, as a factor of its " +
+                 "authored scale. Flat 1 = no squash. Scales the ready root, so the sprite's pivot " +
+                 "decides what stays put: wheat is bottom-centre and squashes toward the ground.")]
+        [SerializeField] private AnimationCurve fadeScaleY = AnimationCurve.Constant(0f, 1f, 1f);
+
         private CollisionTarget host;
         private IYieldScale[] yieldScales;
         private int hitsLeft;
@@ -67,6 +73,8 @@ namespace LittlePeeps
         // Cached once: the fade runs per harvest and must not allocate. Covers the whole ready root, so
         // a multi-sprite visual (trunk + crown) fades as one piece without extra wiring.
         private SpriteRenderer[] readyRenderers;
+        private Transform readyTransform;
+        private float readyScaleY = 1f;  // the prefab's own scale; the squash curve is a factor on it
         private float fadeTimer = -1f;   // < 0 = not fading
 
         private void Awake()
@@ -76,7 +84,12 @@ namespace LittlePeeps
             // composite prefab (forest) each child tree is its own source with its own scales.
             yieldScales = GetComponents<IYieldScale>();
             if (def != null) hitsLeft = def.hitsBeforeDespawn;
-            if (readyRoot != null) readyRenderers = readyRoot.GetComponentsInChildren<SpriteRenderer>(true);
+            if (readyRoot != null)
+            {
+                readyRenderers = readyRoot.GetComponentsInChildren<SpriteRenderer>(true);
+                readyTransform = readyRoot.transform;
+                readyScaleY = readyTransform.localScale.y;
+            }
         }
 
         // Optional runtime injection (StructureSystem calls this when placing a structure at runtime,
@@ -155,26 +168,39 @@ namespace LittlePeeps
 
             if (fadeTimer < fadeOutTime)
             {
-                ApplyAlpha(fadeCurve.Evaluate(fadeTimer / fadeOutTime));
+                ApplyFade(fadeTimer / fadeOutTime);
                 return;
             }
 
             EndFade();
         }
 
-        // Settles the roots for the current state and — the part that matters — puts the alpha BACK to
-        // 1. These renderers are the same objects the regrown node shows: leaving them transparent
-        // would bring the field back invisible seconds later, far from anything that looks like a cause.
+        // Settles the roots for the current state and — the part that matters — puts the alpha and the
+        // scale BACK to authored. These are the same objects the regrown node shows: leaving them
+        // transparent or squashed would bring the field back wrong seconds later, far from anything
+        // that looks like a cause.
         private void EndFade()
         {
             fadeTimer = -1f;
-            ApplyAlpha(1f);
+            ResetFade();
             ApplyStateVisual();
         }
 
-        // Shared with the Edit Mode preview (see HarvestFade), so the tool cannot fade a node any
+        // Both curves sampled at normalized fade time `k` (0 = the hit, 1 = gone). The writes go
+        // through HarvestFade, shared with the Edit Mode preview, so the tool cannot fade a node any
         // differently from the way the game does.
-        private void ApplyAlpha(float alpha) => HarvestFade.ApplyAlpha(readyRenderers, alpha);
+        private void ApplyFade(float k)
+        {
+            HarvestFade.ApplyAlpha(readyRenderers, fadeCurve.Evaluate(k));
+            HarvestFade.ApplyScaleY(readyTransform, readyScaleY * fadeScaleY.Evaluate(k));
+        }
+
+        // The ready visual exactly as the prefab authored it.
+        private void ResetFade()
+        {
+            HarvestFade.ApplyAlpha(readyRenderers, 1f);
+            HarvestFade.ApplyScaleY(readyTransform, readyScaleY);
+        }
 
         // Regrow delay with the run modifier applied. The stats sheet is asked for at the point of use,
         // never cached: it belongs to the run, and a node placed in one run outlives it. A perk that
@@ -209,9 +235,12 @@ namespace LittlePeeps
             // the very thing being animated. The harvested sprite is brought up front by hand instead,
             // because it is what has to show THROUGH the fading one — in swapStateVisuals mode nothing
             // else would turn it on until the fade ended, and the field would dissolve into bare grass.
+            //
+            // Sampled at 0 right here, not left to the first tick: the squash is the field taking the
+            // hit, so it has to land on the same frame as the hit, not one later.
             fadeTimer = 0f;
             if (harvestedRoot != null) harvestedRoot.SetActive(true);
-            ApplyAlpha(1f);
+            ApplyFade(0f);
         }
 
         // Ready again: regrown, harvestable, showing the ready sprite.
@@ -225,7 +254,7 @@ namespace LittlePeeps
             // perk drags it there). The node has to come back solid either way, so the fade is dropped
             // rather than left to finish over a visual that is already Ready again.
             fadeTimer = -1f;
-            ApplyAlpha(1f);
+            ResetFade();
 
             ApplyStateVisual();
         }

@@ -77,6 +77,8 @@ namespace LittlePeeps.EditorTools
         private bool swapStateVisuals;
         private float fadeDuration;
         private AnimationCurve fadeCurve;
+        private AnimationCurve fadeScaleY;
+        private float readyScaleY = 1f;   // the prefab's own scale; mirrors ResourceSource.readyScaleY
 
         [MenuItem("Window/Little Peeps/Harvest Feedback")]
         private static void Open()
@@ -402,9 +404,13 @@ namespace LittlePeeps.EditorTools
                 swapStateVisuals = Prop(so, "swapStateVisuals")?.boolValue ?? false;
                 fadeDuration = Prop(so, "fadeOutTime")?.floatValue ?? 0f;
                 fadeCurve = Prop(so, "fadeCurve")?.animationCurveValue;
+                fadeScaleY = Prop(so, "fadeScaleY")?.animationCurveValue;
 
                 if (readyRootView != null)
+                {
                     fadeRenderers = readyRootView.GetComponentsInChildren<SpriteRenderer>(true);
+                    readyScaleY = readyRootView.transform.localScale.y;
+                }
 
                 bool canFade = fadeDuration > 0f && fadeRenderers != null && fadeRenderers.Length > 0;
                 behaviour = canFade ? NodeBehaviour.Fades : NodeBehaviour.Vanishes;
@@ -456,9 +462,10 @@ namespace LittlePeeps.EditorTools
             {
                 case NodeBehaviour.Fades:
                     // Mirrors ResourceSource.Deplete: the harvested sprite is brought up front by hand
-                    // so it shows THROUGH the fading one, and the ready root is left on to be animated.
+                    // so it shows THROUGH the fading one, and the ready root is left on to be animated
+                    // — from its 0-sample, so the squash lands on the hit tick as it does in the game.
                     if (harvestedRootView != null) harvestedRootView.SetActive(true);
-                    HarvestFade.ApplyAlpha(fadeRenderers, 1f);
+                    ApplyFade(0f);
                     break;
 
                 case NodeBehaviour.Vanishes:
@@ -496,16 +503,33 @@ namespace LittlePeeps.EditorTools
             {
                 if (since < fadeDuration)
                 {
-                    HarvestFade.ApplyAlpha(fadeRenderers, fadeCurve.Evaluate(since / fadeDuration));
+                    ApplyFade(since / fadeDuration);
                 }
                 else
                 {
-                    // Mirrors ResourceSource.EndFade: alpha goes back to 1 before the roots settle, or
-                    // the node would come back invisible when it regrows.
-                    HarvestFade.ApplyAlpha(fadeRenderers, 1f);
+                    // Mirrors ResourceSource.EndFade: alpha and scale go back to authored before the
+                    // roots settle, or the node would come back invisible or squashed when it regrows.
+                    ResetFade();
                     ApplyHarvestedVisual();
                 }
             }
+        }
+
+        // Mirrors ResourceSource.ApplyFade / ResetFade: both curves at normalized fade time `k`,
+        // written through the same HarvestFade the game uses. The scale curve is null only when Prop
+        // could not find the field (it has logged); the preview then fades without the squash rather
+        // than throwing every tick.
+        private void ApplyFade(float k)
+        {
+            HarvestFade.ApplyAlpha(fadeRenderers, fadeCurve.Evaluate(k));
+            if (readyRootView != null && fadeScaleY != null)
+                HarvestFade.ApplyScaleY(readyRootView.transform, readyScaleY * fadeScaleY.Evaluate(k));
+        }
+
+        private void ResetFade()
+        {
+            HarvestFade.ApplyAlpha(fadeRenderers, 1f);
+            if (readyRootView != null) HarvestFade.ApplyScaleY(readyRootView.transform, readyScaleY);
         }
 
         // Follows the handle without restarting: particles already in flight simulate in World space,
@@ -623,6 +647,8 @@ namespace LittlePeeps.EditorTools
             readyRootView = null;
             harvestedRootView = null;
             fadeCurve = null;
+            fadeScaleY = null;
+            readyScaleY = 1f;
             behaviour = NodeBehaviour.None;
         }
 

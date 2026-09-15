@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LittlePeeps
@@ -20,7 +21,9 @@ namespace LittlePeeps
     //   - the TERRITORY halo: a scaled quad showing the footprint+border the ghost would claim;
     //   - the HOVER and HELD tints: real structures already in the scene, recoloured and then restored.
     // Ghost and halo are objects this class creates and destroys; hover and held targets are NOT — they are
-    // borrowed, so their original colours are remembered and put back.
+    // borrowed, so their original colours are remembered and put back. Drop shadows (SpriteShadow) follow
+    // one rule throughout: a shadow belongs to what stands on the ground. The ghost never has one, a
+    // carried structure hides its own until it lands, and no tint ever recolours one.
     //
     // A plain [Serializable] class, not a MonoBehaviour: the colours stay inspector-authored on the
     // PlacementController that owns it, but none of the drawing code sits in the controller any more.
@@ -62,6 +65,7 @@ namespace LittlePeeps
         private readonly TintTarget heldTint = new();
         private Transform heldRoot;
         private DualVisual heldVisual;
+        private SpriteShadow[] heldShadows;   // hidden while carried, shown again on release
 
         public bool HasGhost => ghost != null;
         public bool HasHeld => heldTint.Active;
@@ -84,40 +88,42 @@ namespace LittlePeeps
             else BuildCellGhost(def);
         }
 
-        // Cell ghost: instantiate the real prefab so the preview matches the placed structure 1:1 —
-        // including any sprite offset hand-tuned inside the prefab (placement centers the ROOT, so the
-        // sprite child sits exactly where it will once built). Then neutralize it: disable every
-        // behaviour (so Spawner/ResourceSource/Structure don't spawn units, register, or log) and every
-        // collider/rigidbody so it's purely visual. Centered on the footprint each frame (PoseCellGhost).
+        // Cell ghost: the neutralised prefab (SpawnGhost), centered on the footprint each frame
+        // (PoseCellGhost). A forest's DualVisual is kept so the preview interlocks by row too.
         private void BuildCellGhost(StructureDef def)
         {
-            ghost = UnityEngine.Object.Instantiate(def.prefab);
-            ghost.name = "PlacementGhost";
-
-            foreach (var mb in ghost.GetComponentsInChildren<MonoBehaviour>(true)) mb.enabled = false;
-            foreach (var col in ghost.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
-            foreach (var rb in ghost.GetComponentsInChildren<Rigidbody2D>(true)) rb.simulated = false;
-
-            ghostRenderers = ghost.GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var r in ghostRenderers) r.sortingOrder += 1;   // draw above the placed structures
-
-            ghostRowVisual = ghost.GetComponent<DualVisual>();   // forest: the preview interlocks by row too
+            ghost = SpawnGhost(def);
+            ghostRowVisual = ghost.GetComponent<DualVisual>();
         }
 
-        // Edge ghost (fence): instantiate the real prefab so the preview matches 1:1 (both poses), then
-        // neutralize it — disable colliders + the Structure behaviour so it's purely visual. The active
-        // pose and tint are set every frame in PoseEdgeGhost.
+        // Edge ghost (fence): the neutralised prefab (SpawnGhost), both poses collected for the tint; the
+        // active pose and position are set every frame in PoseEdgeGhost.
         private void BuildEdgeGhost(StructureDef def)
         {
-            ghost = UnityEngine.Object.Instantiate(def.prefab);
-            ghost.name = "PlacementGhost";
+            ghost = SpawnGhost(def);
             ghostVisual = ghost.GetComponent<DualVisual>();
+        }
 
-            foreach (var col in ghost.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
-            if (ghost.TryGetComponent<Structure>(out var s)) s.enabled = false;
+        // Instantiate the real prefab so the preview matches the placed structure 1:1 — including any
+        // sprite offset hand-tuned inside the prefab (placement centers the ROOT, so the sprite child sits
+        // exactly where it will once built) — then neutralise it so it is purely visual: every behaviour
+        // off (so Spawner/ResourceSource/Structure don't spawn units, register, or log), every collider and
+        // rigidbody off. "Every behaviour" is a contract other code leans on: a disabled behaviour never
+        // Starts, so whatever a view builds at Start — a SpriteShadow's shadow, for one — is simply absent
+        // from the ghost. DualVisual.Show still works on a disabled component, so the pose switch is
+        // unaffected. Collects every renderer (inactive poses included) for the tint.
+        private GameObject SpawnGhost(StructureDef def)
+        {
+            var go = UnityEngine.Object.Instantiate(def.prefab);
+            go.name = "PlacementGhost";
 
-            ghostRenderers = ghost.GetComponentsInChildren<SpriteRenderer>(true);   // both poses (incl. inactive)
-            foreach (var r in ghostRenderers) r.sortingOrder += 1;                  // draw above the real fences
+            foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true)) mb.enabled = false;
+            foreach (var col in go.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
+            foreach (var rb in go.GetComponentsInChildren<Rigidbody2D>(true)) rb.simulated = false;
+
+            ghostRenderers = go.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (var r in ghostRenderers) r.sortingOrder += 1;   // draw above the placed structures
+            return go;
         }
 
         // Put the cell ghost on `origin`, lap it to the row, and tint it by validity.
@@ -216,12 +222,15 @@ namespace LittlePeeps
 
         // Take over the object being dragged: remember its renderers' real colours, its transform, and its
         // pose switch if it has one. The caller must restore any hover tint FIRST, so the colours captured
-        // here are the real ones and not the green grabbable hint.
+        // here are the real ones and not the green grabbable hint. Its drop shadows go dark for the ride —
+        // a carried structure stands on nothing — and come back in ReleaseHeld.
         public void CaptureHeld(Component root)
         {
             heldTint.Capture(root);
             heldRoot = root.transform;
             heldVisual = root.GetComponent<DualVisual>();
+            heldShadows = root.GetComponentsInChildren<SpriteShadow>(true);
+            foreach (var shadow in heldShadows) shadow.SetVisible(false);
         }
 
         // Drag pose for a cell structure: anchored on `origin`, re-lapped to its new row, tinted by validity.
@@ -244,10 +253,13 @@ namespace LittlePeeps
             heldTint.Retint(valid ? validColor : invalidColor);
         }
 
-        // Put the dragged object's real colours back and let go of it.
+        // Put the dragged object's real colours and shadows back and let go of it.
         public void ReleaseHeld()
         {
             heldTint.Restore();
+            if (heldShadows != null)
+                foreach (var shadow in heldShadows) if (shadow != null) shadow.SetVisible(true);
+            heldShadows = null;
             heldRoot = null;
             heldVisual = null;
             HideTerritory();
@@ -274,12 +286,17 @@ namespace LittlePeeps
 
             public bool Active => renderers != null;
 
-            // Snapshot every renderer under `root` and the color it currently has (no tint applied yet —
-            // call Retint to color them). Replaces any previous capture without restoring it, so callers
+            // Snapshot every renderer under `root` — except drop shadows — and the color it currently has
+            // (no tint applied yet — call Retint to color them). A tint replaces the colour outright, and
+            // a shadow turned green or red reads as a second copy of the building; left out, it stays
+            // black under any tint. Replaces any previous capture without restoring it, so callers
             // restore/forget first.
             public void Capture(Component root)
             {
-                renderers = root.GetComponentsInChildren<SpriteRenderer>(true);
+                var all = root.GetComponentsInChildren<SpriteRenderer>(true);
+                var kept = new List<SpriteRenderer>(all.Length);
+                foreach (var r in all) if (!SpriteShadow.IsShadow(r)) kept.Add(r);
+                renderers = kept.ToArray();
                 originalColors = new Color[renderers.Length];
                 for (int i = 0; i < renderers.Length; i++) originalColors[i] = renderers[i].color;
             }

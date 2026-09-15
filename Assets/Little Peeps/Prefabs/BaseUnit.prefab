@@ -187,6 +187,7 @@ GameObject:
   - component: {fileID: 3698379183563110256}
   - component: {fileID: 6937837171591897228}
   - component: {fileID: 9021339721503453622}
+  - component: {fileID: 6066307551426202041}
   m_Layer: 6
   m_Name: Ppls_01
   m_TagString: Untagged
@@ -286,3 +287,18 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &6066307551426202041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8956122657964186823}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b76a3ae4c25760e4eb7e2b1f8efb66f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  castShadow: 1
+  offsetPixels: {x: 0, y: 1}
+  alpha: 0.13725491

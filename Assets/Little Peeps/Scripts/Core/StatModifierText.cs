@@ -63,6 +63,7 @@ namespace LittlePeeps
             StatId.ForgeMaxHeat     => ("FORGE HEAT CAP", StatScope.None),
             StatId.ForgeCoolingTime => ("FORGE COOLING TIME", StatScope.None),
             StatId.ForgeHotYield    => ("HOT FORGE YIELD", StatScope.None),
+            StatId.MarketVisitHits  => ("HITS PER MARKET VISIT", StatScope.None),
 
             // A stat added to the enum but not named here falls back to its own name. Visibly ugly on
             // the card, which is the right failure: it asks for a name instead of hiding the bonus.

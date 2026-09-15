@@ -104,11 +104,12 @@ namespace LittlePeeps.Tests
         [Test]
         public void Warmup_DoesNotLoseASlotToFloatNoise()
         {
-            // Ten +10% perks: the percents sum to 0.99999994f, and 3 x 1.99999994 floors to 5 without
-            // the epsilon in ResolveCapacity. The player bought +100%; they get six slots.
-            for (int i = 0; i < 10; i++) run.stats.Add(Capacity(percent: 0.1f));
+            // Three -20% on a base of 10 is exactly 4, but the float sum of the percents makes it
+            // 3.9999998 — a raw floor would hand out three. Pins that the spawner resolves through
+            // RunStats.ApplyCount (which carries the epsilon) and not a floor of its own.
+            for (int i = 0; i < 3; i++) run.stats.Add(Capacity(percent: -0.2f));
 
-            Assert.That(MakeSpawner(3).SlotCount, Is.EqualTo(6));
+            Assert.That(MakeSpawner(10).SlotCount, Is.EqualTo(4));
         }
 
         // --- push after warmup -----------------------------------------------------------------------

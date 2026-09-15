@@ -277,6 +277,44 @@ namespace LittlePeeps.Tests
             Assert.That(seen, Is.EqualTo(2f).Within(Tolerance),
                         "a listener that re-resolves inside the callback must see the new value");
         }
+
+        // --- ApplyCount ------------------------------------------------------------------------------
+        //
+        // Apply for whole-number stats (house slots, hits per visit). Rounding DOWN is the design —
+        // "+1" is flat, a percent on a small base has to earn the next whole — and the epsilon is
+        // the one thing that keeps that design from robbing the player: percents are summed in
+        // single precision, and a penalty stack can land a hair under the whole it exactly equals.
+
+        [Test]
+        public void ApplyCount_RoundsDown()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.MarketVisitHits, percent: 0.5f));
+
+            Assert.That(stats.ApplyCount(3, StatId.MarketVisitHits), Is.EqualTo(4), "4.5 is four");
+            Assert.That(stats.ApplyCount(1, StatId.MarketVisitHits), Is.EqualTo(1), "1.5 is still one");
+        }
+
+        [Test]
+        public void ApplyCount_DoesNotLoseAWholeToFloatNoise()
+        {
+            // Three -20% on a base of 10: exactly 4, but the float sum of the percents makes it
+            // 3.9999998. Negative stacks are where this happens; positive ones round up on their own.
+            var stats = new RunStats();
+            for (int i = 0; i < 3; i++) stats.Add(Mod(StatId.MarketVisitHits, percent: -0.2f));
+
+            Assert.That(stats.ApplyCount(10, StatId.MarketVisitHits), Is.EqualTo(4));
+        }
+
+        [Test]
+        public void ApplyCount_DoesNotClamp_TheFloorBelongsToTheCaller()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.MarketVisitHits, flat: -5f));
+
+            Assert.That(stats.ApplyCount(3, StatId.MarketVisitHits), Is.EqualTo(-2),
+                        "a house needs one slot and a visit one hit, but that is their rule, not the sheet's");
+        }
     }
 
     // The source axis (StatScope.Source) is the third scope dimension on ResourceYield. It exists

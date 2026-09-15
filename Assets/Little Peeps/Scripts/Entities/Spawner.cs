@@ -146,18 +146,15 @@ namespace LittlePeeps
 
         // Slots this house gets: the base with the run modifier applied. The one stat NOT read at the
         // point of use — the result is materialised into slots and the global cap, so a later sheet
-        // change reaches this house only through RefreshFromStats.
-        //
-        // Rounded DOWN and never below one, so a percent on a 1-slot house does nothing until it
-        // reaches +100% — which is why "+1 slot" is authored as flat. The epsilon is for float noise
-        // only: ten +10% perks sum to 0.99999994, and 3 x 1.99999994 must still be six slots, not five.
+        // change reaches this house only through RefreshFromStats. Never below one slot: a house with
+        // nobody in it is not a house, whatever a penalty says.
         private int ResolveCapacity()
         {
             var stats = spawnSystem != null ? spawnSystem.Stats : null;
-            float resolved = stats != null && unitDef != null
-                ? stats.Apply(capacity, StatId.HouseCapacity, unitDef.unitType)
+            int resolved = stats != null && unitDef != null
+                ? stats.ApplyCount(capacity, StatId.HouseCapacity, unitDef.unitType)
                 : capacity;
-            return Mathf.Max(1, Mathf.FloorToInt(resolved + 1e-4f));
+            return Mathf.Max(1, resolved);
         }
 
         // Grow to newCapacity slots at runtime. Each NEW slot spawns a unit that rests first, then

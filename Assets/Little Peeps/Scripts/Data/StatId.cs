@@ -27,10 +27,16 @@ namespace LittlePeeps
         // The one MATERIALISED stat. Every stat above is read at the point of use, so a perk bought
         // mid-run is simply seen by the next read; this one is turned into slots and a global cap at
         // Spawner.Warmup and never asked for again, so a sheet change has to be PUSHED to the houses
-        // already standing — RunStats.Changed → SpawnSystem → Spawner.RefreshFromStats. Fractions
-        // round DOWN, so "+1 slot" is authored as flat; a percent on a 1-slot house does nothing
-        // until it reaches +100%.
+        // already standing — RunStats.Changed → SpawnSystem → Spawner.RefreshFromStats. A count, so
+        // it resolves through ApplyCount: rounded DOWN, "+1 slot" is authored as flat, and a percent
+        // on a 1-slot house does nothing until it reaches +100%.
         HouseCapacity,      // scope: UnitType — worker slots per house (base: Spawner.capacity)
+
+        // Market passage (VisitZone). Unscoped like the forge: there is one market, and the zone exists
+        // only on it. Read on every entry, so it needs no push. A count like HouseCapacity — "+1 hit"
+        // is authored as flat. How much a hit PAYS is not this stat's business: that stays with
+        // ResourceYield scoped to the market's source.
+        MarketVisitHits,    // no scope — counted hits one unit gets per market visit (base: VisitZone.hitsPerVisit)
 
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
@@ -71,10 +77,12 @@ namespace LittlePeeps
 
             // Listed although they fall through to None anyway, so the choice reads as made rather than
             // forgotten: the one forge needs no Source axis, and "the forge" is not a resource either.
+            // The market's passage is the same case.
             StatId.ForgeHeatPerHit  => StatScope.None,
             StatId.ForgeMaxHeat     => StatScope.None,
             StatId.ForgeCoolingTime => StatScope.None,
             StatId.ForgeHotYield    => StatScope.None,
+            StatId.MarketVisitHits  => StatScope.None,
 
             // ProductionGlobal and any future global stat. NOTE this default is why a forgotten entry
             // above is dangerous: the stat silently becomes global instead of scoped.

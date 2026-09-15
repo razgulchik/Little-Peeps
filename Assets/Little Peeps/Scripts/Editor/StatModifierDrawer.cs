@@ -339,6 +339,7 @@ namespace LittlePeeps.EditorTools
             StatId.ForgeMaxHeat     => "Structures/Forge",
             StatId.ForgeCoolingTime => "Structures/Forge",
             StatId.ForgeHotYield    => "Structures/Forge",
+            StatId.MarketVisitHits  => "Structures/Market",
             _ => null,
         };
 
@@ -371,6 +372,7 @@ namespace LittlePeeps.EditorTools
             StatId.ForgeMaxHeat => "Max heat",
             StatId.ForgeCoolingTime => "Cooling time",
             StatId.ForgeHotYield => "Hot yield",
+            StatId.MarketVisitHits => "Hits per visit",
             _ => ObjectNames.NicifyVariableName(id.ToString()),
         };
 
@@ -396,6 +398,7 @@ namespace LittlePeeps.EditorTools
                 StatId.ForgeMaxHeat => "Heat at which the forge overheats and stops paying until it has cooled to zero.",
                 StatId.ForgeCoolingTime => "Seconds the forge takes to cool from full to zero. Negative percent = cools faster.",
                 StatId.ForgeHotYield => "Multiplies forge yield at full heat, scaling down with heat. Reads x1 until a perk adds percent.",
+                StatId.MarketVisitHits => "Counted hits one unit gets per market visit; each pays that worker's coins. Rounds DOWN - author Flat +1 for one more hit.",
                 _ => "",
             };
 

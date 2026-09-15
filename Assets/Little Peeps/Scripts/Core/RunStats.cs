@@ -158,5 +158,16 @@ namespace LittlePeeps
         public float Multiplier(StatId id, UnitType unit = default, ResourceType res = default,
                                 ResourceSourceDef source = null)
             => Apply(1f, id, unit, res, source);
+
+        // Apply for a stat whose base is a COUNT (house slots, hits per visit): the formula's float,
+        // rounded DOWN. Down, so a percent on a small base does nothing until it really reaches the
+        // next whole — "+1" is authored as flat. The epsilon is for float noise only, and the noise is
+        // real: percents are summed in single precision, and three -20% on a base of 10 come out as
+        // 3.9999998, which is three, not the four the player was promised. (Positive sums happen to
+        // round up and would not need it; a penalty is where it bites.) No clamp here — a house needs
+        // at least one slot, a visit at least one hit, and that floor belongs to the caller that knows it.
+        public int ApplyCount(int baseValue, StatId id, UnitType unit = default,
+                              ResourceType res = default, ResourceSourceDef source = null)
+            => (int)System.Math.Floor(Apply(baseValue, id, unit, res, source) + 1e-4f);
     }
 }

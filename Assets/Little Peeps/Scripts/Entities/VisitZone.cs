@@ -22,13 +22,19 @@ namespace LittlePeeps
     [RequireComponent(typeof(Rigidbody2D))]
     public class VisitZone : MonoBehaviour, IHitGate
     {
-        [Tooltip("Counted hits a unit gets per visit. It has to leave the zone and re-enter for more.")]
+        [Tooltip("Counted hits a unit gets per visit. It has to leave the zone and re-enter for more. " +
+                 "This is the BASE: the run's MarketVisitHits modifier is applied on top.")]
         [Min(1)] [SerializeField] private int hitsPerVisit = 3;
 
         // Units currently inside → counted hits they have left this visit. Exit removes the entry;
         // Physics2D.callbacksOnDisable (on in this project) makes a despawning unit exit too, so one
         // that goes home from inside the passage doesn't leak.
         private readonly Dictionary<Unit, int> visits = new();
+
+        // The run's stat sheet comes through the ResourceSource on the structure root — the route
+        // ForgeHeat takes too: StructureSystem already injects the sheet there, so the zone needs no
+        // wiring of its own. Null on a zone that is not part of a source; the base then stands.
+        private ResourceSource source;
 
         // Editor-only: runs when the component is added, so the required collider and body come out
         // in the only configuration the zone works in.
@@ -42,6 +48,20 @@ namespace LittlePeeps
         {
             if (!GetComponent<Collider2D>().isTrigger)
                 Debug.LogError($"VisitZone on '{name}' needs its collider set to Is Trigger.", this);
+
+            source = GetComponentInParent<ResourceSource>();
+        }
+
+        // Hits one visit is worth, with the run modifier applied. Resolved on ENTRY and never cached:
+        // the sheet belongs to the run while the market outlives it (same rule as every other read),
+        // and a perk bought mid-run pays from the next visit on — a unit already inside finishes the
+        // budget it came in with. Never below one hit, the same floor the field's [Min(1)] declares.
+        private int ResolveHitsPerVisit()
+        {
+            var stats = source != null ? source.Stats : null;
+            return Mathf.Max(1, stats != null
+                ? stats.ApplyCount(hitsPerVisit, StatId.MarketVisitHits)
+                : hitsPerVisit);
         }
 
         // IHitGate — CollisionTarget asks this before paying out a hit.
@@ -56,7 +76,7 @@ namespace LittlePeeps
         private void OnTriggerEnter2D(Collider2D other)
         {
             var unit = other.GetComponentInParent<Unit>();
-            if (unit != null) visits[unit] = hitsPerVisit;
+            if (unit != null) visits[unit] = ResolveHitsPerVisit();
         }
 
         private void OnTriggerExit2D(Collider2D other)

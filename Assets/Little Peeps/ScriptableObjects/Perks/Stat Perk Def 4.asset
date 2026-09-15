@@ -15,7 +15,7 @@ MonoBehaviour:
   id: perk_04
   title: Wood God
   description: Perk 4
-  icon: {fileID: 21300000, guid: 85e6f953c50488e4a9e7e93afe95b340, type: 3}
+  icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 1
   modifiers:

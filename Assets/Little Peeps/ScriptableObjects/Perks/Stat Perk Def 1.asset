@@ -14,14 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: perk_01
   title: Farm God
-  description: Perk 1
-  icon: {fileID: 21300000, guid: 85e6f953c50488e4a9e7e93afe95b340, type: 3}
+  description: "\u041A\u043E\u043B-\u0432\u043E \u0434\u043E\u0431\u044B\u0432\u0430\u0435\u043C\u044B\u0445
+    \u0440\u0435\u0441\u0443\u0440\u0441\u043E\u0432 \u0441 \u043F\u043E\u043B\u0435\u0439
+    \u0443\u0432\u0435\u043B\u0438\u0447\u0438\u0432\u0430\u0435\u0442\u0441\u044F
+    \u043D\u0430 50%"
+  icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 0
   modifiers:
   - id: 1
     unitScope: 0
     resourceScope: 0
-    sourceScope: {fileID: 0}
+    sourceScope: {fileID: 11400000, guid: 31767cd1cafbb69428e75771e561bfa0, type: 2}
     flat: 0
-    percent: 0.9
+    percent: 0.5

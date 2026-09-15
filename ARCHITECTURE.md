@@ -32,15 +32,15 @@
 │   AgeSystem · AgeSequencer · PerkSystem · PrestigeSystem ·   │
 │   PierSystem · PlacementController + tools · Harvest* · …)   │
 └──────┬────────────────────────────────────────┬─────────────┘
-       │ uses                                   │ dispatches to
+       │ uses                                   │ asks gates, dispatches to
 ┌──────▼────────────────────────┐    ┌──────────▼──────────────┐
 │  Entities                     │    │  Effects                │
 │  CollisionTarget (base)       │    │  ICollisionEffect impls:│
 │   ├ Structure                 │    │  Spawner · ResourceSource│
 │  Unit · Spawner · Pier        │    │  · Animal (all MBs)     │
-│  ResourceSource · Animal      │    └─────────────────────────┘
-│  AnimalSpawner · AnimalWander │
-│  IStructureSpawner (contract) │
+│  ResourceSource · Animal      │    │  Gates (IHitGate impls):│
+│  AnimalSpawner · AnimalWander │    │  VisitZone · ForgeHeat  │
+│  IStructureSpawner (contract) │    └─────────────────────────┘
 └──────┬────────────────────────┘
        │ uses
 ┌──────▼──────────────────────────────────────────────────────┐
@@ -67,15 +67,32 @@ Rule: layers only depend downward. UI never writes to Systems directly — it re
 Everything that stands on the grid is a **Structure**; behaviour lives in components:
 
 - `CollisionTarget` (base MonoBehaviour) — owns the collision callbacks and dispatches hits to its
-  `ICollisionEffect` components. Dispatch is **local**: there is no global collision event.
+  `ICollisionEffect` components, after every `IHitGate` on the target has let the hit through.
+  Dispatch is **local**: there is no global collision event.
 - `Structure : CollisionTarget` — adds placement identity: `def` (`StructureDef`). No health — a
   structure is removed by selling it, never by damage.
 - A structure carries one (or more) behaviour components:
   - `Spawner` (produces units) — `[RequireComponent(typeof(Structure))]`.
   - `ResourceSource` (produces resources) — `[RequireComponent(typeof(CollisionTarget))]`.
   - `AnimalSpawner` (produces animals — mobile resource nodes) — `[RequireComponent(typeof(Structure))]`.
-- Examples: House/Hut = Structure + Spawner · Market = Structure + ResourceSource (infinite) ·
-  Tree/Wheat = Structure + ResourceSource (natural) · Stable/Den = Structure + AnimalSpawner.
+  - `VisitZone` (rations hits per visit — a gate, not an effect) — on a trigger CHILD of the target,
+    `[RequireComponent(Collider2D, Rigidbody2D)]`.
+- Examples: House/Hut = Structure + Spawner · Market = Structure + ResourceSource (infinite) +
+  VisitZone (the passage) · Tree/Wheat = Structure + ResourceSource (natural) · Stable/Den =
+  Structure + AnimalSpawner.
+
+**Hit gates** (`IHitGate.TryConsume(unit)`) sit between a collision and its effects. `HandleHit`
+asks every gate on the target (root + children) and drops the hit on the first refusal — the unit
+still bounces, it just pays nothing. `TryConsume` decides AND spends in one call, so a rationing
+gate can never hand out a budget it can't then debit; the flip side is that gates are asked in
+order, and a gate that consumed before a later one refused has spent a hit for nothing — keep ONE
+rationing gate per target. A gate is effect-agnostic and prefab-composable: it knows nothing about
+what the hit would have paid, so the same component can sit on any building or animal. Two so far:
+`VisitZone` (Market — `hitsPerVisit` counted hits per stay inside the passage trigger, then nothing
+until the unit leaves and re-enters; a unit outside the zone never counts, so the zone also decides
+WHICH surfaces pay — inside the passage a unit can only touch the inner walls) and `ForgeHeat`
+(refuses while overheated). The per-visit number lives on the component, not in
+`ResourceSourceDef`; a "+1 hit per visit" perk would be one StatId read in `TryConsume`.
 
 **Two placement kinds** (`StructureDef.placement`): `Cell` — a footprint of cells (the default), keyed
 by `Vector2Int` in `RunContext.structures`; `Edge` — sits on the boundary line between two cells
@@ -317,18 +334,24 @@ a structure OFF the grid mid-drag, and that invariant is what makes `EndRun`'s s
 | Animal (alpaca/boar/fox) | Collider2D `isTrigger=false` (child) | Rigidbody2D (**Kinematic**, root) | Units (Dynamic) bounce off it — that bounce IS the harvest hit; the kinematic body itself passes through structures/terrain (only wander destinations are validated, by AnimalSpawner) |
 | Island boundary | TilemapCollider2D (Composite Operation: Merge) + CompositeCollider2D | Rigidbody2D (Static) | Auto-updates when tiles are added on island expansion |
 | Pier | BoxCollider2D `isTrigger=false` (on a `Physics` child) | Rigidbody2D (Static, root) | An ordinary structure that units bounce off. A click on it triggers prestige: `TapSystem` resolves the hit with `GetComponentInParent<Pier>()`, so the `Pier` marker component must sit on the prefab **root**, not next to the collider |
+| Market passage (`VisitZone`) | BoxCollider2D `isTrigger=true` on a `Passage` child (the two walls are ordinary obstacle boxes on the `Physics` child) | Rigidbody2D (Static) on that **same child** | The zone's own body is not optional: Unity delivers a trigger callback to the collider's GameObject AND to the GameObject of the Rigidbody2D it belongs to, so hung off the root body the passage's `OnTriggerEnter2D` would also reach `CollisionTarget`, which treats a trigger entry as a hit — walking in would pay a coin by itself. Sizing: across the passage the trigger overlaps the walls by 1–2 px (a unit can't be inside a wall, so this only guards a seam); along it, it stops one unit radius short of each mouth, so a unit sliding along the outside never counts as inside |
 
 **Collision dispatch lives in `CollisionTarget`** (the base). Both `OnCollisionEnter2D` (obstacle
-path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)` →
-`effect.OnHit(...)` for each `ICollisionEffect` component on the target. `Structure :
-CollisionTarget` adds `def`. The Rigidbody2D sits on the root so callbacks fire there; the collider
-may live on a child (fetched via `GetComponentInChildren`).
+path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)` → every
+`IHitGate.TryConsume(unit)` on the target (root + children; the first refusal ends the hit as a
+plain bounce) → `effect.OnHit(...)` for each `ICollisionEffect` component on the root. `Structure :
+CollisionTarget` adds `def`. The Rigidbody2D sits on the root so callbacks fire there; the colliders
+may live on children (fetched via `GetComponentsInChildren`) — except a `VisitZone`'s trigger, which
+brings its own body precisely so its events do NOT reach the root (see the table).
 
 **Obstacle vs Interactable** — set via `isTrigger` on the prefab's collider; same `HandleHit` path
 for both. No separate CollisionSystem.
 
 **Per-structure colliders (no CompositeCollider2D on structures)** — each has its own BoxCollider2D
 so it can be enabled/disabled individually during drag and on resource-source depletion.
+`SetColliderEnabled` toggles every collider under the target, a `VisitZone` trigger included; with
+`Physics2D.callbacksOnDisable` on (it is, in Physics2DSettings) that exits every unit inside, and a
+despawning unit exits the same way — a visit can't leak past the unit that started it.
 
 **Pauses** (build mode, age transition, perk pick) all use `Time.timeScale = 0` (not
 `Physics2D.simulationMode`); build mode despawns the units first, so there is nothing to simulate.
@@ -377,8 +400,10 @@ must prove a callback belongs in a PlayMode assembly (none yet).
 | `CameraController` | MB | Continuous camera movement; `RefreshBounds` re-clamps to `IslandGrid.WorldBounds` on `AgeStartedEvent` |
 | `HarvestVfxSystem` | MB | Pickup particles for every harvest. **One shared emitter per `ResourceSourceDef`**, instantiated from `def.pickupFx` on first harvest and reused (one system emitting many particles = one draw call). Moves the emitter and `Emit`s — deliberately not `EmitParams`, so the authored Shape module keeps working. **Validates instead of silently fixing** a prefab that isn't World-space/looping. Skips off-screen harvests |
 | `HarvestNumbers` | MB | The floating "+1.2k" — universal, one prefab and one set of curves for every resource. Pooled world-space `TextMeshPro`, driven by one flat loop over a fixed-size array (no coroutine, no MonoBehaviour per popup); `SetText` overloads format in place, nothing lands on the GC. Cap + recycle-nearest-death. **Tuning lives on the system, not the prefab** |
-| `CollisionTarget` | MB (base) | Collision callbacks + `ICollisionEffect` dispatch; `SetColliderEnabled` |
+| `CollisionTarget` | MB (base) | Collision callbacks → `IHitGate` check (root + children) → `ICollisionEffect` dispatch (root); `SetColliderEnabled` toggles every collider under it, a `VisitZone` trigger included |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (`StructureDef`) |
+| `IHitGate` | interface | `TryConsume(unit)` — decides AND spends in one call; asked before any effect, one refusal = plain bounce. Effect-agnostic, so a gate composes onto any target; one rationing gate per target. Implemented by `VisitZone` and `ForgeHeat` |
+| `VisitZone` | MB, `IHitGate` | Per-visit hit ration (`hitsPerVisit` on the component, not in a def): `Dictionary<Unit,int>` filled on trigger enter, debited per hit, dropped on exit. Sits on its own child with the trigger AND a Static Rigidbody2D so its trigger events stay off the root; `Reset()` sets both up, `Awake` errors if the collider isn't a trigger |
 | `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit) |
 | `Spawner` | MB, `ICollisionEffect`, `IStructureSpawner` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; rest duration through `SpawnerRecharge`; launch boost (`launchSpeedMultiplier` / `launchBoostDuration`) |
 | `Unit` | MB | Bouncing gatherer: `Launch` (resolves speed through `UnitSpeed`), `EnterRest`, fatigue timer through `UnitFatigueDelay`, tap `Boost`; holds `RunStats` via `SetStats` |

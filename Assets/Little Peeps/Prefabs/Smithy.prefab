@@ -777,7 +777,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   heatPerHit: 1
   maxHeat: 10
-  coolingTime: 10
+  coolingTime: 20
   hotness:
     serializedVersion: 2
     m_Curve:
@@ -888,7 +888,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7484873729091622651, guid: 15813c143a37682478692d6d18eca63e, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2.3125
+      value: 2.375
       objectReference: {fileID: 0}
     - target: {fileID: 7484873729091622651, guid: 15813c143a37682478692d6d18eca63e, type: 3}
       propertyPath: m_LocalPosition.z
@@ -988,18 +988,6 @@ PrefabInstance:
     - target: {fileID: 2989760368364855509, guid: 0b6c3a8bc38e9904c90637b4f3d30dea, type: 3}
       propertyPath: m_Name
       value: Sparks
-      objectReference: {fileID: 0}
-    - target: {fileID: 5473292113712901962, guid: 0b6c3a8bc38e9904c90637b4f3d30dea, type: 3}
-      propertyPath: m_SortingLayer
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 5473292113712901962, guid: 0b6c3a8bc38e9904c90637b4f3d30dea, type: 3}
-      propertyPath: m_SortingOrder
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 5473292113712901962, guid: 0b6c3a8bc38e9904c90637b4f3d30dea, type: 3}
-      propertyPath: m_SortingLayerID
-      value: 1266997631
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

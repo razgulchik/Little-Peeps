@@ -19,6 +19,12 @@ namespace LittlePeeps
         // player leaves build mode.
         void Warmup();
 
+        // The run's stat sheet changed mid-run (age, perk): re-resolve whatever this spawner
+        // MATERIALISED from it at Warmup — a house's slot count — and grow to match. Reached from
+        // RunStats.Changed through SpawnSystem, on every live spawner. A spawner that materialises
+        // nothing from the sheet is a no-op here.
+        void RefreshFromStats();
+
         // Run teardown: give everything back to SpawnSystem RIGHT NOW rather than in OnDestroy.
         // Destroy() defers OnDestroy to the end of the frame, and a prestige ends one run and starts
         // the next within a single frame — so the old spawner's unregistration would land AFTER the new

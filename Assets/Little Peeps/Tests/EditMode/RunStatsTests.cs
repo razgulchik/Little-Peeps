@@ -215,6 +215,68 @@ namespace LittlePeeps.Tests
             Assert.That(stats.Apply(3f, StatId.UnitFatigueDelay, UnitType.Lumberjack),
                         Is.EqualTo(3f).Within(Tolerance));
         }
+
+        // --- Changed ---------------------------------------------------------------------------------
+        //
+        // The one push in an otherwise pull-only layer: HouseCapacity is materialised into slots at
+        // warmup, so the houses have to be told when the sheet moves. What is pinned is the CADENCE —
+        // once per Add call — because a listener re-resolves every live spawner on each raise, and an
+        // age's list firing per modifier would do that work N times for one change.
+
+        [Test]
+        public void Changed_FiresOncePerSingleAdd()
+        {
+            var stats = new RunStats();
+            int raised = 0;
+            stats.Changed += () => raised++;
+
+            stats.Add(Mod(StatId.UnitSpeed, percent: 0.1f));
+
+            Assert.That(raised, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Changed_FiresOncePerListAdd_NotOncePerModifier()
+        {
+            var stats = new RunStats();
+            int raised = 0;
+            stats.Changed += () => raised++;
+
+            stats.Add(new List<StatModifier>
+            {
+                Mod(StatId.UnitSpeed, percent: 0.1f),
+                Mod(StatId.SpawnerRecharge, percent: -0.1f),
+                Mod(StatId.HouseCapacity, flat: 1f, unit: UnitType.Miner),
+            });
+
+            Assert.That(raised, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Changed_IsSilent_ForANullOrEmptyList()
+        {
+            var stats = new RunStats();
+            int raised = 0;
+            stats.Changed += () => raised++;
+
+            stats.Add((IReadOnlyList<StatModifier>)null);
+            stats.Add(new List<StatModifier>());
+
+            Assert.That(raised, Is.EqualTo(0), "nothing landed, so nothing changed");
+        }
+
+        [Test]
+        public void Changed_FiresAfterTheModifierHasLanded()
+        {
+            var stats = new RunStats();
+            float seen = -1f;
+            stats.Changed += () => seen = stats.Apply(1f, StatId.HouseCapacity, UnitType.Miner);
+
+            stats.Add(Mod(StatId.HouseCapacity, flat: 1f, unit: UnitType.Miner));
+
+            Assert.That(seen, Is.EqualTo(2f).Within(Tolerance),
+                        "a listener that re-resolves inside the callback must see the new value");
+        }
     }
 
     // The source axis (StatScope.Source) is the third scope dimension on ResourceYield. It exists

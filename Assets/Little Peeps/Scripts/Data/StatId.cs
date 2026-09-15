@@ -24,8 +24,15 @@ namespace LittlePeeps
         ForgeCoolingTime,   // no scope — seconds the forge takes to cool from full to zero
         ForgeHotYield,      // no scope — pure multiplier on forge yield at full heat; reads ×1 until a perk adds to it
 
+        // The one MATERIALISED stat. Every stat above is read at the point of use, so a perk bought
+        // mid-run is simply seen by the next read; this one is turned into slots and a global cap at
+        // Spawner.Warmup and never asked for again, so a sheet change has to be PUSHED to the houses
+        // already standing — RunStats.Changed → SpawnSystem → Spawner.RefreshFromStats. Fractions
+        // round DOWN, so "+1 slot" is authored as flat; a percent on a 1-slot house does nothing
+        // until it reaches +100%.
+        HouseCapacity,      // scope: UnitType — worker slots per house (base: Spawner.capacity)
+
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
-        // HouseCapacity,   // scope: UnitType — worker slots per spawner (materialised → resolve at warmup)
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
     }
 
@@ -55,6 +62,7 @@ namespace LittlePeeps
             StatId.UnitSpeed        => StatScope.Unit,
             StatId.SpawnerRecharge  => StatScope.Unit,
             StatId.UnitFatigueDelay => StatScope.Unit,
+            StatId.HouseCapacity    => StatScope.Unit,
 
             // Source ONLY, deliberately not Resource as well: a source already fixes its resource, so
             // the second dimension would add nothing but a way to author a mismatched key. Left empty

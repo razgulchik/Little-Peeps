@@ -6,7 +6,9 @@ namespace LittlePeeps
     // Placed on a structure; drives a per-slot spawn -> travel -> return -> rest cycle.
     // Each slot is an independent place for one little person: it launches a unit, goes on its
     // OWN cooldown, then waits to accept ANY matching-type unit (units are shared per type, not
-    // owned). capacity = number of slots and is registered into SpawnSystem's global per-type cap.
+    // owned). `capacity` is the BASE slot count; the run's HouseCapacity modifier is applied on top at
+    // Warmup, and the result — slots.Count — is what is registered into SpawnSystem's global per-type
+    // cap and what OnDestroy gives back.
     [RequireComponent(typeof(Structure))]
     public class Spawner : MonoBehaviour, ICollisionEffect, IStructureSpawner
     {
@@ -14,7 +16,10 @@ namespace LittlePeeps
 
         [Header("Units")]
         [SerializeField] public UnitDef unitDef;
-        [SerializeField] public int capacity = 1;
+        [SerializeField] public int capacity = 1;   // base; never mutated at runtime — see ResolveCapacity
+
+        // Slots this house actually has (base + run modifier), 0 before Warmup.
+        public int SlotCount => slots != null ? slots.Count : 0;
 
         [Header("Cycle timing (seconds)")]
         [SerializeField] private float restDuration = 3f;
@@ -90,18 +95,18 @@ namespace LittlePeeps
         {
             if (spawnSystem == null || unitDef == null) return;
 
+            // Registration and slot creation are ONE step, so slots.Count is by construction the number
+            // the global cap was raised by — the number Unregister must give back, and the number
+            // IncreaseCapacity measures growth from.
             if (!registered)
             {
-                capacity = Mathf.Max(1, capacity);
-                spawnSystem.RegisterCapacity(unitDef.unitType, capacity);
+                int resolved = ResolveCapacity();
+                spawnSystem.RegisterCapacity(unitDef.unitType, resolved);
                 spawnSystem.RegisterSpawner(this);
                 registered = true;
-            }
 
-            if (slots == null)
-            {
-                slots = new List<Slot>(capacity);
-                for (int i = 0; i < capacity; i++) slots.Add(new Slot());
+                slots = new List<Slot>(resolved);
+                for (int i = 0; i < resolved; i++) slots.Add(new Slot());
             }
 
             // Placed during build mode: register + reserve slots, but don't pull resting units from the
@@ -128,36 +133,57 @@ namespace LittlePeeps
             }
         }
 
-        // Upgrade hook: grow the structure to newCapacity slots at runtime. Each NEW slot spawns a
-        // new unit that rests first, then launches — i.e. behaves exactly like a freshly built slot.
-        // Existing units keep running. Call this from the upgrade system.
-        public void IncreaseCapacity(int newCapacity)
+        // IStructureSpawner — the sheet changed mid-run (age, perk): re-resolve and grow to match.
+        // Before Warmup there is nothing to refresh — Warmup resolves from the sheet itself. Only
+        // growth is applied: DecreaseCapacity is still a stub, so a NEGATIVE HouseCapacity modifier
+        // bought mid-run leaves the standing houses as they are and only shows on houses warmed up
+        // after it. A future per-building upgrade raises `capacity` and calls this — same path.
+        public void RefreshFromStats()
         {
-            // Not warmed up yet (called before Start): just raise the target; Warmup uses it.
-            if (!registered || slots == null)
-            {
-                capacity = Mathf.Max(capacity, newCapacity);
-                return;
-            }
+            if (!registered) return;
+            IncreaseCapacity(ResolveCapacity());
+        }
 
-            if (newCapacity <= capacity) return; // only growth here; downgrades go through DecreaseCapacity
+        // Slots this house gets: the base with the run modifier applied. The one stat NOT read at the
+        // point of use — the result is materialised into slots and the global cap, so a later sheet
+        // change reaches this house only through RefreshFromStats.
+        //
+        // Rounded DOWN and never below one, so a percent on a 1-slot house does nothing until it
+        // reaches +100% — which is why "+1 slot" is authored as flat. The epsilon is for float noise
+        // only: ten +10% perks sum to 0.99999994, and 3 x 1.99999994 must still be six slots, not five.
+        private int ResolveCapacity()
+        {
+            var stats = spawnSystem != null ? spawnSystem.Stats : null;
+            float resolved = stats != null && unitDef != null
+                ? stats.Apply(capacity, StatId.HouseCapacity, unitDef.unitType)
+                : capacity;
+            return Mathf.Max(1, Mathf.FloorToInt(resolved + 1e-4f));
+        }
 
-            int delta = newCapacity - capacity;
-            spawnSystem.RegisterCapacity(unitDef.unitType, delta); // raise the global cap first
-            capacity = newCapacity;                                // keep in sync (OnDestroy unregisters `capacity`)
+        // Grow to newCapacity slots at runtime. Each NEW slot spawns a unit that rests first, then
+        // launches — exactly like a freshly built slot, so a perk never fires a unit the instant it is
+        // bought. Existing units keep running. Growth only; downgrades go through DecreaseCapacity.
+        private void IncreaseCapacity(int newCapacity)
+        {
+            if (slots == null || newCapacity <= slots.Count) return;
+
+            int delta = newCapacity - slots.Count;
+            spawnSystem.RegisterCapacity(unitDef.unitType, delta);   // raise the global cap first, or TrySpawn refuses
 
             for (int i = 0; i < delta; i++)
             {
                 var slot = new Slot();
                 slots.Add(slot);
-                FillSlot(slot);
+                // In build mode the slot is reserved but left empty, exactly like a house placed there:
+                // the exit warmup fills every slot at once, nothing materialises mid-build.
+                if (!spawnSystem.IsBuildMode) FillSlot(slot);
             }
         }
 
         // Downgrade hook: shrink the structure to newCapacity slots. FILLER for now — not implemented.
         // TODO: when slot downgrades exist, pick which slots to remove, deal with their units
         // (resting ones via SpawnSystem.Despawn; roaming ones need a recall path), then
-        // spawnSystem.UnregisterCapacity(unitDef.unitType, delta), trim `slots` and `capacity`.
+        // spawnSystem.UnregisterCapacity(unitDef.unitType, delta), trim `slots`.
         public void DecreaseCapacity(int newCapacity)
         {
             // TODO: implement when slot downgrades are introduced.
@@ -394,8 +420,11 @@ namespace LittlePeeps
                 }
             }
 
-            if (spawnSystem != null && unitDef != null)
-                spawnSystem.UnregisterCapacity(unitDef.unitType, capacity);
+            // slots.Count, not `capacity`: the base is not what was registered once a modifier or a
+            // mid-run growth has been applied, and slots are created in the same step as the
+            // registration, so their count IS the registered amount.
+            if (spawnSystem != null && unitDef != null && slots != null)
+                spawnSystem.UnregisterCapacity(unitDef.unitType, slots.Count);
 
             if (spawnSystem != null)
                 spawnSystem.UnregisterSpawner(this);

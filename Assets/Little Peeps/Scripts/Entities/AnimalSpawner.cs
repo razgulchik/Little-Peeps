@@ -84,6 +84,10 @@ namespace LittlePeeps
             respawnTimer = spawnCooldown;
         }
 
+        // IStructureSpawner — nothing here is materialised from the stat sheet (maxAnimals is plain
+        // config), so a sheet change has nothing to refresh. An animal-count stat would land here.
+        public void RefreshFromStats() { }
+
         // IStructureSpawner — build-mode enter: remove every live animal (the animal counterpart of
         // the units' despawn-all; animals aren't pooled units, so we destroy them ourselves).
         public void ResetForBuildMode()

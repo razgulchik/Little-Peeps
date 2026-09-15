@@ -34,9 +34,24 @@ namespace LittlePeeps
         public bool IsBuildMode { get; private set; }
 
         // Injected by RunManager.StartNewRun so units spawned this run carry the run's stat sheet.
+        //
+        // Also the ONE subscription to that sheet. A house's capacity is materialised into slots at
+        // warmup, so a perk or age that raises it mid-run has to be pushed to the houses already
+        // standing — and this is the registry that knows them. The previous run's sheet dies with its
+        // run, so the unsubscribe is bookkeeping rather than a leak fix; it is here so a re-Initialize
+        // can never leave two sheets driving one registry.
         public void Initialize(RunContext run)
         {
+            if (stats != null) stats.Changed -= RefreshSpawnersFromStats;
             stats = run.stats;
+            if (stats != null) stats.Changed += RefreshSpawnersFromStats;
+        }
+
+        // Sheet changed mid-run: every live spawner re-resolves what it materialised from it.
+        private void RefreshSpawnersFromStats()
+        {
+            for (int i = 0; i < spawners.Count; i++)
+                spawners[i].RefreshFromStats();
         }
 
         private void Start()

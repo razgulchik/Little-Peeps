@@ -334,6 +334,7 @@ namespace LittlePeeps.EditorTools
         private static string Group(StatId id) => id switch
         {
             StatId.SpawnerRecharge  => "Structures/House",
+            StatId.HouseCapacity    => "Structures/House",
             StatId.ForgeHeatPerHit  => "Structures/Forge",
             StatId.ForgeMaxHeat     => "Structures/Forge",
             StatId.ForgeCoolingTime => "Structures/Forge",
@@ -364,6 +365,7 @@ namespace LittlePeeps.EditorTools
             StatId.SpawnerRecharge => "Spawner recharge",
             StatId.UnitFatigueDelay => "Fatigue delay",
             StatId.SourceRespawn => "Respawn time",
+            StatId.HouseCapacity => "Capacity",
             // Short on purpose: these sit under Structures/Forge, and the summary line names the owner.
             StatId.ForgeHeatPerHit => "Heat per hit",
             StatId.ForgeMaxHeat => "Max heat",
@@ -389,6 +391,7 @@ namespace LittlePeeps.EditorTools
                 StatId.SpawnerRecharge => "Seconds a unit rests in a spawner. Negative percent = launches sooner.",
                 StatId.UnitFatigueDelay => "Seconds a unit roams before entering a house. Negative percent = rests sooner.",
                 StatId.SourceRespawn => "Seconds a depleted source takes to regrow. Negative percent = regrows faster.",
+                StatId.HouseCapacity => "Worker slots per house. Rounds DOWN: +50% on a 1-slot house does nothing - author Flat +1 for one more slot.",
                 StatId.ForgeHeatPerHit => "Heat one paying forge hit adds. Negative percent = more hits before it overheats.",
                 StatId.ForgeMaxHeat => "Heat at which the forge overheats and stops paying until it has cooled to zero.",
                 StatId.ForgeCoolingTime => "Seconds the forge takes to cool from full to zero. Negative percent = cools faster.",

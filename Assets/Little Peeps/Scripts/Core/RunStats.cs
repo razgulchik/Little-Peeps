@@ -62,6 +62,13 @@ namespace LittlePeeps
 
         private readonly Dictionary<Key, Accum> mods = new();
 
+        // Raised after a modifier, or a whole authored list, has landed. Almost nothing needs it: a stat
+        // read at the point of use — every duration, speed and yield — simply sees the new value on its
+        // next read. It exists for the MATERIALISED stat (HouseCapacity), whose value was turned into
+        // slots long before the perk was bought and would otherwise never be asked for again. Fires
+        // once per Add CALL, not once per modifier, so an age's whole list costs listeners one refresh.
+        public event System.Action Changed;
+
         // The one place a scope tuple is turned into a key. Two corrections happen here, and Add and
         // Apply MUST both go through them or authored data and queries stop meeting:
         //
@@ -93,19 +100,27 @@ namespace LittlePeeps
         // Accumulate one modifier into its (scope-normalised) bucket.
         public void Add(StatModifier m)
         {
+            Accumulate(m);
+            Changed?.Invoke();
+        }
+
+        // Accumulate a whole authored list (e.g. AgeDef.modifiers). Null-safe; an empty list is not a
+        // change and raises nothing.
+        public void Add(IReadOnlyList<StatModifier> list)
+        {
+            if (list == null || list.Count == 0) return;
+            for (int i = 0; i < list.Count; i++) Accumulate(list[i]);
+            Changed?.Invoke();
+        }
+
+        private void Accumulate(StatModifier m)
+        {
             var key = MakeKey(m.id, m.unitScope, m.resourceScope, m.sourceScope);
             mods.TryGetValue(key, out var a);
             a.flat += m.flat;
             a.percent += m.percent;
             mods[key] = a;
             // TODO(perf): if a dirty-flag value cache is added later, invalidate it here.
-        }
-
-        // Accumulate a whole authored list (e.g. AgeDef.modifiers). Null-safe.
-        public void Add(IReadOnlyList<StatModifier> list)
-        {
-            if (list == null) return;
-            for (int i = 0; i < list.Count; i++) Add(list[i]);
         }
 
         // The one stacking formula. Returns baseValue unchanged when nothing modifies this stat.

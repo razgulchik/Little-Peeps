@@ -58,6 +58,7 @@ namespace LittlePeeps
             StatId.SpawnerRecharge  => ("SPAWN DELAY", StatScope.None),
             StatId.UnitFatigueDelay => ("WORK TIME", StatScope.None),
             StatId.SourceRespawn    => ("REGROW TIME", StatScope.None),
+            StatId.HouseCapacity    => ("HOUSE SLOTS", StatScope.None),
             StatId.ForgeHeatPerHit  => ("FORGE HEAT PER HIT", StatScope.None),
             StatId.ForgeMaxHeat     => ("FORGE HEAT CAP", StatScope.None),
             StatId.ForgeCoolingTime => ("FORGE COOLING TIME", StatScope.None),

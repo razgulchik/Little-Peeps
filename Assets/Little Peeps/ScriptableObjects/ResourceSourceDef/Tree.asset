@@ -17,8 +17,8 @@ MonoBehaviour:
   workerYields:
   - worker: 0
     amount: 1
-  - worker: 1
-    amount: 2
+  - worker: 2
+    amount: 3
   pickupFx: {fileID: 4371847270752138857, guid: a285e262118a29846bc987227ea4bb18, type: 3}
   pickupFxCount: 1
   infinite: 0

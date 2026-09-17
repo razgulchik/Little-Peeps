@@ -22,8 +22,10 @@ namespace LittlePeeps.Tests
         private UnitDef unitDef;
         private readonly List<GameObject> spawned = new();
 
-        // Lumberjack, not Farmer: UnitType.Farmer is 0, so the unit-scope test below would pass on it
-        // even if the scope were ignored. Same reasoning as RunStatsTests.
+        // Non-zero on purpose (Unassigned is 0): the population bookkeeping test at the end would pass
+        // on a zero even if the per-type dictionaries did nothing. Same reasoning as RunStatsTests.
+        // `Other` is any profession the house's def is not — the scope test below hands it a modifier
+        // scoped to that and expects the house to grow anyway.
         private const UnitType Worker = UnitType.Lumberjack;
         private const UnitType Other = UnitType.Farmer;
 
@@ -63,8 +65,10 @@ namespace LittlePeeps.Tests
             return spawner;
         }
 
-        private static StatModifier Capacity(float flat = 0f, float percent = 0f, UnitType unit = Worker)
-            => new StatModifier { id = StatId.HouseCapacity, unitScope = unit, flat = flat, percent = percent };
+        // No unit scope: HouseCapacity has none (a house is type-agnostic — it rests and launches
+        // whoever comes home), so the modifier is authored the way an asset would be.
+        private static StatModifier Capacity(float flat = 0f, float percent = 0f)
+            => new StatModifier { id = StatId.HouseCapacity, flat = flat, percent = percent };
 
         // --- resolve at warmup -----------------------------------------------------------------------
 
@@ -77,11 +81,13 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
-        public void Warmup_IsScopedToTheUnitType()
+        public void Warmup_IgnoresAUnitScopeOnTheModifier()
         {
-            run.stats.Add(Capacity(flat: 1f, unit: Other));
+            // An old asset or an inspector slip may still carry a profession on a house stat. It is not
+            // a filter: RunStats normalises it away, and the house resolves the same number for everyone.
+            run.stats.Add(new StatModifier { id = StatId.HouseCapacity, unitScope = Other, flat = 1f });
 
-            Assert.That(MakeSpawner(1).SlotCount, Is.EqualTo(1), "a farmer bonus must not grow a lumberjack house");
+            Assert.That(MakeSpawner(1).SlotCount, Is.EqualTo(2), "house slots are not per profession");
         }
 
         [Test]

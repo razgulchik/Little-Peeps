@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: Fox
   m_EditorClassIdentifier: 
   id: fox
-  resource: 0
+  resource: 4
   workerYields:
-  - worker: 0
+  - worker: 3
     amount: 1
-  pickupFx: {fileID: 4737561740087932183, guid: 17dd9b64cda166c4fba8ff8ea6076dbf, type: 3}
+  pickupFx: {fileID: 1316142203753392457, guid: e895b80a6ceda93419f8ff05bb7929cb, type: 3}
   pickupFxCount: 1
   infinite: 0
   hitsBeforeDespawn: 1

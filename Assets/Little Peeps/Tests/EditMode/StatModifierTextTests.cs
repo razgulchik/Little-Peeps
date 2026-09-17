@@ -19,13 +19,15 @@ namespace LittlePeeps.Tests
         [Test]
         public void List_GivesOneLinePerModifier()
         {
+            // The second modifier carries a unit scope its stat does not use (house slots are not per
+            // profession): the line must not advertise it, exactly as the runtime will not honour it.
             string text = StatModifierText.Describe(new List<StatModifier>
             {
+                Mod(StatId.UnitSpeed, percent: 0.5f, unit: UnitType.Lumberjack),
                 Mod(StatId.HouseCapacity, flat: 1f, unit: UnitType.Lumberjack),
-                Mod(StatId.SpawnerRecharge, percent: -0.1f, unit: UnitType.Lumberjack),
             });
 
-            Assert.That(text, Is.EqualTo("+1 HOUSE SLOTS (LUMBERJACK)\n-10% SPAWN DELAY (LUMBERJACK)"));
+            Assert.That(text, Is.EqualTo("+50% SPEED (LUMBERJACK)\n+1 HOUSE SLOTS"));
         }
 
         [Test]

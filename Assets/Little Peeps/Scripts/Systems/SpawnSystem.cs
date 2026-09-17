@@ -4,10 +4,15 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Coordinates unit spawning: bridges Spawner components with UnitPool, enforces a global
-    // active-unit cap per UnitType (cap = sum of all registered spawner capacities), and keeps
+    // active-unit cap per POPULATION type (cap = sum of all registered spawner capacities), and keeps
     // UnitSystem's live registry in sync via direct calls (no events). Also owns the registry of
     // ALL structure spawners (unit Spawners and AnimalSpawners, via IStructureSpawner) so build
     // mode can despawn-all + re-warm everything on enter/exit.
+    //
+    // Both dictionaries are keyed on `UnitDef.unitType` — what a unit was BORN as — never on
+    // `Unit.Type`, which is the profession a rack may have changed mid-outing. Spawn and despawn must
+    // count against the same key, or a villager that left the house Unassigned and came back a
+    // lumberjack would leave the Unassigned count one too high forever.
     public class SpawnSystem : MonoBehaviour
     {
         [SerializeField] private UnitPool unitPool;
@@ -109,13 +114,21 @@ namespace LittlePeeps
             return unit;
         }
 
+        // Every exit from the field goes through here (house teardown, build mode, run teardown), so
+        // this is where a mid-outing profession ends: Unequip before the pool takes the unit, and the
+        // count comes off the key TrySpawn put it on.
         public void Despawn(Unit unit)
         {
             if (unit == null) return;
 
-            var type = unit.Type;
-            activeByType.TryGetValue(type, out var active);
-            activeByType[type] = Mathf.Max(0, active - 1);
+            unit.Unequip();
+
+            if (unit.def != null)
+            {
+                var type = unit.def.unitType;
+                activeByType.TryGetValue(type, out var active);
+                activeByType[type] = Mathf.Max(0, active - 1);
+            }
 
             if (unitSystem != null) unitSystem.Remove(unit);
             unitPool.Release(unit);

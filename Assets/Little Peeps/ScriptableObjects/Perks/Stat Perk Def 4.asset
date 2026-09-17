@@ -20,7 +20,7 @@ MonoBehaviour:
   minAge: 1
   modifiers:
   - id: 1
-    unitScope: 0
+    unitScope: 1
     resourceScope: 1
     sourceScope: {fileID: 0}
     flat: 0

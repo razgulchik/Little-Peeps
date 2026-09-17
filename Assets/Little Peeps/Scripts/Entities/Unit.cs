@@ -10,7 +10,19 @@ namespace LittlePeeps
                  "this whole object, so hiding stays correct however many parts the art is built from.")]
         [SerializeField] private GameObject visualRoot;
 
-        public UnitType Type => def != null ? def.unitType : default;
+        // What the unit DOES right now — the key every profession read goes through: which sources pay
+        // it (ResourceSourceDef.TryGetYield), the forge gate, the yield and speed modifiers. It is
+        // `Profession`, never `def.unitType`: the def says what the unit was born as, and population
+        // accounting (SpawnSystem) keys on that; this one changes when a rack hands the unit a tool.
+        public UnitType Type => Profession;
+
+        // The profession the unit is working as this outing. Starts as the def's value every time the
+        // unit comes out of the pool (OnEnable — the pool assigns `def` before activating), a rack
+        // changes it through Equip, and Unequip puts it back when the outing ends. A villager def is
+        // born Unassigned and so harvests nothing until it has crossed a rack; the old Farmer def is
+        // born a farmer and — never being Unassigned — never takes a tool.
+        public UnitType Profession { get; private set; }
+        private UnitType BornProfession => def != null ? def.unitType : default;
 
         // World-space radius of the unit's collider (used for spawn-clearance math).
         public float Radius => bodyCollider != null ? bodyCollider.bounds.extents.x : 0f;
@@ -51,6 +63,9 @@ namespace LittlePeeps
 
         private void OnEnable()
         {
+            // Fresh out of the pool (or first activation): whatever the previous outing equipped is
+            // gone with it — Despawn already returned the tool — so the unit starts as it was born.
+            Profession = BornProfession;
             baseSpeed = ResolveBaseSpeed();
         }
 
@@ -67,23 +82,47 @@ namespace LittlePeeps
         // injection), so a speed bonus gained mid-run applies from the unit's next launch onward.
         public void SetStats(RunStats runStats) => stats = runStats;
 
-        // Base movement speed with the UnitSpeed modifier applied. Falls back to the raw def value when
-        // stats aren't injected yet (e.g. a scene-placed unit, or before the first spawn injection).
+        // Base movement speed with the UnitSpeed modifier applied — keyed on the PROFESSION, so a
+        // "lumberjacks walk faster" perk reaches a villager the moment it picks up an axe (Equip
+        // re-resolves). Falls back to the raw def value when stats aren't injected yet (e.g. a
+        // scene-placed unit, or before the first spawn injection).
         private float ResolveBaseSpeed()
         {
             if (def == null) return 0f;
-            return stats != null ? stats.Apply(def.speed, StatId.UnitSpeed, def.unitType) : def.speed;
+            return stats != null ? stats.Apply(def.speed, StatId.UnitSpeed, Profession) : def.speed;
         }
 
         // Full stamina for this unit: seconds of field work per outing, with the run modifier applied.
         // Same fallback rule as ResolveBaseSpeed. A perk that keeps units out longer is a POSITIVE
-        // percent here — these are seconds, not a rate.
+        // percent here — these are seconds, not a rate. Unscoped on purpose: this is resolved at
+        // launch, before the unit has crossed any rack, so there is no profession to key on yet.
         private float ResolveMaxStamina()
         {
             if (def == null) return 0f;
             return stats != null
-                ? stats.Apply(def.stamina, StatId.UnitStamina, def.unitType)
+                ? stats.Apply(def.stamina, StatId.UnitStamina)
                 : def.stamina;
+        }
+
+        // A rack hands the unit a tool: from here on it works as `profession`. Whether the unit may take
+        // one (it must be Unassigned) is the rack's call — this only records the result. The base speed
+        // is cached at launch, so it is re-resolved here for the new profession and the running velocity
+        // settled to it — the same one-off rescale a tired transition does, for the same reason.
+        public void Equip(UnitType profession)
+        {
+            Profession = profession;
+            baseSpeed = ResolveBaseSpeed();
+            SettleSpeed();
+        }
+
+        // The outing is over — the unit is back to what it was born as. Called on every way an outing
+        // ends (house rest, despawn) so a profession can never survive into the next launch; a unit
+        // that never equipped anything is unaffected. The tool itself goes back to the rack from here
+        // once racks exist. No speed work: the callers stop the unit anyway, and the next launch
+        // re-resolves.
+        public void Unequip()
+        {
+            Profession = BornProfession;
         }
 
         // Launch from a house in a direction, with full stamina — the house is what refills it. The unit
@@ -143,10 +182,12 @@ namespace LittlePeeps
         // Pull the unit inside a building: stop and hide it while it rests. Resting is not working, so
         // the stamina is dropped too — Launch refills it on the way out anyway; this only keeps IsTired
         // truthful while the unit is inside. Not through OnBecameTired: there is no velocity to touch.
+        // Going home ends the outing, so the profession (and its tool) is given up here as well.
         public void EnterRest()
         {
             launchBoostTimer = 0f;
             stamina = 0f;
+            Unequip();
 
             rb.linearVelocity = Vector2.zero;
             rb.simulated = false;
@@ -186,13 +227,21 @@ namespace LittlePeeps
         }
 
         // The one working → tired transition — from the clock today, and from any future stamina spend
-        // (a building charging per paying hit) tomorrow. Mid-boost there is nothing to do: the decay is
-        // already heading for TargetSpeed and re-reads it every step. Otherwise physics owns the
-        // velocity and would keep the working speed forever (bounciness 1, no drag), so the magnitude
-        // is rescaled here once. Direction is kept — the unit sags, it doesn't turn.
+        // (a building charging per paying hit) tomorrow. Direction is kept — the unit sags, it doesn't
+        // turn.
         private void OnBecameTired()
         {
             stamina = 0f;
+            SettleSpeed();
+        }
+
+        // TargetSpeed just changed under a moving unit (it tired, or it took a tool and its base speed
+        // moved): make the velocity follow. Mid-boost there is nothing to do — the decay is already
+        // heading for TargetSpeed and re-reads it every step. Otherwise physics owns the velocity and
+        // would keep the old speed forever (bounciness 1, no drag), so the magnitude is rescaled here
+        // once. A stopped unit (resting) has nothing to rescale.
+        private void SettleSpeed()
+        {
             if (launchBoostTimer > 0f) return;
 
             float speed = rb.linearVelocity.magnitude;

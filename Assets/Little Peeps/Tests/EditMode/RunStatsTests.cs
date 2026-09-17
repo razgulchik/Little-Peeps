@@ -11,7 +11,7 @@ namespace LittlePeeps.Tests
     // its stat does not use must still be found by a query that passes no scope — otherwise the failure
     // is silent and user-visible as "the perk was bought and nothing happened".
     //
-    // Every scope test below uses NON-ZERO enum values on purpose. Farmer, Food and Grass are all 0, so
+    // Every scope test below uses NON-ZERO enum values on purpose. Unassigned, Food and Grass are all 0, so
     // the same test written on them would pass even if MakeKey did nothing at all.
     public class RunStatsTests
     {
@@ -173,9 +173,9 @@ namespace LittlePeeps.Tests
         public void ADurationStat_IsScaledByTheOrdinaryFormula()
         {
             var stats = new RunStats();
-            stats.Add(Mod(StatId.SpawnerRecharge, percent: -0.25f, unit: UnitType.Miner));
+            stats.Add(Mod(StatId.SpawnerRecharge, percent: -0.25f));
 
-            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge, UnitType.Miner),
+            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge),
                         Is.EqualTo(3f).Within(Tolerance), "-25% means three seconds, not five");
         }
 
@@ -183,37 +183,47 @@ namespace LittlePeeps.Tests
         public void ADurationStat_GoesNegativeRatherThanBlowingUp_PastMinusOneHundredPercent()
         {
             var stats = new RunStats();
-            stats.Add(Mod(StatId.SpawnerRecharge, percent: -1.5f, unit: UnitType.Miner));
+            stats.Add(Mod(StatId.SpawnerRecharge, percent: -1.5f));
 
             // Deliberately NOT clamped here. A negative timer is already <= 0 at the consumer, so the
             // worst an over-tuned stack can do is fire instantly — never Infinity, never NaN.
-            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge, UnitType.Miner),
+            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge),
                         Is.LessThan(0f));
         }
 
-        // Each new StatId needs its own line in StatMeta.ScopeOf, and the `_ => None` default means a
-        // forgotten one silently turns the stat GLOBAL — a Miner's bonus would reach every unit and
-        // nothing would look wrong. One test per scoped duration stat, on non-zero units.
-        [Test]
-        public void SpawnerRecharge_IsScopedToItsUnit()
+        // The house-side stats carry NO unit scope, by design rather than by the `_ => None` default:
+        // a house rests and launches whoever comes home, and stamina is resolved at launch, before a
+        // villager has crossed a rack and has a profession to key on. So a modifier authored with a
+        // unit scope (an old asset, a slip in the inspector) is not lost — it applies to everyone,
+        // and a query that happens to pass a profession gets the same answer as one that doesn't.
+        [TestCase(StatId.SpawnerRecharge)]
+        [TestCase(StatId.UnitStamina)]
+        [TestCase(StatId.HouseCapacity)]
+        public void AHouseSideStat_IgnoresAUnitScope_OnBothSides(StatId id)
         {
             var stats = new RunStats();
-            stats.Add(Mod(StatId.SpawnerRecharge, percent: -0.5f, unit: UnitType.Miner));
+            stats.Add(Mod(id, percent: 1f, unit: UnitType.Miner));
 
-            Assert.That(stats.Apply(4f, StatId.SpawnerRecharge, UnitType.Lumberjack),
-                        Is.EqualTo(4f).Within(Tolerance));
+            Assert.That(stats.Apply(3f, id),
+                        Is.EqualTo(6f).Within(Tolerance), "an unscoped query finds the modifier");
+            Assert.That(stats.Apply(3f, id, UnitType.Lumberjack),
+                        Is.EqualTo(6f).Within(Tolerance), "so does a query for another profession");
         }
 
+        // The counterpart: the stats a unit resolves while OUT WORKING do key on its profession — see
+        // UnitScopedStat_DoesNotLeakToAnotherUnit for UnitSpeed. This one pins that the mask split is
+        // per stat, not per "unit-ish" name: UnitStamina ignores the unit, UnitSpeed keeps it.
         [Test]
-        public void UnitStamina_IsScopedToItsUnit()
+        public void UnitSpeed_KeepsItsProfessionScope_WhereUnitStaminaDropsIt()
         {
             var stats = new RunStats();
+            stats.Add(Mod(StatId.UnitSpeed, percent: 1f, unit: UnitType.Miner));
             stats.Add(Mod(StatId.UnitStamina, percent: 1f, unit: UnitType.Miner));
 
-            Assert.That(stats.Apply(3f, StatId.UnitStamina, UnitType.Miner),
-                        Is.EqualTo(6f).Within(Tolerance), "+100% keeps a Miner out twice as long");
-            Assert.That(stats.Apply(3f, StatId.UnitStamina, UnitType.Lumberjack),
-                        Is.EqualTo(3f).Within(Tolerance));
+            Assert.That(stats.Apply(2f, StatId.UnitSpeed, UnitType.Lumberjack),
+                        Is.EqualTo(2f).Within(Tolerance), "a Miner's speed perk is not a Lumberjack's");
+            Assert.That(stats.Apply(2f, StatId.UnitStamina, UnitType.Lumberjack),
+                        Is.EqualTo(4f).Within(Tolerance), "stamina is one number for every villager");
         }
 
         // --- Changed ---------------------------------------------------------------------------------
@@ -246,7 +256,7 @@ namespace LittlePeeps.Tests
             {
                 Mod(StatId.UnitSpeed, percent: 0.1f),
                 Mod(StatId.SpawnerRecharge, percent: -0.1f),
-                Mod(StatId.HouseCapacity, flat: 1f, unit: UnitType.Miner),
+                Mod(StatId.HouseCapacity, flat: 1f),
             });
 
             Assert.That(raised, Is.EqualTo(1));
@@ -270,9 +280,9 @@ namespace LittlePeeps.Tests
         {
             var stats = new RunStats();
             float seen = -1f;
-            stats.Changed += () => seen = stats.Apply(1f, StatId.HouseCapacity, UnitType.Miner);
+            stats.Changed += () => seen = stats.Apply(1f, StatId.HouseCapacity);
 
-            stats.Add(Mod(StatId.HouseCapacity, flat: 1f, unit: UnitType.Miner));
+            stats.Add(Mod(StatId.HouseCapacity, flat: 1f));
 
             Assert.That(seen, Is.EqualTo(2f).Within(Tolerance),
                         "a listener that re-resolves inside the callback must see the new value");
@@ -335,7 +345,7 @@ namespace LittlePeeps.Tests
     {
         private const float Tolerance = 1e-4f;
 
-        // Non-zero on purpose, same reasoning as RunStatsTests: Farmer and Food are both 0, so a test
+        // Non-zero on purpose, same reasoning as RunStatsTests: Unassigned and Food are both 0, so a test
         // written on them would pass even if the scope were dropped entirely.
         private const UnitType Worker = UnitType.Miner;
         private const ResourceType Res = ResourceType.Stone;

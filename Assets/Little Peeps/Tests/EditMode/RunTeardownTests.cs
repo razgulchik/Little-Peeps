@@ -29,8 +29,8 @@ namespace LittlePeeps.Tests
         private SpawnSystem spawnSystem;
         private UnitDef unitDef;
 
-        // Lumberjack, not Farmer: UnitType.Farmer is 0, so a test written on it still passes when the
-        // per-type bookkeeping does nothing at all. Same reasoning as the scope tests in RunStatsTests.
+        // Non-zero on purpose (UnitType.Unassigned is 0): a test written on the zero still passes when
+        // the per-type bookkeeping does nothing at all. Same reasoning as the scope tests in RunStatsTests.
         private const UnitType Worker = UnitType.Lumberjack;
 
         [SetUp]

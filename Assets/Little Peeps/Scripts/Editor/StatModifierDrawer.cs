@@ -329,8 +329,9 @@ namespace LittlePeeps.EditorTools
             (Group(id) ?? Category(StatMeta.ScopeOf(id))) + "/" + Label(id);
 
         // Hand-kept, and only for stats that HAVE an owner: a building's parameters go under
-        // Structures/<building>, however they happen to be scoped (SpawnerRecharge is scoped by unit
-        // type, but it is still how long a HOUSE holds someone). Null = no owner, use Category.
+        // Structures/<building>, however they happen to be scoped. Null = no owner, use Category —
+        // which is why UnitStamina, unscoped and owned by nobody, files under Global next to
+        // ProductionGlobal: every villager's stamina is one number, and the picker says so.
         private static string Group(StatId id) => id switch
         {
             StatId.SpawnerRecharge  => "Structures/House",
@@ -412,9 +413,10 @@ namespace LittlePeeps.EditorTools
 
         // Values left over from a previous stat choice. Returns null when there is nothing to report.
         //
-        // Blind spot worth knowing: Farmer and Food are both enum value 0, so a leftover Farmer is
-        // indistinguishable from an untouched field and goes unreported. Harmless -- MakeKey zeroes it
-        // either way -- but it means a clean inspector is not a proof of a clean file.
+        // Blind spot worth knowing: Food is enum value 0, so a leftover Food is indistinguishable from
+        // an untouched resource field and goes unreported. Harmless -- MakeKey zeroes it either way --
+        // but it means a clean inspector is not a proof of a clean file. The unit axis has no such
+        // hole any more: its zero is Unassigned, which is "nobody", so every leftover profession shows.
         private static string JunkText(StatScope scope, Fields f)
         {
             List<string> dead = null;

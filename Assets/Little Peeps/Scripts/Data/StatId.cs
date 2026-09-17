@@ -7,14 +7,18 @@ namespace LittlePeeps
     public enum StatId
     {
         ProductionGlobal,   // global multiplier on all resource GAINS (harvest); no scope
-        ResourceYield,      // scope: (UnitType worker, ResourceType, source) — amount harvested per hit
-        UnitSpeed,          // scope: UnitType — movement speed
+        ResourceYield,      // scope: (profession, ResourceType, source) — amount harvested per hit
+        UnitSpeed,          // scope: profession — movement speed
 
         // Durations are plain numbers on the one formula, like every other stat: a modifier scales the
         // SECONDS, so "regrows faster" is authored as a NEGATIVE percent. Each is named after the field
         // it scales, never after a speed, so the sign is obvious from the name at the point of use.
-        SpawnerRecharge,    // scope: UnitType — seconds a unit rests inside a spawner before launching
-        UnitStamina,        // scope: UnitType — seconds of field work a unit gets per outing before it tires
+        //
+        // Neither of these two can be scoped by profession: a house is type-agnostic — it rests and
+        // launches whoever comes home — and stamina is resolved at launch, when a villager is still
+        // Unassigned and has no profession to key on yet. The profession comes from a rack later.
+        SpawnerRecharge,    // no scope — seconds a unit rests inside a spawner before launching
+        UnitStamina,        // no scope — seconds of field work a unit gets per outing before it tires
         SourceRespawn,      // scope: source — seconds a depleted resource source takes to regrow
 
         // Forge heat (ForgeHeat). All unscoped: there is one forge. ForgeCoolingTime is a duration like
@@ -29,8 +33,9 @@ namespace LittlePeeps
         // Spawner.Warmup and never asked for again, so a sheet change has to be PUSHED to the houses
         // already standing — RunStats.Changed → SpawnSystem → Spawner.RefreshFromStats. A count, so
         // it resolves through ApplyCount: rounded DOWN, "+1 slot" is authored as flat, and a percent
-        // on a 1-slot house does nothing until it reaches +100%.
-        HouseCapacity,      // scope: UnitType — worker slots per house (base: Spawner.capacity)
+        // on a 1-slot house does nothing until it reaches +100%. Unscoped like SpawnerRecharge: the
+        // house does not know or care what its occupants do for a living.
+        HouseCapacity,      // no scope — worker slots per house (base: Spawner.capacity)
 
         // Market passage (VisitZone). Unscoped like the forge: there is one market, and the zone exists
         // only on it. Read on every entry, so it needs no push. A count like HouseCapacity — "+1 hit"
@@ -48,6 +53,10 @@ namespace LittlePeeps
     public enum StatScope
     {
         None     = 0,
+
+        // The worker's PROFESSION (Unit.Type — what it does, not what it was born as; see UnitType).
+        // Only stats read while the unit is out working can carry it: a worker has no profession
+        // before it crosses a rack, so anything resolved at the house or at launch stays unscoped.
         Unit     = 1 << 0,
         Resource = 1 << 1,
 
@@ -66,9 +75,12 @@ namespace LittlePeeps
         {
             StatId.ResourceYield    => StatScope.Unit | StatScope.Resource | StatScope.Source,
             StatId.UnitSpeed        => StatScope.Unit,
-            StatId.SpawnerRecharge  => StatScope.Unit,
-            StatId.UnitStamina      => StatScope.Unit,
-            StatId.HouseCapacity    => StatScope.Unit,
+
+            // Deliberately NOT Unit, although each has a unit in hand at the point of use: the house
+            // and the launch happen before any profession exists (see the StatId comments).
+            StatId.SpawnerRecharge  => StatScope.None,
+            StatId.UnitStamina      => StatScope.None,
+            StatId.HouseCapacity    => StatScope.None,
 
             // Source ONLY, deliberately not Resource as well: a source already fixes its resource, so
             // the second dimension would add nothing but a way to author a mismatched key. Left empty

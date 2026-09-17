@@ -5,19 +5,21 @@ namespace LittlePeeps
 {
     // Placed on a structure; drives a per-slot spawn -> travel -> return -> rest cycle.
     // Each slot is an independent place for one little person: it launches a unit, then stands
-    // free for ANY tired unit of its type (units are shared per type, not owned). There is no
-    // lockout after a launch: the unit that just left has full stamina, and CollisionTarget never
-    // routes a working unit to a shelter, so nothing can duck straight back in — a free slot
-    // simply takes the next tired unit that hits the house. `capacity` is the BASE slot count; the
-    // run's HouseCapacity modifier is applied on top at Warmup, and the result — slots.Count — is what
-    // is registered into SpawnSystem's global per-type cap and what OnDestroy gives back.
+    // free for ANY tired unit — houses provide population, not professions, so a house neither owns
+    // the units it launched nor cares what they work as when they come back (the tool goes back to
+    // its rack on entry, see Unit.EnterRest). There is no lockout after a launch: the unit that just
+    // left has full stamina, and CollisionTarget never routes a working unit to a shelter, so nothing
+    // can duck straight back in — a free slot simply takes the next tired unit that hits the house.
+    // `capacity` is the BASE slot count; the run's HouseCapacity modifier is applied on top at Warmup,
+    // and the result — slots.Count — is what is registered into SpawnSystem's global cap under this
+    // house's `unitDef.unitType` (the population key) and what OnDestroy gives back.
     [RequireComponent(typeof(Structure))]
     public class Spawner : MonoBehaviour, IShelter, IStructureSpawner
     {
         [SerializeField] private SpawnSystem spawnSystem;
 
         [Header("Units")]
-        [SerializeField] public UnitDef unitDef;
+        [SerializeField] public UnitDef unitDef;    // what this house spawns; its unitType is the population key, not a profession
         [SerializeField] public int capacity = 1;   // base; never mutated at runtime — see ResolveCapacity
 
         // Slots this house actually has (base + run modifier), 0 before Warmup.
@@ -148,12 +150,13 @@ namespace LittlePeeps
         // Slots this house gets: the base with the run modifier applied. The one stat NOT read at the
         // point of use — the result is materialised into slots and the global cap, so a later sheet
         // change reaches this house only through RefreshFromStats. Never below one slot: a house with
-        // nobody in it is not a house, whatever a penalty says.
+        // nobody in it is not a house, whatever a penalty says. Unscoped: the house has no profession
+        // to key on (see StatId).
         private int ResolveCapacity()
         {
             var stats = spawnSystem != null ? spawnSystem.Stats : null;
-            int resolved = stats != null && unitDef != null
-                ? stats.ApplyCount(capacity, StatId.HouseCapacity, unitDef.unitType)
+            int resolved = stats != null
+                ? stats.ApplyCount(capacity, StatId.HouseCapacity)
                 : capacity;
             return Mathf.Max(1, resolved);
         }
@@ -190,12 +193,12 @@ namespace LittlePeeps
         // How long a unit rests inside before launching, with the run modifier applied. The stats sheet
         // is asked for at the point of use, never cached: it belongs to the run, while a spawner placed
         // in one run outlives it. A perk that shortens the rest is a NEGATIVE percent — this is the
-        // delay in seconds, not a rate.
+        // delay in seconds, not a rate. Unscoped, like HouseCapacity.
         private float ResolveRestDuration()
         {
             var stats = spawnSystem != null ? spawnSystem.Stats : null;
-            return stats != null && unitDef != null
-                ? stats.Apply(restDuration, StatId.SpawnerRecharge, unitDef.unitType)
+            return stats != null
+                ? stats.Apply(restDuration, StatId.SpawnerRecharge)
                 : restDuration;
         }
 
@@ -232,12 +235,12 @@ namespace LittlePeeps
 
         // IShelter — CollisionTarget.HandleHit calls this when a TIRED unit hits THIS structure; a
         // working unit's hit is routed past every shelter, so no stamina check is needed here. Dispatch
-        // is local, so no target filter is needed either (the target is already our structure) — only
-        // the unit-type check remains.
+        // is local, so no target filter is needed either (the target is already our structure). No
+        // unit-type check either: any house takes any tired worker, whichever house launched it and
+        // whatever it worked as — the only thing that can refuse is a full house.
         public void OnTiredHit(Unit unit)
         {
-            if (slots == null || unit == null || unitDef == null) return;
-            if (unit.Type != unitDef.unitType) return;
+            if (slots == null || unit == null) return;
 
             // Put the unit in the first free slot.
             foreach (var slot in slots)

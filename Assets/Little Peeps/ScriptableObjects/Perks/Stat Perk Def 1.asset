@@ -14,14 +14,30 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: perk_01
   title: Farm God
-  description: 
+  description: '+50% FOOD (FARMER)
+
+    +50% WOOD (LUMBERJACK)
+
+    +50% STONE (MINER)'
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 0
   modifiers:
   - id: 1
-    unitScope: 0
+    unitScope: 1
     resourceScope: 0
-    sourceScope: {fileID: 11400000, guid: 31767cd1cafbb69428e75771e561bfa0, type: 2}
+    sourceScope: {fileID: 0}
+    flat: 0
+    percent: 0.5
+  - id: 1
+    unitScope: 2
+    resourceScope: 1
+    sourceScope: {fileID: 0}
+    flat: 0
+    percent: 0.5
+  - id: 1
+    unitScope: 4
+    resourceScope: 2
+    sourceScope: {fileID: 0}
     flat: 0
     percent: 0.5

@@ -22,7 +22,7 @@ MonoBehaviour:
     amount: 20
   modifiers:
   - id: 1
-    unitScope: 0
+    unitScope: 1
     resourceScope: 1
     sourceScope: {fileID: 11400000, guid: f859f958ef8491246bab7b0e37c3aae4, type: 2}
     flat: 1

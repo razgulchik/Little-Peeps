@@ -9,6 +9,10 @@ namespace LittlePeeps
         public string id;
         public GameObject prefab;
         public float speed = 5f;
+
+        // What a unit of this def is BORN as, and the key its houses and SpawnSystem count it under.
+        // Not what it does: that is Unit.Profession, which a tool rack changes and a house entry
+        // resets to this. A villager that gets its profession from racks is authored Unassigned.
         public UnitType unitType;
 
         // Stamina: seconds of field work per outing, ticking from the moment the unit leaves a house,

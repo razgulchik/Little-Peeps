@@ -14,7 +14,7 @@ namespace LittlePeeps
     // dropPixels says how far above that they appear. One cycle is `period` seconds; two curves run
     // over it with x = 0..1 of the cycle: `drop` is the position (0 = top, 1 = landed) and `alpha` the
     // opacity. The defaults fall fast and land soft, hold, then fade out over the last part; the next
-    // cycle starts back at the top, fully opaque. Every new bout of fatigue starts from the top too.
+    // cycle starts back at the top, fully opaque. Every new bout of tiredness starts from the top too.
     //
     // The drop is snapped to whole sprite pixels: the scene's Pixel Perfect Camera does no snapping of
     // its own, and a point-filtered sprite sliding through sub-pixel positions shimmers.
@@ -69,7 +69,7 @@ namespace LittlePeeps
         }
 
         // Re-sync the moment the visual root comes back on (the unit leaving a house): Launch has
-        // already reset fatigue by then, so the bars must not flash for a frame before Update runs.
+        // already refilled stamina by then, so the bars must not flash for a frame before Update runs.
         private void OnEnable()
         {
             if (unit == null) return;

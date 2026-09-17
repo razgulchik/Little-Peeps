@@ -1,12 +1,14 @@
 # Little Peeps — Architecture
 
-> Status note (synced with the code on 2026-09-11): the run loop is closed end to end in code.
+> Status note (synced with the code on 2026-09-16): the run loop is closed end to end in code.
 > **Build mode** is complete — Place / Sell / Move tools, fences on grid edges, hover tints, ghost,
 > grid overlay. **Ages + the RunStats bonus system** are in (buy age → spend → grow island → apply
 > stat modifiers → fade/banner → perk pick). **Perks** are authored as assets, rolled per age and
 > picked on their own screen (hold-to-confirm). **Prestige** pays out from a per-profile record
 > formula; the pier click prestiges immediately — the confirmation screen is not built yet.
 > **Animals** (mobile resource nodes) and **harvest feedback** (particles + floating numbers) are in.
+> **Stamina** is aligned to the design doc: an outing is a stamina clock, only a house refills it,
+> a tired unit moves slower and is the only kind a house takes in.
 > **Meta → run is in progress** (`GlobalUpgradeDef` exists with `id` + `description` only; no
 > catalogue, no purchase path, nothing applied at run start yet). Still stubs, marked **(stub)**
 > below: `SaveSystem` (every launch starts with a fresh `MetaContext`), `MainMenuState`,
@@ -32,16 +34,16 @@
 │   AgeSystem · AgeSequencer · PerkSystem · PrestigeSystem ·   │
 │   PierSystem · PlacementController + tools · Harvest* · …)   │
 └──────┬────────────────────────────────────────┬─────────────┘
-       │ uses                                   │ asks gates, dispatches to
+       │ uses                                   │ routes each hit to, by unit state
 ┌──────▼────────────────────────┐    ┌──────────▼──────────────┐
 │  Entities                     │    │  Effects                │
 │  CollisionTarget (base)       │    │  ICollisionEffect impls:│
-│   ├ Structure                 │    │  Spawner · ResourceSource│
-│  Unit · Spawner · Pier        │    │  · Animal (all MBs)     │
-│  ResourceSource · Animal      │    │  Gates (IHitGate impls):│
-│  AnimalSpawner · AnimalWander │    │  VisitZone · ForgeHeat  │
-│  IStructureSpawner (contract) │    └─────────────────────────┘
-└──────┬────────────────────────┘
+│   ├ Structure                 │    │  ResourceSource · Animal│
+│  Unit · Spawner · Pier        │    │  Shelter (IShelter):    │
+│  ResourceSource · Animal      │    │  Spawner                │
+│  AnimalSpawner · AnimalWander │    │  Gates (IHitGate impls):│
+│  IStructureSpawner (contract) │    │  VisitZone · ForgeHeat  │
+└──────┬────────────────────────┘    └─────────────────────────┘
        │ uses
 ┌──────▼──────────────────────────────────────────────────────┐
 │  Core  (EventBus<T> · StateMachine · ReactiveValue<T> ·      │
@@ -66,13 +68,14 @@ Rule: layers only depend downward. UI never writes to Systems directly — it re
 
 Everything that stands on the grid is a **Structure**; behaviour lives in components:
 
-- `CollisionTarget` (base MonoBehaviour) — owns the collision callbacks and dispatches hits to its
-  `ICollisionEffect` components, after every `IHitGate` on the target has let the hit through.
-  Dispatch is **local**: there is no global collision event.
+- `CollisionTarget` (base MonoBehaviour) — owns the collision callbacks and routes each hit by the
+  unit's state: a WORKING unit reaches the `ICollisionEffect` components after every `IHitGate` on
+  the target has let the hit through; a TIRED unit reaches only the `IShelter` components (see
+  *Stamina and Tired* below). Dispatch is **local**: there is no global collision event.
 - `Structure : CollisionTarget` — adds placement identity: `def` (`StructureDef`). No health — a
   structure is removed by selling it, never by damage.
 - A structure carries one (or more) behaviour components:
-  - `Spawner` (produces units) — `[RequireComponent(typeof(Structure))]`.
+  - `Spawner` (produces units; as the house it is also the one `IShelter`) — `[RequireComponent(typeof(Structure))]`.
   - `ResourceSource` (produces resources) — `[RequireComponent(typeof(CollisionTarget))]`.
   - `AnimalSpawner` (produces animals — mobile resource nodes) — `[RequireComponent(typeof(Structure))]`.
   - `VisitZone` (rations hits per visit — a gate, not an effect) — on a trigger CHILD of the target,
@@ -92,7 +95,37 @@ what the hit would have paid, so the same component can sit on any building or a
 until the unit leaves and re-enters; a unit outside the zone never counts, so the zone also decides
 WHICH surfaces pay — inside the passage a unit can only touch the inner walls) and `ForgeHeat`
 (refuses while overheated). The per-visit number lives on the component, not in
-`ResourceSourceDef`; a "+1 hit per visit" perk would be one StatId read in `TryConsume`.
+`ResourceSourceDef`, and is the `MarketVisitHits` stat, resolved on entry — a unit already inside
+finishes the budget it came in with.
+
+**Stamina and Tired** (design doc: *Stamina and Tired*, *Population and identity*). An outing is a
+stamina clock: `UnitDef.stamina` seconds of field work (× `UnitStamina`), ticking in
+`Unit.FixedUpdate` the whole time the unit is out of a house, boosted or not — a boost makes the
+outing more productive, never longer. Stamina > 0 = WORKING; 0 = TIRED. `Unit.IsTired` is the one
+derived flag; there is no second variable. The state decides exactly two things:
+- **Dispatch.** `CollisionTarget.HandleHit` branches on `IsTired`: working → gates → effects;
+  tired → the target's `IShelter` components only. So a tired unit pays nothing anywhere (no market
+  visit is debited, the forge does not heat) and a working unit can never enter a house — both
+  halves of the rule live in that one branch, and no effect, gate or shelter checks stamina itself.
+- **Speed.** `Unit.TargetSpeed` is the base speed while working and base ×
+  `UnitDef.tiredSpeedMultiplier` (`[Range(0.1, 1)]` — never zero, a tired unit must stay distinct
+  from a stopped one) while tired. Every boost decays to TargetSpeed, re-read each step, so a unit
+  that tires mid-boost eases down instead of snapping; `Unit.OnBecameTired()` is the single
+  working→tired transition and rescales the velocity once when no boost is running (direction kept;
+  bounciness 1 and zero drag hold it from there).
+
+Only a house refills stamina: `Spawner.OnTiredHit` → `Unit.EnterRest` (stamina zeroed while
+inside, the unit stays counted in the population) → `restDuration` (× `SpawnerRecharge`) →
+`Unit.Launch` with a full clock. Any house of the unit's type takes it, whichever house spawned it;
+an occupied slot refuses; there is **no lockout** after a launch — the unit that just left has full
+stamina, so nothing can duck back in (the old `Cooldown` slot state existed only before stamina
+did). A tap is speed only (`Unit.Boost`); `TapSystem.refreshStamina` (default off) turns it into a
+full restart — the hook for a future perk. `TiredView` (the bars over the head) polls `IsTired` and
+is presentation only. Planned on this skeleton, not built: `Unit.SpendStamina` for buildings that
+charge per paying hit or per work period (calls the same `OnBecameTired`); a hold-without-reset for
+buildings that keep the worker with their stamina intact (tavern, mine, bakery); a `Drunk` status
+(`IsTired || IsDrunk` at the shelter branch); a third, state-neutral dispatch list for things like
+spring towers.
 
 **Two placement kinds** (`StructureDef.placement`): `Cell` — a footprint of cells (the default), keyed
 by `Vector2Int` in `RunContext.structures`; `Edge` — sits on the boundary line between two cells
@@ -175,7 +208,7 @@ home for session-scoped data. Its fields (`unitPool`, `draggedStructure`, `hover
 
 Game parameters follow a **base + modifiers** split, so bonuses stay data-driven and reset cleanly on prestige:
 
-- **Base** values live in configs and never change: `UnitDef.speed`, `UnitDef.fatigueDelay`,
+- **Base** values live in configs and never change: `UnitDef.speed`, `UnitDef.stamina`,
   `ResourceSourceDef.workerYields[worker].amount`, `ResourceSourceDef.respawnTime`, `Spawner`'s rest
   duration, etc.
 - **Modifiers** accumulate on `RunContext.stats` (`RunStats`, plain C#). Sources only push
@@ -197,8 +230,11 @@ scope fields the stat actually uses.
 | `ResourceYield` | unit × resource × source | `ResourceSystem.AddHarvest` — amount per hit |
 | `UnitSpeed` | unit | `Unit.ResolveBaseSpeed` (resolved on each `Launch`) |
 | `SpawnerRecharge` | unit | `Spawner` — seconds a unit rests inside before launching |
-| `UnitFatigueDelay` | unit | `Unit` — seconds a unit roams before it will enter a house |
+| `UnitStamina` | unit | `Unit.ResolveMaxStamina` — seconds of field work per outing (resolved on each launch) |
 | `SourceRespawn` | source | `ResourceSource` — seconds a depleted source takes to regrow |
+| `ForgeHeatPerHit` / `ForgeMaxHeat` / `ForgeCoolingTime` / `ForgeHotYield` | none | `ForgeHeat` — heat per paying hit, overheat cap, full cool-down seconds, yield multiplier at full heat (×1 until a perk adds to it) |
+| `HouseCapacity` | unit | `Spawner.ResolveCapacity` via `ApplyCount` — the one **materialised** stat: turned into slots + the global cap at `Warmup`, so a mid-run change is PUSHED (`RunStats.Changed` → `SpawnSystem` → `Spawner.RefreshFromStats`, growth only) |
+| `MarketVisitHits` | none | `VisitZone.ResolveHitsPerVisit` via `ApplyCount` — counted hits per visit, resolved on entry |
 
 **Scope normalisation:** `StatMeta.ScopeOf` gives each id's mask; `RunStats.MakeKey` zeroes the
 dimensions a stat does not use and derives `resource` from `source` when both are present, in
@@ -337,7 +373,8 @@ a structure OFF the grid mid-drag, and that invariant is what makes `EndRun`'s s
 | Market passage (`VisitZone`) | BoxCollider2D `isTrigger=true` on a `Passage` child (the two walls are ordinary obstacle boxes on the `Physics` child) | Rigidbody2D (Static) on that **same child** | The zone's own body is not optional: Unity delivers a trigger callback to the collider's GameObject AND to the GameObject of the Rigidbody2D it belongs to, so hung off the root body the passage's `OnTriggerEnter2D` would also reach `CollisionTarget`, which treats a trigger entry as a hit — walking in would pay a coin by itself. Sizing: across the passage the trigger overlaps the walls by 1–2 px (a unit can't be inside a wall, so this only guards a seam); along it, it stops one unit radius short of each mouth, so a unit sliding along the outside never counts as inside |
 
 **Collision dispatch lives in `CollisionTarget`** (the base). Both `OnCollisionEnter2D` (obstacle
-path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)` → every
+path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)`. A TIRED unit
+goes to `IShelter.OnTiredHit` on the root and nowhere else; a WORKING unit goes through every
 `IHitGate.TryConsume(unit)` on the target (root + children; the first refusal ends the hit as a
 plain bounce) → `effect.OnHit(...)` for each `ICollisionEffect` component on the root. `Structure :
 CollisionTarget` adds `def`. The Rigidbody2D sits on the root so callbacks fire there; the colliders
@@ -389,7 +426,7 @@ must prove a callback belongs in a PlayMode assembly (none yet).
 | `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; per-type capacity; syncs UnitSystem; owns the **spawner registry** (`IStructureSpawner`: unit Spawners + AnimalSpawners); `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode, `IsBuildMode`); `ResetForNewRun`; `Initialize(RunContext)` injects `RunStats` into each spawned unit |
 | `ResourceSystem` | MB | One `ReactiveValue<float>` per resource type, REUSED across runs (`Initialize` assigns into the existing slot — replacing it froze the bar after a prestige). `AddHarvest(source, worker, base, position)` is the single production gateway (applies `ResourceYield` + `ProductionGlobal`, books `harvested`, publishes `HarvestedEvent`); `AddResource` / `Spend` / `CanAfford` stay raw for spends and refunds |
 | `PierSystem` | MB | Owns the pier for a run: `PlaceForRun()` (after island gen) drops it in the bottom-right corner; on `AgeStartedEvent` re-snaps to the new right edge via `StructureSystem` pick-up/drop; `ClearForRun()` on teardown. Not part of `StartingLayoutDef` — single owner of the pier's cell |
-| `TapSystem` | MB | Click on the world: boosts units in an AoE radius around the cursor; a click on the pier publishes `PrestigeTriggeredEvent`. Early-returns at `timeScale 0`, which is what makes every pause also an input block. Re-binds on `RunStartedEvent` |
+| `TapSystem` | MB | Click on the world: boosts units in an AoE radius around the cursor — speed only by default, `refreshStamina` (off) also refills stamina; a click on the pier publishes `PrestigeTriggeredEvent`. Early-returns at `timeScale 0`, which is what makes every pause also an input block. Re-binds on `RunStartedEvent` |
 | `AgeSystem` | MB | Owns the ordered `List<AgeDef>` catalogue; `TransitionFrom(age)` / `NextAge` / `CanAdvance`. Current age lives on `RunContext`, so the system is stateless between runs; re-binds on `RunStartedEvent` |
 | `AgeSequencer` | MB | Coroutine chain for an age transition (fade → island expand → "Age N" banner → fade), unscaled time; signals completion via callback. Pure choreography: every step takes a KNOWN time — the perk pick, which waits on a human, lives in `PerkSelectionState` instead |
 | `PerkSystem` | MB | `RollPerks(age, run)`: weighted draw WITHOUT replacement from `PerkCatalogueDef`, filtered by `minAge` and `perksChosen`, fewer than `choicesOffered` when fewer are eligible (never filler). `ApplyPerk` calls `perk.ApplyPerk(run)` and records it. Validates ids at startup (empty / duplicate = a future lost-perk bug). Never casts to `StatPerkDef` — a perk with behaviour is its own `PerkDef` subclass |
@@ -400,13 +437,15 @@ must prove a callback belongs in a PlayMode assembly (none yet).
 | `CameraController` | MB | Continuous camera movement; `RefreshBounds` re-clamps to `IslandGrid.WorldBounds` on `AgeStartedEvent` |
 | `HarvestVfxSystem` | MB | Pickup particles for every harvest. **One shared emitter per `ResourceSourceDef`**, instantiated from `def.pickupFx` on first harvest and reused (one system emitting many particles = one draw call). Moves the emitter and `Emit`s — deliberately not `EmitParams`, so the authored Shape module keeps working. **Validates instead of silently fixing** a prefab that isn't World-space/looping. Skips off-screen harvests |
 | `HarvestNumbers` | MB | The floating "+1.2k" — universal, one prefab and one set of curves for every resource. Pooled world-space `TextMeshPro`, driven by one flat loop over a fixed-size array (no coroutine, no MonoBehaviour per popup); `SetText` overloads format in place, nothing lands on the GC. Cap + recycle-nearest-death. **Tuning lives on the system, not the prefab** |
-| `CollisionTarget` | MB (base) | Collision callbacks → `IHitGate` check (root + children) → `ICollisionEffect` dispatch (root); `SetColliderEnabled` toggles every collider under it, a `VisitZone` trigger included |
+| `CollisionTarget` | MB (base) | Collision callbacks → routed by `Unit.IsTired`: tired → `IShelter` (root) only; working → `IHitGate` check (root + children) → `ICollisionEffect` dispatch (root); `SetColliderEnabled` toggles every collider under it, a `VisitZone` trigger included |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (`StructureDef`) |
 | `IHitGate` | interface | `TryConsume(unit)` — decides AND spends in one call; asked before any effect, one refusal = plain bounce. Effect-agnostic, so a gate composes onto any target; one rationing gate per target. Implemented by `VisitZone` and `ForgeHeat` |
+| `IShelter` | interface | `OnTiredHit(unit)` — what a TIRED unit's hit reaches instead of gates + effects; the other half of the one state branch in `HandleHit`. Implemented by `Spawner` (the house) |
 | `VisitZone` | MB, `IHitGate` | Per-visit hit ration (`hitsPerVisit` on the component, not in a def): `Dictionary<Unit,int>` filled on trigger enter, debited per hit, dropped on exit. Sits on its own child with the trigger AND a Static Rigidbody2D so its trigger events stay off the root; `Reset()` sets both up, `Awake` errors if the collider isn't a trigger |
 | `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit) |
-| `Spawner` | MB, `ICollisionEffect`, `IStructureSpawner` | Per-slot spawn → travel → rest cycle; self-registers with SpawnSystem; rest duration through `SpawnerRecharge`; launch boost (`launchSpeedMultiplier` / `launchBoostDuration`) |
-| `Unit` | MB | Bouncing gatherer: `Launch` (resolves speed through `UnitSpeed`), `EnterRest`, fatigue timer through `UnitFatigueDelay`, tap `Boost`; holds `RunStats` via `SetStats` |
+| `Spawner` | MB, `IShelter`, `IStructureSpawner` | Per-slot spawn → travel → rest cycle, slot = `Free ↔ Occupied` (no lockout); any free slot takes a tired unit of its type, whichever house spawned it; self-registers with SpawnSystem; base `capacity` × `HouseCapacity` materialised into slots at `Warmup`, grown on `RefreshFromStats`; rest duration through `SpawnerRecharge`; launch boost (`launchSpeedMultiplier` / `launchBoostDuration`) |
+| `Unit` | MB | Bouncing gatherer: stamina clock (`UnitDef.stamina` × `UnitStamina`, ticks whenever on the field) → `IsTired`; `TargetSpeed` (`UnitSpeed`, × `tiredSpeedMultiplier` when tired); `Launch` (house — refills), `Boost(mult, duration, refreshStamina)` (tap), `EnterRest`, `OnBecameTired` (the one transition); holds `RunStats` via `SetStats` |
+| `TiredView` | MB | The bars over a tired unit's head: polls `Unit.IsTired`, presentation only, sits under the visual root as a sibling of the model so it hides with the unit and dodges the walk animator |
 | `ResourceSource` | MB, `ICollisionEffect` | Static resource node: grants `def.resource` per allowed-worker hit (yield via `ResourceSourceDef.TryGetYield`, shared with Animal), depletes and respawns in place (respawn through `SourceRespawn`); swaps Ready/Harvested visual roots + toggles the host collider; `infinite` defs keep a single visual. On depletion the ready root **fades** (`fadeOutTime` + curve, per prefab) via `SpriteRenderer.color` — gameplay ends at the hit, so the fade can never hand out a free harvest |
 | `Animal` | MB, `ICollisionEffect` | Mobile resource node: same `ResourceSourceDef` harvest per hit; after `hitsBeforeDespawn` it notifies its owning AnimalSpawner and destroys itself (`def.respawnTime` unused — cadence is the spawner's `spawnCooldown`); `infinite` never despawns |
 | `AnimalWander` | MB | Kinematic wander: point in owner's territory → walk straight → pause → repeat; without an owner wanders a plain circle around its start |

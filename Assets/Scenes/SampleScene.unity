@@ -347,6 +347,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Canvas
       objectReference: {fileID: 0}
+    - target: {fileID: 1526235787885847749, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1720871104302840176, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -1167,6 +1171,7 @@ MonoBehaviour:
   tapRadius: 0.3
   boostSpeedMultiplier: 5
   boostDuration: 5
+  refreshStamina: 0
 --- !u!4 &174083671
 Transform:
   m_ObjectHideFlags: 0

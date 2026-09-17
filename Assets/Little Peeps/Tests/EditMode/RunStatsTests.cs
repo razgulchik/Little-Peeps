@@ -205,14 +205,14 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
-        public void UnitFatigueDelay_IsScopedToItsUnit()
+        public void UnitStamina_IsScopedToItsUnit()
         {
             var stats = new RunStats();
-            stats.Add(Mod(StatId.UnitFatigueDelay, percent: 1f, unit: UnitType.Miner));
+            stats.Add(Mod(StatId.UnitStamina, percent: 1f, unit: UnitType.Miner));
 
-            Assert.That(stats.Apply(3f, StatId.UnitFatigueDelay, UnitType.Miner),
+            Assert.That(stats.Apply(3f, StatId.UnitStamina, UnitType.Miner),
                         Is.EqualTo(6f).Within(Tolerance), "+100% keeps a Miner out twice as long");
-            Assert.That(stats.Apply(3f, StatId.UnitFatigueDelay, UnitType.Lumberjack),
+            Assert.That(stats.Apply(3f, StatId.UnitStamina, UnitType.Lumberjack),
                         Is.EqualTo(3f).Within(Tolerance));
         }
 

@@ -4,11 +4,13 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Placed on a structure; drives a per-slot spawn -> travel -> return -> rest cycle.
-    // Each slot is an independent place for one little person: it launches a unit, goes on its
-    // OWN cooldown, then waits to accept ANY matching-type unit (units are shared per type, not
-    // owned). `capacity` is the BASE slot count; the run's HouseCapacity modifier is applied on top at
-    // Warmup, and the result — slots.Count — is what is registered into SpawnSystem's global per-type
-    // cap and what OnDestroy gives back.
+    // Each slot is an independent place for one little person: it launches a unit, then stands
+    // free for ANY tired unit of its type (units are shared per type, not owned). There is no
+    // lockout after a launch: the unit that just left has full stamina, and CollisionTarget never
+    // routes a working unit to a shelter, so nothing can duck straight back in — a free slot
+    // simply takes the next tired unit that hits the house. `capacity` is the BASE slot count; the
+    // run's HouseCapacity modifier is applied on top at Warmup, and the result — slots.Count — is what
+    // is registered into SpawnSystem's global per-type cap and what OnDestroy gives back.
     [RequireComponent(typeof(Structure))]
     public class Spawner : MonoBehaviour, IShelter, IStructureSpawner
     {
@@ -23,7 +25,6 @@ namespace LittlePeeps
 
         [Header("Cycle timing (seconds)")]
         [SerializeField] private float restDuration = 3f;
-        [SerializeField] private float lockoutDuration = 2f;
 
         [Header("Launch")]
         [SerializeField] private float launchSpeedMultiplier = 2.5f;
@@ -31,13 +32,13 @@ namespace LittlePeeps
         [SerializeField] private float launchGap = 0.1f; // clearance between the structure collider edge and the unit collider edge at launch
         [SerializeField] private float launchJitterDegrees = 12f; // random spread applied to the chosen cell direction so launches don't all run on exact lines
 
-        private enum SlotState { Free, Cooldown, Occupied }
+        private enum SlotState { Free, Occupied }
 
         // One slot = one independent place. Reference type so we mutate it in place inside foreach.
         private class Slot
         {
             public SlotState state;
-            public float timer;   // counts down in Cooldown and Occupied
+            public float timer;   // rest left (Occupied only)
             public Unit unit;     // the resting unit (Occupied only)
         }
 
@@ -223,23 +224,14 @@ namespace LittlePeeps
             float dt = Time.deltaTime;
             foreach (var slot in slots)
             {
-                switch (slot.state)
-                {
-                    case SlotState.Cooldown:
-                        slot.timer -= dt;
-                        if (slot.timer <= 0f) slot.state = SlotState.Free;
-                        break;
-
-                    case SlotState.Occupied:
-                        slot.timer -= dt;
-                        if (slot.timer <= 0f) LaunchFromSlot(slot, slot.unit);
-                        break;
-                }
+                if (slot.state != SlotState.Occupied) continue;
+                slot.timer -= dt;
+                if (slot.timer <= 0f) LaunchFromSlot(slot, slot.unit);
             }
         }
 
         // IShelter — CollisionTarget.HandleHit calls this when a TIRED unit hits THIS structure; a
-        // working unit's hit is routed past every shelter, so no fatigue check is needed here. Dispatch
+        // working unit's hit is routed past every shelter, so no stamina check is needed here. Dispatch
         // is local, so no target filter is needed either (the target is already our structure) — only
         // the unit-type check remains.
         public void OnTiredHit(Unit unit)
@@ -247,7 +239,7 @@ namespace LittlePeeps
             if (slots == null || unit == null || unitDef == null) return;
             if (unit.Type != unitDef.unitType) return;
 
-            // Put the unit in the first slot that has finished its cooldown and is free.
+            // Put the unit in the first free slot.
             foreach (var slot in slots)
             {
                 if (slot.state != SlotState.Free) continue;
@@ -280,8 +272,8 @@ namespace LittlePeeps
             unit.Launch(dir, launchSpeedMultiplier, launchBoostDuration);
 
             slot.unit = null;
-            slot.state = SlotState.Cooldown;
-            slot.timer = lockoutDuration;
+            slot.state = SlotState.Free;
+            slot.timer = 0f;
         }
 
         // Choose a launch direction toward an OPEN perimeter cell. Without grid context (scene-placed

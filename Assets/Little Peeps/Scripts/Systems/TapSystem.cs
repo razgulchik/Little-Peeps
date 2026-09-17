@@ -15,6 +15,11 @@ namespace LittlePeeps
         [SerializeField] private float boostSpeedMultiplier = 2f;
         [SerializeField] private float boostDuration = 5f;
 
+        [Tooltip("Off: a tap is speed only. A tired unit stays tired and just gets home faster; only a " +
+                 "house refills stamina. On: a tap also refills stamina - a full restart, like a house " +
+                 "launch. A future perk flips this.")]
+        [SerializeField] private bool refreshStamina = false;
+
         private RunContext runContext;
 
         public void Initialize(RunContext context)
@@ -68,20 +73,20 @@ namespace LittlePeeps
 
             // Units: AoE boost — every unit whose collider overlaps the tap radius gets boosted.
             // The collider lives on a child ("Physics"), so resolve the Unit via GetComponentInParent.
-            var (speedMult, radius, duration) = GetBoostParams();
+            var (speedMult, radius, duration, refresh) = GetBoostParams();
             var hits = Physics2D.OverlapCircleAll(worldPos, radius);
             foreach (var hit in hits)
             {
                 var unit = hit.GetComponentInParent<Unit>();
                 if (unit == null) continue;
-                unit.Boost(speedMult, duration);
+                unit.Boost(speedMult, duration, refresh);
             }
         }
 
-        private (float speedMult, float radius, float duration) GetBoostParams()
+        private (float speedMult, float radius, float duration, bool refresh) GetBoostParams()
         {
             // TODO: fold in runContext perks/upgrades once they're implemented.
-            return (boostSpeedMultiplier, tapRadius, boostDuration);
+            return (boostSpeedMultiplier, tapRadius, boostDuration, refreshStamina);
         }
     }
 }

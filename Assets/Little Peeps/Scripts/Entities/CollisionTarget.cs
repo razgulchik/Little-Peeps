@@ -6,7 +6,7 @@ namespace LittlePeeps
     // nodes, animals, etc. Owns the collision callbacks and routes each hit by the unit's state:
     // a WORKING unit reaches the ICollisionEffect components, after every IHitGate on the target
     // has let the hit through; a TIRED unit reaches only the IShelter components, nothing else.
-    // That one branch is the whole fatigue rule — working units can't go home, tired units can't
+    // That one branch is the whole stamina rule — working units can't go home, tired units can't
     // work — so no effect, gate or shelter has to check it. Structure derives from this; an object
     // can also use CollisionTarget directly + effect components like ResourceSource.
     //

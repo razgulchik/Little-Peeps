@@ -10,19 +10,25 @@ namespace LittlePeeps
                  "this whole object, so hiding stays correct however many parts the art is built from.")]
         [SerializeField] private GameObject visualRoot;
 
-        // What the unit DOES right now — the key every profession read goes through: which sources pay
-        // it (ResourceSourceDef.TryGetYield), the forge gate, the yield and speed modifiers. It is
-        // `Profession`, never `def.unitType`: the def says what the unit was born as, and population
-        // accounting (SpawnSystem) keys on that; this one changes when a rack hands the unit a tool.
-        public UnitType Type => Profession;
+        // What the unit DOES right now — the id every profession read goes through: which sources pay
+        // it (ResourceSourceDef.TryGetYield), the forge gate, the yield and speed modifiers. Derived
+        // from `Profession`, never from the def: the def says what the unit was born as, and
+        // population accounting (SpawnSystem) counts per def; this changes when a rack hands the unit
+        // a tool. No profession at all (a def with none assigned) reads as Unassigned.
+        public UnitType Type => Profession != null ? Profession.type : UnitType.Unassigned;
 
-        // The profession the unit is working as this outing. Starts as the def's value every time the
-        // unit comes out of the pool (OnEnable — the pool assigns `def` before activating), a rack
-        // changes it through Equip, and Unequip puts it back when the outing ends. A villager def is
-        // born Unassigned and so harvests nothing until it has crossed a rack; the old Farmer def is
-        // born a farmer and — never being Unassigned — never takes a tool.
-        public UnitType Profession { get; private set; }
-        private UnitType BornProfession => def != null ? def.unitType : default;
+        // The profession the unit is working as this outing, look included (ProfessionView draws it).
+        // Starts as the def's every time the unit comes out of the pool (OnEnable — the pool assigns
+        // `def` before activating), a rack changes it through Equip, and Unequip puts it back when
+        // the outing ends. A villager def is born Unassigned and so harvests nothing until it has
+        // crossed a rack; a def born with a profession (the old Farmer) never takes a tool.
+        public ProfessionDef Profession { get; private set; }
+        private ProfessionDef BornProfession => def != null ? def.profession : null;
+
+        // The rack whose tool the unit is carrying, so the outing's end can hand it back. Null while
+        // working as born. Compared with Unity's null on the way out: a rack sold mid-outing is a
+        // destroyed component by then, and its tool simply goes with it (a new rack comes full).
+        private ToolRack rack;
 
         // World-space radius of the unit's collider (used for spawn-clearance math).
         public float Radius => bodyCollider != null ? bodyCollider.bounds.extents.x : 0f;
@@ -66,6 +72,7 @@ namespace LittlePeeps
             // Fresh out of the pool (or first activation): whatever the previous outing equipped is
             // gone with it — Despawn already returned the tool — so the unit starts as it was born.
             Profession = BornProfession;
+            rack = null;
             baseSpeed = ResolveBaseSpeed();
         }
 
@@ -89,7 +96,7 @@ namespace LittlePeeps
         private float ResolveBaseSpeed()
         {
             if (def == null) return 0f;
-            return stats != null ? stats.Apply(def.speed, StatId.UnitSpeed, Profession) : def.speed;
+            return stats != null ? stats.Apply(def.speed, StatId.UnitSpeed, Type) : def.speed;
         }
 
         // Full stamina for this unit: seconds of field work per outing, with the run modifier applied.
@@ -104,24 +111,28 @@ namespace LittlePeeps
                 : def.stamina;
         }
 
-        // A rack hands the unit a tool: from here on it works as `profession`. Whether the unit may take
-        // one (it must be Unassigned) is the rack's call — this only records the result. The base speed
-        // is cached at launch, so it is re-resolved here for the new profession and the running velocity
-        // settled to it — the same one-off rescale a tired transition does, for the same reason.
-        public void Equip(UnitType profession)
+        // A rack hands the unit its tool: from here on it works as `profession` and owes the tool to
+        // `rack`. Whether the unit may take one (it must be Unassigned) is the rack's call — this only
+        // records the result. The base speed is cached at launch, so it is re-resolved here for the new
+        // profession and the running velocity settled to it — the same one-off rescale a tired
+        // transition does, for the same reason.
+        public void Equip(ProfessionDef profession, ToolRack rack)
         {
+            this.rack = rack;
             Profession = profession;
             baseSpeed = ResolveBaseSpeed();
             SettleSpeed();
         }
 
-        // The outing is over — the unit is back to what it was born as. Called on every way an outing
-        // ends (house rest, despawn) so a profession can never survive into the next launch; a unit
-        // that never equipped anything is unaffected. The tool itself goes back to the rack from here
-        // once racks exist. No speed work: the callers stop the unit anyway, and the next launch
-        // re-resolves.
+        // The outing is over — the tool goes back on its rack and the unit is what it was born as.
+        // Called on every way an outing ends (house rest, despawn) so a profession can never survive
+        // into the next launch; a unit that never equipped anything is unaffected. `!= null` and not
+        // `?.` on purpose: only the overloaded operator sees a destroyed rack as null. No speed work:
+        // the callers stop the unit anyway, and the next launch re-resolves.
         public void Unequip()
         {
+            if (rack != null) rack.ReturnTool(this);
+            rack = null;
             Profession = BornProfession;
         }
 

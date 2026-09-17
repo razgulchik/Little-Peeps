@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1475b38f3f503a4589e704d0a9651f6, type: 3}
+  m_Name: Lumberjack
+  m_EditorClassIdentifier: 
+  type: 2
+  frames:
+  - {fileID: 21300000, guid: 99700a627277ed547b93d4ee2c8adc15, type: 3}

@@ -9,11 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 177e1f339659320428451e63794bf119, type: 3}
-  m_Name: Farmer
+  m_Script: {fileID: 11500000, guid: b1475b38f3f503a4589e704d0a9651f6, type: 3}
+  m_Name: Unassigned
   m_EditorClassIdentifier: 
-  id: farmer
-  prefab: {fileID: 1807706934372700554, guid: 8abf6f705aae1894eb19cf09b3b7f291, type: 3}
-  speed: 2
-  unitType: 1
-  fatigueDelay: 5
+  type: 0
+  frames:
+  - {fileID: 21300000, guid: acf30d964cbc7b840870428a29825872, type: 3}
+  - {fileID: 21300000, guid: 00530f62f4a9b8c4f8e8fae0e4db3f89, type: 3}

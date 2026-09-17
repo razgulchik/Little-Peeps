@@ -7,15 +7,12 @@ namespace LittlePeeps
     // Animals (alpaca/boar/fox) are NOT unit types: they are mobile resource sources identified
     // by their ResourceSourceDef asset, like trees and wheat (see Animal).
     //
-    // One enum, two roles — keep them apart when reading code:
-    //   - POPULATION key: `UnitDef.unitType` is what a worker is BORN as and what SpawnSystem counts
-    //     houses and live units by. Immutable for the life of the unit.
-    //   - PROFESSION: `Unit.Profession` (read through `Unit.Type`) is what the worker currently does —
-    //     what it harvests, how fast it walks. It starts equal to the def's value and CHANGES when the
-    //     worker picks a tool off a rack (Unit.Equip); Unit.Unequip puts it back at the end of an
-    //     outing. A worker def with Unassigned is the doc's villager: born with no profession, gets one
-    //     from a rack. The old per-profession defs (Farmer) still work — born a farmer, never
-    //     Unassigned, so no rack ever hands them anything.
+    // The id of a PROFESSION — what a worker currently does: what it harvests (WorkerYield.worker),
+    // how the stat sheet scopes it. Each value has a ProfessionDef asset (look + future numbers); the
+    // unit carries one for the outing (Unit.Profession, id read through Unit.Type), takes a new one
+    // from a tool rack (Unit.Equip) and drops back to the one its UnitDef was born with at the end
+    // (Unit.Unequip). This enum says nothing about POPULATION: SpawnSystem counts houses and live
+    // units per UnitDef, whatever those units go on to do.
     public enum UnitType
     {
         // No profession, and the DEFAULT on purpose: a unit with no def, an untouched unitScope in a

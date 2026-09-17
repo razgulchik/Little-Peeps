@@ -4,23 +4,22 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Coordinates unit spawning: bridges Spawner components with UnitPool, enforces a global
-    // active-unit cap per POPULATION type (cap = sum of all registered spawner capacities), and keeps
+    // active-unit cap per KIND of unit (cap = sum of all registered spawner capacities), and keeps
     // UnitSystem's live registry in sync via direct calls (no events). Also owns the registry of
     // ALL structure spawners (unit Spawners and AnimalSpawners, via IStructureSpawner) so build
     // mode can despawn-all + re-warm everything on enter/exit.
     //
-    // Both dictionaries are keyed on `UnitDef.unitType` — what a unit was BORN as — never on
-    // `Unit.Type`, which is the profession a rack may have changed mid-outing. Spawn and despawn must
-    // count against the same key, or a villager that left the house Unassigned and came back a
-    // lumberjack would leave the Unassigned count one too high forever.
+    // Population is counted per UnitDef — the kind of unit a house spawns — never per profession:
+    // a rack changes what a unit does mid-outing, not what it is. Spawn and despawn must count
+    // against the same key, and the def is the one thing about a unit that never changes.
     public class SpawnSystem : MonoBehaviour
     {
         [SerializeField] private UnitPool unitPool;
         [SerializeField] private UnitSystem unitSystem;
         [SerializeField] private IslandSystem islandSystem;   // injected into spawned units; kept for future island-aware behavior
 
-        private readonly Dictionary<UnitType, int> capByType = new();
-        private readonly Dictionary<UnitType, int> activeByType = new();
+        private readonly Dictionary<UnitDef, int> capByDef = new();
+        private readonly Dictionary<UnitDef, int> activeByDef = new();
 
         private readonly List<IStructureSpawner> spawners = new();   // live spawners (units + animals), for build-mode reset/warmup
         private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll
@@ -77,29 +76,32 @@ namespace LittlePeeps
         }
 
         // A spawner registers/unregisters its capacity when placed/removed.
-        public void RegisterCapacity(UnitType type, int amount)
+        public void RegisterCapacity(UnitDef def, int amount)
         {
-            capByType.TryGetValue(type, out var cur);
-            capByType[type] = cur + amount;
+            if (def == null) return;
+            capByDef.TryGetValue(def, out var cur);
+            capByDef[def] = cur + amount;
         }
 
-        public void UnregisterCapacity(UnitType type, int amount)
+        public void UnregisterCapacity(UnitDef def, int amount)
         {
-            capByType.TryGetValue(type, out var cur);
-            capByType[type] = Mathf.Max(0, cur - amount);
+            if (def == null) return;
+            capByDef.TryGetValue(def, out var cur);
+            capByDef[def] = Mathf.Max(0, cur - amount);
         }
 
-        public bool CanSpawn(UnitType type)
+        public bool CanSpawn(UnitDef def)
         {
-            capByType.TryGetValue(type, out var cap);
-            activeByType.TryGetValue(type, out var active);
+            if (def == null) return false;
+            capByDef.TryGetValue(def, out var cap);
+            activeByDef.TryGetValue(def, out var active);
             return active < cap;
         }
 
-        // Create a unit at position if the global cap for its type allows it. The caller launches it.
+        // Create a unit at position if the global cap for its kind allows it. The caller launches it.
         public Unit TrySpawn(UnitDef def, Vector2 position)
         {
-            if (def == null || !CanSpawn(def.unitType)) return null;
+            if (!CanSpawn(def)) return null;
 
             var unit = unitPool.Get(def);
             if (unit == null) return null;
@@ -107,16 +109,16 @@ namespace LittlePeeps
             unit.SetIsland(islandSystem);
             unit.SetStats(stats);
             unit.transform.position = position;
-            activeByType.TryGetValue(def.unitType, out var active);
-            activeByType[def.unitType] = active + 1;
+            activeByDef.TryGetValue(def, out var active);
+            activeByDef[def] = active + 1;
 
             if (unitSystem != null) unitSystem.Add(unit);
             return unit;
         }
 
         // Every exit from the field goes through here (house teardown, build mode, run teardown), so
-        // this is where a mid-outing profession ends: Unequip before the pool takes the unit, and the
-        // count comes off the key TrySpawn put it on.
+        // this is where a mid-outing profession ends: Unequip before the pool takes the unit — the
+        // tool goes back on its rack — and the count comes off the def TrySpawn put it on.
         public void Despawn(Unit unit)
         {
             if (unit == null) return;
@@ -125,9 +127,8 @@ namespace LittlePeeps
 
             if (unit.def != null)
             {
-                var type = unit.def.unitType;
-                activeByType.TryGetValue(type, out var active);
-                activeByType[type] = Mathf.Max(0, active - 1);
+                activeByDef.TryGetValue(unit.def, out var active);
+                activeByDef[unit.def] = Mathf.Max(0, active - 1);
             }
 
             if (unitSystem != null) unitSystem.Remove(unit);
@@ -166,8 +167,8 @@ namespace LittlePeeps
         {
             IsBuildMode = false;
             DespawnAll();
-            capByType.Clear();
-            activeByType.Clear();
+            capByDef.Clear();
+            activeByDef.Clear();
             spawners.Clear();
         }
 

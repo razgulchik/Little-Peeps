@@ -29,18 +29,14 @@ namespace LittlePeeps.Tests
         private SpawnSystem spawnSystem;
         private UnitDef unitDef;
 
-        // Non-zero on purpose (UnitType.Unassigned is 0): a test written on the zero still passes when
-        // the per-type bookkeeping does nothing at all. Same reasoning as the scope tests in RunStatsTests.
-        private const UnitType Worker = UnitType.Lumberjack;
-
         [SetUp]
         public void SetUp()
         {
             systemsGo = new GameObject("SpawnSystem");
             spawnSystem = systemsGo.AddComponent<SpawnSystem>();
 
+            // Population is counted per UnitDef, so the instance itself is the key — no type to set.
             unitDef = ScriptableObject.CreateInstance<UnitDef>();
-            unitDef.unitType = Worker;
 
             // Park the system in build mode: Warmup then registers capacity and reserves slots but
             // returns before pulling units out of the pool, so these tests need no unit prefab.
@@ -70,7 +66,7 @@ namespace LittlePeeps.Tests
         {
             // A big finished run: five slots registered.
             var oldRun = MakeSpawner(5);
-            Assert.IsTrue(spawnSystem.CanSpawn(Worker), "sanity: capacity is registered on warmup");
+            Assert.IsTrue(spawnSystem.CanSpawn(unitDef), "sanity: capacity is registered on warmup");
 
             // Prestige: tear down, then Unity gets round to OnDestroy.
             oldRun.Teardown();
@@ -79,7 +75,7 @@ namespace LittlePeeps.Tests
             // The new run's starting layout is smaller than what the player had grown.
             MakeSpawner(1);
 
-            Assert.IsTrue(spawnSystem.CanSpawn(Worker),
+            Assert.IsTrue(spawnSystem.CanSpawn(unitDef),
                           "the new run's single slot must survive: if the old spawner's 5 were taken " +
                           "away a second time the cap clamps to 0 and the village never spawns");
         }
@@ -93,7 +89,7 @@ namespace LittlePeeps.Tests
             Assert.DoesNotThrow(() => spawner.Teardown());
 
             MakeSpawner(1);
-            Assert.IsTrue(spawnSystem.CanSpawn(Worker), "a repeated teardown must not keep subtracting");
+            Assert.IsTrue(spawnSystem.CanSpawn(unitDef), "a repeated teardown must not keep subtracting");
 
             Object.DestroyImmediate(spawner.gameObject);
         }
@@ -105,7 +101,7 @@ namespace LittlePeeps.Tests
 
             spawnSystem.ResetForNewRun();
 
-            Assert.IsFalse(spawnSystem.CanSpawn(Worker), "capacity from the finished run must be gone");
+            Assert.IsFalse(spawnSystem.CanSpawn(unitDef), "capacity from the finished run must be gone");
             Assert.IsFalse(spawnSystem.IsBuildMode,
                            "a run ended from inside build mode must not leave the flag set: the next " +
                            "run's spawners would wait for an exit that never comes");

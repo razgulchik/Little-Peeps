@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 177e1f339659320428451e63794bf119, type: 3}
+  m_Name: BaseUnit
+  m_EditorClassIdentifier: 
+  id: peasant
+  prefab: {fileID: 1807706934372700554, guid: 8abf6f705aae1894eb19cf09b3b7f291, type: 3}
+  speed: 2
+  profession: {fileID: 11400000, guid: 975d5ed362995a347b266105b7521b9a, type: 2}
+  stamina: 10
+  tiredSpeedMultiplier: 0.8

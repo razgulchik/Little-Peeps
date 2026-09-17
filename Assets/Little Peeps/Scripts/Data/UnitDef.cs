@@ -10,10 +10,13 @@ namespace LittlePeeps
         public GameObject prefab;
         public float speed = 5f;
 
-        // What a unit of this def is BORN as, and the key its houses and SpawnSystem count it under.
-        // Not what it does: that is Unit.Profession, which a tool rack changes and a house entry
-        // resets to this. A villager that gets its profession from racks is authored Unassigned.
-        public UnitType unitType;
+        // What a unit of this def is BORN as: the profession it leaves the house with and comes back
+        // to at the end of every outing (Unit.Unequip). The doc's villager points at the Unassigned
+        // profession and gets a real one from a rack; a def born with a profession (the old Farmer)
+        // never takes a tool because it is never Unassigned. Empty reads as Unassigned with no look
+        // of its own — assign one. Population is counted per UnitDef, not per profession: a house
+        // spawns "this kind of unit", whatever it goes on to do.
+        public ProfessionDef profession;
 
         // Stamina: seconds of field work per outing, ticking from the moment the unit leaves a house,
         // boosted or not. While it lasts the unit harvests and refuses to enter ANY house (so it never

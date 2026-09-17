@@ -22,11 +22,8 @@ namespace LittlePeeps.Tests
         private UnitDef unitDef;
         private readonly List<GameObject> spawned = new();
 
-        // Non-zero on purpose (Unassigned is 0): the population bookkeeping test at the end would pass
-        // on a zero even if the per-type dictionaries did nothing. Same reasoning as RunStatsTests.
-        // `Other` is any profession the house's def is not — the scope test below hands it a modifier
-        // scoped to that and expects the house to grow anyway.
-        private const UnitType Worker = UnitType.Lumberjack;
+        // Any profession at all: the scope test below hands the house a modifier scoped to it and expects
+        // the house to grow anyway — a house has no profession for a scope to match or miss.
         private const UnitType Other = UnitType.Farmer;
 
         [SetUp]
@@ -38,8 +35,8 @@ namespace LittlePeeps.Tests
             run = new RunContext();
             spawnSystem.Initialize(run);
 
+            // Population is counted per UnitDef, so the instance itself is the key — no type to set.
             unitDef = ScriptableObject.CreateInstance<UnitDef>();
-            unitDef.unitType = Worker;
 
             spawnSystem.DespawnAllAndResetSpawners();   // build mode: no pool needed, see class comment
         }
@@ -161,7 +158,7 @@ namespace LittlePeeps.Tests
 
             house.Teardown();
 
-            Assert.IsFalse(spawnSystem.CanSpawn(Worker),
+            Assert.IsFalse(spawnSystem.CanSpawn(unitDef),
                            "the cap must be back at 0: giving back only the base of 1 would leave a phantom slot");
         }
 

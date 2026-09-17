@@ -12,14 +12,14 @@ namespace LittlePeeps
     // can duck straight back in — a free slot simply takes the next tired unit that hits the house.
     // `capacity` is the BASE slot count; the run's HouseCapacity modifier is applied on top at Warmup,
     // and the result — slots.Count — is what is registered into SpawnSystem's global cap under this
-    // house's `unitDef.unitType` (the population key) and what OnDestroy gives back.
+    // house's `unitDef` (population is counted per kind of unit) and what OnDestroy gives back.
     [RequireComponent(typeof(Structure))]
     public class Spawner : MonoBehaviour, IShelter, IStructureSpawner
     {
         [SerializeField] private SpawnSystem spawnSystem;
 
         [Header("Units")]
-        [SerializeField] public UnitDef unitDef;    // what this house spawns; its unitType is the population key, not a profession
+        [SerializeField] public UnitDef unitDef;    // what this house spawns — the population key; what those units DO is the racks' business
         [SerializeField] public int capacity = 1;   // base; never mutated at runtime — see ResolveCapacity
 
         // Slots this house actually has (base + run modifier), 0 before Warmup.
@@ -104,7 +104,7 @@ namespace LittlePeeps
             if (!registered)
             {
                 int resolved = ResolveCapacity();
-                spawnSystem.RegisterCapacity(unitDef.unitType, resolved);
+                spawnSystem.RegisterCapacity(unitDef, resolved);
                 spawnSystem.RegisterSpawner(this);
                 registered = true;
 
@@ -169,7 +169,7 @@ namespace LittlePeeps
             if (slots == null || newCapacity <= slots.Count) return;
 
             int delta = newCapacity - slots.Count;
-            spawnSystem.RegisterCapacity(unitDef.unitType, delta);   // raise the global cap first, or TrySpawn refuses
+            spawnSystem.RegisterCapacity(unitDef, delta);   // raise the global cap first, or TrySpawn refuses
 
             for (int i = 0; i < delta; i++)
             {
@@ -184,7 +184,7 @@ namespace LittlePeeps
         // Downgrade hook: shrink the structure to newCapacity slots. FILLER for now — not implemented.
         // TODO: when slot downgrades exist, pick which slots to remove, deal with their units
         // (resting ones via SpawnSystem.Despawn; roaming ones need a recall path), then
-        // spawnSystem.UnregisterCapacity(unitDef.unitType, delta), trim `slots`.
+        // spawnSystem.UnregisterCapacity(unitDef, delta), trim `slots`.
         public void DecreaseCapacity(int newCapacity)
         {
             // TODO: implement when slot downgrades are introduced.
@@ -414,7 +414,7 @@ namespace LittlePeeps
             // mid-run growth has been applied, and slots are created in the same step as the
             // registration, so their count IS the registered amount.
             if (spawnSystem != null && unitDef != null && slots != null)
-                spawnSystem.UnregisterCapacity(unitDef.unitType, slots.Count);
+                spawnSystem.UnregisterCapacity(unitDef, slots.Count);
 
             if (spawnSystem != null)
                 spawnSystem.UnregisterSpawner(this);

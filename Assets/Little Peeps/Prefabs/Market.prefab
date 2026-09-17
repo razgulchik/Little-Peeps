@@ -227,7 +227,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   castShadow: 1
   offsetPixels: {x: 0, y: 2}
-  alpha: 0.13725491
+  alpha: 0.11764706
 --- !u!1 &3665828757108797952
 GameObject:
   m_ObjectHideFlags: 0
@@ -340,6 +340,30 @@ MonoBehaviour:
       time: 1
       value: 0
       inSlope: -1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  fadeScaleY:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
       outSlope: 0
       tangentMode: 0
       weightedMode: 0

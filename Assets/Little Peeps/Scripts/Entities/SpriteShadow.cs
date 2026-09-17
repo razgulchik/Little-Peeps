@@ -28,7 +28,7 @@ namespace LittlePeeps
         [SerializeField] private Vector2Int offsetPixels = new(0, 1);
 
         [Tooltip("Opacity of the black silhouette.")]
-        [SerializeField, Range(0f, 1f)] private float alpha = 35f / 255f;
+        [SerializeField, Range(0f, 1f)] private float alpha = 30f / 255f;
 
         private SpriteRenderer source;
         private SpriteRenderer shadow;   // null until Start, and forever when castShadow is off

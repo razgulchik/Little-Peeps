@@ -10,6 +10,16 @@ namespace LittlePeeps
                  "this whole object, so hiding stays correct however many parts the art is built from.")]
         [SerializeField] private GameObject visualRoot;
 
+        [Header("Bounce")]
+        [Tooltip("After a bounce the unit never leaves closer than this to the wall's perpendicular: a " +
+                 "head-on trajectory is bent this far to whichever side it already leaned. 0 = off. What " +
+                 "keeps a unit from shuttling forever between two parallel fences.")]
+        [SerializeField, Range(0f, 45f)] private float minBounceAngle = 10f;
+
+        [Tooltip("Random turn added to every bounce, in degrees either way, so two units on the same " +
+                 "line drift apart instead of tracing one path. 0 = off.")]
+        [SerializeField, Range(0f, 30f)] private float bounceJitterDegrees = 3f;
+
         // What the unit DOES right now — the id every profession read goes through: which sources pay
         // it (ResourceSourceDef.TryGetYield), the forge gate, the yield and speed modifiers. Derived
         // from `Profession`, never from the def: the def says what the unit was born as, and
@@ -55,11 +65,16 @@ namespace LittlePeeps
         private float launchBoostTimer;
         private float launchTau;
 
-        // The speed physics keeps the unit at once no boost is decaying: its base speed while working,
-        // a fraction of it while tired. Every boost settles back to THIS, and OnBecameTired drops to
-        // it — so the tired slowdown is one number, read wherever a speed is set.
+        // The speed the unit moves at once no boost is decaying: its base speed while working, a
+        // fraction of it while tired. Every boost settles back to THIS, and FixedUpdate holds the unit
+        // AT it (see there) — so the tired slowdown, a profession's speed, a perk, all are one number
+        // read in one place.
         private float TargetSpeed => IsTired ? baseSpeed * TiredMultiplier : baseSpeed;
         private float TiredMultiplier => def != null ? def.tiredSpeedMultiplier : 1f;
+
+        // How far the speed may drift from TargetSpeed before FixedUpdate writes it back — wide enough
+        // that float noise from the solver never causes a write, far narrower than any real hit.
+        private const float SpeedTolerance = 0.01f;
 
         private void Awake()
         {
@@ -114,14 +129,12 @@ namespace LittlePeeps
         // A rack hands the unit its tool: from here on it works as `profession` and owes the tool to
         // `rack`. Whether the unit may take one (it must be Unassigned) is the rack's call — this only
         // records the result. The base speed is cached at launch, so it is re-resolved here for the new
-        // profession and the running velocity settled to it — the same one-off rescale a tired
-        // transition does, for the same reason.
+        // profession; FixedUpdate moves the unit to it on the next step.
         public void Equip(ProfessionDef profession, ToolRack rack)
         {
             this.rack = rack;
             Profession = profession;
             baseSpeed = ResolveBaseSpeed();
-            SettleSpeed();
         }
 
         // The outing is over — the tool goes back on its rack and the unit is what it was born as.
@@ -205,6 +218,12 @@ namespace LittlePeeps
             if (visualRoot != null) visualRoot.SetActive(false);
         }
 
+        // Physics owns the unit's DIRECTION; its SPEED is ours. Bounciness 1 and no drag keep the
+        // speed through a hit on anything static, but animals are moving kinematic bodies and a bounce
+        // off one is taken in the animal's frame — head-on the unit comes away at its speed plus twice
+        // the boar's, from behind at nearly nothing. So every step the magnitude is held at TargetSpeed
+        // (or eased toward it while a boost decays), and a tired transition or a new profession simply
+        // shows up here on the next step, with no rescale of its own anywhere else.
         private void FixedUpdate()
         {
             // The stamina clock runs whenever the unit is on the field, boosted or not. A resting unit
@@ -215,49 +234,92 @@ namespace LittlePeeps
                 if (stamina <= 0f) OnBecameTired();
             }
 
-            // No active launch/tap boost → physics owns the velocity.
-            if (launchBoostTimer <= 0f) return;
-
-            launchBoostTimer -= Time.fixedDeltaTime;
-
-            float speed = rb.linearVelocity.magnitude;
-            if (speed < 0.0001f) { launchBoostTimer = 0f; return; }
+            // Resting inside a house: physics is off, nothing to hold. Any other unit at a standstill is
+            // WEDGED — a boar pinned it to a wall and the solver killed both components — and would sit
+            // there forever, since nothing else ever writes its velocity. Kick it out in a random
+            // direction; the boost is over either way.
+            Vector2 velocity = rb.linearVelocity;
+            float speed = velocity.magnitude;
+            if (speed < 0.0001f)
+            {
+                launchBoostTimer = 0f;
+                if (rb.simulated && TargetSpeed > 0f)
+                    rb.linearVelocity = Random.insideUnitCircle.normalized * TargetSpeed;
+                return;
+            }
 
             // TargetSpeed is re-read every step, so a unit that tires mid-boost simply eases down to
             // its tired speed instead of its working one.
             float target = TargetSpeed;
-            if (launchBoostTimer <= 0f)
+
+            if (launchBoostTimer > 0f)
             {
-                rb.linearVelocity = rb.linearVelocity.normalized * target;
-                return;
+                launchBoostTimer -= Time.fixedDeltaTime;
+                if (launchBoostTimer > 0f)
+                {
+                    float factor = 1f - Mathf.Exp(-Time.fixedDeltaTime / launchTau);
+                    target = Mathf.Lerp(speed, target, factor);
+                }
             }
 
-            float factor = 1f - Mathf.Exp(-Time.fixedDeltaTime / launchTau);
-            float newSpeed = Mathf.Lerp(speed, target, factor);
-            rb.linearVelocity = rb.linearVelocity.normalized * newSpeed;
+            // Write back only when something actually moved the speed — a hit on a moving body, a
+            // transition, the decay — never for solver noise; the velocity set is the costly half.
+            if (Mathf.Abs(speed - target) > SpeedTolerance)
+                rb.linearVelocity = velocity * (target / speed);
+        }
+
+        // A bounce just happened (physics has already reflected the velocity; this runs after the
+        // step). Perfect reflection keeps a head-on trajectory head-on, so a unit that once comes off a
+        // corner or a double contact travelling perpendicular to two parallel fences shuttles between
+        // them forever. Two corrections to the DIRECTION only — FixedUpdate keeps the speed:
+        //   - never leave closer than minBounceAngle to the surface normal: a near-perpendicular exit
+        //     is bent out to that angle on the side it already leaned (a coin toss if it is dead on),
+        //     which walks the unit along the corridor and out in a couple of crossings;
+        //   - a small random turn on top, so units never settle into one shared groove.
+        // Triggers (racks, fields, the market passage) are not bounces and never get here.
+        private void OnCollisionEnter2D(Collision2D collision)
+        {
+            Vector2 velocity = rb.linearVelocity;
+            float speed = velocity.magnitude;
+            if (speed < 0.0001f) return;   // wedged — FixedUpdate's kick handles it
+
+            Vector2 dir = velocity / speed;
+
+            if (minBounceAngle > 0f && collision.contactCount > 0)
+            {
+                // Oriented along the way OUT: whichever way Unity reports it, the normal a bounce
+                // leaves along is the one the unit is now moving away from the surface with.
+                Vector2 normal = collision.GetContact(0).normal;
+                if (Vector2.Dot(normal, dir) < 0f) normal = -normal;
+
+                float angle = Vector2.SignedAngle(normal, dir);
+                if (Mathf.Abs(angle) < minBounceAngle)
+                {
+                    float side = angle != 0f ? Mathf.Sign(angle) : (Random.value < 0.5f ? -1f : 1f);
+                    dir = Rotate(normal, side * minBounceAngle);
+                }
+            }
+
+            if (bounceJitterDegrees > 0f)
+                dir = Rotate(dir, Random.Range(-bounceJitterDegrees, bounceJitterDegrees));
+
+            rb.linearVelocity = dir * speed;
+        }
+
+        private static Vector2 Rotate(Vector2 v, float degrees)
+        {
+            float r = degrees * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(r), sin = Mathf.Sin(r);
+            return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
         }
 
         // The one working → tired transition — from the clock today, and from any future stamina spend
-        // (a building charging per paying hit) tomorrow. Direction is kept — the unit sags, it doesn't
-        // turn.
+        // (a building charging per paying hit) tomorrow. Nothing to do with the velocity here: the next
+        // FixedUpdate reads the new TargetSpeed and eases or snaps to it. Direction is kept — the unit
+        // sags, it doesn't turn.
         private void OnBecameTired()
         {
             stamina = 0f;
-            SettleSpeed();
-        }
-
-        // TargetSpeed just changed under a moving unit (it tired, or it took a tool and its base speed
-        // moved): make the velocity follow. Mid-boost there is nothing to do — the decay is already
-        // heading for TargetSpeed and re-reads it every step. Otherwise physics owns the velocity and
-        // would keep the old speed forever (bounciness 1, no drag), so the magnitude is rescaled here
-        // once. A stopped unit (resting) has nothing to rescale.
-        private void SettleSpeed()
-        {
-            if (launchBoostTimer > 0f) return;
-
-            float speed = rb.linearVelocity.magnitude;
-            if (speed < 0.0001f) return;
-            rb.linearVelocity = rb.linearVelocity.normalized * TargetSpeed;
         }
     }
 }

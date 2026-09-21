@@ -178,7 +178,7 @@ MonoBehaviour:
   pressDuration: 0.07
   releaseDuration: 0.12
   scaleEase: 5
-  holdDuration: 1
+  holdDuration: 0
 --- !u!1 &4043997892169345667
 GameObject:
   m_ObjectHideFlags: 0

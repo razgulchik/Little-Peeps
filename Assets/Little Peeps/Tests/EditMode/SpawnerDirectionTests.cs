@@ -6,7 +6,7 @@ namespace LittlePeeps.Tests
 {
     // Spawner.CollectAllowedDirections decides where a unit may be launched: it walks the ring of cells
     // one step outside the structure's claimed territory and keeps the directions toward cells that are
-    // land, unoccupied and not fenced off.
+    // land, free of solid structures (a passable one — field, bush, rack — doesn't count) and not fenced off.
     //
     // The fence check is the fragile part. Each side reads a DIFFERENT edge anchor (south and west use
     // the territory's own min corner, north and east use one past its max), so an implementation that
@@ -35,9 +35,29 @@ namespace LittlePeeps.Tests
 
         private static Vector2Int C(int x, int y) => new Vector2Int(x, y);
 
-        // Claim a single cell for some other structure. Def stays null, which the grid reads as border 0.
+        // Claim a single cell for some other structure. Def stays null, which the grid reads as border 0
+        // and the spawner reads as solid.
         private static void Occupy(IslandGrid grid, Vector2Int cell)
             => grid.Place(cell, Vector2Int.one, new StructureInstance { Cell = cell });
+
+        // Claim a single cell for a structure units walk through (a field, a bush, a rack).
+        private void OccupyPassable(IslandGrid grid, Vector2Int cell)
+        {
+            var def = ScriptableObject.CreateInstance<StructureDef>();
+            def.passable = true;
+            defs.Add(def);
+            grid.Place(cell, Vector2Int.one, new StructureInstance { Def = def, Cell = cell });
+        }
+
+        private readonly List<StructureDef> defs = new();
+
+        [TearDown]
+        public void DestroyCreatedDefs()
+        {
+            foreach (var def in defs)
+                if (def != null) Object.DestroyImmediate(def);
+            defs.Clear();
+        }
 
         private void Collect(IslandGrid grid, Vector2Int origin, Vector2Int size, int border = 0)
             => Spawner.CollectAllowedDirections(grid, origin, size, border, dirs);
@@ -99,6 +119,18 @@ namespace LittlePeeps.Tests
             Assert.AreEqual(3, dirs.Count);
             AssertLacks(East, "a neighbour's cell");
             AssertHas(West, "the cell to the left");
+        }
+
+        [Test]
+        public void PassableNeighbour_StaysOpen()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            OccupyPassable(grid, C(-2, -2));   // a field east of the structure: units walk through it
+
+            Collect(grid, Origin, Size1x1);
+
+            Assert.AreEqual(4, dirs.Count);
+            AssertHas(East, "the field's cell");
         }
 
         [Test]

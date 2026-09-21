@@ -18,6 +18,13 @@ namespace LittlePeeps
         [SerializeField] private UnitSystem unitSystem;
         [SerializeField] private IslandSystem islandSystem;   // injected into spawned units; kept for future island-aware behavior
 
+        [Header("Stuck units")]
+        [Tooltip("How often the live units are swept for ones that report themselves stuck (Unit.IsStuck) " +
+                 "and taken into the nearest house with a free slot. A unit that finds none stays where it " +
+                 "is and is tried again on the next sweep.")]
+        [SerializeField, Min(0.05f)] private float stuckSweepInterval = 0.5f;
+        private float stuckSweepTimer;
+
         private readonly Dictionary<UnitDef, int> capByDef = new();
         private readonly Dictionary<UnitDef, int> activeByDef = new();
 
@@ -62,6 +69,54 @@ namespace LittlePeeps
         {
             if (islandSystem == null)
                 Debug.LogWarning("SpawnSystem has no IslandSystem — spawned units won't receive an island reference. Wire the Island System field.", this);
+        }
+
+        private void Update()
+        {
+            if (IsBuildMode || unitSystem == null) return;   // build mode: nobody is on the field
+
+            stuckSweepTimer -= Time.deltaTime;
+            if (stuckSweepTimer > 0f) return;
+            stuckSweepTimer = stuckSweepInterval;
+            RescueStuckUnits();
+        }
+
+        // A stuck unit — pinned inside a regrown tree, wedged, sealed into a pocket; the unit itself
+        // decides, see StuckWatch — cannot free itself, so it goes home: into the nearest house with a
+        // free slot, through the same door a tired unit walks in by, so it rests and comes back out
+        // launched with full stamina. Houses hold no units of their own, so any house will do, and the
+        // nearest reads as the unit having walked into it. No house free (a sold house's roaming units
+        // outnumber the slots left): the unit stays put and the next sweep tries again. Sheltering
+        // keeps the unit active, so the list is safe to walk in place.
+        private void RescueStuckUnits()
+        {
+            var units = unitSystem.ActiveUnits;
+            for (int i = 0; i < units.Count; i++)
+            {
+                var unit = units[i];
+                if (!unit.IsStuck) continue;
+
+                var house = NearestHouseWithFreeSlot(unit.transform.position);
+                if (house != null) house.TryShelter(unit);
+            }
+        }
+
+        // Only unit Spawners shelter; the registry also holds AnimalSpawners, which are skipped.
+        private Spawner NearestHouseWithFreeSlot(Vector2 from)
+        {
+            Spawner best = null;
+            float bestSq = float.PositiveInfinity;
+            for (int i = 0; i < spawners.Count; i++)
+            {
+                if (spawners[i] is not Spawner house || !house.HasFreeSlot) continue;
+                float sq = ((Vector2)house.transform.position - from).sqrMagnitude;
+                if (sq < bestSq)
+                {
+                    bestSq = sq;
+                    best = house;
+                }
+            }
+            return best;
         }
 
         // A spawner registers/unregisters itself when it warms up / is destroyed.

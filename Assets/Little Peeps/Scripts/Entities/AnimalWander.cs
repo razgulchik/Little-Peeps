@@ -10,7 +10,7 @@ namespace LittlePeeps
     // harvest hit (see Animal).
     // Reactions are code-driven because kinematic pairs generate no physics callbacks: while
     // walking the animal keeps a comfort distance to other animals and probes the ground ahead
-    // (island edge, impassable structures — see AnimalSpawner.IsBlocked); on either encounter
+    // (island edge, structures flagged animalsAvoid — see AnimalSpawner.IsBlocked); on either encounter
     // it stops, idles, then wanders off biased away from whatever it met.
     [RequireComponent(typeof(Rigidbody2D))]
     public class AnimalWander : MonoBehaviour
@@ -32,7 +32,7 @@ namespace LittlePeeps
         [Tooltip("Seconds of walking after an encounter during which other animals are ignored, " +
                  "so both sides get room to actually part instead of re-triggering in place.")]
         [SerializeField] private float encounterImmunity = 1.5f;
-        [Tooltip("Probe distance ahead (world units) for island edge / impassable structures.")]
+        [Tooltip("Probe distance ahead (world units) for island edge / structures animals avoid.")]
         [SerializeField] private float lookAhead = 0.3f;
 
         // Live animals, for the comfort-distance check — a pair of Kinematic bodies never

@@ -20,6 +20,17 @@ namespace LittlePeeps
                  "line drift apart instead of tracing one path. 0 = off.")]
         [SerializeField, Range(0f, 30f)] private float bounceJitterDegrees = 3f;
 
+        [Header("Stuck")]
+        [Tooltip("A unit that never gets further than this (world units) from where it stood at the start " +
+                 "of a window is STUCK — pinned inside a regrown tree, wedged, sealed into a pocket — and " +
+                 "SpawnSystem takes it home. Sized so bouncing alone never trips it: a free unit crosses " +
+                 "this disc in a fraction of a second.")]
+        [SerializeField, Min(0f)] private float stuckRadius = 1f;
+
+        [Tooltip("Length of one such window in seconds; the verdict lands between one and two windows " +
+                 "after the unit stops getting anywhere. 0 = off.")]
+        [SerializeField, Min(0f)] private float stuckWindow = 5f;
+
         // What the unit DOES right now — the id every profession read goes through: which sources pay
         // it (ResourceSourceDef.TryGetYield), the forge gate, the yield and speed modifiers. Derived
         // from `Profession`, never from the def: the def says what the unit was born as, and
@@ -53,6 +64,13 @@ namespace LittlePeeps
         // default (stamina == 0) so a never-launched unit isn't stuck.
         public bool IsTired => stamina <= 0f;
         private float stamina;
+
+        // Whether the unit has stopped getting anywhere (see StuckWatch): it cannot free itself — a
+        // tired one can't chop, a farmer never could — so SpawnSystem sweeps for this flag and takes
+        // the unit into a house. Ticked in FixedUpdate on the field only; a placement (Launch,
+        // EnterRest) resets it, so the house never sees the verdict that brought the unit there.
+        public bool IsStuck => stuckWatch.IsStuck;
+        private StuckWatch stuckWatch;
 
         private Rigidbody2D rb;
         private Collider2D bodyCollider;
@@ -89,6 +107,7 @@ namespace LittlePeeps
             Profession = BornProfession;
             rack = null;
             baseSpeed = ResolveBaseSpeed();
+            stuckWatch = default;   // a verdict from the previous outing must not survive the pool
         }
 
         private void Start()
@@ -155,6 +174,7 @@ namespace LittlePeeps
         public void Launch(Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
         {
             stamina = ResolveMaxStamina();
+            stuckWatch.Reset(transform.position);   // the house placed us here — that jump is not travel
             ApplyLaunch(direction, speedMultiplier, boostDuration);
         }
 
@@ -206,11 +226,14 @@ namespace LittlePeeps
         // Pull the unit inside a building: stop and hide it while it rests. Resting is not working, so
         // the stamina is dropped too — Launch refills it on the way out anyway; this only keeps IsTired
         // truthful while the unit is inside. Not through OnBecameTired: there is no velocity to touch.
-        // Going home ends the outing, so the profession (and its tool) is given up here as well.
+        // Going home ends the outing, so the profession (and its tool) is given up here as well. The
+        // stuck verdict goes too: a unit brought here BECAUSE it was stuck must not read as stuck
+        // still, or the next sweep would put it into a second slot.
         public void EnterRest()
         {
             launchBoostTimer = 0f;
             stamina = 0f;
+            stuckWatch.Reset(transform.position);
             Unequip();
 
             rb.linearVelocity = Vector2.zero;
@@ -233,6 +256,11 @@ namespace LittlePeeps
                 stamina -= Time.fixedDeltaTime;
                 if (stamina <= 0f) OnBecameTired();
             }
+
+            // The stuck watch runs on the same clock, on the field only: a resting unit is off the
+            // field, not stuck. Reads the transform, which the last simulation step has already synced.
+            if (rb.simulated && stuckWindow > 0f)
+                stuckWatch.Tick(transform.position, Time.fixedDeltaTime, stuckRadius, stuckWindow);
 
             // Resting inside a house: physics is off, nothing to hold. Any other unit at a standstill is
             // WEDGED — a boar pinned it to a wall and the solver killed both components — and would sit

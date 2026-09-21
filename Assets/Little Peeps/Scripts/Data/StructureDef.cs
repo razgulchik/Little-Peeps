@@ -36,10 +36,19 @@ namespace LittlePeeps
         public bool canSell = true;
         public bool canMove = true;
 
+        // Units pass through this structure: its collider is a trigger (fields, bushes, tool racks —
+        // CollisionTarget's "interactable path"), so it is not an obstacle and never closes a launch
+        // direction of a spawner next to it. Off = solid: a unit launched that way would land inside
+        // the collider, so the side stays shut (Spawner.CollectAllowedDirections). Physics only —
+        // what animals do about it is `animalsAvoid`.
+        public bool passable = false;
+
         // Wandering animals stop and turn away instead of walking across this structure's cells.
         // Tick for solid buildings (stable, smithy, market...); leave off for trees/fields so
-        // forest animals keep roaming through them. Animals only avoid it — units still pass.
-        public bool impassable = false;
+        // forest animals keep roaming through them. AI only — independent of `passable`: a tree is
+        // solid for units yet forest animals roam among trees.
+        [UnityEngine.Serialization.FormerlySerializedAs("impassable")]
+        public bool animalsAvoid = false;
 
         // Required clear margin (in cells) around the footprint: those cells must be on-island and free
         // of OTHER bordered structures. Keeps spawner-buildings off the map edge and apart from each

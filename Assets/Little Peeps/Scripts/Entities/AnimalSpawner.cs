@@ -165,7 +165,7 @@ namespace LittlePeeps
         }
 
         // World-space passability probe for AnimalWander's look-ahead: off-island is always
-        // blocked, an occupied cell only when its structure is flagged impassable (trees and
+        // blocked, an occupied cell only when its structure is flagged animalsAvoid (trees and
         // fields stay walk-through, so forest animals keep roaming among the trees). A gridless
         // (scene-placed) spawner has nothing to check against and blocks nothing.
         public bool IsBlocked(Vector2 worldPos)
@@ -174,7 +174,7 @@ namespace LittlePeeps
 
             var cell = grid.GetCell(grid.WorldToGrid(worldPos));
             if (cell == null) return true;   // off-island — the water's edge
-            return cell.occupant != null && cell.occupant.Def != null && cell.occupant.Def.impassable;
+            return cell.occupant != null && cell.occupant.Def != null && cell.occupant.Def.animalsAvoid;
         }
 
         private void CollectTerritoryCells()

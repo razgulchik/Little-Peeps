@@ -237,19 +237,37 @@ namespace LittlePeeps
         // working unit's hit is routed past every shelter, so no stamina check is needed here. Dispatch
         // is local, so no target filter is needed either (the target is already our structure). No
         // unit-type check either: any house takes any tired worker, whichever house launched it and
-        // whatever it worked as — the only thing that can refuse is a full house.
-        public void OnTiredHit(Unit unit)
-        {
-            if (slots == null || unit == null) return;
+        // whatever it worked as — the only thing that can refuse is a full house, and then the unit
+        // bounces on toward another structure.
+        public void OnTiredHit(Unit unit) => TryShelter(unit);
 
-            // Put the unit in the first free slot.
+        // Take `unit` in to rest in the first free slot; false when every slot is occupied. The one
+        // door for a unit coming in from the field, whether it hit the house tired (OnTiredHit) or
+        // SpawnSystem brought it here because it was stuck — the house takes either the same way, and
+        // sends it back out launched after its rest.
+        public bool TryShelter(Unit unit)
+        {
+            if (slots == null || unit == null) return false;
+
             foreach (var slot in slots)
             {
                 if (slot.state != SlotState.Free) continue;
                 OccupySlot(slot, unit);
-                return;
+                return true;
             }
-            // No free slot — the unit bounces on toward another structure.
+            return false;
+        }
+
+        // Whether TryShelter would succeed right now — for a caller choosing between houses.
+        public bool HasFreeSlot
+        {
+            get
+            {
+                if (slots == null) return false;
+                foreach (var slot in slots)
+                    if (slot.state == SlotState.Free) return true;
+                return false;
+            }
         }
 
         // Take a unit into a slot to rest inside the structure.
@@ -301,8 +319,9 @@ namespace LittlePeeps
 
         // Fill `buffer` with one direction per OPEN perimeter cell. We walk the cells one step outside this
         // structure's claimed territory (footprint, plus its border if it has one) on each cardinal side; a
-        // side is open when that outer cell is land, not occupied by ANOTHER structure (or its border), and
-        // the boundary edge to it carries no fence.
+        // side is open when that outer cell is land, not occupied by ANOTHER solid structure (or its border),
+        // and the boundary edge to it carries no fence. A passable occupant (field, bush, rack — see
+        // StructureDef.passable) leaves the side open: the unit lands in its trigger and walks on through.
         //   - border 0 (the common case): the outer cells ARE the footprint's immediate neighbours, so a
         //     corner house simply has its off-island sides excluded and the unit lands on that open cell.
         //   - border >= 1: requiring the cell BEYOND the border ring to be open gives the "one clear cell
@@ -336,19 +355,24 @@ namespace LittlePeeps
             }
         }
 
-        // Add the direction toward `outerCell` if that cell is open: on-island, unoccupied, and not fenced
-        // off across `boundary` (the grid edge between the claimed territory and the outer cell).
+        // Add the direction toward `outerCell` if that cell is open: on-island, free of solid occupants, and
+        // not fenced off across `boundary` (the grid edge between the claimed territory and the outer cell).
         private static void TryAddDirection(IslandGrid grid, List<Vector2> buffer, Vector2 center, Vector2Int outerCell, Edge boundary)
         {
             var cell = grid.GetCell(outerCell);
             if (cell == null) return;                       // off-island (map edge, with the border as the clear cell)
-            if (cell.occupant != null) return;              // another structure or its border — don't crowd it
+            if (IsSolid(cell.occupant)) return;             // another solid structure or its border — don't launch into it
             if (grid.GetEdge(boundary) != null) return;     // a fence blocks egress this way
 
             Vector2 dir = grid.GridToWorld(outerCell) - center;
             if (dir.sqrMagnitude < 1e-6f) return;
             buffer.Add(dir.normalized);
         }
+
+        // An occupant closes a side unless its def says units pass through it. No def (an occupant
+        // registered without one, as the grid tests do) is read as solid — the safe default.
+        private static bool IsSolid(StructureInstance occupant)
+            => occupant != null && (occupant.Def == null || !occupant.Def.passable);
 
         private static Vector2 RandomDirection()
         {

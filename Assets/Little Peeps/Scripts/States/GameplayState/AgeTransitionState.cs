@@ -2,8 +2,10 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Inner gameplay state that owns one age advance: spends + applies the age (TriggerAgeCmd), freezes
-    // the game, plays the AgeSequencer transition, then hands over to the perk pick when it completes.
+    // Inner gameplay state that plays one age transition: freezes the game, runs the AgeSequencer
+    // (fade, grow the island by the chosen zone, banner, fade back), then hands over to the perk pick
+    // when it completes. The age itself is already bought and applied by the time this state is
+    // entered — ZoneSelectionState does that, and it is the only thing that builds one of these.
     //
     // Input block: timeScale 0 stops the sim AND makes TapSystem ignore world clicks (it early-returns at
     // timeScale 0), so pier/boost taps can't fire mid-transition — no UI-raycast juggling needed. The
@@ -12,52 +14,39 @@ namespace LittlePeeps
     {
         private readonly StateMachine gameplayFsm;
         private readonly AgeSequencer ageSequencer;
-        private readonly PlayingState playingState;
         private readonly PerkSelectionState perkSelectionState;
-        private readonly ResourceSystem resourceSystem;
+        private readonly int newAge;
         private readonly AgeDef ageDef;
 
-        // Holding the context directly IS right here, unlike the long-lived states: this object is built
-        // for one transition and discarded after it, and the run cannot be replaced mid-transition (the
-        // game is frozen and prestige is unreachable). GameplayContainerState resolves it per transition.
-        private readonly RunContext runContext;
+        // The zone the island grows by, or null when this age grows nothing (no valid zone to offer).
+        private readonly ZoneOffer zone;
 
         private bool complete;
 
-        // The age never actually happened (see Enter). Kept apart from `complete` because the two exits
-        // lead to different places: a real transition owes the player a perk, an aborted one does not.
-        private bool aborted;
-
-        public AgeTransitionState(StateMachine gameplayFsm, AgeSequencer ageSequencer, PlayingState playingState,
-                                  PerkSelectionState perkSelectionState, ResourceSystem resourceSystem,
-                                  RunContext runContext, AgeDef ageDef)
+        public AgeTransitionState(StateMachine gameplayFsm, AgeSequencer ageSequencer,
+                                  PerkSelectionState perkSelectionState, int newAge, AgeDef ageDef, ZoneOffer zone)
         {
             this.gameplayFsm = gameplayFsm;
             this.ageSequencer = ageSequencer;
-            this.playingState = playingState;
             this.perkSelectionState = perkSelectionState;
-            this.resourceSystem = resourceSystem;
-            this.runContext = runContext;
+            this.newAge = newAge;
             this.ageDef = ageDef;
+            this.zone = zone;
         }
 
         public void Enter()
         {
             complete = false;
-            aborted = false;
+            Time.timeScale = 0f;                 // freeze + block world input for the transition
 
-            var cmd = new TriggerAgeCmd(resourceSystem, runContext, ageDef);
-            if (!cmd.CanExecute())
+            // No sequencer means no transition to play, not a transition to wait on forever.
+            if (ageSequencer == null)
             {
-                // Cost changed between the button press and here — bail straight back to playing.
                 complete = true;
-                aborted = true;
                 return;
             }
 
-            cmd.Execute();                       // spend + currentAge++ + apply modifiers
-            Time.timeScale = 0f;                 // freeze + block world input for the transition
-            ageSequencer.StartAgeTransition(runContext.currentAge, ageDef, () => complete = true);
+            ageSequencer.StartAgeTransition(newAge, ageDef, zone, () => complete = true);
         }
 
         public void Exit()
@@ -67,12 +56,7 @@ namespace LittlePeeps
 
         public void Tick()
         {
-            if (!complete) return;
-
-            // Straight back to play when nothing was spent and no age was entered: the perk pick is the
-            // reward for an age transition, so an aborted one must not hand one out.
-            if (aborted) gameplayFsm.ChangeState(playingState);
-            else gameplayFsm.ChangeState(perkSelectionState);
+            if (complete) gameplayFsm.ChangeState(perkSelectionState);
         }
     }
 }

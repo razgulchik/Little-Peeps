@@ -10,8 +10,8 @@ namespace LittlePeeps
     // where real cells are. Two layers:
     //   1. The lattice + a signed coordinate label ("0,0", "-1,2", ...) in every cell. This is pure
     //      arithmetic, so it is ALWAYS there: no island, no play mode, no "Generate Island" needed.
-    //      Handy for laying out AgeDef expansionBlocks (RectInt), whose coordinates line up 1:1 with
-    //      the labels.
+    //      Handy for reading cell coordinates off the map (debug
+    //      placement); they line up 1:1 with the labels.
     //   2. When an IslandSystem has a live grid, its EXISTING cells are outlined on top — so you can
     //      read actual land against the reference lattice (after "Generate Island" in edit mode, or
     //      once a run has built the grid in play mode).

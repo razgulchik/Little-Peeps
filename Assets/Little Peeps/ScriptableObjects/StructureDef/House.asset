@@ -22,7 +22,9 @@ MonoBehaviour:
   - resourceType: 1
     amount: 0
   requiredAge: 0
-  allowedTerrain: 00000000
+  allowedTerrain: 000000000100000002000000
   sellRefundPercent: 0.5
+  canSell: 1
+  canMove: 1
   impassable: 0
   border: 0

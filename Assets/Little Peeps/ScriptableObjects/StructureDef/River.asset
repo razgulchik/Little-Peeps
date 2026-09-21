@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
+  m_Name: River
+  m_EditorClassIdentifier: 
+  id: river
+  displayName: River
+  icon: {fileID: 21300000, guid: 8ed55f9214d8ef64f95170edf1071697, type: 3}
+  prefab: {fileID: 2603376487552531715, guid: 61cef883690c8a14e85cc3063e1879fc, type: 3}
+  placement: 0
+  size: {x: 1, y: 1}
+  cost:
+  - resourceType: 1
+    amount: 0
+  requiredAge: 0
+  allowedTerrain: 000000000100000002000000
+  sellRefundPercent: 0.5
+  canSell: 0
+  canMove: 0
+  impassable: 1
+  border: 0

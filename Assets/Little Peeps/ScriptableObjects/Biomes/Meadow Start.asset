@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6fb0d99d665f2742bd43ce2ced97bec, type: 3}
+  m_Name: Meadow Start
+  m_EditorClassIdentifier: 
+  profile:
+    id: meadow-start
+    terrain: 0
+    openPercent: 80
+    mountainPercent: 0
+    riverPercent: 0
+    objectPercent: 20
+    riverChance: 0
+    mountain: {fileID: 11400000, guid: 2cdbe31ff286476458be07a23231e5e0, type: 2}
+    river: {fileID: 11400000, guid: 738ed94ecc0c767449790d8c7cfd71f0, type: 2}
+    objects:
+    - def: {fileID: 11400000, guid: 42c2b62f2a4f8894ab418aa62750d82f, type: 2}
+      chance: 1
+      minCount: 2
+      maxCount: 3
+      weight: 1
+      clustered: 1
+    - def: {fileID: 11400000, guid: f05811ed46b78cf44b71568a3f231b29, type: 2}
+      chance: 1
+      minCount: 2
+      maxCount: 3
+      weight: 1
+      clustered: 0
+  tileSet: {fileID: 0}

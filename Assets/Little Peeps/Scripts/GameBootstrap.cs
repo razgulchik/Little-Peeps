@@ -10,7 +10,7 @@ namespace LittlePeeps
     //   Camera      [Camera + CinemachineBrain; a CinemachineCamera follows the CameraTarget object]
     //   CameraTarget[CameraController — moves this object; the vcam follows it with damping]
     //   UI (Canvas) [ResourcePanel (spawns a ResourceUnit per type), AgeUI, AgeCostPanel (spawns a
-    //                ResourceUnit per next-age cost entry), BuildPanelUI, PerkSelectionUI]
+    //                ResourceUnit per next-age cost entry), BuildPanelUI, ZoneSelectionUI, PerkSelectionUI]
     //
     // The pier is NOT in this list: PierSystem instantiates it per run from the "Pier" StructureDef and
     // parks it in the island's bottom-right corner. What that def's PREFAB needs is a Collider2D (on the
@@ -41,6 +41,7 @@ namespace LittlePeeps
         [SerializeField] private SaveSystem saveSystem;
 
         [Header("UI")]
+        [SerializeField] private ZoneSelectionUI zoneSelectionUI;
         [SerializeField] private PerkSelectionUI perkSelectionUI;
         [SerializeField] private AgeUI ageUI;
         [SerializeField] private AgeCostPanel ageCostPanel;
@@ -95,7 +96,8 @@ namespace LittlePeeps
             var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkSelectionUI, runManager, playingState);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState,
                                                                    perkSelectionState, buildModeCooldown,
-                                                                   ageSystem, ageSequencer, resourceSystem, runManager));
+                                                                   ageSystem, ageSequencer, resourceSystem,
+                                                                   islandSystem, zoneSelectionUI, runManager));
 
             // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM
             // and runManager live here; leaving the container restores timeScale via its Exit().

@@ -3,8 +3,9 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // One age/epoch the player can advance into. Authored as data: what it costs, how the island grows,
-    // and which permanent bonuses it grants (via the RunStats modifier system).
+    // One age/epoch the player can advance into. Authored as data: what it costs and which permanent
+    // bonuses it grants (via the RunStats modifier system). How the island grows is not authored here —
+    // every age adds one generated zone (IslandGenerator, rules on the StartConfig).
     [CreateAssetMenu(menuName = "LittlePeeps/AgeDef")]
     public class AgeDef : ScriptableObject
     {
@@ -22,10 +23,6 @@ namespace LittlePeeps
                  "automatically — an empty field keeps the card following the data, so re-balancing " +
                  "can never leave a stale label behind. Fill it only to word one card by hand.")]
         public string bonusOverride;
-
-        [Tooltip("Island cells added this age, as absolute grid rectangles. Multiple blocks can form " +
-                 "L-shapes / uneven growth; existing cells and their occupants are never touched.")]
-        public List<RectInt> expansionBlocks;
 
         // The one bonus this age advertises. Extra modifiers stay legal and all of them apply — but
         // "one age, one bonus" is the design rule, so the card speaks for the first and anything more

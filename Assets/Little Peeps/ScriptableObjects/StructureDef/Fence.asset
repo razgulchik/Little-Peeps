@@ -21,7 +21,10 @@ MonoBehaviour:
   cost:
   - resourceType: 0
     amount: 0
-  effects: []
+  requiredAge: 0
   allowedTerrain: 00000000
   sellRefundPercent: 0.5
+  canSell: 1
+  canMove: 1
+  impassable: 0
   border: 0

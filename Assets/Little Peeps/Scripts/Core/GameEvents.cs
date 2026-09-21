@@ -41,8 +41,16 @@ namespace LittlePeeps
         public RunContext Run;
     }
 
-    // Published by the AgeUI "Next Age" button; handled by GameplayContainerState (enters AgeTransition).
+    // Published by the AgeUI "Next Age" button; handled by GameplayContainerState (enters ZoneSelection).
     public struct AgeAdvanceRequestedEvent { }
+
+    // Published by ZoneSelectionUI when the player picks a zone card; handled by ZoneSelectionState,
+    // which moves on to the age transition that grows the island by that zone. Same split as the perk
+    // pick: the UI shows and reports, the state acts.
+    public struct ZoneSelectedEvent
+    {
+        public ZoneOffer Offer;
+    }
 
     // Published by the build-mode toggle button OR the build hotkey; handled by GameplayContainerState.
     public struct BuildModeToggleRequestedEvent { }

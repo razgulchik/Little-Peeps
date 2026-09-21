@@ -16,7 +16,7 @@ namespace LittlePeeps.Tests
     public class IslandGridTests
     {
         private static readonly TerrainType[] GrassOnly = { TerrainType.Grass };
-        private static readonly TerrainType[] WaterOnly = { TerrainType.Water };
+        private static readonly TerrainType[] DesertOnly = { TerrainType.Desert };
 
         // StructureDefs are ScriptableObjects, so they are tracked and destroyed rather than leaked
         // into the editor session.
@@ -97,14 +97,14 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Grass);
 
-            Assert.IsFalse(grid.CanPlace(C(0, 0), C(1, 1), WaterOnly));
+            Assert.IsFalse(grid.CanPlace(C(0, 0), C(1, 1), DesertOnly));
             Assert.IsTrue(grid.CanPlace(C(0, 0), C(1, 1), GrassOnly));
         }
 
         [Test]
         public void CanPlace_TreatsAnEmptyAllowedTerrainListAsAnyTerrain()
         {
-            var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Water);
+            var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Desert);
 
             Assert.IsTrue(grid.CanPlace(C(0, 0), C(1, 1), null));
             Assert.IsTrue(grid.CanPlace(C(0, 0), C(1, 1), new TerrainType[0]));
@@ -113,9 +113,9 @@ namespace LittlePeeps.Tests
         [Test]
         public void CanPlace_ChecksTerrainOnTheFootprintOnly_NotOnTheBorderRing()
         {
-            // One patch of grass in a water island: the border is claimed SPACING, so any land will do
+            // One patch of grass in a desert island: the border is claimed SPACING, so any land will do
             // there. Only the footprint has to satisfy allowedTerrain.
-            var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Water);
+            var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Desert);
             grid.SetCell(C(-1, -1), TerrainType.Grass);
 
             Assert.IsTrue(grid.CanPlace(C(-1, -1), C(1, 1), GrassOnly, border: 1));
@@ -128,9 +128,9 @@ namespace LittlePeeps.Tests
             var house = Structure(C(0, 0), C(1, 1));
             grid.Place(C(0, 0), C(1, 1), house);
 
-            grid.SetCell(C(0, 0), TerrainType.Stone);
+            grid.SetCell(C(0, 0), TerrainType.Desert);
 
-            Assert.AreEqual(TerrainType.Stone, grid.GetCell(C(0, 0)).terrain);
+            Assert.AreEqual(TerrainType.Desert, grid.GetCell(C(0, 0)).terrain);
             Assert.AreSame(house, grid.GetCell(C(0, 0)).occupant, "re-seeding terrain must not clear the cell");
         }
 

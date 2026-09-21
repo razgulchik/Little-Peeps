@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6fb0d99d665f2742bd43ce2ced97bec, type: 3}
+  m_Name: Forest
+  m_EditorClassIdentifier: 
+  profile:
+    id: forest
+    terrain: 1
+    openPercent: 45
+    mountainPercent: 0
+    riverPercent: 15
+    objectPercent: 35
+    riverChance: 0.4
+    mountain: {fileID: 11400000, guid: 2cdbe31ff286476458be07a23231e5e0, type: 2}
+    river: {fileID: 11400000, guid: 738ed94ecc0c767449790d8c7cfd71f0, type: 2}
+    objects:
+    - def: {fileID: 11400000, guid: 50ac2ec6cfee3964badeb36c2805ec3a, type: 2}
+      chance: 0.4
+      minCount: 1
+      maxCount: 1
+      weight: 0
+      clustered: 0
+    - def: {fileID: 11400000, guid: 4d00044180f20a84f96abbfb0d170d4e, type: 2}
+      chance: 0.4
+      minCount: 1
+      maxCount: 1
+      weight: 0
+      clustered: 0
+    - def: {fileID: 11400000, guid: 42c2b62f2a4f8894ab418aa62750d82f, type: 2}
+      chance: 1
+      minCount: 1
+      maxCount: 2
+      weight: 0
+      clustered: 1
+    - def: {fileID: 11400000, guid: f05811ed46b78cf44b71568a3f231b29, type: 2}
+      chance: 0
+      minCount: 0
+      maxCount: 0
+      weight: 1
+      clustered: 1
+  tileSet: {fileID: 11400000, guid: 2e3a1c2570b82a0449b890c43ec51b27, type: 2}
+  displayName: Forest
+  icon: {fileID: 21300000, guid: 62f54a55acb13474ea6850b35ee959a7, type: 3}
+  previewColor: {r: 1, g: 1, b: 1, a: 1}

@@ -28,7 +28,7 @@ namespace LittlePeeps
         public void Click(Vector2 world)
         {
             var target = PlacementTarget.Resolve(ctx.Grid, world);
-            if (target.IsNone) return;   // empty cell / off-island — nothing to sell
+            if (!target.CanSell) return;   // empty cell / off-island / a def that can't be sold — nothing to do
 
             if (target.IsFence)
             {

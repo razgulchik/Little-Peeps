@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6fb0d99d665f2742bd43ce2ced97bec, type: 3}
+  m_Name: Desert
+  m_EditorClassIdentifier: 
+  profile:
+    id: desert
+    terrain: 2
+    openPercent: 45
+    mountainPercent: 35
+    riverPercent: 0
+    objectPercent: 15
+    riverChance: 0
+    mountain: {fileID: 11400000, guid: 2cdbe31ff286476458be07a23231e5e0, type: 2}
+    river: {fileID: 11400000, guid: 738ed94ecc0c767449790d8c7cfd71f0, type: 2}
+    objects:
+    - def: {fileID: 11400000, guid: 94eabf670b9c3c04f9ae21a5046eea2f, type: 2}
+      chance: 0
+      minCount: 0
+      maxCount: 0
+      weight: 1
+      clustered: 1
+  tileSet: {fileID: 11400000, guid: 25ba7b4b091e2ab4b9f43c7d3e127278, type: 2}
+  displayName: Desert
+  icon: {fileID: 21300000, guid: 2a8e0284ca2f76a4fa7eac5c1e372cf1, type: 3}
+  previewColor: {r: 1, g: 1, b: 1, a: 1}

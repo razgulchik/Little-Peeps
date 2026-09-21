@@ -29,6 +29,13 @@ namespace LittlePeeps
         // Fraction of build cost refunded when the structure is sold (0..1).
         [Range(0f, 1f)] public float sellRefundPercent = 0.5f;
 
+        // Whether build mode may sell / pick up this structure. Off for generated terrain-like content
+        // (mountains, river) that is part of the island rather than something the player owns; on for
+        // everything else, generated trees and the starting house included — there is no "player-placed"
+        // distinction, only what a def allows.
+        public bool canSell = true;
+        public bool canMove = true;
+
         // Wandering animals stop and turn away instead of walking across this structure's cells.
         // Tick for solid buildings (stable, smithy, market...); leave off for trees/fields so
         // forest animals keep roaming through them. Animals only avoid it — units still pass.

@@ -7,7 +7,7 @@ namespace LittlePeeps
     // the new corner on every age expansion, reusing StructureSystem's pick-up/drop path so grid occupancy
     // stays correct. Expansion happens behind the age transition's black screen, so the move is invisible.
     //
-    // The pier is NOT part of StartingLayoutDef — this system is the single owner, so its cell is always
+    // The pier is NOT generated island content — this system is the single owner, so its cell is always
     // the live right edge rather than a hard-coded coordinate.
     public class PierSystem : MonoBehaviour
     {
@@ -60,8 +60,7 @@ namespace LittlePeeps
             {
                 structureSystem.DropStructure(pier, pier.Cell);
                 Debug.LogWarning($"PierSystem: no room for the pier {pierDef.size} at the island's right " +
-                                 $"edge (slot {origin}) — kept in place. Grow the right edge tall enough " +
-                                 $"in this age's expansionBlocks.", this);
+                                 $"edge (slot {origin}) — kept in place.", this);
             }
         }
 

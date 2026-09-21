@@ -81,7 +81,7 @@ namespace LittlePeeps
         private void TryPickUp(Vector2 world)
         {
             var target = PlacementTarget.Resolve(ctx.Grid, world);
-            if (target.IsNone) return;   // empty cell / off-island — nothing to pick up
+            if (!target.CanMove) return;   // empty cell / off-island / a def that can't be moved — nothing to pick up
 
             // The object being grabbed is the one the hover just tinted green — restore its true colors
             // FIRST, so the held capture takes the real originals and not the hint tint.

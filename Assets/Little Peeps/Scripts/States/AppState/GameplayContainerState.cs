@@ -13,10 +13,12 @@ namespace LittlePeeps
         private readonly PerkSelectionState perkSelectionState;
         private readonly float buildModeCooldown;
 
-        // Deps for building an AgeTransitionState on demand.
+        // Deps for building a ZoneSelectionState on demand (it builds the AgeTransitionState after it).
         private readonly AgeSystem ageSystem;
         private readonly AgeSequencer ageSequencer;
         private readonly ResourceSystem resourceSystem;
+        private readonly IslandSystem islandSystem;
+        private readonly ZoneSelectionUI zoneSelectionUI;
 
         // The RUN MANAGER, deliberately, not a RunContext. This state outlives the run: it is built once
         // in GameBootstrap.Awake and survives every prestige, so a captured context would be the one that
@@ -32,7 +34,8 @@ namespace LittlePeeps
                                       BuildModeState buildModeState, PerkSelectionState perkSelectionState,
                                       float buildModeCooldown,
                                       AgeSystem ageSystem, AgeSequencer ageSequencer,
-                                      ResourceSystem resourceSystem, RunManager runManager)
+                                      ResourceSystem resourceSystem, IslandSystem islandSystem,
+                                      ZoneSelectionUI zoneSelectionUI, RunManager runManager)
         {
             this.innerFsm = innerFsm;
             this.playingState = playingState;
@@ -42,6 +45,8 @@ namespace LittlePeeps
             this.ageSystem = ageSystem;
             this.ageSequencer = ageSequencer;
             this.resourceSystem = resourceSystem;
+            this.islandSystem = islandSystem;
+            this.zoneSelectionUI = zoneSelectionUI;
             this.runManager = runManager;
         }
 
@@ -84,8 +89,9 @@ namespace LittlePeeps
             else EnterBuildMode();
         }
 
-        // Start an age transition only from normal play (not build mode / not mid-transition) and only
-        // when the next age is actually affordable. AgeTransitionState owns spend + animation + return.
+        // Start an age only from normal play (not build mode / not mid-transition) and only when the
+        // next age is actually affordable. ZoneSelectionState owns the spend and the zone pick, then hands
+        // over to AgeTransitionState for the animation and the return.
         private void OnAgeAdvanceRequested(AgeAdvanceRequestedEvent _)
         {
             if (inBuildMode || innerFsm.Current != playingState) return;
@@ -95,8 +101,9 @@ namespace LittlePeeps
             var run = runManager != null ? runManager.CurrentRun : null;
             if (run == null) return;
 
-            innerFsm.ChangeState(new AgeTransitionState(
-                innerFsm, ageSequencer, playingState, perkSelectionState, resourceSystem, run, ageSystem.NextAge));
+            innerFsm.ChangeState(new ZoneSelectionState(
+                innerFsm, playingState, perkSelectionState, ageSequencer, resourceSystem, islandSystem,
+                zoneSelectionUI, run, ageSystem.NextAge));
         }
 
         private void EnterBuildMode()

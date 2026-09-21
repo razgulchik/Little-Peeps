@@ -41,6 +41,14 @@ namespace LittlePeeps
         // The scene object to tint or grab, whichever kind this target is. Null when there is no target.
         public Structure RuntimeObject => Fence != null ? Fence.RuntimeObject : Instance?.RuntimeObject;
 
+        public StructureDef Def => Fence != null ? Fence.Def : Instance?.Def;
+
+        // What the tools may do with the target — the def decides (generated mountains and rivers say
+        // no). Asked by the hover and the click alike, so a thing never lights up as sellable or
+        // grabbable and then refuses.
+        public bool CanSell => Def != null && Def.canSell;
+        public bool CanMove => Def != null && Def.canMove;
+
         // Resolve what the cursor is on. A fence WINS over the cell beneath it when the cursor is right on
         // the edge line — otherwise a fence running along a structure's cell would be unreachable, because
         // the cell underneath would always be hit first.

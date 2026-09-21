@@ -25,12 +25,17 @@ namespace LittlePeeps
         {
             // Same targeting the click uses, so what is highlighted and what is acted on can never differ.
             var target = PlacementTarget.Resolve(ctx.Grid, cursor);
-            if (target.Equals(hovered)) return;   // same target (or still none) — nothing to do
+            if (!Allowed(target)) target = default;   // a mountain under the cursor is "nothing" to this tool
+            if (target.Equals(hovered)) return;       // same target (or still none) — nothing to do
 
-            Clear();                              // restore the previous target's color (cell or fence)
+            Clear();                                  // restore the previous target's color (cell or fence)
             hovered = target;
             if (!target.IsNone) ctx.Visuals.SetHover(target.RuntimeObject, style);
         }
+
+        // The def's say on whether this tool may act on the target; the tools' click paths ask the same.
+        private bool Allowed(PlacementTarget target) =>
+            style == HoverStyle.Sell ? target.CanSell : target.CanMove;
 
         // Restore the tinted structure / fence (if any) to its original color and forget it.
         public void Clear()

@@ -19,7 +19,10 @@ MonoBehaviour:
   placement: 0
   size: {x: 1, y: 3}
   cost: []
-  effects: []
+  requiredAge: 0
   allowedTerrain: 
   sellRefundPercent: 0
+  canSell: 1
+  canMove: 0
+  impassable: 0
   border: 0

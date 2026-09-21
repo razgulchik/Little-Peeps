@@ -6,14 +6,15 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Orchestrates the age transition as an explicit sequential coroutine chain: fade to black, grow the
-    // island, show the age banner, fade back. Runs on UNSCALED time so it still plays while
-    // AgeTransitionState freezes the game (timeScale 0). Signals completion via the onComplete callback
-    // the caller passes in.
+    // island by the zone the player picked, show the age banner, fade back. Runs on UNSCALED time so it
+    // still plays while AgeTransitionState freezes the game (timeScale 0). Signals completion via the
+    // onComplete callback the caller passes in.
     //
     // Pure choreography, deliberately: every step here takes a KNOWN amount of time. The perk pick used
     // to hang off the end of this chain as an empty hook, and was moved out to PerkSelectionState — a
     // step that waits on a human is a mode, not a beat in an animation, and it has to run after the fade
-    // so the player can see the island the perk may go on to change.
+    // so the player can see the island the perk may go on to change. The zone pick is a mode for the
+    // same reason, and runs BEFORE this chain: it is about the island as it stands, which the fade hides.
     public class AgeSequencer : MonoBehaviour
     {
         [SerializeField] private IslandSystem islandSystem;
@@ -41,25 +42,26 @@ namespace LittlePeeps
             if (titleLabel != null) titleLabel.gameObject.SetActive(false);
         }
 
-        // Kick off the transition into newAge using def, then invoke onComplete when the chain finishes.
-        public void StartAgeTransition(int newAge, AgeDef def, Action onComplete)
+        // Kick off the transition into newAge using def, growing the island by `zone` (null = no growth
+        // this age), then invoke onComplete when the chain finishes.
+        public void StartAgeTransition(int newAge, AgeDef def, ZoneOffer zone, Action onComplete)
         {
-            StartCoroutine(AgeTransitionSequence(newAge, def, onComplete));
+            StartCoroutine(AgeTransitionSequence(newAge, def, zone, onComplete));
         }
 
-        private IEnumerator AgeTransitionSequence(int newAge, AgeDef def, Action onComplete)
+        private IEnumerator AgeTransitionSequence(int newAge, AgeDef def, ZoneOffer zone, Action onComplete)
         {
             yield return FadeTo(1f);
-            ExpandIsland(def);
+            ExpandIsland(zone);
             yield return null;                         // let the tilemap refresh settle a frame
             yield return ShowAgeTitle(newAge, def);
             yield return FadeTo(0f);
             onComplete?.Invoke();
         }
 
-        private void ExpandIsland(AgeDef def)
+        private void ExpandIsland(ZoneOffer zone)
         {
-            if (islandSystem != null) islandSystem.Expand(def);
+            if (islandSystem != null) islandSystem.CommitZone(zone);
         }
 
         private IEnumerator ShowAgeTitle(int newAge, AgeDef def)

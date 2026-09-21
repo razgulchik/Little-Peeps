@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dbb8c1fec873164280b26e25c517c73, type: 3}
+  m_Name: Grass Tile Set
+  m_EditorClassIdentifier: 
+  groundLight: {fileID: 11400000, guid: 2ee316eb5aa8fcd4790740ae8b76a5a7, type: 2}
+  groundDark: {fileID: 11400000, guid: b7809311e88d8f140afbd78938c981a5, type: 2}
+  cornerTopLeftLight: {fileID: 11400000, guid: 9ceda7cccae39c44e844dfa462b13b2e, type: 2}
+  cornerTopLeftDark: {fileID: 11400000, guid: 2050fa4ccd7910b41b401df814957af0, type: 2}
+  cornerTopRightLight: {fileID: 11400000, guid: 56dd2a436fc72ed49825c50b8363b694, type: 2}
+  cornerTopRightDark: {fileID: 11400000, guid: af172a303a57a9d4181a0911292540f5, type: 2}
+  cornerBottomLeftLight: {fileID: 11400000, guid: be230a9be79726849b590da016381bfe, type: 2}
+  cornerBottomLeftDark: {fileID: 0}
+  cornerBottomRightLight: {fileID: 0}
+  cornerBottomRightDark: {fileID: 11400000, guid: 6c7ccc04add8d8b4489c8727ee690620, type: 2}
+  leftEdgeTop: {fileID: 11400000, guid: 4e266264d5a3031428d89a93b09c3bb0, type: 2}
+  leftEdgeMid: {fileID: 11400000, guid: 18fb9f410bdfd2644adc5eba8ecab629, type: 2}
+  leftEdgeBottom: {fileID: 11400000, guid: 9cda0a3886dac674fa980ccb7229083a, type: 2}
+  rightEdgeTop: {fileID: 11400000, guid: cda3a19ca50ce6641840de3cbc3256d0, type: 2}
+  rightEdgeMid: {fileID: 11400000, guid: a1f631af5d9a80d438ae1433bbdb796f, type: 2}
+  rightEdgeBottom: {fileID: 11400000, guid: 0d6e170d8610af54a8b4f31c5c1e6f6f, type: 2}
+  bottomEdgeLeft: {fileID: 11400000, guid: d5889c91cd29e3445bd47914baa744fe, type: 2}
+  bottomEdgeMid: {fileID: 11400000, guid: 6d1f0870ab5f89e438736b49e6b6bbc7, type: 2}
+  bottomEdgeRight: {fileID: 11400000, guid: d58ba90beb4eae142aff6d5453999dce, type: 2}
+  innerCornerLeft: {fileID: 11400000, guid: 67a3ac467441755499c90c44d57dce06, type: 2}
+  innerCornerRight: {fileID: 11400000, guid: 19ebec875d011994e87b7c1612664e7e, type: 2}
+  invertCheckerboard: 1

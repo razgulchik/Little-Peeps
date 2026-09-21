@@ -12,8 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e9493be5fc683e448c91e5c5552f192, type: 3}
   m_Name: Start Config
   m_EditorClassIdentifier: 
-  islandSize: {x: 15, y: 15}
-  layout: {fileID: 11400000, guid: a973933529caeb0478701c65e141c8aa, type: 2}
+  islandSeed: 0
+  islandRules:
+    startArea: 36
+    sectionArea: 48
+    minWidth: 3
+    minBay: 4
+    depthRatio: 0.75
+    attempts: 2000
+  startBiome: {fileID: 11400000, guid: 02e80794d88abbeb5f609fb04ce4fa27, type: 2}
+  house: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
   startingResources:
   - resourceType: 0
     amount: 10000

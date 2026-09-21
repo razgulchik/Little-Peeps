@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
+  m_Name: Rock
+  m_EditorClassIdentifier: 
+  id: rock
+  displayName: Rock
+  icon: {fileID: 283643844, guid: e03fcf7f4e6b58a4ea42cf7031ec1cf1, type: 3}
+  prefab: {fileID: 831909280926080680, guid: 9e4a7ea0674a4bc48ba2fefaef7129a0, type: 3}
+  placement: 0
+  size: {x: 1, y: 1}
+  cost:
+  - resourceType: 0
+    amount: 0
+  requiredAge: 0
+  allowedTerrain: 02000000
+  sellRefundPercent: 0.5
+  canSell: 0
+  canMove: 0
+  impassable: 0
+  border: 0

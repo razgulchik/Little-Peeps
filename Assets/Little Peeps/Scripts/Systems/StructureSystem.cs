@@ -28,15 +28,16 @@ namespace LittlePeeps
             return true;
         }
 
-        // Free placement for run-start structures (StartingLayoutDef, the pier): no cost, but still
-        // validated. Returns the placed instance, or null when the cell is blocked — a failing layout
-        // entry is a data error, so warn and skip rather than corrupt the grid; the pier reads the null
-        // to know it had no room.
+        // Free placement for generated structures (a zone's natural content, the pier): no cost, but
+        // still validated. Returns the placed instance, or null when the cell is blocked — the generator
+        // keeps its own cells clear, so a failure here is a data error (a def's terrain or border rule
+        // fighting the biome), so warn and skip rather than corrupt the grid; the pier reads the null to
+        // know it had no room.
         public StructureInstance PlaceInitial(StructureDef def, Vector2Int cell)
         {
             if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain, def.border))
             {
-                Debug.LogWarning($"StartingLayout: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, or border overlap) — skipped.", this);
+                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, or border overlap) — skipped.", this);
                 return null;
             }
             return Build(def, cell);

@@ -11,7 +11,7 @@ namespace LittlePeeps
         [SerializeField] private SpawnSystem spawnSystem;
         [SerializeField] private PierSystem pierSystem;
 
-        [Tooltip("The run's starting state: island size, layout, resources and modifiers. One asset per " +
+        [Tooltip("The run's starting state: island seed, rules and start biome, resources and modifiers. One asset per " +
                  "preset — swap it here to change what a fresh run begins with (useful for tests/debug).")]
         [SerializeField] private StartConfigDef startConfig;
 
@@ -32,7 +32,7 @@ namespace LittlePeeps
             // Seed the run's starting state from the StartConfig. Everything below only holds a
             // reference to CurrentRun (stats/resources) and reads lazily, so populating it here —
             // before those systems initialise — is order-safe. A missing config is tolerated: the
-            // run boots with an empty bonus layer, zero resources and IslandSystem's default size.
+            // run boots with an empty bonus layer, zero resources and a random-seed default island.
             if (startConfig != null)
             {
                 // Bonus layer: config baseline first; ages/perks (and later meta) add theirs in-run.
@@ -44,10 +44,10 @@ namespace LittlePeeps
             structureSystem.Initialize(CurrentRun);
             spawnSystem.Initialize(CurrentRun);
 
-            if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSize);
+            // The island brings its own starting content (house, food, wood) through StructureSystem.
+            if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSeed, startConfig.islandRules, startConfig.startBiome, startConfig.house);
             else                     islandSystem.GenerateForRun();
 
-            PlaceStartingStructures();
             if (pierSystem != null) pierSystem.PlaceForRun();   // after the island exists; owns its own cell
 
             // Last: the run is fully built, so observers that cache the context can safely re-bind.
@@ -113,19 +113,6 @@ namespace LittlePeeps
             {
                 var r = list[i];
                 if (r != null) CurrentRun.resources[r.resourceType] = r.amount;
-            }
-        }
-
-        // Instantiate the run's starting structures from the config's layout asset, through the same
-        // placement path as player-built ones (grid-aligned, registered). Re-runs every new run.
-        private void PlaceStartingStructures()
-        {
-            var layout = startConfig != null ? startConfig.layout : null;
-            if (layout == null) return;
-            foreach (var entry in layout.entries)
-            {
-                if (entry.def == null) continue;
-                structureSystem.PlaceInitial(entry.def, entry.cell);
             }
         }
     }

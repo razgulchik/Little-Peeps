@@ -19,7 +19,9 @@ namespace LittlePeeps
     //   - mouse wheel              → zoom (to screen center) by changing the vcam's ortho size
     // The target is clamped to the island's world bounds (from IslandSystem) expanded by a configurable
     // margin, so the player can't pan off into empty space; the vcam follows the clamped target so the
-    // camera stays in range too. (A Cinemachine Confiner2D is a later iteration.)
+    // camera stays in range too. (A Cinemachine Confiner2D is a later iteration.) While zones are on
+    // offer the clamp is widened to take them in (SetExtraBounds) and the camera can be sent to look at
+    // one (FocusOn) — the pan itself stays the player's.
     //
     // Place on a dedicated CameraController GameObject (NOT on the CameraTarget and NOT on the Camera) and wire:
     //   - cameraTarget  → the CameraTarget transform this drives (pan)
@@ -53,6 +55,8 @@ namespace LittlePeeps
         private Vector2 lastDragScreenPos;
         private Bounds islandBounds;
         private bool hasBounds;
+        private Bounds extraBounds;   // added to the clamp while set: the zone offers, which are not island yet
+        private bool hasExtraBounds;
         private bool pointerActive;   // latched true on the first real mouse movement (see EdgeDir)
 
         private void Start() => RefreshBounds();
@@ -71,6 +75,32 @@ namespace LittlePeeps
             if (grid == null) { hasBounds = false; return; }
             islandBounds = grid.WorldBounds();
             hasBounds = true;
+        }
+
+        // Let the clamp reach a world box beyond the island until ClearExtraBounds: the zone offers are
+        // drawn on water the player could otherwise not pan to. Kept apart from the island bounds so a
+        // RefreshBounds in between (the island does not grow while offers are up, but nothing here
+        // should depend on that) cannot drop it.
+        public void SetExtraBounds(Bounds bounds)
+        {
+            extraBounds = bounds;
+            hasExtraBounds = true;
+        }
+
+        // Back to the island alone. A target left outside is clamped on the next Update; the vcam's
+        // damping turns that into a glide rather than a cut.
+        public void ClearExtraBounds()
+        {
+            hasExtraBounds = false;
+        }
+
+        // Send the camera to look at a world point (within the clamp). Sets the TARGET — the vcam
+        // follows it with its own damping, so this is the same smooth motion a pan gives, and the
+        // player can pan away from it at any time.
+        public void FocusOn(Vector2 worldPoint)
+        {
+            if (cameraTarget == null) return;
+            ApplyPosition(new Vector3(worldPoint.x, worldPoint.y, cameraTarget.position.z));
         }
 
         private void Update()
@@ -190,13 +220,17 @@ namespace LittlePeeps
             return d;
         }
 
-        // Clamp the camera center to the island bounds (+ margin) and keep its original depth.
+        // Clamp the camera center to the island bounds (+ the extra box while set, + margin) and keep its
+        // original depth.
         private void ApplyPosition(Vector3 pos)
         {
-            if (hasBounds)
+            if (hasBounds || hasExtraBounds)
             {
-                pos.x = Mathf.Clamp(pos.x, islandBounds.min.x - boundsMargin, islandBounds.max.x + boundsMargin);
-                pos.y = Mathf.Clamp(pos.y, islandBounds.min.y - boundsMargin, islandBounds.max.y + boundsMargin);
+                var clamp = hasBounds ? islandBounds : extraBounds;
+                if (hasBounds && hasExtraBounds) clamp.Encapsulate(extraBounds);
+
+                pos.x = Mathf.Clamp(pos.x, clamp.min.x - boundsMargin, clamp.max.x + boundsMargin);
+                pos.y = Mathf.Clamp(pos.y, clamp.min.y - boundsMargin, clamp.max.y + boundsMargin);
             }
             pos.z = cameraTarget.position.z;
             cameraTarget.position = pos;

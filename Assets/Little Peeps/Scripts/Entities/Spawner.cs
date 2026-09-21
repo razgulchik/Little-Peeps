@@ -308,7 +308,7 @@ namespace LittlePeeps
                 return true;
             }
 
-            CollectAllowedDirections(grid, instance.Cell, instance.Def.size, instance.Def.border, allowedDirs);
+            CollectAllowedDirections(grid, instance.Cell, instance.Def.Footprint, instance.Def.border, allowedDirs);
             if (allowedDirs.Count == 0) { dir = Vector2.zero; return false; }
 
             dir = allowedDirs[Random.Range(0, allowedDirs.Count)];
@@ -318,51 +318,57 @@ namespace LittlePeeps
         }
 
         // Fill `buffer` with one direction per OPEN perimeter cell. We walk the cells one step outside this
-        // structure's claimed territory (footprint, plus its border if it has one) on each cardinal side; a
-        // side is open when that outer cell is land, not occupied by ANOTHER solid structure (or its border),
-        // and the boundary edge to it carries no fence. A passable occupant (field, bush, rack — see
+        // structure's claimed territory (footprint, plus its border if it has one); a cell is open when it
+        // is land, not occupied by ANOTHER solid structure (or its border), and it shares at least one
+        // unfenced edge with the territory. A passable occupant (field, bush, rack — see
         // StructureDef.passable) leaves the side open: the unit lands in its trigger and walks on through.
         //   - border 0 (the common case): the outer cells ARE the footprint's immediate neighbours, so a
         //     corner house simply has its off-island sides excluded and the unit lands on that open cell.
         //   - border >= 1: requiring the cell BEYOND the border ring to be open gives the "one clear cell
         //     from the map edge / a neighbour" rule for free; the unit still lands in the border ring.
+        //   - a shaped footprint: the ring hugs the shape, so a notch's cells are exits too — the unit
+        //     starts at the notch's wall and flies out through it.
+        // Cells touching the territory only at a corner are not exits; a cell that touches it along
+        // several edges is one exit, not several.
         //
         // Static and parameterised (rather than reading the injected `grid`/`instance` fields) so this
         // geometry can be exercised on a bare IslandGrid with no scene, GameObject or spawner behind it.
-        public static void CollectAllowedDirections(IslandGrid grid, Vector2Int origin, Vector2Int size, int border, List<Vector2> buffer)
+        public static void CollectAllowedDirections(IslandGrid grid, Vector2Int origin, Footprint footprint, int border, List<Vector2> buffer)
         {
             buffer.Clear();
 
-            Vector2Int o = origin;
-            Vector2Int s = size;
-            int b = border;
+            Vector2 center = grid.OriginToWorldCenter(origin, footprint.Size);
+            Vector2Int s = footprint.Size;
 
-            // Inclusive bounds of the claimed territory box (footprint + border on every side).
-            int minX = o.x - b, minY = o.y - b;
-            int maxX = o.x + s.x + b - 1, maxY = o.y + s.y + b - 1;
-
-            Vector2 center = grid.OriginToWorldCenter(o, s);
-
-            for (int x = minX; x <= maxX; x++)
-            {
-                TryAddDirection(grid, buffer, center, new Vector2Int(x, minY - 1), new Edge(new Vector2Int(x, minY), true));      // south
-                TryAddDirection(grid, buffer, center, new Vector2Int(x, maxY + 1), new Edge(new Vector2Int(x, maxY + 1), true));  // north
-            }
-            for (int y = minY; y <= maxY; y++)
-            {
-                TryAddDirection(grid, buffer, center, new Vector2Int(minX - 1, y), new Edge(new Vector2Int(minX, y), false));     // west
-                TryAddDirection(grid, buffer, center, new Vector2Int(maxX + 1, y), new Edge(new Vector2Int(maxX + 1, y), false)); // east
-            }
+            // The box grown by border + 1 holds every cell one step outside the claimed territory.
+            for (int x = -border - 1; x <= s.x + border; x++)
+                for (int y = -border - 1; y <= s.y + border; y++)
+                {
+                    if (footprint.Claims(x, y, border)) continue;
+                    var outer = new Vector2Int(origin.x + x, origin.y + y);
+                    if (!HasOpenEdgeToTerritory(grid, outer, footprint, border, x, y)) continue;
+                    TryAddDirection(grid, buffer, center, outer);
+                }
         }
 
-        // Add the direction toward `outerCell` if that cell is open: on-island, free of solid occupants, and
-        // not fenced off across `boundary` (the grid edge between the claimed territory and the outer cell).
-        private static void TryAddDirection(IslandGrid grid, List<Vector2> buffer, Vector2 center, Vector2Int outerCell, Edge boundary)
+        // Does `outer` (local (x, y) of the box) share at least one UNFENCED edge with a claimed cell?
+        // Each side reads the edge between the two cells in its canonical form (see Edge): the bottom
+        // edge belongs to the cell above it, the left edge to the cell right of it.
+        private static bool HasOpenEdgeToTerritory(IslandGrid grid, Vector2Int outer, Footprint footprint, int border, int x, int y)
+        {
+            if (footprint.Claims(x, y - 1, border) && grid.GetEdge(new Edge(outer, true)) == null) return true;                                   // south neighbour: our bottom edge
+            if (footprint.Claims(x, y + 1, border) && grid.GetEdge(new Edge(new Vector2Int(outer.x, outer.y + 1), true)) == null) return true;    // north neighbour: its bottom edge
+            if (footprint.Claims(x - 1, y, border) && grid.GetEdge(new Edge(outer, false)) == null) return true;                                  // west neighbour: our left edge
+            if (footprint.Claims(x + 1, y, border) && grid.GetEdge(new Edge(new Vector2Int(outer.x + 1, outer.y), false)) == null) return true;   // east neighbour: its left edge
+            return false;
+        }
+
+        // Add the direction toward `outerCell` if that cell is open: on-island and free of solid occupants.
+        private static void TryAddDirection(IslandGrid grid, List<Vector2> buffer, Vector2 center, Vector2Int outerCell)
         {
             var cell = grid.GetCell(outerCell);
             if (cell == null) return;                       // off-island (map edge, with the border as the clear cell)
             if (IsSolid(cell.occupant)) return;             // another solid structure or its border — don't launch into it
-            if (grid.GetEdge(boundary) != null) return;     // a fence blocks egress this way
 
             Vector2 dir = grid.GridToWorld(outerCell) - center;
             if (dir.sqrMagnitude < 1e-6f) return;
@@ -387,24 +393,75 @@ namespace LittlePeeps
             return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
         }
 
-        // Place the unit just outside the structure collider along dir:
-        // structure edge (along dir) + unit radius + launchGap.
+        // Place the unit just outside the structure along dir: where the launch ray leaves the building,
+        // plus unit radius and launchGap. On the grid the building is its FOOTPRINT (ExitDistance), which
+        // is right for any shape — the collider's box bounds are not: for an L or a U the box edge can lie
+        // in a notch, inside the bounds yet outside the walls. A scene-placed spawner has no footprint and
+        // keeps measuring against its collider box.
         private Vector2 SpawnPosition(Vector2 dir, Unit unit)
         {
+            if (grid != null && instance != null && instance.Def != null)
+            {
+                var footprint = instance.Def.Footprint;
+                Vector2 center = grid.OriginToWorldCenter(instance.Cell, footprint.Size);
+                float structureEdge = ExitDistance(grid, instance.Cell, footprint, center, dir);
+                return center + dir * (structureEdge + unit.Radius + launchGap);
+            }
+
             if (structureCollider == null)
                 return (Vector2)transform.position + dir * launchGap; // fallback: measure from center
 
-            Vector2 center = structureCollider.bounds.center;
-            Vector2 extents = structureCollider.bounds.extents;
+            return BoxExit(structureCollider.bounds.center, structureCollider.bounds.extents, dir)
+                 + dir * (unit.Radius + launchGap);
+        }
 
-            // Distance from the box center to its edge along dir.
+        // Distance along `dir` (unit length) from `center` to the point where the ray leaves the LAST
+        // footprint cell it crosses — the launch ray's exit from the building. For a rectangle that is the
+        // box edge along dir; for a shape the ray may leave a cell, cross a notch and enter another, and
+        // the exit is where it finally clears the walls. Zero when the ray crosses no footprint cell (a
+        // centre that falls in a notch, aiming away from the walls).
+        public static float ExitDistance(IslandGrid grid, Vector2Int origin, Footprint footprint, Vector2 center, Vector2 dir)
+        {
+            float cs = grid.CellSize;
+            float exit = 0f;
+            for (int x = 0; x < footprint.Size.x; x++)
+                for (int y = 0; y < footprint.Size.y; y++)
+                {
+                    if (!footprint.Contains(x, y)) continue;
+                    float x0 = (origin.x + x) * cs, y0 = (origin.y + y) * cs;
+                    if (RayLeavesBox(center, dir, x0, y0, x0 + cs, y0 + cs, out float t) && t > exit) exit = t;
+                }
+            return exit;
+        }
+
+        // Slab test: does the ray center + dir * t (t >= 0) pass through the box [x0,x1]x[y0,y1], and at
+        // what t does it leave? A ray starting inside leaves at its first wall.
+        private static bool RayLeavesBox(Vector2 center, Vector2 dir, float x0, float y0, float x1, float y1, out float tExit)
+        {
+            float tEnter = 0f;
+            tExit = float.PositiveInfinity;
+            return Slab(center.x, dir.x, x0, x1, ref tEnter, ref tExit)
+                && Slab(center.y, dir.y, y0, y1, ref tEnter, ref tExit);
+        }
+
+        private static bool Slab(float c, float d, float lo, float hi, ref float tEnter, ref float tExit)
+        {
+            if (Mathf.Abs(d) < 1e-6f) return c >= lo && c <= hi;   // parallel to this axis: inside its slab or never
+            float t0 = (lo - c) / d, t1 = (hi - c) / d;
+            if (t0 > t1) (t0, t1) = (t1, t0);
+            if (t0 > tEnter) tEnter = t0;
+            if (t1 < tExit) tExit = t1;
+            return tExit >= tEnter;
+        }
+
+        // The point where a ray from the box centre along dir crosses the box edge.
+        private static Vector2 BoxExit(Vector2 center, Vector2 extents, Vector2 dir)
+        {
             float ax = Mathf.Abs(dir.x);
             float ay = Mathf.Abs(dir.y);
             float tx = ax > 1e-4f ? extents.x / ax : float.PositiveInfinity;
             float ty = ay > 1e-4f ? extents.y / ay : float.PositiveInfinity;
-            float structureEdge = Mathf.Min(tx, ty);
-
-            return center + dir * (structureEdge + unit.Radius + launchGap);
+            return center + dir * Mathf.Min(tx, ty);
         }
 
         // IStructureSpawner — hand everything back synchronously, before the object is destroyed.

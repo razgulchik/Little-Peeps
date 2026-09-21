@@ -21,7 +21,7 @@ namespace LittlePeeps
         // builds. Returns false (no-op) if the cell is blocked or the cost can't be paid.
         public bool PlaceStructure(StructureDef def, Vector2Int cell)
         {
-            if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain, def.border)) return false;
+            if (!islandSystem.Grid.CanPlace(cell, def.Footprint, def.allowedTerrain, def.border)) return false;
             if (!resourceSystem.CanAfford(def.cost)) return false;
             resourceSystem.Spend(def.cost);
             Build(def, cell);
@@ -35,7 +35,7 @@ namespace LittlePeeps
         // know it had no room.
         public StructureInstance PlaceInitial(StructureDef def, Vector2Int cell)
         {
-            if (!islandSystem.Grid.CanPlace(cell, def.size, def.allowedTerrain, def.border))
+            if (!islandSystem.Grid.CanPlace(cell, def.Footprint, def.allowedTerrain, def.border))
             {
                 Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, or border overlap) — skipped.", this);
                 return null;
@@ -72,7 +72,7 @@ namespace LittlePeeps
             // Forest-style structures pick their interlocking layout by the row they land on.
             ApplyRowVisual(go, cell.y);
 
-            grid.Place(cell, def.size, instance);
+            grid.Place(cell, def.Footprint, instance);
             run.structures[cell] = instance;
             return instance;
         }
@@ -121,7 +121,7 @@ namespace LittlePeeps
             var instance = grid.GetCell(cell)?.occupant;
             if (instance == null) return false;
 
-            grid.Remove(instance.Cell, instance.Def.size);
+            grid.Remove(instance.Cell, instance.Def.Footprint);
             run.structures.Remove(instance.Cell);
             Destroy(instance.RuntimeObject.gameObject);
             return true;
@@ -141,7 +141,7 @@ namespace LittlePeeps
         // footprint. PlacementController drives the drag; DropStructure commits the destination.
         public void PickUpStructure(StructureInstance instance)
         {
-            islandSystem.Grid.Remove(instance.Cell, instance.Def.size);
+            islandSystem.Grid.Remove(instance.Cell, instance.Def.Footprint);
             run.structures.Remove(instance.Cell);
         }
 
@@ -151,7 +151,7 @@ namespace LittlePeeps
         public void DropStructure(StructureInstance instance, Vector2Int origin)
         {
             var grid = islandSystem.Grid;
-            grid.Place(origin, instance.Def.size, instance);
+            grid.Place(origin, instance.Def.Footprint, instance);
             run.structures[origin] = instance;
             instance.Cell = origin;
 
@@ -253,7 +253,7 @@ namespace LittlePeeps
 
             foreach (var instance in run.structures.Values)
             {
-                if (grid != null) grid.Remove(instance.Cell, instance.Def.size);
+                if (grid != null) grid.Remove(instance.Cell, instance.Def.Footprint);
                 DestroyWithTeardown(instance.RuntimeObject);
             }
             run.structures.Clear();

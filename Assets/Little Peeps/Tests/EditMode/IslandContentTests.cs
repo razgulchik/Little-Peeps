@@ -14,7 +14,7 @@ namespace LittlePeeps.Tests
     public class IslandContentTests
     {
         private const int HouseSide = 2;
-        private static readonly Vector2Int House = new(HouseSide, HouseSide);
+        private static readonly Footprint House = Footprint.Rect(HouseSide, HouseSide);
 
         private static IslandRules Rules(int startArea = 36) => new() { startArea = startArea };
 
@@ -125,6 +125,45 @@ namespace LittlePeeps.Tests
                     Assert.IsEmpty(c.river, at);
                     Assert.IsEmpty(c.mountains, at);
                 }
+        }
+
+        [Test]
+        public void Start_ReservesAShapedHouse_ByItsPaintedCellsOnly()
+        {
+            // An L: the notch is not house, so it stays open for objects or the player.
+            var l = Footprint.Parse("#.",
+                                    "##");
+            for (int seed = 0; seed < 10; seed++)
+            {
+                var g = new IslandGenerator(Rules(), seed);
+                var candidate = g.GenerateStart();
+                var c = g.Populate(candidate, StartingGrasslands(), l);
+                Assert.IsNotNull(c, $"seed {seed}: the start could not be populated");
+                g.Commit(candidate, c);
+
+                Assert.DoesNotThrow(() => IslandContent.ValidateAll(g.Sections), $"seed {seed}");
+                Assert.IsTrue(c.Starting, $"seed {seed}");
+                Assert.AreEqual(3, c.house.Count, $"seed {seed}: three painted cells");
+                Assert.IsTrue(c.house.Contains(c.houseOrigin), $"seed {seed}: origin painted");
+                Assert.IsTrue(c.house.Contains(c.houseOrigin + new Vector2Int(1, 0)), $"seed {seed}: base");
+                Assert.IsTrue(c.house.Contains(c.houseOrigin + new Vector2Int(0, 1)), $"seed {seed}: stub");
+                Assert.IsFalse(c.house.Contains(c.houseOrigin + new Vector2Int(1, 1)), $"seed {seed}: the notch is not house");
+            }
+        }
+
+        [Test]
+        public void Fits_KeysAShapeOnItsAnchor_NotOnTheBoxCorner()
+        {
+            // Three cells: a 2x2 block minus its bottom-left. The shape "##/.#" covers exactly these,
+            // and only if its box corner — the missing cell — is allowed to lie outside the set.
+            var cells = Set(new[] { new Vector2Int(1, 0), new Vector2Int(0, 1), new Vector2Int(1, 1) });
+
+            var fits = IslandContent.Fits(cells, Footprint.Parse("##",
+                                                                 ".#"));
+
+            Assert.AreEqual(1, fits.Count);
+            CollectionAssert.AreEquivalent(cells, fits[0]);
+            Assert.IsEmpty(IslandContent.Rects(cells, new Vector2Int(2, 2)), "the full box does not fit");
         }
 
         // --- growth -----------------------------------------------------------------------------------

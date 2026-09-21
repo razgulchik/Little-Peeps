@@ -58,25 +58,28 @@ namespace LittlePeeps
             return cells.TryGetValue(coord, out var cell) ? cell : null;
         }
 
-        // True if a structure of given size can be placed at origin: every covered cell must exist
-        // (be land), be unoccupied, and be an allowed terrain. Empty/null allowedTerrain = any.
-        public bool CanPlace(Vector2Int origin, Vector2Int size, TerrainType[] allowedTerrain, int border = 0)
+        // True if a structure with this footprint can be placed at origin: every claimed cell must exist
+        // (be land) and be unoccupied, and every footprint cell must be an allowed terrain. Empty/null
+        // allowedTerrain = any.
+        public bool CanPlace(Vector2Int origin, Footprint footprint, TerrainType[] allowedTerrain, int border = 0)
         {
-            // A structure occupies its footprint EXPANDED by `border` on every side — the border is just
-            // extra claimed territory, not a separate thing (a 2x2 house with border 1 occupies 4x4).
-            // The whole expanded area must be on-island and unoccupied; terrain is only checked on the
-            // actual footprint (the border is claimed spacing, any land will do).
-            for (int x = origin.x - border; x < origin.x + size.x + border; x++)
+            // A structure claims its footprint GROWN by `border` on every side — the border is just extra
+            // claimed territory, not a separate thing (a 2x2 house with border 1 claims 4x4; an L-shaped
+            // one claims a ring that hugs the L, see Footprint.Claims). The whole claimed area must be
+            // on-island and unoccupied; terrain is only checked on the actual footprint (the border is
+            // claimed spacing, any land will do).
+            Vector2Int s = footprint.Size;
+            for (int x = -border; x < s.x + border; x++)
             {
-                for (int y = origin.y - border; y < origin.y + size.y + border; y++)
+                for (int y = -border; y < s.y + border; y++)
                 {
-                    var cell = GetCell(new Vector2Int(x, y));
+                    if (!footprint.Claims(x, y, border)) continue;
+
+                    var cell = GetCell(new Vector2Int(origin.x + x, origin.y + y));
                     if (cell == null) return false;            // off-island (footprint or claimed border)
                     if (cell.occupant != null) return false;   // occupied (footprint or claimed border)
 
-                    bool inFootprint = x >= origin.x && x < origin.x + size.x
-                                    && y >= origin.y && y < origin.y + size.y;
-                    if (inFootprint && !IsTerrainAllowed(cell.terrain, allowedTerrain)) return false;
+                    if (footprint.Contains(x, y) && !IsTerrainAllowed(cell.terrain, allowedTerrain)) return false;
                 }
             }
             return true;
@@ -90,28 +93,32 @@ namespace LittlePeeps
             return false;
         }
 
-        // Mark the structure's whole occupied territory (footprint expanded by its def.border) as occupied.
-        public void Place(Vector2Int origin, Vector2Int size, StructureInstance structureInstance)
+        // Mark the structure's whole claimed territory (footprint grown by its def.border) as occupied.
+        public void Place(Vector2Int origin, Footprint footprint, StructureInstance structureInstance)
         {
             int border = structureInstance.Def != null ? structureInstance.Def.border : 0;
-            for (int x = origin.x - border; x < origin.x + size.x + border; x++)
-                for (int y = origin.y - border; y < origin.y + size.y + border; y++)
+            Vector2Int s = footprint.Size;
+            for (int x = -border; x < s.x + border; x++)
+                for (int y = -border; y < s.y + border; y++)
                 {
-                    var cell = GetCell(new Vector2Int(x, y));
+                    if (!footprint.Claims(x, y, border)) continue;
+                    var cell = GetCell(new Vector2Int(origin.x + x, origin.y + y));
                     if (cell != null) cell.occupant = structureInstance;
                 }
         }
 
-        // Clear the structure's whole occupied territory (footprint expanded by its border). The border
-        // is read from the occupant at origin, so callers still pass only origin + footprint size.
-        public void Remove(Vector2Int origin, Vector2Int size)
+        // Clear the structure's whole claimed territory (footprint grown by its border). The border is
+        // read from the occupant at origin, so callers still pass only origin + footprint.
+        public void Remove(Vector2Int origin, Footprint footprint)
         {
             var occupant = GetCell(origin)?.occupant;
             int border = (occupant != null && occupant.Def != null) ? occupant.Def.border : 0;
-            for (int x = origin.x - border; x < origin.x + size.x + border; x++)
-                for (int y = origin.y - border; y < origin.y + size.y + border; y++)
+            Vector2Int s = footprint.Size;
+            for (int x = -border; x < s.x + border; x++)
+                for (int y = -border; y < s.y + border; y++)
                 {
-                    var cell = GetCell(new Vector2Int(x, y));
+                    if (!footprint.Claims(x, y, border)) continue;
+                    var cell = GetCell(new Vector2Int(origin.x + x, origin.y + y));
                     if (cell != null && cell.occupant == occupant) cell.occupant = null;
                 }
         }
@@ -132,9 +139,10 @@ namespace LittlePeeps
             );
         }
 
-        // Origin (bottom-left) cell for a footprint of `size` centered nearest worldCenter. Inverse of
-        // OriginToWorldCenter: the FOOTPRINT stays centered under the cursor in build mode; the root then
-        // sits at OriginToWorldAnchor within it.
+        // Origin (bottom-left) cell for a footprint whose bounding box is `size`, centered nearest
+        // worldCenter. Inverse of OriginToWorldCenter: the BOX stays centered under the cursor in build
+        // mode; the root then sits at OriginToWorldAnchor within it. Box only, whatever the shape inside
+        // it — the three world mappings below all read Footprint.Size, never the mask.
         public Vector2Int WorldToOrigin(Vector2 worldCenter, Vector2Int size)
         {
             return new Vector2Int(
@@ -143,7 +151,7 @@ namespace LittlePeeps
             );
         }
 
-        // World position of the center of a footprint of `size` anchored at origin. The LOGICAL center:
+        // World position of the center of a footprint's bounding box `size` anchored at origin. The LOGICAL center:
         // exit directions (Spawner), the territory halo and the cursor mapping read it. The structure's
         // root does not sit here — see OriginToWorldAnchor.
         public Vector2 OriginToWorldCenter(Vector2Int origin, Vector2Int size)
@@ -154,7 +162,7 @@ namespace LittlePeeps
             );
         }
 
-        // World position of the bottom-center point of a footprint of `size` anchored at origin. Where a
+        // World position of the bottom-center point of a footprint's bounding box `size` anchored at origin. Where a
         // structure's ROOT goes (StructureSystem.AnchorOnFootprint): 2D art is pivoted at its base, so a
         // sprite lands standing on the footprint's bottom edge and rises from there — a facade taller
         // than its footprint overhangs the cells above instead of straddling them.

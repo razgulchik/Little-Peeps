@@ -18,7 +18,7 @@ namespace LittlePeeps
     // Split out of PlacementController so the tools decide WHAT is targeted and this class decides how it
     // LOOKS — no tool touches a SpriteRenderer. It owns three visual subjects:
     //   - the GHOST: a neutralised clone of the real prefab that follows the cursor before anything is built;
-    //   - the TERRITORY halo: a scaled quad showing the footprint+border the ghost would claim;
+    //   - the TERRITORY halo: one quad per cell of the footprint+border the ghost would claim;
     //   - the HOVER and HELD tints: real structures already in the scene, recoloured and then restored.
     // Ghost and halo are objects this class creates and destroys; hover and held targets are NOT — they are
     // borrowed, so their original colours are remembered and put back. Drop shadows (SpriteShadow) follow
@@ -51,10 +51,12 @@ namespace LittlePeeps
         private DualVisual ghostVisual;                // non-null when the ghost is an edge structure (fence)
         private DualVisual ghostRowVisual;             // non-null when the cell ghost interlocks by row (forest)
 
-        // Faint square showing the footprint+border the ghost would claim (Place and Move).
+        // Faint tiles showing the footprint+border the ghost would claim (Place and Move): one quad per
+        // claimed cell under a common parent, pooled — a shaped footprint needs the halo to follow its
+        // shape, which one scaled square cannot.
         private GameObject territoryGhost;
-        private SpriteRenderer territoryRenderer;
-        private static Sprite squareSprite;   // shared 1x1 white sprite the territory quad is scaled from
+        private readonly List<SpriteRenderer> territoryTiles = new();
+        private static Sprite squareSprite;   // shared 1x1 white sprite every territory tile is scaled from
 
         // The structure OR fence currently tinted as the hover target. A cell structure and a fence are
         // never both hovered (the edge wins by precedence), so one target covers both.
@@ -163,17 +165,32 @@ namespace LittlePeeps
         // --- territory halo ---------------------------------------------------------------------------
 
         // Show the faint footprint+border halo at `origin`, tinted by validity. Used by both Place (new
-        // structure) and Move (held structure) so the claimed area follows the cursor.
-        public void ShowTerritory(IslandGrid grid, Vector2Int origin, Vector2Int size, int border, bool valid)
+        // structure) and Move (held structure) so the claimed area follows the cursor. One tile per
+        // claimed cell (Footprint.Claims — the same sweep CanPlace makes), so the halo shows exactly
+        // what would be claimed, notch and all.
+        public void ShowTerritory(IslandGrid grid, Vector2Int origin, Footprint footprint, int border, bool valid)
         {
             EnsureTerritory();
 
             float cs = grid.CellSize;
-            Vector2 center = grid.OriginToWorldCenter(origin, size);   // footprint center = territory center (border is symmetric)
+            var color = valid ? territoryValidColor : territoryInvalidColor;
+            Vector2Int s = footprint.Size;
+            int used = 0;
 
-            territoryGhost.transform.position = new Vector3(center.x, center.y, 0f);
-            territoryGhost.transform.localScale = new Vector3((size.x + 2 * border) * cs, (size.y + 2 * border) * cs, 1f);
-            territoryRenderer.color = valid ? territoryValidColor : territoryInvalidColor;
+            for (int x = -border; x < s.x + border; x++)
+                for (int y = -border; y < s.y + border; y++)
+                {
+                    if (!footprint.Claims(x, y, border)) continue;
+
+                    var tile = TerritoryTile(used++);
+                    Vector2 c = grid.GridToWorld(new Vector2Int(origin.x + x, origin.y + y));
+                    tile.transform.position = new Vector3(c.x, c.y, 0f);
+                    tile.transform.localScale = new Vector3(cs, cs, 1f);
+                    tile.color = color;
+                    tile.gameObject.SetActive(true);
+                }
+
+            for (int i = used; i < territoryTiles.Count; i++) territoryTiles[i].gameObject.SetActive(false);
             territoryGhost.SetActive(true);
         }
 
@@ -185,15 +202,28 @@ namespace LittlePeeps
         private void EnsureTerritory()
         {
             if (territoryGhost != null) return;
-
             territoryGhost = new GameObject("PlacementTerritory");
-            territoryRenderer = territoryGhost.AddComponent<SpriteRenderer>();
-            territoryRenderer.sprite = SquareSprite();
-            territoryRenderer.sortingLayerName = territorySortingLayer;
-            territoryRenderer.sortingOrder = territorySortingOrder;
+            territoryTiles.Clear();   // a parent gone (scene unload) took its tiles with it
         }
 
-        // A shared 1x1 white sprite (centered pivot, 1 px/unit) the territory quad is scaled from.
+        // The i-th pooled tile, created on first use. Tiles are never destroyed while the halo lives;
+        // ShowTerritory switches off the ones a smaller footprint does not need.
+        private SpriteRenderer TerritoryTile(int i)
+        {
+            while (territoryTiles.Count <= i)
+            {
+                var go = new GameObject("Tile");
+                go.transform.SetParent(territoryGhost.transform, false);
+                var r = go.AddComponent<SpriteRenderer>();
+                r.sprite = SquareSprite();
+                r.sortingLayerName = territorySortingLayer;
+                r.sortingOrder = territorySortingOrder;
+                territoryTiles.Add(r);
+            }
+            return territoryTiles[i];
+        }
+
+        // A shared 1x1 white sprite (centered pivot, 1 px/unit) every territory tile is scaled from.
         private static Sprite SquareSprite()
         {
             if (squareSprite == null)

@@ -16,7 +16,18 @@ namespace LittlePeeps
         public Sprite icon;
         public GameObject prefab;
         public PlacementKind placement = PlacementKind.Cell;
+
+        // The footprint's bounding box (cells). Rectangular on its own; the mask below carves a shape
+        // out of it. The box, not the shape, is what the root is anchored on and the cursor maps by.
         public Vector2Int size = Vector2Int.one;
+
+        // Which cells of the box the structure stands on, painted in the inspector (y=0 is the BOTTOM
+        // row, as on the grid). Unpainted = every cell — the plain rectangle every def had before shapes.
+        // Read through `Footprint`, never directly.
+        [FootprintMask(nameof(size))] public FootprintMask footprintMask;
+
+        public Footprint Footprint => new Footprint(size, footprintMask.cells);
+
         public List<ResourceCost> cost;
 
         [Tooltip("Run age at which this structure becomes available in the build palette. " +

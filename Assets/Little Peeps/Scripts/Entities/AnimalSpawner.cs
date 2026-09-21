@@ -183,16 +183,19 @@ namespace LittlePeeps
             occupiedCells.Clear();
 
             Vector2Int o = instance.Cell;
-            Vector2Int s = instance.Def.size;
+            var footprint = instance.Def.Footprint;
+            Vector2Int s = footprint.Size;
             int r = Mathf.Max(1, territoryRadiusCells);
 
-            for (int x = o.x - r; x < o.x + s.x + r; x++)
-                for (int y = o.y - r; y < o.y + s.y + r; y++)
+            // The ring `r` cells deep around the SHAPE (Footprint.Claims), minus the shape itself: for a
+            // box that is the box grown by r, for an L the ring hugs the L and fills its notch.
+            for (int x = -r; x < s.x + r; x++)
+                for (int y = -r; y < s.y + r; y++)
                 {
-                    bool inFootprint = x >= o.x && x < o.x + s.x && y >= o.y && y < o.y + s.y;
-                    if (inFootprint) continue;
+                    if (footprint.Contains(x, y)) continue;
+                    if (!footprint.Claims(x, y, r)) continue;
 
-                    var coord = new Vector2Int(x, y);
+                    var coord = new Vector2Int(o.x + x, o.y + y);
                     var cell = grid.GetCell(coord);
                     if (cell == null) continue;   // off-island
 

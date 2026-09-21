@@ -142,7 +142,7 @@ namespace LittlePeeps
             IslandSectionContent content = null;
             if (startBiome != null)
             {
-                content = Generator.Populate(start, startBiome.profile, house != null ? house.size : default);
+                content = Generator.Populate(start, startBiome.profile, house != null ? house.Footprint : default);
                 if (content == null)
                     Debug.LogError($"IslandSystem: start biome '{startBiome.name}' does not fit the starting island " +
                                    $"(seed {seed}) — starting as bare land. Loosen its budgets.", this);

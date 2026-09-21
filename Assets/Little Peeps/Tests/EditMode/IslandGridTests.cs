@@ -40,6 +40,7 @@ namespace LittlePeeps.Tests
         }
 
         private static Vector2Int C(int x, int y) => new Vector2Int(x, y);
+        private static Footprint R(int w, int h) => Footprint.Rect(w, h);
 
         // --- CanPlace ------------------------------------------------------------------------------
 
@@ -48,7 +49,7 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-2, 2);
 
-            Assert.IsTrue(grid.CanPlace(C(-2, -2), C(2, 2), null));
+            Assert.IsTrue(grid.CanPlace(C(-2, -2), R(2, 2), null));
         }
 
         [Test]
@@ -58,16 +59,16 @@ namespace LittlePeeps.Tests
 
             // A 2x2 at (2,2) needs column x=3 and row y=3, which were never seeded — no cell means
             // "not land", which is how the "can't build past the edge" rule falls out of the sparse grid.
-            Assert.IsFalse(grid.CanPlace(C(2, 2), C(2, 2), null));
+            Assert.IsFalse(grid.CanPlace(C(2, 2), R(2, 2), null));
         }
 
         [Test]
         public void CanPlace_False_OnACellAnotherStructureOccupies()
         {
             var grid = TestIsland.Square(-2, 2);
-            grid.Place(C(-1, -1), C(1, 1), Structure(C(-1, -1), C(1, 1)));
+            grid.Place(C(-1, -1), R(1, 1), Structure(C(-1, -1), C(1, 1)));
 
-            Assert.IsFalse(grid.CanPlace(C(-1, -1), C(1, 1), null));
+            Assert.IsFalse(grid.CanPlace(C(-1, -1), R(1, 1), null));
         }
 
         [Test]
@@ -75,10 +76,10 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-3, 3);
             // A 1x1 with border 1 at the origin claims the whole -1..1 box, footprint AND ring.
-            grid.Place(C(0, 0), C(1, 1), Structure(C(0, 0), C(1, 1), border: 1));
+            grid.Place(C(0, 0), R(1, 1), Structure(C(0, 0), C(1, 1), border: 1));
 
-            Assert.IsFalse(grid.CanPlace(C(1, 1), C(1, 1), null), "(1,1) is claimed border, not free land");
-            Assert.IsTrue(grid.CanPlace(C(2, 2), C(1, 1), null), "(2,2) is outside the claimed box");
+            Assert.IsFalse(grid.CanPlace(C(1, 1), R(1, 1), null), "(1,1) is claimed border, not free land");
+            Assert.IsTrue(grid.CanPlace(C(2, 2), R(1, 1), null), "(2,2) is outside the claimed box");
         }
 
         [Test]
@@ -88,8 +89,8 @@ namespace LittlePeeps.Tests
 
             // The footprint fits on the island's last cell, but its border ring needs x=3 / y=3.
             // This is the mechanism that keeps bordered buildings one clear cell from the map edge.
-            Assert.IsFalse(grid.CanPlace(C(2, 2), C(1, 1), null, border: 1));
-            Assert.IsTrue(grid.CanPlace(C(2, 2), C(1, 1), null, border: 0));
+            Assert.IsFalse(grid.CanPlace(C(2, 2), R(1, 1), null, border: 1));
+            Assert.IsTrue(grid.CanPlace(C(2, 2), R(1, 1), null, border: 0));
         }
 
         [Test]
@@ -97,8 +98,8 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Grass);
 
-            Assert.IsFalse(grid.CanPlace(C(0, 0), C(1, 1), DesertOnly));
-            Assert.IsTrue(grid.CanPlace(C(0, 0), C(1, 1), GrassOnly));
+            Assert.IsFalse(grid.CanPlace(C(0, 0), R(1, 1), DesertOnly));
+            Assert.IsTrue(grid.CanPlace(C(0, 0), R(1, 1), GrassOnly));
         }
 
         [Test]
@@ -106,8 +107,8 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Desert);
 
-            Assert.IsTrue(grid.CanPlace(C(0, 0), C(1, 1), null));
-            Assert.IsTrue(grid.CanPlace(C(0, 0), C(1, 1), new TerrainType[0]));
+            Assert.IsTrue(grid.CanPlace(C(0, 0), R(1, 1), null));
+            Assert.IsTrue(grid.CanPlace(C(0, 0), R(1, 1), new TerrainType[0]));
         }
 
         [Test]
@@ -118,7 +119,7 @@ namespace LittlePeeps.Tests
             var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Desert);
             grid.SetCell(C(-1, -1), TerrainType.Grass);
 
-            Assert.IsTrue(grid.CanPlace(C(-1, -1), C(1, 1), GrassOnly, border: 1));
+            Assert.IsTrue(grid.CanPlace(C(-1, -1), R(1, 1), GrassOnly, border: 1));
         }
 
         [Test]
@@ -126,7 +127,7 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-1, 1);
             var house = Structure(C(0, 0), C(1, 1));
-            grid.Place(C(0, 0), C(1, 1), house);
+            grid.Place(C(0, 0), R(1, 1), house);
 
             grid.SetCell(C(0, 0), TerrainType.Desert);
 
@@ -141,7 +142,7 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-3, 3);
             var house = Structure(C(0, 0), C(2, 2), border: 1);
-            grid.Place(C(0, 0), C(2, 2), house);
+            grid.Place(C(0, 0), R(2, 2), house);
 
             // A 2x2 with border 1 owns the whole -1..2 box: 4x4 cells, footprint plus ring.
             for (int x = -1; x <= 2; x++)
@@ -158,14 +159,14 @@ namespace LittlePeeps.Tests
             var grid = TestIsland.Square(-3, 3);
             var house = Structure(C(-1, -1), C(2, 2), border: 1);
 
-            grid.Place(C(-1, -1), C(2, 2), house);
-            grid.Remove(C(-1, -1), C(2, 2));
+            grid.Place(C(-1, -1), R(2, 2), house);
+            grid.Remove(C(-1, -1), R(2, 2));
 
             for (int x = -2; x <= 1; x++)
                 for (int y = -2; y <= 1; y++)
                     Assert.IsNull(grid.GetCell(C(x, y)).occupant, $"cell ({x},{y}) should be free again");
 
-            Assert.IsTrue(grid.CanPlace(C(-1, -1), C(2, 2), null, border: 1),
+            Assert.IsTrue(grid.CanPlace(C(-1, -1), R(2, 2), null, border: 1),
                           "the same structure must be placeable again after Remove");
         }
 
@@ -175,10 +176,10 @@ namespace LittlePeeps.Tests
             var grid = TestIsland.Square(-3, 3);
             var a = Structure(C(-2, 0), C(2, 1));
             var b = Structure(C(0, 0), C(1, 1));
-            grid.Place(C(-2, 0), C(2, 1), a);
-            grid.Place(C(0, 0), C(1, 1), b);
+            grid.Place(C(-2, 0), R(2, 1), a);
+            grid.Place(C(0, 0), R(1, 1), b);
 
-            grid.Remove(C(-2, 0), C(2, 1));
+            grid.Remove(C(-2, 0), R(2, 1));
 
             Assert.IsNull(grid.GetCell(C(-2, 0)).occupant);
             Assert.IsNull(grid.GetCell(C(-1, 0)).occupant);
@@ -190,11 +191,11 @@ namespace LittlePeeps.Tests
         {
             var grid = TestIsland.Square(-3, 3);
             var b = Structure(C(1, 0), C(1, 1));
-            grid.Place(C(1, 0), C(1, 1), b);
+            grid.Place(C(1, 0), R(1, 1), b);
 
             // Origin (0,0) is empty, so the occupant Remove matches against is null — the sweep must
             // then clear nothing, even though its 2x1 footprint runs straight over b's cell.
-            Assert.DoesNotThrow(() => grid.Remove(C(0, 0), C(2, 1)));
+            Assert.DoesNotThrow(() => grid.Remove(C(0, 0), R(2, 1)));
             Assert.AreSame(b, grid.GetCell(C(1, 0)).occupant);
         }
 
@@ -206,10 +207,99 @@ namespace LittlePeeps.Tests
 
             // Its border ring reaches x=3 / y=3, which do not exist. Nothing may be created there and
             // nothing may throw — Place/Remove skip missing cells.
-            Assert.DoesNotThrow(() => grid.Place(C(2, 2), C(1, 1), house));
+            Assert.DoesNotThrow(() => grid.Place(C(2, 2), R(1, 1), house));
             Assert.IsNull(grid.GetCell(C(3, 3)), "a missing cell must not be conjured into existence");
-            Assert.DoesNotThrow(() => grid.Remove(C(2, 2), C(1, 1)));
+            Assert.DoesNotThrow(() => grid.Remove(C(2, 2), R(1, 1)));
             Assert.IsNull(grid.GetCell(C(2, 2)).occupant);
+        }
+
+        // --- shaped footprints ---------------------------------------------------------------------
+
+        // A 2x2 L: bottom row plus the top-left cell; (1,1) is the notch.
+        private static readonly Footprint L = Footprint.Parse("#.",
+                                                             "##");
+
+        private StructureInstance Shaped(Vector2Int cell, Footprint shape, int border = 0)
+        {
+            var def = ScriptableObject.CreateInstance<StructureDef>();
+            def.size = shape.Size;
+            def.border = border;
+            defs.Add(def);
+            return new StructureInstance { Def = def, Cell = cell };
+        }
+
+        [Test]
+        public void CanPlace_Shaped_IgnoresWhatSitsInTheNotch()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            grid.Place(C(1, 1), R(1, 1), Structure(C(1, 1), C(1, 1)));   // something in the notch's cell
+
+            Assert.IsTrue(grid.CanPlace(C(0, 0), L, null), "the L stands around the occupied notch");
+            Assert.IsFalse(grid.CanPlace(C(0, 0), R(2, 2), null), "the full box would need that cell");
+        }
+
+        [Test]
+        public void CanPlace_Shaped_ChecksTerrainOnPaintedCellsOnly()
+        {
+            var grid = TestIsland.Square(-2, 2, terrain: TerrainType.Grass);
+            grid.SetCell(C(1, 1), TerrainType.Desert);   // the notch
+
+            Assert.IsTrue(grid.CanPlace(C(0, 0), L, GrassOnly), "desert in the notch is not under the building");
+            Assert.IsFalse(grid.CanPlace(C(0, 0), R(2, 2), GrassOnly));
+        }
+
+        [Test]
+        public void Place_Shaped_MarksOnlyThePaintedCells()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            var house = Shaped(C(0, 0), L);
+            grid.Place(C(0, 0), L, house);
+
+            Assert.AreSame(house, grid.GetCell(C(0, 0)).occupant);
+            Assert.AreSame(house, grid.GetCell(C(1, 0)).occupant);
+            Assert.AreSame(house, grid.GetCell(C(0, 1)).occupant);
+            Assert.IsNull(grid.GetCell(C(1, 1)).occupant, "the notch stays free");
+        }
+
+        [Test]
+        public void Place_Shaped_WithBorder_ClaimsARingThatHugsTheShape()
+        {
+            var grid = TestIsland.Square(-2, 4);
+            // A 3x3 L (bottom row + left column) with border 1.
+            var big = Footprint.Parse("#..",
+                                      "#..",
+                                      "###");
+            var house = Shaped(C(0, 0), big, border: 1);
+            grid.Place(C(0, 0), big, house);
+
+            Assert.AreSame(house, grid.GetCell(C(1, 1)).occupant, "the inner corner is border");
+            Assert.AreSame(house, grid.GetCell(C(-1, -1)).occupant, "the outer corner is border");
+            Assert.AreSame(house, grid.GetCell(C(3, 1)).occupant, "diagonal past the base's end is border");
+            Assert.IsNull(grid.GetCell(C(2, 2)).occupant, "the box's far corner is two moves from the L");
+            Assert.IsNull(grid.GetCell(C(3, 2)).occupant, "so is the cell right of it");
+            Assert.IsNull(grid.GetCell(C(3, 3)).occupant);
+        }
+
+        [Test]
+        public void Remove_Shaped_ClearsExactlyWhatPlaceMarked()
+        {
+            var grid = TestIsland.Square(-2, 4);
+            var big = Footprint.Parse("#..",
+                                      "#..",
+                                      "###");
+            var house = Shaped(C(0, 0), big, border: 1);
+            var other = Structure(C(2, 2), C(1, 1));
+            grid.Place(C(0, 0), big, house);
+            grid.Place(C(2, 2), R(1, 1), other);   // in the unclaimed far corner
+
+            grid.Remove(C(0, 0), big);
+
+            for (int x = -1; x <= 3; x++)
+                for (int y = -1; y <= 3; y++)
+                    if (!(x == 2 && y == 2))
+                        Assert.IsNull(grid.GetCell(C(x, y)).occupant, $"cell ({x},{y}) should be free again");
+            Assert.AreSame(other, grid.GetCell(C(2, 2)).occupant, "the neighbour in the corner keeps its cell");
+            Assert.IsTrue(grid.CanPlace(C(0, 0), big, null, border: 1), "the same L must be placeable again");
         }
 
         // --- coordinate round-trips ----------------------------------------------------------------

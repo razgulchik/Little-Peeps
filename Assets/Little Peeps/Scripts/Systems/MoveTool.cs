@@ -55,10 +55,10 @@ namespace LittlePeeps
             var def = heldInstance.Def;
             Vector2Int origin = grid.WorldToOrigin(cursor, def.size);
 
-            bool ok = grid.CanPlace(origin, def.size, def.allowedTerrain, def.border);
+            bool ok = grid.CanPlace(origin, def.Footprint, def.allowedTerrain, def.border);
 
             ctx.Visuals.PoseHeldCell(origin, def.size, ok);
-            ctx.Visuals.ShowTerritory(grid, origin, def.size, def.border, ok);
+            ctx.Visuals.ShowTerritory(grid, origin, def.Footprint, def.border, ok);
         }
 
         // Fence drag: snapped to the nearest edge, showing the matching pose. No territory halo for edges
@@ -108,7 +108,7 @@ namespace LittlePeeps
             var grid = ctx.Grid;
             var def = heldInstance.Def;
             Vector2Int origin = grid.WorldToOrigin(world, def.size);
-            if (!grid.CanPlace(origin, def.size, def.allowedTerrain, def.border)) return;   // invalid — stay held
+            if (!grid.CanPlace(origin, def.Footprint, def.allowedTerrain, def.border)) return;   // invalid — stay held
 
             ctx.Structures.DropStructure(heldInstance, origin);
             ReleaseInstance();

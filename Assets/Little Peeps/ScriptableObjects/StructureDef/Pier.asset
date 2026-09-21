@@ -18,11 +18,14 @@ MonoBehaviour:
   prefab: {fileID: 5294570824620911686, guid: f6d4cd361eee792429e707b0d9bdd056, type: 3}
   placement: 0
   size: {x: 1, y: 3}
+  footprintMask:
+    cells: 
   cost: []
   requiredAge: 0
   allowedTerrain: 
   sellRefundPercent: 0
   canSell: 1
   canMove: 0
-  impassable: 0
+  passable: 0
+  animalsAvoid: 1
   border: 0

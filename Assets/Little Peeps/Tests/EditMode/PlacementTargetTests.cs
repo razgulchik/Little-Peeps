@@ -26,7 +26,7 @@ namespace LittlePeeps.Tests
         private static StructureInstance PutStructure(IslandGrid grid, Vector2Int cell)
         {
             var instance = new StructureInstance { Cell = cell };   // Def null → the grid reads border 0
-            grid.Place(cell, Vector2Int.one, instance);
+            grid.Place(cell, Footprint.Rect(1, 1), instance);
             return instance;
         }
 

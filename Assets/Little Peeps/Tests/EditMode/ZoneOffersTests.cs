@@ -10,7 +10,7 @@ namespace LittlePeeps.Tests
     // it runs under the offline harness; IslandSystem.ProposeZones only maps the result onto assets.
     public class ZoneOffersTests
     {
-        private static readonly Vector2Int House = new(2, 2);
+        private static readonly Footprint House = Footprint.Rect(2, 2);
 
         private static IslandGenerator Start(int seed, MassSource massSource = null)
         {

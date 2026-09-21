@@ -18,6 +18,8 @@ MonoBehaviour:
   prefab: {fileID: 831909280926080680, guid: e19232e7238ebda4ca227766f22390c1, type: 3}
   placement: 0
   size: {x: 1, y: 1}
+  footprintMask:
+    cells: 
   cost:
   - resourceType: 0
     amount: 0
@@ -26,5 +28,6 @@ MonoBehaviour:
   sellRefundPercent: 0.5
   canSell: 0
   canMove: 0
-  impassable: 0
+  passable: 1
+  animalsAvoid: 0
   border: 0

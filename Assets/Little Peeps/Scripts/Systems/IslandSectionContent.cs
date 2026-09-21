@@ -16,10 +16,10 @@ namespace LittlePeeps
         public readonly IslandBiome biome;
         public readonly HashSet<Vector2Int> land;
 
-        // The starting zone carries the house: its footprint size is all the generator needs, the def
-        // is attached where structures are placed (Features). Zero size for every later zone.
-        public readonly Vector2Int houseSize;
-        public bool Starting => houseSize.x > 0 && houseSize.y > 0;
+        // The starting zone carries the house: its footprint is all the generator needs, the def is
+        // attached where structures are placed (Features). Empty for every later zone.
+        public readonly Footprint houseFootprint;
+        public bool Starting => houseFootprint.CellCount > 0;
 
         public readonly Dictionary<Vector2Int, IslandObjectRule> objects = new();
         public readonly HashSet<Vector2Int> mountains = new();
@@ -32,11 +32,11 @@ namespace LittlePeeps
         public readonly HashSet<Vector2Int> mineAccess = new();
         public readonly HashSet<Vector2Int> millAccess = new();
 
-        public IslandSectionContent(IslandBiome biome, IEnumerable<Vector2Int> land, Vector2Int houseSize = default)
+        public IslandSectionContent(IslandBiome biome, IEnumerable<Vector2Int> land, Footprint houseFootprint = default)
         {
             this.biome = biome;
             this.land = new HashSet<Vector2Int>(land);
-            this.houseSize = houseSize;
+            this.houseFootprint = houseFootprint;
         }
 
         // Natural features block movement (objects, mountains, river); so does the house.

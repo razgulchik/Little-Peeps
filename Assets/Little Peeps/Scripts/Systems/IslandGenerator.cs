@@ -156,16 +156,16 @@ namespace LittlePeeps
             return pool;
         }
 
-        // Fill a candidate with a biome's content, against the island as it stands. A non-zero
-        // `houseSize` marks the starting zone. Null when the biome's rules can't be met on this shape —
+        // Fill a candidate with a biome's content, against the island as it stands. A non-empty
+        // `house` marks the starting zone. Null when the biome's rules can't be met on this shape —
         // nothing is committed, and the shape rng is untouched either way (content has its own streams).
         // Safe to call for several candidates and biomes before choosing one.
-        public IslandSectionContent Populate(IslandCandidate candidate, IslandBiome biome, Vector2Int houseSize = default)
+        public IslandSectionContent Populate(IslandCandidate candidate, IslandBiome biome, Footprint house = default)
         {
             CheckCurrent(candidate);
             var previous = new List<IslandSectionContent>(sections.Count);
             foreach (var s in sections) if (s.Content != null) previous.Add(s.Content);
-            return IslandContent.Populate(Seed, sections.Count, biome, candidate.cells, previous, houseSize);
+            return IslandContent.Populate(Seed, sections.Count, biome, candidate.cells, previous, house);
         }
 
         // Make a proposed zone the island's next section, with its content — or bare, when the caller

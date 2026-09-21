@@ -90,18 +90,22 @@ namespace LittlePeeps
             return list;
         }
 
-        // Every size-shaped block whose cells all lie in the set, anchored at its min corner, nearest the
-        // centre first.
-        public static List<HashSet<Vector2Int>> Rects(HashSet<Vector2Int> cells, Vector2Int size)
+        // Every placement of `shape` whose cells all lie in the set, nearest the centre first; each entry
+        // is the cells the shape covers there. Placements are keyed on the shape's anchor cell (its lowest
+        // painted cell) landing on a set cell, so a shape whose box corner is a hole is not skipped.
+        public static List<HashSet<Vector2Int>> Fits(HashSet<Vector2Int> cells, Footprint shape)
         {
             var result = new List<HashSet<Vector2Int>>();
-            foreach (var origin in CentreOrder(cells))
+            Vector2Int anchor = shape.Anchor;
+            foreach (var at in CentreOrder(cells))
             {
+                var origin = at - anchor;
                 var block = new HashSet<Vector2Int>();
                 bool full = true;
-                for (int i = 0; i < size.x && full; i++)
-                    for (int j = 0; j < size.y; j++)
+                for (int i = 0; i < shape.Size.x && full; i++)
+                    for (int j = 0; j < shape.Size.y; j++)
                     {
+                        if (!shape.Contains(i, j)) continue;
                         var p = new Vector2Int(origin.x + i, origin.y + j);
                         if (!cells.Contains(p)) { full = false; break; }
                         block.Add(p);
@@ -110,6 +114,11 @@ namespace LittlePeeps
             }
             return result;
         }
+
+        // Every size-shaped block whose cells all lie in the set, anchored at its min corner, nearest the
+        // centre first.
+        public static List<HashSet<Vector2Int>> Rects(HashSet<Vector2Int> cells, Vector2Int size) =>
+            Fits(cells, Footprint.Rect(size));
 
         public static List<HashSet<Vector2Int>> Squares(HashSet<Vector2Int> cells, int size) =>
             Rects(cells, new Vector2Int(size, size));
@@ -417,11 +426,10 @@ namespace LittlePeeps
         // --- Populate --------------------------------------------------------------------------------
 
         // Fill `section` (zone number `index` of the island seeded `seed`) with `biome`'s content, given
-        // the content of every earlier zone. A non-zero `houseSize` marks the starting zone: a footprint of
-        // that size is reserved in the clearing and the zone is regenerated until every fired rule's
-        // minimum is met.
+        // the content of every earlier zone. A non-empty `house` marks the starting zone: that footprint is
+        // reserved in the clearing and the zone is regenerated until every fired rule's minimum is met.
         // Null when no attempt produced a valid zone — the caller decides what to do about it.
-        public static IslandSectionContent Populate(int seed, int index, IslandBiome biome, IReadOnlyCollection<Vector2Int> section, IReadOnlyList<IslandSectionContent> previous, Vector2Int houseSize = default)
+        public static IslandSectionContent Populate(int seed, int index, IslandBiome biome, IReadOnlyCollection<Vector2Int> section, IReadOnlyList<IslandSectionContent> previous, Footprint house = default)
         {
             if (biome == null) throw new ArgumentNullException(nameof(biome));
             biome.Validate();
@@ -444,7 +452,7 @@ namespace LittlePeeps
             for (int attempt = 0; attempt < Attempts; attempt++)
             {
                 var rng = IslandRng.Derive(seed, (ulong)index, IslandRng.Hash(biome.id), (ulong)attempt);
-                var content = new IslandSectionContent(biome, sectionCells, houseSize);
+                var content = new IslandSectionContent(biome, sectionCells, house);
                 content.clearing.UnionWith(clearings[attempt % clearings.Count]);
                 content.reserved.UnionWith(content.clearing);
 
@@ -454,10 +462,10 @@ namespace LittlePeeps
 
                 if (content.Starting)
                 {
-                    var options = Rects(content.clearing, houseSize);
+                    var options = Fits(content.clearing, house);
                     if (options.Count == 0)
                     {
-                        Debug.LogError($"IslandContent: a {houseSize.x}×{houseSize.y} house does not fit the {ClearingSize}×{ClearingSize} clearing.");
+                        Debug.LogError($"IslandContent: a {house} house does not fit the {ClearingSize}×{ClearingSize} clearing.");
                         return null;
                     }
                     var footprint = options[attempt % options.Count];
@@ -538,7 +546,7 @@ namespace LittlePeeps
 
             if (c.Starting)
             {
-                Check(c.house.Count == c.houseSize.x * c.houseSize.y, "house footprint incomplete");
+                Check(c.house.Count == c.houseFootprint.CellCount, "house footprint incomplete");
                 foreach (var rule in biome.objects)
                 {
                     if (rule.chance < 1f || rule.maxCount <= 0) continue;

@@ -52,7 +52,7 @@ namespace LittlePeeps
             structureSystem.PickUpStructure(pier);
 
             var grid = islandSystem.Grid;
-            if (grid.CanPlace(origin, pierDef.size, pierDef.allowedTerrain, pierDef.border))
+            if (grid.CanPlace(origin, pierDef.Footprint, pierDef.allowedTerrain, pierDef.border))
             {
                 structureSystem.DropStructure(pier, origin);
             }

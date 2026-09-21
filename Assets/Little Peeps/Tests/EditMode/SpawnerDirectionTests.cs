@@ -38,7 +38,7 @@ namespace LittlePeeps.Tests
         // Claim a single cell for some other structure. Def stays null, which the grid reads as border 0
         // and the spawner reads as solid.
         private static void Occupy(IslandGrid grid, Vector2Int cell)
-            => grid.Place(cell, Vector2Int.one, new StructureInstance { Cell = cell });
+            => grid.Place(cell, Footprint.Rect(1, 1), new StructureInstance { Cell = cell });
 
         // Claim a single cell for a structure units walk through (a field, a bush, a rack).
         private void OccupyPassable(IslandGrid grid, Vector2Int cell)
@@ -46,7 +46,7 @@ namespace LittlePeeps.Tests
             var def = ScriptableObject.CreateInstance<StructureDef>();
             def.passable = true;
             defs.Add(def);
-            grid.Place(cell, Vector2Int.one, new StructureInstance { Def = def, Cell = cell });
+            grid.Place(cell, Footprint.Rect(1, 1), new StructureInstance { Def = def, Cell = cell });
         }
 
         private readonly List<StructureDef> defs = new();
@@ -60,7 +60,12 @@ namespace LittlePeeps.Tests
         }
 
         private void Collect(IslandGrid grid, Vector2Int origin, Vector2Int size, int border = 0)
-            => Spawner.CollectAllowedDirections(grid, origin, size, border, dirs);
+            => Spawner.CollectAllowedDirections(grid, origin, Footprint.Rect(size), border, dirs);
+
+        private void Collect(IslandGrid grid, Vector2Int origin, Footprint shape, int border = 0)
+            => Spawner.CollectAllowedDirections(grid, origin, shape, border, dirs);
+
+        private static Vector2 Toward(Vector2 from, Vector2 to) => (to - from).normalized;
 
         private void AssertHas(Vector2 expected, string what)
             => Assert.IsTrue(dirs.Exists(d => (d - expected).sqrMagnitude < 1e-6f),
@@ -267,6 +272,130 @@ namespace LittlePeeps.Tests
                 for (int j = i + 1; j < dirs.Count; j++)
                     Assert.That((dirs[i] - dirs[j]).sqrMagnitude, Is.GreaterThan(1e-6f),
                                 $"directions {i} and {j} are duplicates ({dirs[i]})");
+        }
+
+        // --- shaped footprints ---------------------------------------------------------------------
+
+        // A 2x2 L at the origin: cells (0,0), (1,0), (0,1); the notch is (1,1). Its box centre is the
+        // lattice point (1,1), so a direction toward cell (x,y) is toward (x+0.5, y+0.5) from there.
+        private static readonly Footprint L = Footprint.Parse("#.",
+                                                             "##");
+        private static readonly Vector2 LCentre = new Vector2(1f, 1f);
+
+        [Test]
+        public void ShapedFootprint_TheNotchIsAnExit()
+        {
+            var grid = TestIsland.Square(-5, 5);
+
+            Collect(grid, C(0, 0), L);
+
+            // Six cells around the L's outline plus the notch: (-1,0) (-1,1) (0,-1) (1,-1) (2,0) (0,2) (1,1).
+            Assert.AreEqual(7, dirs.Count);
+            AssertHas(Toward(LCentre, new Vector2(1.5f, 1.5f)), "the notch");
+            AssertHas(Toward(LCentre, new Vector2(2.5f, 0.5f)), "east of the base");
+            AssertHas(Toward(LCentre, new Vector2(0.5f, 2.5f)), "above the stub");
+            AssertAllNormalised();
+        }
+
+        [Test]
+        public void ShapedFootprint_ACellTouchingOnlyACorner_IsNotAnExit()
+        {
+            var grid = TestIsland.Square(-5, 5);
+
+            Collect(grid, C(0, 0), L);
+
+            // (2,1) is diagonal to the base's end (1,0) and beside the notch, never edge-to-edge with the L.
+            AssertLacks(Toward(LCentre, new Vector2(2.5f, 1.5f)), "the cell diagonal to the base's end");
+        }
+
+        [Test]
+        public void ShapedFootprint_AnOccupiedNotch_IsNoExit()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            Occupy(grid, C(1, 1));
+
+            Collect(grid, C(0, 0), L);
+
+            Assert.AreEqual(6, dirs.Count);
+            AssertLacks(Toward(LCentre, new Vector2(1.5f, 1.5f)), "the occupied notch");
+        }
+
+        [Test]
+        public void ShapedFootprint_TheNotchStaysOpenWhileOneOfItsEdgesIsUnfenced()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            // The notch (1,1) borders the stub (0,1) across its LEFT edge and the base (1,0) across its
+            // BOTTOM edge. Fence the left edge only.
+            grid.PlaceEdge(new Edge(C(1, 1), false), new EdgeInstance());
+
+            Collect(grid, C(0, 0), L);
+            Assert.AreEqual(7, dirs.Count);
+            AssertHas(Toward(LCentre, new Vector2(1.5f, 1.5f)), "the notch, still open across its bottom edge");
+
+            // Now the bottom edge too: the notch is sealed off.
+            grid.PlaceEdge(new Edge(C(1, 1), true), new EdgeInstance());
+
+            Collect(grid, C(0, 0), L);
+            Assert.AreEqual(6, dirs.Count);
+            AssertLacks(Toward(LCentre, new Vector2(1.5f, 1.5f)), "the notch behind two fences");
+        }
+
+        [Test]
+        public void ShapedFootprint_WithBorder_ExitsFollowTheRing()
+        {
+            var grid = TestIsland.Square(-5, 5);
+
+            // Border 1 fills the notch and wraps the L; the ring's outline is where the exits are.
+            Collect(grid, C(0, 0), L, border: 1);
+
+            // The claim is the L grown by one: x,y in -1..2 except (2,2). Exits are the cells one step
+            // out that share an edge with it: 4 along each of the south and west sides (x or y in -1..2),
+            // 3 along the east and north sides (up to the missing corner), plus the corner's two cells
+            // (2,2) is edge-to-edge with — (2,1) and (1,2) are claimed, so (2,2) itself is an exit.
+            AssertHas(Toward(LCentre, new Vector2(2.5f, 2.5f)), "the box's unclaimed far corner");
+            AssertHas(Toward(LCentre, new Vector2(3.5f, 0.5f)), "east of the ring's base");
+            AssertHas(Toward(LCentre, new Vector2(-1.5f, 0.5f)), "west of the ring");
+            AssertLacks(Toward(LCentre, new Vector2(3.5f, 2.5f)), "diagonal to the ring's east arm only");
+            Assert.AreEqual(15, dirs.Count);
+            AssertAllNormalised();
+        }
+
+        // --- the launch point: where the ray leaves the footprint -----------------------------------
+
+        [Test]
+        public void ExitDistance_OnARect_IsTheDistanceToTheBoxEdge()
+        {
+            var grid = new IslandGrid(1f);
+            var box = Footprint.Rect(2, 2);
+            var centre = grid.OriginToWorldCenter(C(0, 0), box.Size);   // (1,1)
+
+            Assert.AreEqual(1f, Spawner.ExitDistance(grid, C(0, 0), box, centre, Vector2.right), 1e-5f);
+            Assert.AreEqual(1f, Spawner.ExitDistance(grid, C(0, 0), box, centre, Vector2.down), 1e-5f);
+            // Toward the corner cell's centre (2.5,-0.5): the ray leaves through the corner at (2,0).
+            Assert.AreEqual(Mathf.Sqrt(2f), Spawner.ExitDistance(grid, C(0, 0), box, centre, Toward(centre, new Vector2(2.5f, -0.5f))), 1e-4f);
+        }
+
+        [Test]
+        public void ExitDistance_OnAShape_StopsAtTheLastFootprintCellTheRayCrosses()
+        {
+            var grid = new IslandGrid(1f);
+            // The L's centre (1,1) is the corner shared by all four cells of its box. Aiming at the
+            // notch the ray crosses no footprint cell — the unit starts right at the walls' corner.
+            Assert.AreEqual(0f, Spawner.ExitDistance(grid, C(0, 0), L, LCentre, Toward(LCentre, new Vector2(1.5f, 1.5f))), 1e-5f);
+            // Aiming east the ray runs along the base's top edge and leaves it at x=2.
+            Assert.AreEqual(1f, Spawner.ExitDistance(grid, C(0, 0), L, LCentre, Vector2.right), 1e-5f);
+
+            // A 3x3 L whose box centre (1.5,1.5) lies in the hole: aiming south-east the ray enters the
+            // base cell (2,0) at y=1 and leaves it at x=3, so the exit is measured to that wall, not zero.
+            var big = Footprint.Parse("#..",
+                                      "#..",
+                                      "###");
+            var bigCentre = new Vector2(1.5f, 1.5f);
+            var dir = Toward(bigCentre, new Vector2(3.5f, 0.5f));   // toward the cell east of the base's end
+            float t = Spawner.ExitDistance(grid, C(0, 0), big, bigCentre, dir);
+            var exit = bigCentre + dir * t;
+            Assert.AreEqual(3f, exit.x, 1e-4f, "leaves through the base's east wall");
+            Assert.That(exit.y, Is.InRange(0f, 1f), "within the base row");
         }
 
         [Test]

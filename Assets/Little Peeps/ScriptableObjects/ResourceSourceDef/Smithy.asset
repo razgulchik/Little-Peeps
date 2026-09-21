@@ -15,7 +15,7 @@ MonoBehaviour:
   id: smithy
   resource: 3
   workerYields:
-  - worker: 1
+  - worker: 0
     amount: 1
   - worker: 4
     amount: 2

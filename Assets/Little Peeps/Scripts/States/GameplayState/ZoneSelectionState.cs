@@ -103,6 +103,11 @@ namespace LittlePeeps
                 return;
             }
 
+            // The screen is going up for real — everything that could have bailed already has. The HUD
+            // goes down with this: the offers ARE the game for that moment, and the resource bar under
+            // them would only be noise. That used to be a `hud` field on the panel itself.
+            EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.ZonePick });
+
             EventBus<ZoneSelectedEvent>.Subscribe(OnZoneSelected);
             ui.Show(offers);
         }

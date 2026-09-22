@@ -49,18 +49,42 @@ SampleScene
 ├── CameraTarget                → CameraController        (пустой GO — логическая цель камеры)
 ├── CinemachineCamera           → CinemachineCamera (vcam): Follow = CameraTarget, Body с damping
 ├── EventSystem                 → EventSystem + InputSystemUIInputModule  (ОБЯЗАТЕЛЕН для UI и кликов)
-├── Canvas                      → Canvas + GraphicRaycaster
-│   ├── ResourceBar
-│   │   └── ResourceUI ×N       → ResourceUI            (по одному на ресурс; опц. на этом этапе)
-│   ├── AgeUI                   → AgeUI                 (опц.)
-│   ├── BuildModeButton         → BuildModeButton       (правый-нижний угол: Play↔Build)
-│   ├── BuildPanel              → BuildPanelUI + CanvasGroup
-│   │   ├── CardContainer       → Horizontal Layout Group   (сюда BuildPanelUI кладёт карточки в рантайме)
-│   │   └── SellButton          → Button
-│   │       └── SelectedHighlight                       (объект-подсветка, выключен по умолчанию)
-│   ├── PerkSelectionUI         → PerkSelectionUI       (опц.)
-│   ├── AgeTransitionOverlay    → Image (чёрный, стретч на весь экран) + CanvasGroup (Alpha 0)  ← фейд перехода эпохи
-│   └── AgeTitle                → TMP_Text (по центру, поверх оверлея; объект ВЫКЛючен по умолчанию)  ← плашка «Age N»
+├── Canvas                      → Canvas + CanvasScaler + GraphicRaycaster + **UIRoot** + **UIVisibility**
+│   │                             порядок детей = порядок отрисовки: Hud внизу, экраны сверху
+│   ├── Hud                     → CanvasGroup                    ← весь игровой HUD одной группой
+│   │   ├── AgePanel            → CanvasGroup + AgeAdvancePanel
+│   │   │   ├── Advance
+│   │   │   │   └── Frame       → Image
+│   │   │   │       ├── Cost            → Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме)
+│   │   │   │       └── AdvanceButton   → Button
+│   │   │   │           └── Label       → TMP_Text
+│   │   │   └── Timeline
+│   │   │       └── Frame       → Image + AgeTimelinePanel
+│   │   │           └── Viewport    → RectMask2D
+│   │   │               └── Content → Vertical Layout Group + Content Size Fitter
+│   │   │                             (прижат к НИЗУ: карточки эр растут вверх, маска режет сверху)
+│   │   ├── ResourceBar
+│   │   │   └── Slots           → Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
+│   │   └── BuildBar
+│   │       ├── ModeButton      → Button + BuildModeButton      (правый-нижний угол: Play↔Build)
+│   │       ├── Palette         → CanvasGroup + BuildPanelUI
+│   │       │   └── Viewport    → RectMask2D + BuildPanelScroller
+│   │       │       └── CardRow → Horizontal Layout Group       (карточки построек в рантайме)
+│   │       └── Sell            → CanvasGroup
+│   │           └── SellButton  → Button
+│   │               └── SelectedFrame   → Image                 (подсветка выбранного инструмента)
+│   ├── AgeTransition           → Image (чёрный) + CanvasGroup (Alpha 0)   ← фейд перехода эпохи
+│   │   └── BannerText          → TMP_Text                                 ← плашка «Age N»
+│   ├── Screens                 → ТОЛЬКО RectTransform, растянут на весь Canvas
+│   │   │                         ← CanvasGroup сюда НЕ вешать: перемножится с альфой экранов
+│   │   ├── PerkScreen          → CanvasGroup + PerkSelectionUI
+│   │   │   └── Panel           → Image
+│   │   │       ├── TitleText   → TMP_Text
+│   │   │       └── CardColumn  → Vertical Layout Group         (перк-карточки в рантайме)
+│   │   └── ZoneScreen          → CanvasGroup + ZoneSelectionUI
+│   │       └── Panel           → Image
+│   │           └── CardRow     → Horizontal Layout Group       (зон-карточки в рантайме)
+│   └── ref                     → выключённый скрин-референс вёрстки, в игре не участвует
 └── (Pier — в рантайме)         → PierSystem инстанцирует pierDef.prefab (Structure + Pier + Collider2D isTrigger); вручную в сцену НЕ кладётся
 ```
 
@@ -81,7 +105,7 @@ SampleScene
 | | | **ageSystem** | AgeSystem (нужен для эпох) |
 | | | ageSequencer, perkSystem | AgeSequencer, PerkSystem |
 | | | **placementController** | PlacementController (нужен build mode) |
-| | | perkSelectionUI, ageUI | PerkSelectionUI (опц.), AgeUI (опц., но без него нет кнопки «Next Age») |
+| | | **uiRoot** | **UIRoot на Canvas** — единственная UI-ссылка бутстрапа; панели разведены внутри префаба |
 | | | buildModeCooldown | 5 (сек, дефолт) |
 | @Bootstrap | SaveSystem | — | (полей нет) |
 | @Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem, spawnSystem** | ResourceSystem, IslandSystem, StructureSystem, SpawnSystem (spawnSystem обязателен — иначе NPE в StartNewRun) |
@@ -98,7 +122,7 @@ SampleScene
 | @Systems/PrestigeSystem | PrestigeSystem | runManager, saveSystem | RunManager, SaveSystem |
 | @Systems/AgeSystem | **AgeSystem** | **ages, resourceSystem** | список AgeDef-ассетов по порядку; ResourceSystem |
 | @Systems/AgeSequencer | AgeSequencer | islandSystem, perkSystem | IslandSystem, PerkSystem |
-| | | fadeOverlay, titleLabel | Canvas/AgeTransitionOverlay (CanvasGroup), Canvas/AgeTitle (TMP_Text) |
+| | | fadeOverlay, titleLabel | `Canvas/AgeTransition` (CanvasGroup), `Canvas/AgeTransition/BannerText` (TMP_Text) — единственные ссылки из системы внутрь Canvas |
 | | | fadeDuration, titleHold | 0.5, 2 (сек, дефолты) |
 | @Systems/TapSystem | **TapSystem** | **inputHandler** | InputHandler |
 | @Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, mainCamera, gridOverlay** | соответствующие компоненты |
@@ -129,19 +153,58 @@ SampleScene
 
 ### UI
 
+Вся разводка UI живёт **внутри `Canvas.prefab`**. Наружу из префаба торчит ровно одна ссылка —
+`GameBootstrap.uiRoot`. Сам Canvas несёт две таблицы, и они отвечают на разные вопросы:
+
+| компонент | вопрос | что перечисляет |
+|---|---|---|
+| **UIRoot** | до кого тянется код **снаружи** UI | 5 панелей (см. ниже) |
+| **UIVisibility** | кто **когда** виден | CanvasGroup'ы + маска режимов |
+
+Панель, которая разговаривает только событиями, не попадает ни в одну (`ModeButton`), а видимая
+по режиму — только во вторую (`Palette`, `Sell`).
+
 | Объект | Компонент | Поле | Что назначить |
 |--------|-----------|------|---------------|
-| Canvas/BuildModeButton | BuildModeButton | button, iconImage, buildIcon, playIcon | Button, иконка-Image, спрайты Build/Play |
-| Canvas/BuildPanel | **BuildPanelUI** | palette | BuildPaletteDef-ассет |
-| | | placementController, resourceSystem | PlacementController, ResourceSystem |
-| | | cardPrefab | префаб карточки (BuildCard) |
-| | | cardContainer | дочерний CardContainer (с Horizontal Layout Group) |
-| | | canvasGroup | CanvasGroup на самой панели |
-| | | sellButton, sellHighlight | кнопка Sell и её подсветка (опц., но нужны для продажи) |
-| Canvas/ResourceUI | ResourceUI | resourceType, label | тип ресурса, TMP_Text |
-| Canvas/AgeUI | AgeUI | ageLabel, nextAgeButton | TMP_Text, Button |
-| Canvas/PerkSelectionUI | PerkSelectionUI | cardSlots[], cardLabels[], cardButtons[] | 3 слота/лейбла/кнопки |
+| Canvas | **UIRoot** | **zoneScreen, perkScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen` — их зовут гейплейные стейты |
+| | | ageAdvance, ageCost, ageTimeline | `Hud/AgePanel`, `.../Advance/Frame/Cost`, `.../Timeline/Frame` — им нужен RunContext |
+| Canvas | **UIVisibility** | groups | 6 строк, таблица ниже |
+| Canvas/Hud/BuildBar/ModeButton | BuildModeButton | button, modeText, buildLabel, playLabel | Button, TMP_Text, «B», «>» |
+| Canvas/Hud/BuildBar/Palette | **BuildPanelUI** | palette | BuildPaletteDef-ассет |
+| | | placementController, resourceSystem | PlacementController, ResourceSystem (в сцене!) |
+| | | cardPrefab, cardContainer | префаб BuildCard, дочерний `Viewport/CardRow` |
+| | | scroller | BuildPanelScroller на `Viewport` |
+| | | sellButton, sellHighlight | `Sell/SellButton` и его `SelectedFrame` |
+| Canvas/Hud/ResourceBar/Slots | ResourcePanel | resourceSystem, unitPrefab, container, iconSet | ResourceSystem (в сцене!), ResourceUnit, себя, ResourceIconSet |
+| Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/Frame/AdvanceButton` |
+| Canvas/Hud/.../Frame/Cost | AgeCostPanel | unitPrefab, container, iconSet, visibilityRoot | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
+| Canvas/Hud/.../Timeline/Frame | AgeTimelinePanel | cardPrefab, container | префаб AgeCard, `Viewport/Content` |
+| Canvas/Screens/PerkScreen | PerkSelectionUI | cardPrefab, cardContainer | префаб PerkCardUI, `Panel/CardColumn` |
+| Canvas/Screens/ZoneScreen | ZoneSelectionUI | cardPrefab, cardContainer | префаб ZoneCardUI, `Panel/CardRow` |
+| | | preview, cameraController | ZonePreviewOverlay, CameraController (в сцене!) |
+| | | focusOffsetY | 0.15 (дефолт) |
 
+#### Таблица UIVisibility
+
+Режимы объявляют сами гейплейные стейты (`UIModeChangedEvent` в их `Enter`), так что источник
+правды — стек FSM. Маска `[Flags]`, группы **вкладываются**: альфа перемножается, а негодный к
+взаимодействию родитель гасит детей. Поэтому строка нужна только там, где группа отличается от
+родительской.
+
+| # | Group | Playing | Build | ZonePick | PerkPick | AgeTransition |
+|---|-------|:---:|:---:|:---:|:---:|:---:|
+| 0 | `Hud` | ✓ | ✓ | — | ✓ | ✓ |
+| 1 | `Hud/AgePanel` | ✓ | — | — | ✓ | ✓ |
+| 2 | `Hud/BuildBar/Palette` | — | ✓ | — | — | — |
+| 3 | `Hud/BuildBar/Sell` | — | ✓ | — | — | — |
+| 4 | `Screens/PerkScreen` | — | — | — | ✓ | — |
+| 5 | `Screens/ZoneScreen` | — | — | ✓ | — | — |
+
+Строка 0 читается как «всё кроме ZonePick» (экран выбора зоны забирает себе весь экран), строка 1 —
+«всё кроме Build» (в стройке кнопка эпохи и лестница эр не загораживают остров).
+
+> Панели **не прячут сами себя** и не лезут в чужие корни. Если экран не появился — смотри сюда, а не
+> в код панели. Пустое поле `group` в строке ловится предупреждением в консоли на старте.
 ## Префабы
 
 ### BaseUnit (юнит)
@@ -353,7 +416,7 @@ Script Execution Order настраивать **не нужно** (это кос
 1. `GameBootstrap.Awake`: загрузка Meta, создание Session, проводка систем; `RunManager.StartNewRun()` → создаётся RunContext, инициализируются ресурсы, `IslandSystem.GenerateForRun()` рисует остров, раскладываются стартовые постройки, `PierSystem.PlaceForRun()` ставит Пирс в правом-нижнем углу; App FSM → `Boot → GameplayContainer → Playing`.
 2. На экране: остров (трава), юниты появляются внутри зданий-спавнеров, отдыхают, вылетают и отскакивают; сбор ресурсов при ударах по источникам. Если стоят конюшни/норы — вокруг них гуляют звери; юнит сшибает зверя → ресурс, после `hitsBeforeDespawn` ударов зверь исчезает и нора спавнит замену по кулдауну. Клик — буст юнитов в радиусе. Клик по Pier — событие `PrestigeTriggeredEvent` (обработчика пока нет).
 3. Кнопка build mode → пауза + сетка + панель: ставим/продаём/двигаем постройки; выход → юниты респавнятся.
-4. Кнопка **Next Age** (AgeUI) активна, когда хватает ресурсов на следующую эпоху: клик → затемнение → остров прирастает блоками → плашка «Age N» → развиднелось; ресурсы списаны, бонусы эпохи (StatModifier) применены к добыче/скорости. Перк-шаг перехода — пока пустой хук.
+4. Кнопка **Next Age** (AgeAdvancePanel) активна, когда хватает ресурсов на следующую эпоху: клик → затемнение → остров прирастает блоками → плашка «Age N» → развиднелось; ресурсы списаны, бонусы эпохи (StatModifier) применены к добыче/скорости. Перк-шаг перехода — пока пустой хук.
 
 ## Project settings — важное (не в сцене, но влияет)
 

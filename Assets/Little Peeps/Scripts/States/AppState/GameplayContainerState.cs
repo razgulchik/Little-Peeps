@@ -4,7 +4,7 @@ namespace LittlePeeps
 {
     // Outer app state owning the inner gameplay FSM (Playing, BuildMode). Bridges the UI toggle
     // button (BuildModeToggleRequestedEvent) to the inner FSM, enforces a re-entry cooldown after
-    // leaving build mode, and pushes BuildModeUIStateEvent so the button reflects mode + cooldown.
+    // leaving build mode, and pushes BuildModeButtonStateEvent so the button reflects mode + cooldown.
     public class GameplayContainerState : IState
     {
         private readonly StateMachine innerFsm;
@@ -23,7 +23,7 @@ namespace LittlePeeps
         // The RUN MANAGER, deliberately, not a RunContext. This state outlives the run: it is built once
         // in GameBootstrap.Awake and survives every prestige, so a captured context would be the one that
         // has already ended. That is not hypothetical — it shipped: TriggerAgeCmd incremented the dead
-        // run while AgeUI displayed the live one, so the age label froze at 0, the island kept re-applying
+        // run while AgeAdvancePanel displayed the live one, so the age label froze at 0, the island kept re-applying
         // the first age's expansion and the cost never rose. Ask for CurrentRun at the moment it is used.
         private readonly RunManager runManager;
 
@@ -134,7 +134,7 @@ namespace LittlePeeps
 
         private void PublishUIState()
         {
-            EventBus<BuildModeUIStateEvent>.Publish(new BuildModeUIStateEvent
+            EventBus<BuildModeButtonStateEvent>.Publish(new BuildModeButtonStateEvent
             {
                 InBuildMode = inBuildMode,
                 Interactable = inBuildMode || cooldownRemaining <= 0f

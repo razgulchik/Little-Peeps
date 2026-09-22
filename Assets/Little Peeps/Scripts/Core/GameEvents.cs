@@ -41,7 +41,7 @@ namespace LittlePeeps
         public RunContext Run;
     }
 
-    // Published by the AgeUI "Next Age" button; handled by GameplayContainerState (enters ZoneSelection).
+    // Published by the AgeAdvancePanel "Next Age" button; handled by GameplayContainerState (enters ZoneSelection).
     public struct AgeAdvanceRequestedEvent { }
 
     // Published by ZoneSelectionUI when the player picks a zone card; handled by ZoneSelectionState,
@@ -62,8 +62,35 @@ namespace LittlePeeps
     // Published by the exit-to-menu hotkey (GameHotkeys). GameBootstrap transitions the app FSM to MainMenu.
     public struct ExitToMenuRequestedEvent { }
 
-    // Pushed by GameplayContainerState so the toggle button reflects mode + cooldown.
-    public struct BuildModeUIStateEvent
+    // Which screen the game is showing. Published by whichever gameplay state puts that screen up, so
+    // "what is on screen" has exactly one source and the FSM stack IS that source — UIVisibility maps it
+    // onto CanvasGroups, and no panel has to know about any other panel.
+    //
+    // [Flags] so a UI group can be authored as "visible in THESE modes" with one mask field in the
+    // inspector. The event itself always carries exactly one of them.
+    [System.Flags]
+    public enum UIMode
+    {
+        Playing       = 1 << 0,
+        Build         = 1 << 1,
+        ZonePick      = 1 << 2,
+        PerkPick      = 1 << 3,
+        AgeTransition = 1 << 4,
+    }
+
+    // Published by a gameplay state when its screen goes up. Deliberately at the point the screen is
+    // actually shown and not at the top of Enter: a state that aborts before showing anything (an age
+    // whose cost moved between the click and here, a perk roll with nothing eligible in it) must not
+    // make the mode blink for a frame, hiding the HUD behind a screen that never appeared.
+    public struct UIModeChangedEvent
+    {
+        public UIMode Mode;
+    }
+
+    // Pushed by GameplayContainerState for the build-mode toggle BUTTON alone — its label and whether it
+    // can be clicked. What is VISIBLE in build mode is not this event's business: that is UIMode, and the
+    // button is the one thing the mode cannot express, because the cooldown outlives the mode change.
+    public struct BuildModeButtonStateEvent
     {
         public bool InBuildMode;   // true → button shows the resume/play icon (click resumes)
         public bool Interactable;  // false while the 5s post-exit cooldown is running

@@ -9,8 +9,8 @@ namespace LittlePeeps
     //   Island      [IslandSystem + Tilemap/TilemapRenderer children]
     //   Camera      [Camera + CinemachineBrain; a CinemachineCamera follows the CameraTarget object]
     //   CameraTarget[CameraController — moves this object; the vcam follows it with damping]
-    //   UI (Canvas) [ResourcePanel (spawns a ResourceUnit per type), AgeUI, AgeCostPanel (spawns a
-    //                ResourceUnit per next-age cost entry), BuildPanelUI, ZoneSelectionUI, PerkSelectionUI]
+    //   UI (Canvas) [UIRoot — the only UI reference this component holds; every panel is wired inside
+    //                the Canvas prefab. UIVisibility sits beside it and owns what is on screen per mode]
     //
     // The pier is NOT in this list: PierSystem instantiates it per run from the "Pier" StructureDef and
     // parks it in the island's bottom-right corner. What that def's PREFAB needs is a Collider2D (on the
@@ -21,7 +21,7 @@ namespace LittlePeeps
     //   1. Application.runInBackground
     //   2. Load MetaContext from disk (RunContext is owned by RunManager)
     //   3. Wire run-independent systems (prestigeSystem)
-    //   4. RunManager.StartNewRun → wire run-dependent systems (tapSystem / perkSelectionUI)
+    //   4. RunManager.StartNewRun → wire run-dependent systems (tapSystem / ageSystem / UIRoot)
     //   5. Create App FSM → push BootState → auto-transition to GameplayContainer
     //      (MainMenu skipped until its UI exists)
     public class GameBootstrap : MonoBehaviour
@@ -41,11 +41,7 @@ namespace LittlePeeps
         [SerializeField] private SaveSystem saveSystem;
 
         [Header("UI")]
-        [SerializeField] private ZoneSelectionUI zoneSelectionUI;
-        [SerializeField] private PerkSelectionUI perkSelectionUI;
-        [SerializeField] private AgeUI ageUI;
-        [SerializeField] private AgeCostPanel ageCostPanel;
-        [SerializeField] private AgeTimelinePanel ageTimelinePanel;
+        [SerializeField] private UIRoot uiRoot;
 
         [Header("Build mode")]
         [SerializeField] private PlacementController placementController;
@@ -77,9 +73,20 @@ namespace LittlePeeps
             // 4. Wire run-dependent systems.
             tapSystem.Initialize(run);
             ageSystem.Initialize(run);
-            if (ageUI != null) ageUI.Initialize(ageSystem, run);
-            if (ageCostPanel != null) ageCostPanel.Initialize(ageSystem, resourceSystem, run);
-            if (ageTimelinePanel != null) ageTimelinePanel.Initialize(ageSystem, run);
+
+            // Every panel that needs the run, in one call. Which panels those ARE is UIRoot's business
+            // and lives in the Canvas prefab — bootstrap names the UI once and never its parts. One
+            // missing reference here takes the WHOLE UI with it, so it is loud; the run still boots
+            // blind rather than dying inside Awake, which would leave nothing on screen to read the
+            // error from.
+            if (uiRoot == null)
+                Debug.LogError("[GameBootstrap] no UIRoot assigned — the game boots with no UI at all. " +
+                               "Assign the Canvas's UIRoot.", this);
+            else
+                uiRoot.Initialize(ageSystem, resourceSystem, run);
+
+            PerkSelectionUI perkScreen = uiRoot != null ? uiRoot.PerkScreen : null;
+            ZoneSelectionUI zoneScreen = uiRoot != null ? uiRoot.ZoneScreen : null;
 
             // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
             //    Gameplay (when async loading lands, BootState.Tick will own this transition).
@@ -93,11 +100,11 @@ namespace LittlePeeps
             var gameplayFsm = new StateMachine();
             var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem);
             var buildModeState = new BuildModeState(spawnSystem, placementController);
-            var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkSelectionUI, runManager, playingState);
+            var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkScreen, runManager, playingState);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState,
                                                                    perkSelectionState, buildModeCooldown,
                                                                    ageSystem, ageSequencer, resourceSystem,
-                                                                   islandSystem, zoneSelectionUI, runManager));
+                                                                   islandSystem, zoneScreen, runManager));
 
             // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM
             // and runManager live here; leaving the container restores timeScale via its Exit().

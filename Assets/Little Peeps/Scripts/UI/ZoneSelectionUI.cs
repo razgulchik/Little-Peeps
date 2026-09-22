@@ -21,12 +21,13 @@ namespace LittlePeeps
     // above the middle of the screen (focusOffsetY), clear of the cards along the bottom.
     //
     // The HUD is hidden while the offers are up: this screen IS the game for that moment, and the
-    // resource bar and the age button underneath would only be noise. One CanvasGroup over the whole
-    // HUD for now; if panels ever need to stay, it becomes per-panel.
+    // resource bar and the age button underneath would only be noise. That is not done from here — the
+    // state announces UIMode.ZonePick and UIVisibility's table decides what survives it. This panel used
+    // to hold a `hud` CanvasGroup and switch off another branch of the hierarchy itself.
     //
-    // Cards are instantiated per offer (a biome that fits nowhere simply has no card) and the panel is
-    // hidden by a CanvasGroup, never by deactivating this object — see PerkSelectionUI for why an
-    // inactive panel's Awake would otherwise run inside the very Show() that reveals it.
+    // Cards are instantiated per offer (a biome that fits nowhere simply has no card). Showing and
+    // hiding the panel is likewise the table's job, never SetActive on this object — see PerkSelectionUI
+    // for why an inactive panel's Awake would otherwise run inside the very Show() that reveals it.
     [RequireComponent(typeof(CanvasGroup))]
     public class ZoneSelectionUI : MonoBehaviour
     {
@@ -34,13 +35,6 @@ namespace LittlePeeps
 
         [Tooltip("Parent for the spawned cards — give it a Layout Group.")]
         [SerializeField] private Transform cardContainer;
-
-        [SerializeField] private CanvasGroup canvasGroup;
-
-        [Header("What the screen replaces and reveals")]
-        [Tooltip("The HUD's root CanvasGroup, hidden while zones are on offer. Must NOT contain this " +
-                 "panel — a parent group would hide the cards too.")]
-        [SerializeField] private CanvasGroup hud;
 
         [Tooltip("Draws the offers on the island. Optional, but without it the cards are the only clue.")]
         [SerializeField] private ZonePreviewOverlay preview;
@@ -55,30 +49,10 @@ namespace LittlePeeps
         private readonly List<ZoneCardUI> cards = new();
         private ZoneOffer focused;
 
-        private void Reset()
-        {
-            canvasGroup = GetComponent<CanvasGroup>();
-        }
-
-        // The idle state is established here rather than trusted from the prefab — whatever the panel
-        // was left showing when the Canvas was last saved would otherwise be the first frame of a run.
-        // The HUD is deliberately NOT touched here: it starts visible and only this screen hides it.
-        private void Awake()
-        {
-            if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
-
-            if (canvasGroup == null)
-            {
-                Debug.LogError($"ZoneSelectionUI on '{name}' has no CanvasGroup — the zone panel cannot " +
-                               "be hidden and will cover the game.", this);
-                return;
-            }
-
-            SetVisible(false);
-        }
-
-        // Show the panel with one card per offer. Never called with an empty list: ZoneSelectionState
-        // skips the choice instead, so there is no "and if there are none" state to draw.
+        // Fill the screen with one card per offer. Never called with an empty list: ZoneSelectionState
+        // skips the choice instead, so there is no "and if there are none" state to draw. What it does
+        // NOT do is reveal anything — the panel is already visible by the time this runs, because the
+        // state published UIMode.ZonePick first. This owns the CONTENT of the screen, not the screen.
         public void Show(IReadOnlyList<ZoneOffer> offers)
         {
             ClearCards();
@@ -97,9 +71,6 @@ namespace LittlePeeps
                 cards.Add(card);
             }
 
-            SetVisible(true);
-            SetHudVisible(false);
-
             if (preview != null && cameraController != null)
                 cameraController.SetExtraBounds(preview.WorldBounds(offers));
 
@@ -110,9 +81,7 @@ namespace LittlePeeps
 
         public void Hide()
         {
-            SetVisible(false);
             ClearCards();
-            SetHudVisible(true);
             focused = null;
 
             if (preview != null) preview.Hide();
@@ -153,26 +122,6 @@ namespace LittlePeeps
                 if (cards[i] != null) cards[i].SetInteractable(false);
 
             EventBus<ZoneSelectedEvent>.Publish(new ZoneSelectedEvent { Offer = offer });
-        }
-
-        // blocksRaycasts matters as much as alpha: an invisible panel that still swallows clicks would
-        // put a dead rectangle over the island.
-        private void SetVisible(bool visible)
-        {
-            if (canvasGroup == null) return;
-
-            canvasGroup.alpha = visible ? 1f : 0f;
-            canvasGroup.blocksRaycasts = visible;
-            canvasGroup.interactable = visible;
-        }
-
-        private void SetHudVisible(bool visible)
-        {
-            if (hud == null) return;
-
-            hud.alpha = visible ? 1f : 0f;
-            hud.blocksRaycasts = visible;
-            hud.interactable = visible;
         }
 
         private void ClearCards()

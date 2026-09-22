@@ -18,6 +18,9 @@ namespace LittlePeeps
 
         public void Enter()
         {
+            // The palette and the sell button come up with this, the age panel goes down — all of it
+            // authored in UIVisibility's table rather than wired from here.
+            EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.Build });
             Time.timeScale = 0f;
             spawnSystem.DespawnAllAndResetSpawners();
             placement.Begin();

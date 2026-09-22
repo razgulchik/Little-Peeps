@@ -4,12 +4,12 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // Bottom build palette. Shows while in build mode (BuildModeUIStateEvent), spawns a card per
-    // BuildPaletteDef entry, and drives the PlacementController's tool: click a card to place a
-    // structure, click the separate sell button to sell, click the selected card/button again (or
-    // right-click in the world, or leave build mode) to clear — which drops back to the Move tool.
-    // A right-click clear comes from the controller via its ToolCleared event. Mirrors BuildModeButton's
-    // pattern (event-driven, default-hidden in Awake).
+    // Bottom build palette. Its CARDS follow the UI mode (UIModeChangedEvent); whether the panel is on
+    // screen is UIVisibility's table, not this class. Spawns a card per BuildPaletteDef entry and drives
+    // the PlacementController's tool: click a card to place a structure, click the separate sell button
+    // to sell, click the selected card/button again (or right-click in the world, or leave build mode) to
+    // clear — which drops back to the Move tool. A right-click clear comes from the controller via its
+    // ToolCleared event.
     public class BuildPanelUI : MonoBehaviour
     {
         [SerializeField] private BuildPaletteDef palette;
@@ -18,7 +18,6 @@ namespace LittlePeeps
         [SerializeField] private BuildCardUI cardPrefab;
         [SerializeField] private Transform cardContainer;   // parent with a Horizontal Layout Group
         [SerializeField] private BuildPanelScroller scroller;
-        [SerializeField] private CanvasGroup canvasGroup;   // hides the panel without deactivating this listener
 
         [Header("Sell tool")]
         [SerializeField] private Button sellButton;          // separate sell-tool button (not a card)
@@ -34,12 +33,11 @@ namespace LittlePeeps
         {
             BuildCards();
             SetSellHighlight(false);
-            SetVisible(false);   // default hidden; no dependency on receiving an initial event
         }
 
         private void OnEnable()
         {
-            EventBus<BuildModeUIStateEvent>.Subscribe(OnUIState);
+            EventBus<UIModeChangedEvent>.Subscribe(OnUIMode);
             EventBus<BuildDeniedEvent>.Subscribe(OnBuildDenied);
             EventBus<SellModeRequestedEvent>.Subscribe(OnSellHotkey);
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
@@ -50,7 +48,7 @@ namespace LittlePeeps
 
         private void OnDisable()
         {
-            EventBus<BuildModeUIStateEvent>.Unsubscribe(OnUIState);
+            EventBus<UIModeChangedEvent>.Unsubscribe(OnUIMode);
             EventBus<BuildDeniedEvent>.Unsubscribe(OnBuildDenied);
             EventBus<SellModeRequestedEvent>.Unsubscribe(OnSellHotkey);
             EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
@@ -74,9 +72,19 @@ namespace LittlePeeps
             if (scroller != null) scroller.ResetToStart();
         }
 
-        private void OnUIState(BuildModeUIStateEvent e)
+        // The palette's CONTENT follows the mode; its visibility is UIVisibility's row for this group.
+        // Open/Close are about the cards and the selected tool, which is why leaving build mode still has
+        // to run through here and cannot just be a CanvasGroup going to zero.
+        //
+        // Only the CROSSING is acted on. Every mode now reports itself, so without this an age
+        // transition or a perk pick would re-run Close() — and with it Deselect(), driving the
+        // PlacementController back to the Move tool it is already on, once per screen the player sees.
+        private void OnUIMode(UIModeChangedEvent e)
         {
-            if (e.InBuildMode) Open();
+            bool build = e.Mode == UIMode.Build;
+            if (build == isOpen) return;
+
+            if (build) Open();
             else Close();
         }
 
@@ -84,7 +92,6 @@ namespace LittlePeeps
         {
             isOpen = true;
             RefreshCards();
-            SetVisible(true);
             if (scroller != null) scroller.RefreshBounds();
         }
 
@@ -93,7 +100,6 @@ namespace LittlePeeps
             isOpen = false;
             Deselect();
             foreach (var card in cards) card.ResetInteractionVisuals();
-            SetVisible(false);
         }
 
         // Sell hotkey: route through the same toggle path as the sell button so the highlight and the
@@ -190,16 +196,6 @@ namespace LittlePeeps
         private void OnBuildDenied(BuildDeniedEvent e)
         {
             if (selectedCard != null && selectedCard.Def == e.Def) selectedCard.PlayDeniedCue();
-        }
-
-        // Hide via CanvasGroup (not SetActive) so this component stays active and keeps listening for
-        // the next build-mode event.
-        private void SetVisible(bool visible)
-        {
-            if (canvasGroup == null) return;
-            canvasGroup.alpha = visible ? 1f : 0f;
-            canvasGroup.interactable = visible;
-            canvasGroup.blocksRaycasts = visible;
         }
     }
 }

@@ -46,6 +46,10 @@ namespace LittlePeeps
                 return;
             }
 
+            // Announced only once there is a transition to actually play: a missing sequencer leaves on
+            // the next Tick without ever drawing anything, and the mode must not blink to it.
+            EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.AgeTransition });
+
             ageSequencer.StartAgeTransition(newAge, ageDef, zone, () => complete = true);
         }
 

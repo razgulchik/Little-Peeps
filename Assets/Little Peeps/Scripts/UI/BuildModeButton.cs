@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace LittlePeeps
 {
     // Bottom-right toggle button. A click publishes BuildModeToggleRequestedEvent; the button
-    // reflects mode + cooldown from BuildModeUIStateEvent (label swap + interactable). It defaults
+    // reflects mode + cooldown from BuildModeButtonStateEvent (label swap + interactable). It defaults
     // to the playing state in Awake, so it does not depend on receiving an initial event.
     [RequireComponent(typeof(Button))]
     public class BuildModeButton : MonoBehaviour
@@ -29,13 +29,13 @@ namespace LittlePeeps
         private void OnEnable()
         {
             button.onClick.AddListener(OnClick);
-            EventBus<BuildModeUIStateEvent>.Subscribe(OnUIState);
+            EventBus<BuildModeButtonStateEvent>.Subscribe(OnUIState);
         }
 
         private void OnDisable()
         {
             button.onClick.RemoveListener(OnClick);
-            EventBus<BuildModeUIStateEvent>.Unsubscribe(OnUIState);
+            EventBus<BuildModeButtonStateEvent>.Unsubscribe(OnUIState);
         }
 
         private void OnClick()
@@ -43,7 +43,7 @@ namespace LittlePeeps
             EventBus<BuildModeToggleRequestedEvent>.Publish(new BuildModeToggleRequestedEvent());
         }
 
-        private void OnUIState(BuildModeUIStateEvent e)
+        private void OnUIState(BuildModeButtonStateEvent e)
         {
             ApplyState(e.InBuildMode, e.Interactable);
         }

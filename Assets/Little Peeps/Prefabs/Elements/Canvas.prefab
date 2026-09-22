@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 4332912145173544467}
   - component: {fileID: 3745931045719844736}
   m_Layer: 5
-  m_Name: PerkSelectionPanel
+  m_Name: Panel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -87,7 +87,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3383877878990788955}
   m_Layer: 5
-  m_Name: Resources
+  m_Name: ResourceBar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -202,7 +202,7 @@ GameObject:
   - component: {fileID: 4997476393652157691}
   - component: {fileID: 909874677969472112}
   m_Layer: 5
-  m_Name: BuildPanel
+  m_Name: Palette
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -296,7 +296,6 @@ MonoBehaviour:
   cardPrefab: {fileID: 2689466547519329898, guid: 27a15a89d3d1f644b9fe645a5e677a70, type: 3}
   cardContainer: {fileID: 974708882825351838}
   scroller: {fileID: 9100000000000000002}
-  canvasGroup: {fileID: 8361800881523370260}
   sellButton: {fileID: 2900268734306165461}
   sellHighlight: {fileID: 1301537869926919852}
 --- !u!1 &1301537869926919852
@@ -311,7 +310,7 @@ GameObject:
   - component: {fileID: 6411279886349477803}
   - component: {fileID: 6578031593019817933}
   m_Layer: 5
-  m_Name: Selected
+  m_Name: SelectedFrame
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -437,6 +436,8 @@ GameObject:
   - component: {fileID: 7775619591603705830}
   - component: {fileID: 2026641070009061392}
   - component: {fileID: 7366230917953017019}
+  - component: {fileID: 249761329791802312}
+  - component: {fileID: 73578012889418422}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -458,9 +459,8 @@ RectTransform:
   m_Children:
   - {fileID: 1820623053734546758}
   - {fileID: 7567557623532472106}
-  - {fileID: 1042425833660629002}
+  - {fileID: 305463939038088242}
   - {fileID: 4501786691798094494}
-  - {fileID: 6127118163822496978}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -531,6 +531,48 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &249761329791802312
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1526235787885847749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d736004b1a6427ddd0349033dc3feda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  zoneScreen: {fileID: 963269371386094674}
+  perkScreen: {fileID: 2599796305896482923}
+  ageAdvance: {fileID: 8954930831651226964}
+  ageCost: {fileID: 7638193266870220442}
+  ageTimeline: {fileID: 920375059152678463}
+--- !u!114 &73578012889418422
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1526235787885847749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 193a074113e21abed9457b10695d73e7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  groups:
+  - group: {fileID: 928229907151762420}
+    visibleIn: 27
+  - group: {fileID: 3706059102129453132}
+    visibleIn: 25
+  - group: {fileID: 8361800881523370260}
+    visibleIn: 2
+  - group: {fileID: 1749776260698554320}
+    visibleIn: 2
+  - group: {fileID: 6398945780874908185}
+    visibleIn: 8
+  - group: {fileID: 2805012886633077657}
+    visibleIn: 4
 --- !u!1 &1708429310929672710
 GameObject:
   m_ObjectHideFlags: 0
@@ -544,7 +586,7 @@ GameObject:
   - component: {fileID: 4738497719249514714}
   - component: {fileID: 5913191584800459565}
   m_Layer: 5
-  m_Name: Next Age Button
+  m_Name: AdvanceButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -662,7 +704,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4503457686391353933}
   m_Layer: 5
-  m_Name: BuildingMode
+  m_Name: BuildBar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -704,7 +746,7 @@ GameObject:
   - component: {fileID: 3872909325218045913}
   - component: {fileID: 7638193266870220442}
   m_Layer: 5
-  m_Name: AgeCostPanel
+  m_Name: Cost
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -822,7 +864,7 @@ GameObject:
   - component: {fileID: 4748595056572920495}
   - component: {fileID: 6920525363350829895}
   m_Layer: 5
-  m_Name: BuildingModeButton
+  m_Name: ModeButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -957,7 +999,7 @@ GameObject:
   - component: {fileID: 2669906523256229830}
   - component: {fileID: 671411800887952070}
   m_Layer: 5
-  m_Name: Age Text (TMP)
+  m_Name: BannerText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1093,7 +1135,7 @@ GameObject:
   - component: {fileID: 8669698840472332962}
   - component: {fileID: 3253551278921381714}
   m_Layer: 5
-  m_Name: CardConteiner
+  m_Name: CardRow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1156,7 +1198,7 @@ GameObject:
   - component: {fileID: 8258639278945003481}
   - component: {fileID: 526273568733815688}
   m_Layer: 5
-  m_Name: ZoneSelectionPanel
+  m_Name: Panel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1231,7 +1273,7 @@ GameObject:
   - component: {fileID: 3460142137687160100}
   - component: {fileID: 5810907455792854479}
   m_Layer: 5
-  m_Name: CardConteiner
+  m_Name: CardColumn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1293,7 +1335,7 @@ GameObject:
   - component: {fileID: 974708882825351838}
   - component: {fileID: 6127546488170787218}
   m_Layer: 5
-  m_Name: CardConteiner
+  m_Name: CardRow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1356,7 +1398,7 @@ GameObject:
   - component: {fileID: 6398945780874908185}
   - component: {fileID: 2599796305896482923}
   m_Layer: 5
-  m_Name: PerkSelectionUI
+  m_Name: PerkScreen
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1369,18 +1411,18 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5270591148885403732}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3303064175419790865}
-  m_Father: {fileID: 1453338653095575210}
+  m_Father: {fileID: 305463939038088242}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.001121521, y: -0.0011634827}
-  m_SizeDelta: {x: 640, y: 360}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!225 &6398945780874908185
 CanvasGroup:
@@ -1408,7 +1450,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardPrefab: {fileID: 888406840140435554, guid: 54ee809ffdf977f4094a4e44aa5bcfc3, type: 3}
   cardContainer: {fileID: 3460142137687160100}
-  canvasGroup: {fileID: 6398945780874908185}
 --- !u!1 &5448922851944641144
 GameObject:
   m_ObjectHideFlags: 0
@@ -1496,7 +1537,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2592028351005144131}
   m_Layer: 5
-  m_Name: New Age Block
+  m_Name: Advance
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1535,7 +1576,7 @@ GameObject:
   - component: {fileID: 2411874068911614781}
   - component: {fileID: 989865603027003840}
   m_Layer: 5
-  m_Name: FadeNewAge
+  m_Name: AgeTransition
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1556,10 +1597,10 @@ RectTransform:
   - {fileID: 642301778875519396}
   m_Father: {fileID: 1453338653095575210}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 640, y: 360}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8007488469420116664
 CanvasRenderer:
@@ -1611,6 +1652,43 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
+--- !u!1 &6262212569155966807
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 305463939038088242}
+  m_Layer: 5
+  m_Name: Screens
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &305463939038088242
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6262212569155966807}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1042425833660629002}
+  - {fileID: 6127118163822496978}
+  m_Father: {fileID: 1453338653095575210}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &6321214663501888704
 GameObject:
   m_ObjectHideFlags: 0
@@ -1624,7 +1702,7 @@ GameObject:
   - component: {fileID: 7177221240244950168}
   - component: {fileID: 920375059152678463}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: Frame
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1832,8 +1910,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1332568910508174480}
+  - component: {fileID: 1749776260698554320}
   m_Layer: 5
-  m_Name: SellMode
+  m_Name: Sell
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1859,6 +1938,18 @@ RectTransform:
   m_AnchoredPosition: {x: -298.5, y: 39.5}
   m_SizeDelta: {x: 31, y: 37}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!225 &1749776260698554320
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7233749747029513591}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7308743059989538575
 GameObject:
   m_ObjectHideFlags: 0
@@ -1870,7 +1961,7 @@ GameObject:
   - component: {fileID: 1820623053734546758}
   - component: {fileID: 928229907151762420}
   m_Layer: 5
-  m_Name: MainUI
+  m_Name: Hud
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1888,8 +1979,8 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 5867485549145016991}
   - {fileID: 3383877878990788955}
+  - {fileID: 5867485549145016991}
   - {fileID: 4503457686391353933}
   m_Father: {fileID: 1453338653095575210}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1922,7 +2013,7 @@ GameObject:
   - component: {fileID: 2835934271475607792}
   - component: {fileID: 4023507821886315459}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: Frame
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1999,7 +2090,7 @@ GameObject:
   - component: {fileID: 1086982086304296910}
   - component: {fileID: 3430294804620940209}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2134,7 +2225,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6013246263578756953}
   m_Layer: 5
-  m_Name: Next Age Info Block
+  m_Name: Timeline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2170,8 +2261,9 @@ GameObject:
   m_Component:
   - component: {fileID: 5867485549145016991}
   - component: {fileID: 8954930831651226964}
+  - component: {fileID: 3706059102129453132}
   m_Layer: 5
-  m_Name: AgeUI
+  m_Name: AgePanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2212,6 +2304,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ageLabel: {fileID: 0}
   nextAgeButton: {fileID: 5913191584800459565}
+--- !u!225 &3706059102129453132
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8264352409573029356}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &8928154817573124259
 GameObject:
   m_ObjectHideFlags: 0
@@ -2226,7 +2330,7 @@ GameObject:
   - component: {fileID: 9100000000000000001}
   - component: {fileID: 9100000000000000002}
   m_Layer: 5
-  m_Name: CardPanel
+  m_Name: Viewport
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2334,7 +2438,7 @@ GameObject:
   - component: {fileID: 1644659447092732371}
   - component: {fileID: 8384952476453682094}
   m_Layer: 5
-  m_Name: ResourcePanel
+  m_Name: Slots
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2449,7 +2553,7 @@ GameObject:
   - component: {fileID: 2805012886633077657}
   - component: {fileID: 963269371386094674}
   m_Layer: 5
-  m_Name: ZoneSelectionUI
+  m_Name: ZoneScreen
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2462,13 +2566,13 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9064548756917924022}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6150494248625066831}
-  m_Father: {fileID: 1453338653095575210}
+  m_Father: {fileID: 305463939038088242}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
@@ -2501,10 +2605,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardPrefab: {fileID: 8876561960316945241, guid: ffa374ca1e93bce4f9056ea6dc23a475, type: 3}
   cardContainer: {fileID: 8669698840472332962}
-  canvasGroup: {fileID: 2805012886633077657}
-  hud: {fileID: 928229907151762420}
   preview: {fileID: 0}
   cameraController: {fileID: 0}
+  focusOffsetY: 0.15
 --- !u!1 &9182124775632263839
 GameObject:
   m_ObjectHideFlags: 0
@@ -2517,7 +2620,7 @@ GameObject:
   - component: {fileID: 4495537481412277748}
   - component: {fileID: 2541126974889909166}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: TitleText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

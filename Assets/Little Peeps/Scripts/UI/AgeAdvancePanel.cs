@@ -4,10 +4,13 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // Shows the current age label and the Next Age button. The button just publishes an intent
-    // (AgeAdvanceRequestedEvent) — GameplayContainerState decides whether the transition may start. The
-    // button's interactable state tracks affordability (recomputed on every resource change / age start).
-    public class AgeUI : MonoBehaviour
+    // The age label and the Next Age button — the one panel that BUYS an age. Its two neighbours under
+    // the same root only report: AgeCostPanel draws the price, AgeTimelinePanel draws the ladder.
+    //
+    // The button just publishes an intent (AgeAdvanceRequestedEvent) — GameplayContainerState decides
+    // whether the transition may start. The button's interactable state tracks affordability
+    // (recomputed on every resource change / age start).
+    public class AgeAdvancePanel : MonoBehaviour
     {
         [SerializeField] private TMP_Text ageLabel;
         [SerializeField] private Button nextAgeButton;

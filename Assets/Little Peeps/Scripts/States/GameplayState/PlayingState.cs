@@ -29,6 +29,9 @@ namespace LittlePeeps
         // holding by construction rather than by a guard someone can forget to copy.
         public void Enter()
         {
+            // Normal play is the mode every other one falls back to, and the FSM re-Enters this state on
+            // every way back — so announcing it here is the whole "put the HUD back" story.
+            EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.Playing });
             EventBus<PrestigeTriggeredEvent>.Subscribe(OnPrestigeTriggered);
         }
 

@@ -79,6 +79,10 @@ namespace LittlePeeps
             // the EventSystem runs in Update, which timeScale does not gate.
             Time.timeScale = 0f;
 
+            // The screen is going up for real — an empty roll or a missing panel has already left above,
+            // so the mode never names a screen that does not appear.
+            EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.PerkPick });
+
             EventBus<PerkSelectedEvent>.Subscribe(OnPerkSelected);
             ui.Show(offer);
         }

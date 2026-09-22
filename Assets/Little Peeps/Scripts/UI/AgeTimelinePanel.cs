@@ -3,13 +3,17 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // The age timeline down the left edge: one card per age already bought, oldest at the top, with
-    // the age being bought right now as the highlighted card at the BOTTOM.
+    // The age timeline down the left edge: one card per age still AHEAD, with the age being bought
+    // right now as the highlighted card at the BOTTOM and the ones after it stacked above it. The
+    // whole ladder is on screen from the first frame and the column empties as ages are bought —
+    // it is a queue of what is coming, not a log of what happened.
     //
-    // "The bought age slides up and pushes the others" is the LAYOUT, not code: the container's
-    // Vertical Layout Group is bottom-aligned, so a card appended at the end lands at the bottom and
-    // shoves the stack upward, and a RectMask2D crops whatever leaves the top. Nothing here positions
-    // or animates anything — which is also why the column cannot drift out of sync with itself.
+    // "The bought age drops out of the bottom and the rest slide down" is the LAYOUT, not code: the
+    // container's Vertical Layout Group is bottom-aligned, so the last card spawned sits at the
+    // bottom and the stack grows upward out of a RectMask2D that crops the top. Dropping the bought
+    // age simply leaves one card fewer, so the column is a row shorter and every remaining card
+    // lands a row lower. Nothing here positions or animates anything — which is also why the column
+    // cannot drift out of sync with itself.
     //
     // Set up in the inspector: the card prefab and the container. GameBootstrap injects the system.
     public class AgeTimelinePanel : MonoBehaviour
@@ -90,15 +94,14 @@ namespace LittlePeeps
             Transform parent = container != null ? container : transform;
             IReadOnlyList<AgeDef> ages = ageSystem.Ages;
 
-            // ages[i] is the transition INTO age i+1, so age number N is authored in ages[N-1]. Bought
-            // ages are 1..currentAge, and the age being bought now is currentAge+1 — spawned last, so
-            // the bottom-aligned layout puts it at the bottom with the history stacked above it.
-            for (int number = 1; number <= currentAge + 1; number++)
+            // ages[i] is the transition INTO age i+1, so age number N is authored in ages[N-1]. The
+            // age being bought now is currentAge+1 and everything above it is still ahead. Counted
+            // DOWN from the last age so the current one is spawned last: the bottom-aligned layout
+            // puts it at the bottom with the future stacked above it. Past the final age the loop
+            // does not run at all and the column is empty — there is nothing left to buy.
+            for (int number = ages.Count; number >= currentAge + 1; number--)
             {
-                int index = number - 1;
-                if (index >= ages.Count) break;   // past the final age: nothing is being bought
-
-                AgeDef def = ages[index];
+                AgeDef def = ages[number - 1];
                 var card = Instantiate(cardPrefab, parent);
                 card.Bind(number, def != null ? def.BonusText : string.Empty, number == currentAge + 1);
                 cards.Add(card);

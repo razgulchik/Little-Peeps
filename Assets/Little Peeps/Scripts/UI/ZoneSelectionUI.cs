@@ -13,6 +13,13 @@ namespace LittlePeeps
     // are presentation: hovering a card changes what the player is looking at and nothing else, and the
     // world side of that has one owner, the way PlacementController owns the build grid overlay.
     //
+    // At most one offer has the focus and only that one is drawn on the world: none when the panel
+    // opens — the island is simply as the player left it — and then whichever card the cursor last
+    // entered. The focus is sticky: the cursor leaving a card changes nothing, so the player can pan
+    // over to the zone and keep seeing it. The camera follows the focus for the same reason, which
+    // also means it only ever moves because the player pointed at something — and it puts the zone
+    // above the middle of the screen (focusOffsetY), clear of the cards along the bottom.
+    //
     // The HUD is hidden while the offers are up: this screen IS the game for that moment, and the
     // resource bar and the age button underneath would only be noise. One CanvasGroup over the whole
     // HUD for now; if panels ever need to stay, it becomes per-panel.
@@ -41,7 +48,12 @@ namespace LittlePeeps
         [Tooltip("Widened to reach the offers while they are up; sent to look at the hovered one.")]
         [SerializeField] private CameraController cameraController;
 
+        [Tooltip("How far above the middle of the screen the focused zone sits, as a fraction of the " +
+                 "visible height — enough that the cards along the bottom do not cover it. 0 = dead centre.")]
+        [Range(0f, 0.4f)] [SerializeField] private float focusOffsetY = 0.15f;
+
         private readonly List<ZoneCardUI> cards = new();
+        private ZoneOffer focused;
 
         private void Reset()
         {
@@ -88,11 +100,12 @@ namespace LittlePeeps
             SetVisible(true);
             SetHudVisible(false);
 
-            if (preview != null)
-            {
-                preview.Show(offers);
-                if (cameraController != null) cameraController.SetExtraBounds(preview.WorldBounds(offers));
-            }
+            if (preview != null && cameraController != null)
+                cameraController.SetExtraBounds(preview.WorldBounds(offers));
+
+            // Nothing drawn until a card is pointed at — and the cards were just made, so this only
+            // clears whatever the previous choice left behind.
+            SetFocus(null);
         }
 
         public void Hide()
@@ -100,19 +113,36 @@ namespace LittlePeeps
             SetVisible(false);
             ClearCards();
             SetHudVisible(true);
+            focused = null;
 
             if (preview != null) preview.Hide();
             if (cameraController != null) cameraController.ClearExtraBounds();
         }
 
-        // Null when the cursor leaves a card. The camera stays where it was then — the player may have
-        // moved it to look at the zone, and snapping back would take that away.
+        // Only ever called with the cursor entering a card, never leaving one: the focus stays until
+        // another card takes it.
         private void OnCardHovered(ZoneOffer offer)
         {
+            if (offer == focused) return;
+
+            SetFocus(offer);
+            if (preview != null && cameraController != null)
+                cameraController.FocusOn(preview.WorldCentre(offer), focusOffsetY);
+        }
+
+        // The focus in one place, so the card's frame and the world drawing always agree. Null is the
+        // state the panel opens in: no frame, nothing drawn.
+        private void SetFocus(ZoneOffer offer)
+        {
+            focused = offer;
+
+            for (int i = 0; i < cards.Count; i++)
+                if (cards[i] != null) cards[i].SetFocused(offer != null && cards[i].Offer == offer);
+
             if (preview == null) return;
 
-            preview.Highlight(offer);
-            if (offer != null && cameraController != null) cameraController.FocusOn(preview.WorldCentre(offer));
+            if (offer != null) preview.Show(offer);
+            else preview.Hide();
         }
 
         private void OnCardConfirmed(ZoneOffer offer)

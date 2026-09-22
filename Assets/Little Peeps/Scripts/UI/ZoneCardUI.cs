@@ -3,6 +3,7 @@ using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace LittlePeeps
@@ -12,12 +13,15 @@ namespace LittlePeeps
     // and "6 stones and a mountain", not between blurbs.
     //
     // Hover is what this card is really for: the panel is told the moment the cursor lands on it, and
-    // the world answers (the zone lights up, the camera goes to it). The pick is a plain click, unlike
-    // the perk card's hold — the player has been looking at exactly what they are about to get.
+    // the world answers (the zone lights up, the camera goes to it). The focus that results is the
+    // panel's, not the card's — it stays where the cursor last was, so the cursor leaving is not
+    // reported and the frame is switched by the panel (SetFocused), not by the pointer. The pick is a
+    // plain click, unlike the perk card's hold — the player has been looking at exactly what they are
+    // about to get.
     //
-    // Written apart from PerkCardUI on purpose: the two share a hover frame and nothing else that
-    // matters, and the hold/press machinery over there is most of that file.
-    public class ZoneCardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+    // Written apart from PerkCardUI on purpose: the two share a frame and nothing else that matters,
+    // and the hold/press machinery over there is most of that file.
+    public class ZoneCardUI : MonoBehaviour, IPointerEnterHandler, IPointerClickHandler
     {
         [SerializeField] private TMP_Text titleLabel;
         [SerializeField] private Image iconImage;
@@ -25,8 +29,9 @@ namespace LittlePeeps
         [Tooltip("One line per kind of feature the zone holds: \"Forest ×14\".")]
         [SerializeField] private TMP_Text contentsLabel;
 
-        [Tooltip("Optional. The frame shown while the cursor is over the card.")]
-        [SerializeField] private GameObject hoverHighlight;
+        [Tooltip("Optional. The frame shown while this card's zone is the one drawn on the world.")]
+        [FormerlySerializedAs("hoverHighlight")]
+        [SerializeField] private GameObject focusHighlight;
 
         private ZoneOffer offer;
         private Action<ZoneOffer> onHovered;
@@ -34,9 +39,12 @@ namespace LittlePeeps
 
         private bool interactable = true;
 
+        // Which offer this card stands for — the panel matches its focus against it.
+        public ZoneOffer Offer => offer;
+
         // Fill in the card and say where hover and pick go. Callbacks rather than events: this is card
         // to panel, and leaving the panel to publish keeps one publisher of ZoneSelectedEvent instead of
-        // three. `onHovered` gets null when the cursor leaves.
+        // three.
         public void Init(ZoneOffer offer, Action<ZoneOffer> onHovered, Action<ZoneOffer> onConfirmed)
         {
             this.offer = offer;
@@ -44,7 +52,7 @@ namespace LittlePeeps
             this.onConfirmed = onConfirmed;
 
             interactable = true;
-            SetHovered(false);
+            SetFocused(false);
 
             var biome = offer?.Biome;
             if (titleLabel != null) titleLabel.text = biome != null ? biome.DisplayName : string.Empty;
@@ -59,26 +67,23 @@ namespace LittlePeeps
             }
         }
 
+        // The panel's focus: on for the card whose zone is drawn, off for the rest.
+        public void SetFocused(bool focused)
+        {
+            if (focusHighlight != null) focusHighlight.SetActive(focused);
+        }
+
         // Called on every card as soon as one of them is picked: until the state hides the panel, the
         // other cards are still live objects under the pointer.
         public void SetInteractable(bool value)
         {
             interactable = value;
-            if (!interactable) SetHovered(false);
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
             if (!interactable) return;
-
-            SetHovered(true);
             onHovered?.Invoke(offer);
-        }
-
-        public void OnPointerExit(PointerEventData eventData)
-        {
-            SetHovered(false);
-            if (interactable) onHovered?.Invoke(null);
         }
 
         public void OnPointerClick(PointerEventData eventData)
@@ -90,14 +95,8 @@ namespace LittlePeeps
             var picked = offer;
             var callback = onConfirmed;
             interactable = false;
-            SetHovered(false);
 
             callback?.Invoke(picked);
-        }
-
-        private void SetHovered(bool hovered)
-        {
-            if (hoverHighlight != null) hoverHighlight.SetActive(hovered);
         }
 
         // "Forest ×14" per line, in the generator's placement order. A def with no display name falls

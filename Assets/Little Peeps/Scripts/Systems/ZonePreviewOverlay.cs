@@ -3,11 +3,12 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Draws the zones on offer onto the world while the player chooses: every candidate as a tinted
-    // block of cells in its biome's colour with an outline, the one under the cursor brighter and on
-    // top. One procedural mesh of quads, the way GridOverlay draws the build grid and for the same
-    // reasons (line primitives are unreliable under URP 2D; quads sort like sprites). Shown and driven
-    // by ZoneSelectionUI, which is the only thing that knows when offers are up.
+    // Draws the focused zone onto the world while the player chooses: one candidate as a tinted block
+    // of cells in its biome's colour with an outline. Only the focused offer is drawn — the others
+    // exist on the cards, and hovering one moves the focus (and the camera) there. One procedural mesh
+    // of quads, the way GridOverlay draws the build grid and for the same reasons (line primitives are
+    // unreliable under URP 2D; quads sort like sprites). Shown and driven by ZoneSelectionUI, which is
+    // the only thing that knows which offer has the focus.
     //
     // The candidates are not island yet — they sit on water — so nothing here reads the grid beyond
     // its cell size. Keep this GameObject at the world origin with no rotation or scale: vertices are
@@ -18,12 +19,9 @@ namespace LittlePeeps
         [SerializeField] private IslandSystem islandSystem;
 
         [Header("Look")]
-        [Tooltip("Alpha of a zone's fill. Its colour is the biome's previewColor.")]
-        [Range(0f, 1f)] [SerializeField] private float fillAlpha = 0.25f;
-        [Range(0f, 1f)] [SerializeField] private float outlineAlpha = 0.7f;
-        [Tooltip("The zone whose card the cursor is on.")]
-        [Range(0f, 1f)] [SerializeField] private float highlightedFillAlpha = 0.55f;
-        [Range(0f, 1f)] [SerializeField] private float highlightedOutlineAlpha = 1f;
+        [Tooltip("Alpha of the zone's fill. Its colour is the biome's previewColor.")]
+        [Range(0f, 1f)] [SerializeField] private float fillAlpha = 0.55f;
+        [Range(0f, 1f)] [SerializeField] private float outlineAlpha = 1f;
         [Tooltip("Width of the outline, in world units, drawn inside the zone's edge cells.")]
         [Min(0f)] [SerializeField] private float outlineWidth = 0.08f;
 
@@ -35,8 +33,7 @@ namespace LittlePeeps
         private MeshRenderer meshRenderer;
         private Mesh mesh;
 
-        private IReadOnlyList<ZoneOffer> offers;
-        private ZoneOffer highlighted;
+        private ZoneOffer shown;
 
         private void Awake()
         {
@@ -53,28 +50,20 @@ namespace LittlePeeps
             meshRenderer.enabled = false;
         }
 
-        public void Show(IReadOnlyList<ZoneOffer> offers)
+        // Draw this one offer. Called again with another as the focus moves; cheap enough to rebuild
+        // the whole mesh each time — a few hundred cells, on hover only.
+        public void Show(ZoneOffer offer)
         {
-            this.offers = offers;
-            highlighted = null;
+            if (shown == offer && meshRenderer.enabled) return;
+            shown = offer;
             Rebuild();
             meshRenderer.enabled = true;
-        }
-
-        // Bring one offer forward (null = none). Cheap enough to rebuild the whole mesh: a few hundred
-        // cells, on hover only.
-        public void Highlight(ZoneOffer offer)
-        {
-            if (highlighted == offer) return;
-            highlighted = offer;
-            if (meshRenderer.enabled) Rebuild();
         }
 
         public void Hide()
         {
             meshRenderer.enabled = false;
-            offers = null;
-            highlighted = null;
+            shown = null;
         }
 
         // World point at the middle of a zone's cells — where the camera looks when its card is hovered.
@@ -86,7 +75,8 @@ namespace LittlePeeps
             return sum / Mathf.Max(1, offer.Candidate.Cells.Count) * cs;
         }
 
-        // World box around every cell of every offer, for widening the camera clamp. A zero box for none.
+        // World box around every cell of every offer, for widening the camera clamp: the player can
+        // hover any card, so the clamp must reach all of them, not just the one drawn. A zero box for none.
         public Bounds WorldBounds(IReadOnlyList<ZoneOffer> offers)
         {
             float cs = CellSize();
@@ -109,21 +99,17 @@ namespace LittlePeeps
             return grid != null ? grid.CellSize : 1f;
         }
 
-        // Every offer's fill, then every offer's outline, the highlighted one last in each pass so it
-        // draws over the others where two offers overlap (they may — each is valid alone).
         private void Rebuild()
         {
             var verts = new List<Vector3>();
             var colors = new List<Color>();
             var tris = new List<int>();
 
-            if (offers != null)
+            if (shown != null)
             {
                 float cs = CellSize();
-                foreach (var offer in DrawOrder())
-                    AddFill(offer, cs, verts, colors, tris);
-                foreach (var offer in DrawOrder())
-                    AddOutline(offer, cs, verts, colors, tris);
+                AddFill(shown, cs, verts, colors, tris);
+                AddOutline(shown, cs, verts, colors, tris);
             }
 
             mesh.Clear();
@@ -135,12 +121,6 @@ namespace LittlePeeps
             mesh.SetTriangles(tris, 0);
         }
 
-        private IEnumerable<ZoneOffer> DrawOrder()
-        {
-            foreach (var offer in offers) if (offer != highlighted) yield return offer;
-            if (highlighted != null) yield return highlighted;
-        }
-
         private Color Tint(ZoneOffer offer, float alpha)
         {
             var c = offer.Biome != null ? offer.Biome.previewColor : Color.white;
@@ -150,17 +130,17 @@ namespace LittlePeeps
 
         private void AddFill(ZoneOffer offer, float cs, List<Vector3> verts, List<Color> colors, List<int> tris)
         {
-            var color = Tint(offer, offer == highlighted ? highlightedFillAlpha : fillAlpha);
+            var color = Tint(offer, fillAlpha);
             foreach (var c in offer.Candidate.Cells)
                 AddQuad(verts, colors, tris, new Vector2(c.x * cs, c.y * cs), new Vector2((c.x + 1) * cs, (c.y + 1) * cs), color);
         }
 
         // A strip just inside every cell edge that has no zone cell across it. Inside, so the outline
-        // never spills onto the island or a neighbouring offer.
+        // never spills onto the island.
         private void AddOutline(ZoneOffer offer, float cs, List<Vector3> verts, List<Color> colors, List<int> tris)
         {
             if (outlineWidth <= 0f) return;
-            var color = Tint(offer, offer == highlighted ? highlightedOutlineAlpha : outlineAlpha);
+            var color = Tint(offer, outlineAlpha);
             float w = Mathf.Min(outlineWidth, cs);
             var candidate = offer.Candidate;
 

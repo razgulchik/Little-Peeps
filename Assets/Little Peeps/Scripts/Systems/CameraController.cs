@@ -97,10 +97,22 @@ namespace LittlePeeps
         // Send the camera to look at a world point (within the clamp). Sets the TARGET — the vcam
         // follows it with its own damping, so this is the same smooth motion a pan gives, and the
         // player can pan away from it at any time.
-        public void FocusOn(Vector2 worldPoint)
+        //
+        // `viewportOffsetY` lifts the point that far up the screen, as a fraction of the visible
+        // height: 0.15 puts it 15% above the middle, which is how a caller with UI along the bottom
+        // keeps what it is showing out from under it. A fraction rather than world units because the
+        // UI covers the same share of the screen at every zoom — the conversion needs the live ortho
+        // size, which is why it happens here and not in the caller.
+        public void FocusOn(Vector2 worldPoint, float viewportOffsetY = 0f)
         {
             if (cameraTarget == null) return;
-            ApplyPosition(new Vector3(worldPoint.x, worldPoint.y, cameraTarget.position.z));
+
+            // Camera goes DOWN by the offset so the point ends up above the middle.
+            float viewHeight = 2f * (vcam != null ? vcam.Lens.OrthographicSize
+                                  : viewCamera != null ? viewCamera.orthographicSize : 0f);
+            float y = worldPoint.y - viewportOffsetY * viewHeight;
+
+            ApplyPosition(new Vector3(worldPoint.x, y, cameraTarget.position.z));
         }
 
         private void Update()

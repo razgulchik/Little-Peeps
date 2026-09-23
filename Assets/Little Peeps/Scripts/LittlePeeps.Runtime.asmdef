@@ -6,7 +6,10 @@
         "Unity.TextMeshPro",
         "Unity.Cinemachine",
         "UnityEngine.UI",
-        "LitMotion"
+        "LitMotion",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "ModernWater2D.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

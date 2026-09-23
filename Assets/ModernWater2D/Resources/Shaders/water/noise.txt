@@ -1,0 +1,6 @@
+
+void func_float(float2 uv, float scale, out float Out)
+{
+    
+    Out = scale;
+}

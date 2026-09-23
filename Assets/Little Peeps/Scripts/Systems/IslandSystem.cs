@@ -245,6 +245,7 @@ namespace LittlePeeps
                     sets[biome.profile.terrain] = biome.tileSet;
 
             IslandTilePainter.Repaint(Grid, terrain => sets.TryGetValue(terrain, out var set) ? set : tileSet, tilemap, trimTilemap);
+            EventBus<IslandRepaintedEvent>.Publish(new IslandRepaintedEvent());
         }
     }
 }

@@ -172,7 +172,7 @@ MonoBehaviour:
       angle:
         _value: 0
       tilt:
-        _value: 0
+        _value: 48.1
       length:
         _value: 1
       topdownReflections_FalloffStrength:
@@ -182,11 +182,11 @@ MonoBehaviour:
       topdownReflections3D_FalloffColor:
         _value: {r: 0, g: 0, b: 0, a: 1}
       originalColor:
-        _value: 0
-      color:
-        _value: {r: 0.039215688, g: 0.22745098, b: 0.4, a: 1}
-      alpha:
         _value: 0.6
+      color:
+        _value: {r: 1, g: 1, b: 1, a: 1}
+      alpha:
+        _value: 0.615
       mirrorY:
         _value: 0
       layers: 
@@ -237,11 +237,11 @@ MonoBehaviour:
       pixelPerfect:
         _value: 1
       obstructionWidth:
-        _value: 0.05
+        _value: 0.2
       obstructionColor:
         _value: {r: 1, g: 1, b: 1, a: 1}
       obstructionAlpha:
-        _value: 0
+        _value: 1
       foamColor:
         _value: {r: 0.9, g: 0.95, b: 1, a: 1}
       foamSize:
@@ -251,16 +251,16 @@ MonoBehaviour:
       foamAlpha:
         _value: 0
       distortionSpeed:
-        _value: {x: 0.1, y: 0.05}
+        _value: {x: 0.01, y: 0}
       distortionStrength:
-        _value: {x: 0, y: 0}
+        _value: {x: 0.02, y: 0}
       distortionTiling:
-        _value: {x: 1, y: 1}
+        _value: {x: 1, y: 32}
       distortionMinMax:
         _value: {x: 0, y: 1}
       distortionColor:
         _value: {r: 0, g: 0, b: 0, a: 1}
-      distortionTexture: {fileID: 0}
+      distortionTexture: {fileID: 2800000, guid: 63a3a961b343e5341a13f8efb4988815, type: 3}
       sunStripsTexture: {fileID: 2800000, guid: 02b9ccfabe688644ebd37eb70cbe2341, type: 3}
       stripsSpeed:
         _value: -3

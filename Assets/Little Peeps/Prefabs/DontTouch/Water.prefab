@@ -182,7 +182,7 @@ MonoBehaviour:
       topdownReflections3D_FalloffColor:
         _value: {r: 0, g: 0, b: 0, a: 1}
       originalColor:
-        _value: 0.6
+        _value: 0.602
       color:
         _value: {r: 1, g: 1, b: 1, a: 1}
       alpha:
@@ -444,7 +444,7 @@ MonoBehaviour:
   customWaterMaterial: 0
   _mat: {fileID: 0}
   _matb: {fileID: 0}
-  _sr: {fileID: 0}
+  _sr: {fileID: 8643650247094069316}
 --- !u!212 &8643650247094069316
 SpriteRenderer:
   m_ObjectHideFlags: 0

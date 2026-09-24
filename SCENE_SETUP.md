@@ -5,6 +5,9 @@
 
 > Последняя сверка с кодом: **2026-07-16** (после зверей — подвижных ресурсных ячеек:
 > `Animal` / `AnimalWander` / `AnimalSpawner` + интерфейс `IStructureSpawner`).
+> Частичная сверка **2026-09-24**: переход в эпоху — подъём острова из воды (`IslandRise`,
+> `AgeSequencer` без затемнения, баннер, Impulse Listener на камере). Остальное (вода, зоны, остров
+> с каймой) ещё не сверено.
 
 ## Принцип
 
@@ -45,9 +48,12 @@ SampleScene
 │       └── Tilemap             → Tilemap + TilemapRenderer + TilemapCollider2D
 │                                  + CompositeCollider2D + Rigidbody2D (Static)   ← граница острова
 ├── GridOverlay                 → GridOverlay        (Transform строго 0,0,0, без поворота/масштаба)
-├── Main Camera                 → Camera (Orthographic) + CinemachineBrain
+├── IslandRise                  → IslandRisePlayer   (Transform 0,0,0; в рантайме его дети — дублёры тайлов,
+│                                  излучатели эффектов, «Rise voices» и CinemachineImpulseSource)
+├── Main Camera                 → Camera (Orthographic) + CinemachineBrain (Ignore Time Scale)
 ├── CameraTarget                → CameraController        (пустой GO — логическая цель камеры)
 ├── CinemachineCamera           → CinemachineCamera (vcam): Follow = CameraTarget, Body с damping
+│                                  + CinemachineImpulseListener   ← тряска при подъёме острова
 ├── EventSystem                 → EventSystem + InputSystemUIInputModule  (ОБЯЗАТЕЛЕН для UI и кликов)
 ├── Canvas                      → Canvas + CanvasScaler + GraphicRaycaster + **UIRoot** + **UIVisibility**
 │   │                             порядок детей = порядок отрисовки: Hud внизу, экраны сверху
@@ -73,7 +79,8 @@ SampleScene
 │   │       └── Sell            → CanvasGroup
 │   │           └── SellButton  → Button
 │   │               └── SelectedFrame   → Image                 (подсветка выбранного инструмента)
-│   ├── AgeTransition           → Image (чёрный) + CanvasGroup (Alpha 0)   ← фейд перехода эпохи
+│   ├── AgeTransition           → Image (чёрный, ВЫКЛЮЧЕН) + CanvasGroup (Alpha 0)   ← баннер эпохи;
+│   │   │                         затемнения больше нет, AgeSequencer проявляет только баннер
 │   │   └── BannerText          → TMP_Text                                 ← плашка «Age N»
 │   ├── Screens                 → ТОЛЬКО RectTransform, растянут на весь Canvas
 │   │   │                         ← CanvasGroup сюда НЕ вешать: перемножится с альфой экранов
@@ -121,9 +128,15 @@ SampleScene
 | @Systems/PerkSystem | PerkSystem | catalogue | список PerkDef (можно пусто) |
 | @Systems/PrestigeSystem | PrestigeSystem | runManager, saveSystem | RunManager, SaveSystem |
 | @Systems/AgeSystem | **AgeSystem** | **ages, resourceSystem** | список AgeDef-ассетов по порядку; ResourceSystem |
-| @Systems/AgeSequencer | AgeSequencer | islandSystem, perkSystem | IslandSystem, PerkSystem |
-| | | fadeOverlay, titleLabel | `Canvas/AgeTransition` (CanvasGroup), `Canvas/AgeTransition/BannerText` (TMP_Text) — единственные ссылки из системы внутрь Canvas |
-| | | fadeDuration, titleHold | 0.5, 2 (сек, дефолты) |
+| @Systems/AgeSequencer | AgeSequencer | islandSystem | IslandSystem |
+| | | risePlayer | IslandRisePlayer на `IslandRise` (пусто = зона просто появляется, без подъёма) |
+| | | cameraController | CameraController на `CameraTarget` (камера едет к всплывающей зоне) |
+| | | inputHandler | InputHandler на `@Input` (тапы: ×3, пропуск, закрыть баннер; пусто = без тапов) |
+| | | banner, titleLabel | `Canvas/AgeTransition` (CanvasGroup), `Canvas/AgeTransition/BannerText` (TMP_Text) — единственные ссылки из системы внутрь Canvas |
+| | | bannerFade, titleHold, bannerTapGrace | 0.5, 2, 0.4 (сек, дефолты): проявление/угасание баннера, сколько он висит, через сколько его можно закрыть тапом |
+| IslandRise | **IslandRisePlayer** | **profile** | ассет `ScriptableObjects/Profiles/Island Rise Profile` — все ручки подъёма (тайминги, кривые, эффекты, звук, тряска) |
+| | | **islandSystem** | IslandSystem |
+| | | waterSystem | WaterSystem (опц.; без него тайлы в прыжке не давят на воду) |
 | @Systems/TapSystem | **TapSystem** | **inputHandler** | InputHandler |
 | @Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, mainCamera, gridOverlay** | соответствующие компоненты |
 | | | validColor, invalidColor, sellHoverColor, moveHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже, зелёный «можно схватить» в Move (есть дефолты) |
@@ -144,6 +157,7 @@ SampleScene
 | | | boundsMargin | насколько центр (= цель) может уйти за край острова (4) — дефолт |
 | Main Camera | **CinemachineBrain** | — | пишет позицию из активной vcam |
 | CinemachineCamera | **CinemachineCamera** (vcam) | Follow = CameraTarget, Body (damping ~0.1–0.2) | плавно следует за целью |
+| | CinemachineImpulseListener | Channel Mask 1 (дефолт) | без него толчки подъёма острова никто не почувствует; сам источник толчков IslandRise добавляет себе кодом |
 | Island | **IslandSystem** | **tilemap, grassTile** | Tilemap-компонент, тайл травы (TileBase) |
 | | | initialSize, cellSize | 10×10, 1 (дефолты) |
 | GridOverlay | **GridOverlay** | **islandSystem** | IslandSystem |

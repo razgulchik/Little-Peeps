@@ -15,8 +15,10 @@ MonoBehaviour:
   id: alpaka
   resource: 4
   workerYields:
-  - worker: 1
+  - worker: 0
     amount: 1
+  - worker: 1
+    amount: 5
   pickupFx: {fileID: 1316142203753392457, guid: e895b80a6ceda93419f8ff05bb7929cb, type: 3}
   pickupFxCount: 1
   infinite: 0

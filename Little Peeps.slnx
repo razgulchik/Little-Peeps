@@ -1,6 +1,8 @@
 ﻿<Solution>
+  <Project Path="ModernWater2D.Runtime.csproj" />
   <Project Path="LittlePeeps.Runtime.csproj" />
   <Project Path="LittlePeeps.Tests.EditMode.csproj" />
+  <Project Path="ModernWater2D.Editor.csproj" />
   <Project Path="LittlePeeps.Editor.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
 </Solution>

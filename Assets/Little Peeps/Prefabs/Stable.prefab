@@ -121,6 +121,7 @@ GameObject:
   - component: {fileID: 2429228050422281424}
   - component: {fileID: 366564649405775464}
   - component: {fileID: 5666384704013862210}
+  - component: {fileID: 2288435202368296586}
   m_Layer: 0
   m_Name: Model
   m_TagString: Untagged
@@ -213,6 +214,19 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 2}
   alpha: 0.13725491
+--- !u!114 &2288435202368296586
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7461805499807316264}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &8159405365616838660
 GameObject:
   m_ObjectHideFlags: 0

@@ -22,15 +22,15 @@ MonoBehaviour:
   cornerBottomLeftDark: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
   cornerBottomRightLight: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
   cornerBottomRightDark: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  leftEdgeTop: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  leftEdgeMid: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  leftEdgeBottom: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  rightEdgeTop: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  rightEdgeMid: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  rightEdgeBottom: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  bottomEdgeLeft: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  bottomEdgeMid: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  bottomEdgeRight: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  innerCornerLeft: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  innerCornerRight: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
+  leftEdgeTop: {fileID: 11400000, guid: 4e266264d5a3031428d89a93b09c3bb0, type: 2}
+  leftEdgeMid: {fileID: 11400000, guid: 18fb9f410bdfd2644adc5eba8ecab629, type: 2}
+  leftEdgeBottom: {fileID: 11400000, guid: 9cda0a3886dac674fa980ccb7229083a, type: 2}
+  rightEdgeTop: {fileID: 11400000, guid: cda3a19ca50ce6641840de3cbc3256d0, type: 2}
+  rightEdgeMid: {fileID: 11400000, guid: a1f631af5d9a80d438ae1433bbdb796f, type: 2}
+  rightEdgeBottom: {fileID: 11400000, guid: 0d6e170d8610af54a8b4f31c5c1e6f6f, type: 2}
+  bottomEdgeLeft: {fileID: 11400000, guid: d5889c91cd29e3445bd47914baa744fe, type: 2}
+  bottomEdgeMid: {fileID: 11400000, guid: 6d1f0870ab5f89e438736b49e6b6bbc7, type: 2}
+  bottomEdgeRight: {fileID: 11400000, guid: d58ba90beb4eae142aff6d5453999dce, type: 2}
+  innerCornerLeft: {fileID: 11400000, guid: 67a3ac467441755499c90c44d57dce06, type: 2}
+  innerCornerRight: {fileID: 11400000, guid: 19ebec875d011994e87b7c1612664e7e, type: 2}
   invertCheckerboard: 1

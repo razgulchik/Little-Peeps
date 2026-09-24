@@ -15,8 +15,10 @@ MonoBehaviour:
   id: 
   resource: 2
   workerYields:
+  - worker: 0
+    amount: 1
   - worker: 4
-    amount: 2
+    amount: 5
   pickupFx: {fileID: 3137257105596504295, guid: b55387ca2ac67db4b8c5643b02125d68, type: 3}
   pickupFxCount: 1
   infinite: 0

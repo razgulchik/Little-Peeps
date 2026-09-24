@@ -29,7 +29,7 @@ MonoBehaviour:
       maxCount: 0
       weight: 1
       clustered: 1
-  tileSet: {fileID: 11400000, guid: 25ba7b4b091e2ab4b9f43c7d3e127278, type: 2}
+  tileSet: {fileID: 11400000, guid: c22dd842430b03d4e9ef5113c99a8dca, type: 2}
   displayName: Desert
   icon: {fileID: 21300000, guid: 2a8e0284ca2f76a4fa7eac5c1e372cf1, type: 3}
   previewColor: {r: 1, g: 1, b: 1, a: 1}

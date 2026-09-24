@@ -308,7 +308,7 @@ MonoBehaviour:
   finaleFx: {fileID: 0}
   finaleCountPerCell: 1
   breachClip: {fileID: 8300000, guid: cf08451be1b890e46b8d57b95df1b930, type: 3}
-  breachVolume: 0.3
+  breachVolume: 0.111
   basePitch: 0.5
   noteSteps: 10
   minNoteGap: 0.03

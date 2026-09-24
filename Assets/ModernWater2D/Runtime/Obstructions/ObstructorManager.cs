@@ -99,7 +99,7 @@ namespace Water2D
                 if (_layerRenderer == null)
                 {
                     _layerRenderer = new LayerRenderer();
-                    _layerRenderer.Setup(transform, rlayer, sizeMLP, textureResolution, RenderTextureFormat.RG16, FilterMode.Point, 0f, null, true);
+                    _layerRenderer.Setup(transform, rlayer, sizeMLP, textureResolution, RenderTextureFormat.ARGB32, FilterMode.Point, 0f, null, true);
                 }
                 return _layerRenderer;
             }
@@ -142,7 +142,7 @@ namespace Water2D
 
             if (_layerRenderer != null)
             {
-                _layerRenderer.Setup(transform, rlayer, sizeMLP, textureResolution, RenderTextureFormat.RG16, FilterMode.Point, 0f, this, true);
+                _layerRenderer.Setup(transform, rlayer, sizeMLP, textureResolution, RenderTextureFormat.ARGB32, FilterMode.Point, 0f, this, true);
                 UpdateReflectionsShader();
                 if (genSDF) GenTextures();
             }
@@ -204,7 +204,7 @@ namespace Water2D
             Singleton();
             SetCallbacks();
 
-            layerRenderer.Setup(transform, rlayer, sizeMLP, textureResolution, RenderTextureFormat.RG16, FilterMode.Point, 0f, this, true);
+            layerRenderer.Setup(transform, rlayer, sizeMLP, textureResolution, RenderTextureFormat.ARGB32, FilterMode.Point, 0f, this, true);
             UpdateReflectionsShader();
             jfShader = Shader.Find("Hidden/Jump Flood");
 

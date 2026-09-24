@@ -21,6 +21,9 @@ namespace Water2D
         [SerializeField] [HideInInspector] bool startupQF = false;
         #endregion
 
+        // Unity only runs a parameterless constructor; without it the field initializers below are skipped
+        // on AddComponent, overrideMainCamera stays null and SetCallbacks() never wires the settings.
+        public ReflectionsSystem() { }
         public ReflectionsSystem(bool topdown) => this.topdown = topdown;
 
         private void Awake()

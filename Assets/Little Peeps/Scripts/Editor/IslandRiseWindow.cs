@@ -408,6 +408,7 @@ namespace LittlePeeps.EditorTools
 
         private void Cleanup()
         {
+            rise?.Finish();   // ends the land's bend, whose shader switch is the whole project's
             if (root != null) DestroyImmediate(root);
             root = null;
             drawing = null;

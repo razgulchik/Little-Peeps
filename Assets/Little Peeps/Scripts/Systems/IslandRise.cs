@@ -34,10 +34,12 @@ namespace LittlePeeps
     // scaled from nothing by the profile's curve. The root sits at the bottom-centre of the footprint, so
     // everything grows up out of the ground. A den's animals, released in its Start, pop with it.
     //
-    // Tiles already standing move too, as real tiles (IslandDrawing.OffsetLand): a new tile touching down
-    // makes its standing neighbours bounce, and at the finale a breath runs across the new zone from the
-    // join, its structures riding along. The old island's own structures do not ride a bounce — it is a
-    // pixel or two for a fraction of a second. Every lift, hop, bounce and breath can move in whole art
+    // Land already standing moves too: a new tile touching down makes the zone's landed tiles around it
+    // bounce, and at the finale a breath runs across the new zone from the join. The land bends as one
+    // sheet under both (IslandBend: the shader that draws it moves every corner of the grid on its own,
+    // so no two tiles ever come apart), and the old island never moves — the sheet is pinned wherever it
+    // touches it. What is drawn as part of the land (a river, a mountain) bends with it; what stands on it
+    // rides up by the height under its root. Every lift, hop, bounce and breath can move in whole art
     // pixels (the profile's pixel snap).
     //
     // Around that, what goes off at a moment rather than lasting: bubbles over a cell until its tile breaks
@@ -83,16 +85,19 @@ namespace LittlePeeps
         private bool[] dry;                // its tilemap colour is back to white
         private float[] bubbleDebt;        // bubbles owed but not yet a whole one
 
-        // Standing tiles moved off their place: when their neighbours touch down, and where they are now.
+        // Standing land off its place: when its neighbours touch down, how high each cell is now, and the
+        // bent land that makes of it.
         private static readonly Vector2Int[] Diagonals = { new(1, 1), new(1, -1), new(-1, 1), new(-1, -1) };
-        private readonly Dictionary<Vector2Int, List<float>> bounces = new();   // standing cell → its neighbours' touch-downs
-        private readonly Dictionary<Vector2Int, float> lifted = new();         // cell → lift applied now (snapped, ≠ 0)
-        private readonly Dictionary<Vector2Int, float> lifting = new();        // scratch: this frame's lifts
+        private static readonly Vector2Int[] CellsAtCorner = { new(0, 0), new(-1, 0), new(0, -1), new(-1, -1) };
+        private readonly Dictionary<Vector2Int, List<float>> bounces = new();   // landed zone cell → its neighbours' touch-downs
+        private readonly Dictionary<Vector2Int, float> lifts = new();          // cell → its lift this frame (snapped, ≠ 0)
+        private readonly List<Vector2Int> raised = new();                      // scratch: corners the lifts raised
+        private readonly IslandBend bend = new();
 
         // Per structure.
         private Transform[] roots;
         private Vector3[] rootPositions;
-        private Vector2Int[] rootCells;    // the footprint origin: the cell whose lift it rides
+        private bool[] rides;              // moved up by hand; false for one drawn as part of the land, which bends
         private Vector3[] rootScales;
         private StructureDef[] defs;
         private AnimalSpawner[][] dens;    // the dens in each structure, whose animals pop with it
@@ -150,11 +155,12 @@ namespace LittlePeeps
             speed = 1f;
             eventsUpTo = 0f;
             shakeLoad = 0f;
-            lifted.Clear();
 
             ReadSorting();
             PrepareCells();
             PrepareBounces();
+            grid.CellBounds(out var min, out var max);
+            bend.Begin(drawing.GroundTilemap, min, max);
             foreach (var root in roots)
                 if (root != null) root.localScale = Vector3.one * MinPopScale;
 
@@ -249,8 +255,7 @@ namespace LittlePeeps
             drawing.RevealAllLand();
             for (int i = 0; i < dry.Length; i++)
                 if (!dry[i]) drawing.TintLand(schedule.Cells[i], Color.white);
-            foreach (var cell in lifted.Keys) drawing.OffsetLand(cell, 0f);
-            lifted.Clear();
+            bend.End();
 
             for (int j = 0; j < roots.Length; j++)
                 if (roots[j] != null)
@@ -313,44 +318,71 @@ namespace LittlePeeps
             Lift();
         }
 
-        // Standing tiles off their place: bouncing as neighbours touch down, breathing at the finale. Set
-        // every frame, after the tiles are painted — painting a tile puts it back in place. The zone's
-        // structures ride the lift of the cell they stand on.
+        // Standing land off its place: bouncing as neighbours touch down, breathing at the finale. Each
+        // landed zone cell has a lift, and the land bends through them as one sheet: every corner of the grid
+        // is as high as the highest lift around it — except where old land touches it, which never moves, so
+        // the zone bends away from where it joins the island. A corner out on the water with a raised one
+        // right above it hangs from it, so the coast's band below the island moves whole with its land.
         private void Lift()
         {
-            lifting.Clear();
+            lifts.Clear();
             foreach (var kv in bounces)
             {
                 float lift = 0f;
                 foreach (float at in kv.Value) lift = Mathf.Max(lift, profile.BounceLift(clock - at));
-                if (lift > 0f) lifting[kv.Key] = lift;
+                Raise(kv.Key, lift);
             }
             for (int i = 0; i < schedule.Cells.Count; i++)
+                if (schedule.BreathAt(i, clock, out float progress))
+                    Raise(schedule.Cells[i], profile.breathHeight * profile.breathCurve.Evaluate(progress));
+
+            bend.Clear();
+            raised.Clear();
+            foreach (var kv in lifts)
+                for (int dx = 0; dx <= 1; dx++)
+                    for (int dy = 0; dy <= 1; dy++)
+                    {
+                        var corner = new Vector2Int(kv.Key.x + dx, kv.Key.y + dy);
+                        float now = bend.Get(corner);
+                        if (kv.Value <= now || TouchesOldLand(corner)) continue;
+                        if (now == 0f) raised.Add(corner);
+                        bend.Set(corner, kv.Value);
+                    }
+            foreach (var corner in raised)
             {
-                if (!schedule.BreathAt(i, clock, out float progress)) continue;
-                var cell = schedule.Cells[i];
-                float lift = profile.breathHeight * profile.breathCurve.Evaluate(progress);
-                lifting[cell] = Mathf.Max(lifting.TryGetValue(cell, out float bounce) ? bounce : 0f, lift);
+                var below = new Vector2Int(corner.x, corner.y - 1);
+                if (!TouchesLand(below)) bend.Set(below, Mathf.Max(bend.Get(below), bend.Get(corner)));
             }
+            bend.Apply();
 
-            // Back in place: whatever was lifted last frame and is not now.
-            foreach (var cell in lifted.Keys)
-                if (!lifting.ContainsKey(cell)) drawing.OffsetLand(cell, 0f);
-
-            lifted.Clear();
-            foreach (var kv in lifting)
-            {
-                float dy = profile.Snap(kv.Value);   // may snap to 0: then it is put back in place
-                drawing.OffsetLand(kv.Key, dy);
-                if (dy != 0f) lifted[kv.Key] = dy;
-            }
-
+            // What stands on the zone rides up by the height under its root, the bottom-centre of its footprint.
             for (int j = 0; j < roots.Length; j++)
-            {
-                if (roots[j] == null) continue;
-                float dy = lifted.TryGetValue(rootCells[j], out float lift) ? lift : 0f;
-                roots[j].position = rootPositions[j] + new Vector3(0f, dy * tileScale.y, 0f);
-            }
+                if (roots[j] != null && rides[j])
+                    roots[j].position = rootPositions[j] + new Vector3(0f, profile.Snap(bend.HeightAt(rootPositions[j])), 0f);
+        }
+
+        // A cell's lift for this frame: the highest asked of it, in whole pixels when the profile snaps — one
+        // that snaps to nothing is no lift.
+        private void Raise(Vector2Int cell, float lift)
+        {
+            float snapped = profile.Snap(lift);
+            if (snapped > 0f && (!lifts.TryGetValue(cell, out float had) || snapped > had)) lifts[cell] = snapped;
+        }
+
+        // Whether land on screen, or old land (on screen and not the zone's), is one of the four cells
+        // around a grid corner — corner (x, y) being the bottom-left corner of cell (x, y).
+        private bool TouchesLand(Vector2Int corner)
+        {
+            foreach (var step in CellsAtCorner)
+                if (drawing.ShowsLand(corner + step)) return true;
+            return false;
+        }
+
+        private bool TouchesOldLand(Vector2Int corner)
+        {
+            foreach (var step in CellsAtCorner)
+                if (drawing.ShowsLand(corner + step) && !schedule.TryGetIndex(corner + step, out _)) return true;
+            return false;
         }
 
         private void Pose(int i, IslandRiseTilePose pose)
@@ -570,7 +602,6 @@ namespace LittlePeeps
             var items = new List<IslandRiseItem>();
             var rootList = new List<Transform>();
             var defList = new List<StructureDef>();
-            var cellList = new List<Vector2Int>();
 
             if (content != null)
                 foreach (var instance in content)
@@ -580,24 +611,34 @@ namespace LittlePeeps
                     items.Add(new IslandRiseItem(FootprintCells(instance), profile.PopDurationOf(instance.Def), flowIndex));
                     rootList.Add(instance.RuntimeObject.transform);
                     defList.Add(instance.Def);
-                    cellList.Add(instance.Cell);
                 }
 
             roots = rootList.ToArray();
             defs = defList.ToArray();
-            rootCells = cellList.ToArray();
             rootScales = new Vector3[roots.Length];
             rootPositions = new Vector3[roots.Length];
+            rides = new bool[roots.Length];
             dens = new AnimalSpawner[roots.Length][];
             for (int j = 0; j < roots.Length; j++)
             {
                 rootScales[j] = roots[j].localScale;
                 rootPositions[j] = roots[j].position;
+                rides[j] = !DrawnAsLand(roots[j]);
                 dens[j] = roots[j].GetComponentsInChildren<AnimalSpawner>(true);
             }
             popped = new bool[roots.Length];
             animalScales.Clear();
             return items;
+        }
+
+        // A structure with any of its renderers on a bending material is drawn as part of the land (a river,
+        // a mountain): it bends with the land, and moving it up as well would lift it twice.
+        private static bool DrawnAsLand(Transform root)
+        {
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+                foreach (var material in renderer.sharedMaterials)
+                    if (IslandBend.Bends(material)) return true;
+            return false;
         }
 
         private static List<Vector2Int> FootprintCells(StructureInstance instance)
@@ -643,12 +684,12 @@ namespace LittlePeeps
             }
         }
 
-        // Who bounces when: as each new tile touches down, its standing neighbours — old land, or zone cells
-        // that have already settled into real tiles. Worked out once, like the rest of the schedule.
+        // Who bounces when: as each new tile touches down, its neighbours in the zone that have already
+        // settled into real tiles. The old island never moves, so its land does not bounce. Worked out once,
+        // like the rest of the schedule.
         private void PrepareBounces()
         {
             bounces.Clear();
-            var grid = drawing.Grid;
             for (int i = 0; i < schedule.Cells.Count; i++)
             {
                 float at = schedule.TouchDownOf(i);
@@ -656,8 +697,8 @@ namespace LittlePeeps
                 {
                     var step = d < IslandShape.Dirs.Length ? IslandShape.Dirs[d] : Diagonals[d - IslandShape.Dirs.Length];
                     var neighbour = schedule.Cells[i] + step;
-                    if (grid.GetCell(neighbour) == null) continue;                                          // sea
-                    if (schedule.TryGetIndex(neighbour, out int k) && schedule.SettleOf(k) > at) continue;  // still coming up
+                    if (!schedule.TryGetIndex(neighbour, out int k)) continue;   // sea or old land
+                    if (schedule.SettleOf(k) > at) continue;                     // still coming up
                     if (!bounces.TryGetValue(neighbour, out var times)) bounces[neighbour] = times = new List<float>();
                     times.Add(at);
                 }
@@ -679,7 +720,7 @@ namespace LittlePeeps
             aboveOrder = highest + 1;
             underOrder = lowest - 2;   // under the side foam, which WaterSystem sorts one below the lowest coast layer
 
-            tileMaterial = ground.sharedMaterial;
+            tileMaterial = IslandBend.Unbent(ground.sharedMaterial);   // a tile in flight is not part of the sheet
             tileScale = drawing.GroundTilemap.transform.lossyScale;
         }
 

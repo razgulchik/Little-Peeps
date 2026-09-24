@@ -1,12 +1,14 @@
 // A sprite drawn as a flat-coloured silhouette: every pixel takes _Color, only the sprite's alpha is kept.
 // A tint cannot do this — it multiplies the art's colours, so it can darken a sprite to black (SpriteShadow)
-// but never lift it to white. Unlit; works on SpriteRenderers and TilemapRenderers alike.
+// but never lift it to white. Unlit; works on SpriteRenderers and TilemapRenderers alike. With the weight up
+// it also bends with the island (IslandBend.hlsl) — the side foam does, being part of the coast.
 Shader "Little Peeps/Sprite Flat Color"
 {
     Properties
     {
         _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Color", Color) = (1, 1, 1, 1)
+        _IslandBendWeight ("Bends With The Island", Range(0, 1)) = 0
     }
 
     SubShader
@@ -19,6 +21,7 @@ Shader "Little Peeps/Sprite Flat Color"
 
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #include "IslandBend.hlsl"
 
         struct Attributes
         {
@@ -41,6 +44,7 @@ Shader "Little Peeps/Sprite Flat Color"
 
         CBUFFER_START(UnityPerMaterial)
             half4 _Color;
+            float _IslandBendWeight;
         CBUFFER_END
 
         Varyings FlatVertex(Attributes v)
@@ -48,7 +52,7 @@ Shader "Little Peeps/Sprite Flat Color"
             Varyings o = (Varyings)0;
             UNITY_SETUP_INSTANCE_ID(v);
             UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-            o.positionCS = TransformObjectToHClip(v.positionOS);
+            o.positionCS = IslandBendObjectToHClip(v.positionOS, _IslandBendWeight);
             o.color = v.color;
             o.uv = v.uv;
             return o;

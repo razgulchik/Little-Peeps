@@ -179,6 +179,7 @@ namespace LittlePeeps
             if (lowest == null) return;
 
             sideFoamMaterial = new Material(sideFoamShader);
+            IslandBend.SetWeight(sideFoamMaterial, 1f);   // part of the coast: it bends with the land
             sideFoam = new Tilemap[coastTilemaps.Length * 2];
             for (int i = 0; i < coastTilemaps.Length; i++)
             {

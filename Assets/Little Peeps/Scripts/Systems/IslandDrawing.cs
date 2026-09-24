@@ -39,6 +39,9 @@ namespace LittlePeeps
 
         public bool IsHidden(Vector2Int cell) => hidden.Contains(cell);
 
+        // Whether the cell is land on screen: on the grid and not held back.
+        public bool ShowsLand(Vector2Int cell) => land.Contains(cell);
+
         // Both layers from scratch.
         public void RepaintAll()
         {
@@ -89,24 +92,6 @@ namespace LittlePeeps
             var at = new Vector3Int(cell.x, cell.y, 0);
             GroundTilemap.SetTileFlags(at, TileFlags.None);   // tile assets lock their colour by default
             GroundTilemap.SetColor(at, tint);
-        }
-
-        // Lift one land cell's tile by `dy` world units, and the outline pieces that belong to it with it — a
-        // band left behind under a lifted tile would show a strip of sea. 0 = back in place. Kept until the
-        // cell is next painted, which puts it back.
-        public void OffsetLand(Vector2Int cell, float dy)
-        {
-            if (GroundTilemap == null) return;
-            var matrix = dy == 0f ? Matrix4x4.identity : Matrix4x4.Translate(new Vector3(0f, dy, 0f));
-            GroundTilemap.SetTransformMatrix(new Vector3Int(cell.x, cell.y, 0), matrix);
-
-            if (TrimTilemap == null) return;
-            foreach (var around in IslandTilePainter.Around(cell))
-            {
-                var paint = IslandTilePainter.PaintOf(land, around);
-                if (!paint.land && paint.trim != IslandTrimPiece.None && paint.trimSource == cell)
-                    TrimTilemap.SetTransformMatrix(new Vector3Int(around.x, around.y, 0), matrix);
-            }
         }
 
         // Whether anything was painted since the last call.

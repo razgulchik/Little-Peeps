@@ -37,6 +37,22 @@ namespace LittlePeeps
         public IslandGenerator Generator { get; private set; }
         public IReadOnlyList<BiomeDef> Biomes => biomes;
 
+        // The section committed last — the start island at run start, then each age's zone — and the
+        // structures placed on it: what the island rise brings up out of the sea.
+        public IslandSection LastSection { get; private set; }
+        public IReadOnlyList<StructureInstance> LastContent => lastContent;
+        private readonly List<StructureInstance> lastContent = new();
+
+        // How the island is drawn: its tilemaps, and which of its cells they show (all of them, except an
+        // age's zone while it rises out of the sea). Made with the grid, so replaced every run.
+        public IslandDrawing Drawing { get; private set; }
+
+        // The island's two tile layers as set up in the scene, for what copies their look — the rise's
+        // tuning window draws its sample island with the same sorting and material. Painted only through
+        // Drawing.
+        public Tilemap GroundTilemap => tilemap;
+        public Tilemap TrimTilemap => trimTilemap;
+
         private StructureDef house;   // the run's starting house def, attached to the start zone's footprint
 
         // Generate the island for a new run. RunManager.StartNewRun() owns the timing — IslandSystem
@@ -104,17 +120,36 @@ namespace LittlePeeps
         // AgeSequencer (not an event) so expansion happens exactly once, in order, during the
         // transition. An offer from before an earlier commit is stale and the generator refuses it —
         // that is a bug in the flow, not a situation, so it is allowed to throw.
-        public void CommitZone(ZoneOffer offer)
+        //
+        // `forRise`: the zone is about to come up out of the sea (IslandRisePlayer), so it is committed
+        // whole — grid, run, structures, everything the game knows — but not SHOWN: its land stays hidden
+        // and its structures switched off. Off in the same frame they were made, so their Start waits for
+        // the moment the rise switches them on: a den releases its animals, a tree builds its shadow, at its
+        // own pop.
+        public void CommitZone(ZoneOffer offer, bool forRise = false)
         {
             if (Generator == null || offer == null) return;
 
             var section = Generator.Commit(offer.Candidate, offer.Content);
+            LastSection = section;
             CommitToGrid(section);
-            RefreshTilemap();
+            if (forRise) Drawing.HideLand(section.Cells);
+            else Drawing.RepaintAll();
             PlaceContent(section);
+            if (forRise)
+                foreach (var placed in lastContent)
+                    placed.RuntimeObject.gameObject.SetActive(false);
             Debug.Log($"IslandSystem: age zone +{section.Cells.Count} cells of " +
                       $"{(offer.Biome != null ? offer.Biome.name : "no biome")} ({Generator.LastFill} repair cells); " +
                       $"island now {Generator.Land.Count} cells.", this);
+        }
+
+        // Published here, once, on any frame the island was painted: a rising zone lands dozens of tiles in
+        // a couple of seconds, and every IslandRepaintedEvent has WaterSystem copy the whole coast again.
+        private void LateUpdate()
+        {
+            if (Drawing != null && Drawing.TakeRepainted())
+                EventBus<IslandRepaintedEvent>.Publish(new IslandRepaintedEvent());
         }
 
         // Right-click the component in Inspector → Generate Island
@@ -136,6 +171,7 @@ namespace LittlePeeps
 
             var clock = Stopwatch.StartNew();
             Grid = new IslandGrid(cellSize);
+            Drawing = new IslandDrawing(Grid, TileSetFor(), tilemap, trimTilemap);
             Generator = new IslandGenerator(rules, seed);
             var start = Generator.GenerateStart();
 
@@ -148,10 +184,11 @@ namespace LittlePeeps
                                    $"(seed {seed}) — starting as bare land. Loosen its budgets.", this);
             }
             var section = Generator.Commit(start, content);
+            LastSection = section;
             clock.Stop();
 
             CommitToGrid(section);
-            RefreshTilemap();
+            Drawing.RepaintAll();
             PlaceContent(section);
             Debug.Log($"IslandSystem: seed {seed} → start of {section.Cells.Count} cells in " +
                       $"{clock.Elapsed.TotalMilliseconds:F1} ms ({Generator.LastAttempts} attempts).", this);
@@ -200,6 +237,7 @@ namespace LittlePeeps
         // generator's: house first, then mountains and river, then objects.
         private void PlaceContent(IslandSection section)
         {
+            lastContent.Clear();
             if (section.Content == null) return;
             if (structureSystem == null)
             {
@@ -216,7 +254,8 @@ namespace LittlePeeps
                 // A def that forbids this biome's ground is a data conflict, not a placement problem:
                 // one clear line per def instead of a warning per cell from PlaceInitial.
                 if (!Allows(def, biome.terrain)) { wrongTerrain.Add(def); continue; }
-                structureSystem.PlaceInitial(def, cell);
+                var placed = structureSystem.PlaceInitial(def, cell);
+                if (placed != null) lastContent.Add(placed);
             }
             if (missing)
                 Debug.LogWarning($"IslandSystem: biome '{biome.id}' has a feature with no StructureDef assigned — those cells stay empty.", this);
@@ -233,19 +272,18 @@ namespace LittlePeeps
             return false;
         }
 
-        // Full repaint of both tile layers from the grid. Every cell the grid holds is land — the outline
-        // ring around it is worked out by the painter, not stored, so the island never has to be generated
-        // oversized to leave room for its own edge. Each terrain draws with its biome's tile set, falling
-        // back to the default one.
-        private void RefreshTilemap()
+        // Each terrain draws with its biome's tile set, falling back to the default one. Read once per run
+        // (the drawing keeps it): the biome list does not change while one plays. Every cell the grid holds
+        // is land — the outline ring around it is worked out by the painter, not stored, so the island never
+        // has to be generated oversized to leave room for its own edge.
+        private System.Func<TerrainType, IslandTileSet> TileSetFor()
         {
             var sets = new Dictionary<TerrainType, IslandTileSet>();
             foreach (var biome in biomes)
                 if (biome != null && biome.tileSet != null && !sets.ContainsKey(biome.profile.terrain))
                     sets[biome.profile.terrain] = biome.tileSet;
 
-            IslandTilePainter.Repaint(Grid, terrain => sets.TryGetValue(terrain, out var set) ? set : tileSet, tilemap, trimTilemap);
-            EventBus<IslandRepaintedEvent>.Publish(new IslandRepaintedEvent());
+            return terrain => sets.TryGetValue(terrain, out var set) ? set : tileSet;
         }
     }
 }

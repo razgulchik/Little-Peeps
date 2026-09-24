@@ -22,65 +22,183 @@ namespace LittlePeeps
     //
     // The north side has no outline: the art is drawn without a waterline on top, by design.
     //
-    // Cost is one pass over the land cells plus one over the ring around them, and it only runs when the
-    // island changes (run start, age expansion), so a full repaint is cheaper than tracking dirty cells.
+    // What counts as land is a Land, not the grid itself: the grid minus whatever the caller holds back.
+    // That is the island rise — a new zone is on the grid from the moment it is committed, but its tiles
+    // come out of the water one at a time, and the coast has to be right for what is on screen at every
+    // step. So there are two ways to paint: Repaint redraws everything (run start, a whole zone at once),
+    // RepaintAround redraws only what one cell turning land or water can change. Both decide each cell
+    // with the same PaintOf, which is also what makes the two provably agree (IslandTilePainterTests).
     public static class IslandTilePainter
     {
+        // The land the painter draws: the grid's cells, minus any the caller holds back. Reads through to
+        // the grid and the predicate on every call, so it never goes stale as either changes.
+        public sealed class Land
+        {
+            private readonly IslandGrid grid;
+            private readonly Func<Vector2Int, bool> hidden;
+
+            public Land(IslandGrid grid, Func<Vector2Int, bool> hidden = null)
+            {
+                this.grid = grid;
+                this.hidden = hidden;
+            }
+
+            public bool Contains(Vector2Int coord) =>
+                grid != null && grid.GetCell(coord) != null && (hidden == null || !hidden(coord));
+
+            public TerrainType TerrainOf(Vector2Int coord) => grid.GetCell(coord).terrain;
+
+            public IEnumerable<Vector2Int> Cells()
+            {
+                if (grid == null) yield break;
+                foreach (var coord in grid.Cells.Keys)
+                    if (hidden == null || !hidden(coord)) yield return coord;
+            }
+        }
+
+        // What one cell draws: a land cell its ground piece, a water cell its outline piece (None = bare
+        // water). Tiles are not chosen here — they depend on the tile set, which is the terrain's.
+        public readonly struct CellPaint
+        {
+            public readonly bool land;
+            public readonly IslandGroundPiece ground;   // land cells
+            public readonly IslandTrimPiece trim;       // water cells
+            public readonly Vector2Int trimSource;      // the land cell whose terrain colours the outline
+
+            private CellPaint(bool land, IslandGroundPiece ground, IslandTrimPiece trim, Vector2Int trimSource)
+            {
+                this.land = land;
+                this.ground = ground;
+                this.trim = trim;
+                this.trimSource = trimSource;
+            }
+
+            public static CellPaint Ground(IslandGroundPiece piece) => new(true, piece, IslandTrimPiece.None, default);
+            public static CellPaint Trim(IslandTrimPiece piece, Vector2Int source) => new(false, default, piece, source);
+
+            public bool DrawsSomething => land || trim != IslandTrimPiece.None;
+
+            public override string ToString() => land ? $"ground {ground}" : $"trim {trim} from {trimSource}";
+        }
+
+        public static CellPaint PaintOf(Land land, Vector2Int coord)
+        {
+            if (land.Contains(coord)) return CellPaint.Ground(PickGround(land, coord));
+            var piece = PickTrim(land, coord, out Vector2Int source);
+            return CellPaint.Trim(piece, source);
+        }
+
+        // Every cell that draws something, and what: the land cells, and the outline ring around them.
+        // Ring candidates are collected from the land cells' own neighbours rather than by scanning the
+        // island's bounding box, so a hollow or scattered island costs nothing extra.
+        public static Dictionary<Vector2Int, CellPaint> Plan(Land land)
+        {
+            var plan = new Dictionary<Vector2Int, CellPaint>();
+            var ring = new HashSet<Vector2Int>();
+            foreach (var coord in land.Cells())
+            {
+                plan[coord] = PaintOf(land, coord);
+                foreach (var neighbour in Around(coord))
+                    if (!land.Contains(neighbour)) ring.Add(neighbour);
+            }
+
+            foreach (var coord in ring)
+            {
+                var paint = PaintOf(land, coord);
+                if (paint.DrawsSomething) plan[coord] = paint;
+            }
+            return plan;
+        }
+
+        // The cells whose paint can change when `cell` turns land or water: the cell and its 8 neighbours.
+        // A land cell's ground piece reads its 4 side neighbours; a water cell's outline reads its north,
+        // east, west, north-east and north-west ones. Neither looks further than one step, so nothing
+        // outside this 3×3 can notice.
+        public static IEnumerable<Vector2Int> Around(Vector2Int cell)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    yield return new Vector2Int(cell.x + dx, cell.y + dy);
+        }
+
         // Repaint both layers from scratch. tileSetFor answers with a set for every terrain (a default
         // for unmapped ones); trimTilemap may be null — the ground still draws, just bare.
-        public static void Repaint(IslandGrid grid, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap, Tilemap trimTilemap)
+        public static void Repaint(Land land, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap, Tilemap trimTilemap)
         {
-            if (groundTilemap == null || tileSetFor == null)
-            {
-                // Silence here would just look like an island that failed to generate, so say which
-                // reference on IslandSystem is still empty.
-                Debug.LogWarning($"IslandTilePainter: nothing drawn — {(groundTilemap == null ? "ground tilemap" : "tile set lookup")} is not assigned.");
-                return;
-            }
+            if (!CanPaint(tileSetFor, groundTilemap)) return;
 
             groundTilemap.ClearAllTiles();
             if (trimTilemap != null) trimTilemap.ClearAllTiles();
-            if (grid == null) return;
+            if (land == null) return;
 
-            // Ring candidates are collected from the land cells' own neighbours rather than by scanning the
-            // island's bounding box, so a hollow or scattered island costs nothing extra.
-            var ring = new HashSet<Vector2Int>();
             bool warnedMissing = false;
-
-            foreach (var kv in grid.Cells)
+            foreach (var kv in Plan(land))
             {
-                Vector2Int coord = kv.Key;
-                var tileSet = tileSetFor(kv.Value.terrain);
-                if (tileSet == null)
+                var coord = kv.Key;
+                var paint = kv.Value;
+                if (paint.land)
                 {
-                    if (!warnedMissing) Debug.LogWarning($"IslandTilePainter: no tile set for terrain {kv.Value.terrain} — those cells stay undrawn.");
-                    warnedMissing = true;
-                }
-                else
-                {
-                    groundTilemap.SetTile(ToTilemapCell(coord),
-                                          tileSet.GetGround(IsLight(coord, tileSet.invertCheckerboard), PickGround(grid, coord)));
-                }
-
-                if (trimTilemap == null) continue;
-                for (int dx = -1; dx <= 1; dx++)
-                    for (int dy = -1; dy <= 1; dy++)
+                    var tileSet = tileSetFor(land.TerrainOf(coord));
+                    if (tileSet == null && !warnedMissing)
                     {
-                        if (dx == 0 && dy == 0) continue;
-                        var neighbour = new Vector2Int(coord.x + dx, coord.y + dy);
-                        if (!IsLand(grid, neighbour)) ring.Add(neighbour);
+                        Debug.LogWarning($"IslandTilePainter: no tile set for terrain {land.TerrainOf(coord)} — those cells stay undrawn.");
+                        warnedMissing = true;
                     }
+                    groundTilemap.SetTile(ToTilemapCell(coord), GroundTile(land, coord, paint, tileSetFor));
+                }
+                else if (trimTilemap != null)
+                {
+                    trimTilemap.SetTile(ToTilemapCell(coord), TrimTile(land, paint, tileSetFor));
+                }
             }
+        }
 
-            if (trimTilemap == null) return;
-            foreach (Vector2Int coord in ring)
+        // Redraw the 3×3 around `cell` after it turned land or water. Every cell in it is set on both
+        // layers, cleared where it now draws nothing, so the result is exactly what Repaint would draw.
+        // A missing tile set stays silent here: the full repaint that drew the island already said so.
+        public static void RepaintAround(Land land, Vector2Int cell, Func<TerrainType, IslandTileSet> tileSetFor,
+                                         Tilemap groundTilemap, Tilemap trimTilemap)
+        {
+            if (!CanPaint(tileSetFor, groundTilemap) || land == null) return;
+
+            foreach (var coord in Around(cell))
             {
-                var piece = PickTrim(grid, coord, out Vector2Int source);
-                if (piece == IslandTrimPiece.None) continue;
-                var tileSet = tileSetFor(grid.GetCell(source).terrain);
-                TileBase tile = tileSet != null ? tileSet.GetTrim(piece) : null;
-                if (tile != null) trimTilemap.SetTile(ToTilemapCell(coord), tile);
+                var paint = PaintOf(land, coord);
+                var tilemapCell = ToTilemapCell(coord);
+                groundTilemap.SetTile(tilemapCell, paint.land ? GroundTile(land, coord, paint, tileSetFor) : null);
+                if (trimTilemap != null)
+                    trimTilemap.SetTile(tilemapCell, paint.land ? null : TrimTile(land, paint, tileSetFor));
             }
+        }
+
+        // Silence here would just look like an island that failed to generate, so say which reference on
+        // IslandSystem is still empty.
+        private static bool CanPaint(Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap)
+        {
+            if (groundTilemap != null && tileSetFor != null) return true;
+            Debug.LogWarning($"IslandTilePainter: nothing drawn — {(groundTilemap == null ? "ground tilemap" : "tile set lookup")} is not assigned.");
+            return false;
+        }
+
+        // The ground tile a cell draws on this land; null for a cell that is not land on it.
+        public static TileBase GroundTileOf(Land land, Vector2Int coord, Func<TerrainType, IslandTileSet> tileSetFor)
+        {
+            if (land == null || tileSetFor == null) return null;
+            var paint = PaintOf(land, coord);
+            return paint.land ? GroundTile(land, coord, paint, tileSetFor) : null;
+        }
+
+        private static TileBase GroundTile(Land land, Vector2Int coord, CellPaint paint, Func<TerrainType, IslandTileSet> tileSetFor)
+        {
+            var tileSet = tileSetFor(land.TerrainOf(coord));
+            return tileSet != null ? tileSet.GetGround(IsLight(coord, tileSet.invertCheckerboard), paint.ground) : null;
+        }
+
+        private static TileBase TrimTile(Land land, CellPaint paint, Func<TerrainType, IslandTileSet> tileSetFor)
+        {
+            if (paint.trim == IslandTrimPiece.None) return null;
+            var tileSet = tileSetFor(land.TerrainOf(paint.trimSource));
+            return tileSet != null ? tileSet.GetTrim(paint.trim) : null;
         }
 
         // IslandGrid cell c maps 1:1 to tilemap cell c — both put the centre of c at (c + 0.5) * cellSize,
@@ -91,19 +209,17 @@ namespace LittlePeeps
         // C#'s % would hand back -1 for odd negative sums.
         private static bool IsLight(Vector2Int coord, bool invert) => (((coord.x + coord.y) & 1) == 0) != invert;
 
-        private static bool IsLand(IslandGrid grid, Vector2Int coord) => grid.GetCell(coord) != null;
-
-        private static bool IsLand(IslandGrid grid, int x, int y) => grid.GetCell(new Vector2Int(x, y)) != null;
+        private static bool IsLand(Land land, int x, int y) => land.Contains(new Vector2Int(x, y));
 
         // A land cell takes a rounded variant where two outlines meet, i.e. where both orthogonal
         // neighbours of that corner are water. A cell narrow enough to qualify on two corners at once
         // would need art that does not exist, so the first match wins and the other corner stays square.
-        private static IslandGroundPiece PickGround(IslandGrid grid, Vector2Int c)
+        private static IslandGroundPiece PickGround(Land land, Vector2Int c)
         {
-            bool n = IsLand(grid, c.x, c.y + 1);
-            bool s = IsLand(grid, c.x, c.y - 1);
-            bool e = IsLand(grid, c.x + 1, c.y);
-            bool w = IsLand(grid, c.x - 1, c.y);
+            bool n = IsLand(land, c.x, c.y + 1);
+            bool s = IsLand(land, c.x, c.y - 1);
+            bool e = IsLand(land, c.x + 1, c.y);
+            bool w = IsLand(land, c.x - 1, c.y);
 
             if (!n && !w) return IslandGroundPiece.CornerTopLeft;
             if (!n && !e) return IslandGroundPiece.CornerTopRight;
@@ -121,18 +237,18 @@ namespace LittlePeeps
         // two pieces at once (land on both sides, or a band rounded at both ends) only arise on geometry
         // one cell wide, which the island shapes never produce; they degrade to the nearest piece here
         // rather than leaving a gap.
-        private static IslandTrimPiece PickTrim(IslandGrid grid, Vector2Int c, out Vector2Int source)
+        private static IslandTrimPiece PickTrim(Land land, Vector2Int c, out Vector2Int source)
         {
             var north = new Vector2Int(c.x, c.y + 1);
             var east  = new Vector2Int(c.x + 1, c.y);
             var west  = new Vector2Int(c.x - 1, c.y);
             var northEast = new Vector2Int(c.x + 1, c.y + 1);
             var northWest = new Vector2Int(c.x - 1, c.y + 1);
-            bool n  = IsLand(grid, north);
-            bool e  = IsLand(grid, east);
-            bool w  = IsLand(grid, west);
-            bool ne = IsLand(grid, northEast);
-            bool nw = IsLand(grid, northWest);
+            bool n  = land.Contains(north);
+            bool e  = land.Contains(east);
+            bool w  = land.Contains(west);
+            bool ne = land.Contains(northEast);
+            bool nw = land.Contains(northWest);
 
             // Inside a bay: the band along its top plus the column down one of its walls.
             source = north;

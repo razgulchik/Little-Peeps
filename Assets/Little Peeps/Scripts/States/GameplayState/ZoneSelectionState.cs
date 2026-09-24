@@ -11,7 +11,7 @@ namespace LittlePeeps
     // A state and not a step of the transition, for the reason PerkSelectionState gives: a step that
     // waits on a human is a mode. It sits BEFORE the transition rather than inside it because the
     // player chooses while looking at the island as it is, with the candidates drawn onto it — the
-    // fade that follows would hide exactly what the choice is about.
+    // transition that follows changes exactly what the choice is about.
     //
     // Input block: timeScale 0 stops the sim and makes TapSystem ignore world clicks. Camera pan/zoom
     // run on unscaled time, so the player can look around the offers while they decide.

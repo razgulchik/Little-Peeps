@@ -3,13 +3,14 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Inner gameplay state that plays one age transition: freezes the game, runs the AgeSequencer
-    // (fade, grow the island by the chosen zone, banner, fade back), then hands over to the perk pick
+    // (the chosen zone rises out of the sea, then the age banner), then hands over to the perk pick
     // when it completes. The age itself is already bought and applied by the time this state is
     // entered — ZoneSelectionState does that, and it is the only thing that builds one of these.
     //
     // Input block: timeScale 0 stops the sim AND makes TapSystem ignore world clicks (it early-returns at
     // timeScale 0), so pier/boost taps can't fire mid-transition — no UI-raycast juggling needed. The
-    // sequencer runs on unscaled time, so the fade/banner still animate while frozen.
+    // sequencer runs on unscaled time, so the rise and the banner still animate while frozen, and it takes
+    // its own taps (speed-up, skip) from InputHandler, which reports clicks at any time scale.
     public class AgeTransitionState : IState
     {
         private readonly StateMachine gameplayFsm;

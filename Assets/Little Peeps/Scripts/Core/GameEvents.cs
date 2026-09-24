@@ -41,9 +41,11 @@ namespace LittlePeeps
         public RunContext Run;
     }
 
-    // Published by IslandSystem right after it repaints the ground and trim tilemaps — at run start and on
-    // every age expansion. For whatever mirrors the drawn island (WaterSystem's coast obstruction), so it
-    // follows the tiles themselves rather than guessing which of the run/age events came after the paint.
+    // Published by IslandSystem in its LateUpdate, once, on any frame in which it repainted the ground and
+    // trim tilemaps — at run start, on every age expansion, and as a rising zone's tiles land one by one
+    // (dozens in a couple of seconds, hence once a frame rather than once a repaint). For whatever mirrors
+    // the drawn island (WaterSystem's coast obstruction), so it follows the tiles themselves rather than
+    // guessing which of the run/age events came after the paint.
     public struct IslandRepaintedEvent { }
 
     // Published by the AgeAdvancePanel "Next Age" button; handled by GameplayContainerState (enters ZoneSelection).

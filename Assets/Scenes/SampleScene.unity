@@ -171,6 +171,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 671411800887952070, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_hasFontAssetChanged
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 719410424745182492, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
@@ -4828,19 +4832,19 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1088972180}
+  - {fileID: 1945904890}
+  - {fileID: 321352747}
+  - {fileID: 596618326}
+  - {fileID: 2118373958}
+  - {fileID: 669469168}
+  - {fileID: 340968260}
   - {fileID: 1015335231}
   - {fileID: 1656171578}
   - {fileID: 42342359}
   - {fileID: 711440997}
-  - {fileID: 2118373958}
+  - {fileID: 174083671}
   - {fileID: 1346784183}
   - {fileID: 274669771}
-  - {fileID: 596618326}
-  - {fileID: 174083671}
-  - {fileID: 669469168}
-  - {fileID: 340968260}
-  - {fileID: 1945904890}
-  - {fileID: 321352747}
   - {fileID: 1485223155}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -5315,8 +5319,8 @@ MonoBehaviour:
   edgePanEnabled: 0
   edgeThickness: 12
   zoomSpeed: 1
-  minZoom: 3
-  maxZoom: 12
+  minZoom: 4
+  maxZoom: 20
   boundsMargin: 4
 --- !u!4 &1766505766
 Transform:
@@ -5378,10 +5382,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   islandSystem: {fileID: 738684714}
-  fadeOverlay: {fileID: 40523891}
+  risePlayer: {fileID: 2022050419}
+  cameraController: {fileID: 1766505765}
+  inputHandler: {fileID: 1556966234}
+  banner: {fileID: 40523891}
   titleLabel: {fileID: 40523890}
-  fadeDuration: 0.5
+  bannerFade: 0.5
   titleHold: 2
+  bannerTapGrace: 0.4
 --- !u!1 &1976302156
 GameObject:
   m_ObjectHideFlags: 0
@@ -5394,6 +5402,7 @@ GameObject:
   - component: {fileID: 1976302159}
   - component: {fileID: 1976302158}
   - component: {fileID: 1976302161}
+  - component: {fileID: 1976302162}
   m_Layer: 0
   m_Name: CinemachineCamera
   m_TagString: Untagged
@@ -5490,6 +5499,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a8a05de0ac134f4f9d01bef6b9da077, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &1976302162
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1976302156}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00b2d199b96b516448144ab30fb26aed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ApplyAfter: 2
+  ChannelMask: 1
+  Gain: 1
+  Use2DDistance: 0
+  UseCameraSpace: 1
+  SignalCombinationMode: 0
+  ReactionSettings:
+    m_SecondaryNoise: {fileID: 0}
+    AmplitudeGain: 1
+    FrequencyGain: 1
+    Duration: 1
+    m_NoiseOffsets: {x: 0, y: 0, z: 0}
 --- !u!114 &2003217277 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 249761329791802312, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
@@ -5501,6 +5534,53 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d736004b1a6427ddd0349033dc3feda, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &2022050418
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2022050420}
+  - component: {fileID: 2022050419}
+  m_Layer: 0
+  m_Name: IslandRise
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2022050419
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2022050418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3686a6c147fbf6148bed2273680d0a98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  profile: {fileID: 11400000, guid: 6e9dbcb608ef6854e84253b88861ff03, type: 2}
+  islandSystem: {fileID: 738684714}
+  waterSystem: {fileID: 1485223156}
+--- !u!4 &2022050420
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2022050418}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2029699065
 GameObject:
   m_ObjectHideFlags: 0
@@ -34717,3 +34797,4 @@ SceneRoots:
   - {fileID: 721271055}
   - {fileID: 40523889}
   - {fileID: 548361982}
+  - {fileID: 2022050420}

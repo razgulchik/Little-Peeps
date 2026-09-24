@@ -29,6 +29,9 @@ namespace LittlePeeps
 
         private readonly List<Animal> animals = new();
         private float respawnTimer;
+
+        // The animals out right now. Read by the island rise, which pops a new den's animals up with it.
+        public IReadOnlyList<Animal> Animals => animals;
         private bool registered;
 
         private readonly List<Vector2> freeCells = new();      // reused per pick — unoccupied land in territory

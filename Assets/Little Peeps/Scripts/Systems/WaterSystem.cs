@@ -23,8 +23,14 @@ namespace LittlePeeps
     // frame from a thickness in art pixels instead: the band stays the same in the world at any zoom and
     // pulses between two thicknesses. Colour and alpha stay in the prefab; its width field is overridden.
     //
+    // Side foam: that band cannot reach the east and west edges — the package's shader only looks upward
+    // for the coast. So the sides get their own: two flat-coloured twins of every coast tilemap, one shifted
+    // a few art pixels left and one right, drawn just under the island. The island hides them everywhere
+    // except a strip along its vertical edges. Same colour and alpha as the band, read from the prefab.
+    //
     // Wire: waterPrefab → the water prefab; coastTilemaps → Ground and GroundTrim (the trim draws the
-    // coastline on water cells, so it is part of the coast the ripples meet).
+    // coastline on water cells, so it is part of the coast the ripples meet); sideFoamShader → the
+    // "Little Peeps/Sprite Flat Color" shader.
     public class WaterSystem : MonoBehaviour
     {
         [SerializeField] private ModernWater2D waterPrefab;
@@ -41,6 +47,12 @@ namespace LittlePeeps
         [Tooltip("On: the foam steps a whole art pixel at a time. Off: it slides by screen pixels.")]
         [SerializeField] private bool foamWholePixels = true;
 
+        [Header("Side foam")]
+        [Tooltip("The \"Little Peeps/Sprite Flat Color\" shader. Empty = no foam along the sides.")]
+        [SerializeField] private Shader sideFoamShader;
+        [Tooltip("Width of the foam along the island's east and west edges, in art pixels. 0 = none.")]
+        [Min(0)] [SerializeField] private int sideFoamPixels = 1;
+
         // The art's pixels per unit (the Pixel Perfect Camera's Assets PPU).
         private const float ArtPixelsPerUnit = 16f;
 
@@ -50,6 +62,11 @@ namespace LittlePeeps
         private ModernWater2D water;
         private MaterialPropertyBlock foamBlock;
         private ObstructorTilemap[] coast;   // null until Start
+
+        // Two twins per coast tilemap: [2i] shifted left and [2i + 1] shifted right of coastTilemaps[i].
+        private Tilemap[] sideFoam;          // null until Start, and without a shader
+        private Material sideFoamMaterial;
+        private int sideFoamPlaced = -1;     // the width the twins are shifted by right now
 
         private void OnEnable()  => EventBus<IslandRepaintedEvent>.Subscribe(OnIslandRepainted);
         private void OnDisable() => EventBus<IslandRepaintedEvent>.Unsubscribe(OnIslandRepainted);
@@ -86,6 +103,14 @@ namespace LittlePeeps
             for (int i = 0; i < coastTilemaps.Length; i++)
                 if (coastTilemaps[i] != null)
                     coast[i] = coastTilemaps[i].gameObject.AddComponent<ObstructorTilemap>();
+
+            CreateSideFoam();
+            CopySideFoamTiles();
+        }
+
+        private void OnDestroy()
+        {
+            if (sideFoamMaterial != null) Destroy(sideFoamMaterial);
         }
 
         // A repaint before Start (the first island) needs nothing: Start's copies are taken after it.
@@ -100,14 +125,22 @@ namespace LittlePeeps
                     twin.obstructor.GetComponent<Tilemap>().ClearAllTiles();   // CreateData only ever adds
                 twin.CreateData();
             }
+
+            CopySideFoamTiles();
+        }
+
+        private void LateUpdate()
+        {
+            if (water == null) return;
+            PulseCoastFoam();
+            UpdateSideFoam();
         }
 
         // Through a property block on the water's renderer, not the package's width setting: every change
         // of a setting re-uploads the whole material and searches the scene for waters — once a frame is
         // too much. The package puts no property block on its own renderer, so nothing overwrites this one.
-        private void LateUpdate()
+        private void PulseCoastFoam()
         {
-            if (water == null) return;
             var waterRenderer = water.ActiveRenderer;
             var camera = Camera.main;
             if (waterRenderer == null || camera == null || !camera.orthographic) return;
@@ -125,6 +158,89 @@ namespace LittlePeeps
             waterRenderer.GetPropertyBlock(foamBlock);
             foamBlock.SetFloat(ObstructionWidthId, width);
             waterRenderer.SetPropertyBlock(foamBlock);
+        }
+
+        // The twins sit beside their tilemaps under the same Grid, so they share its cells, and sort one step
+        // below the lowest coast layer: under the whole island, above the water.
+        private void CreateSideFoam()
+        {
+            if (sideFoamShader == null) return;
+
+            TilemapRenderer lowest = null;
+            foreach (var tilemap in coastTilemaps)
+            {
+                var tilemapRenderer = tilemap != null ? tilemap.GetComponent<TilemapRenderer>() : null;
+                if (tilemapRenderer != null && (lowest == null || SortsBelow(tilemapRenderer, lowest))) lowest = tilemapRenderer;
+            }
+            if (lowest == null) return;
+
+            sideFoamMaterial = new Material(sideFoamShader);
+            sideFoam = new Tilemap[coastTilemaps.Length * 2];
+            for (int i = 0; i < coastTilemaps.Length; i++)
+            {
+                var source = coastTilemaps[i];
+                if (source == null) continue;
+                for (int side = 0; side < 2; side++)
+                {
+                    var twin = new GameObject($"{source.name} side foam {(side == 0 ? "left" : "right")}");
+                    twin.transform.SetParent(source.transform.parent, false);
+                    var tilemap = twin.AddComponent<Tilemap>();
+                    tilemap.tileAnchor = source.tileAnchor;
+                    var tilemapRenderer = twin.AddComponent<TilemapRenderer>();
+                    tilemapRenderer.sharedMaterial = sideFoamMaterial;
+                    tilemapRenderer.sortingLayerID = lowest.sortingLayerID;
+                    tilemapRenderer.sortingOrder = lowest.sortingOrder - 1;
+                    sideFoam[i * 2 + side] = tilemap;
+                }
+            }
+        }
+
+        private static bool SortsBelow(Renderer a, Renderer b)
+        {
+            int layerA = SortingLayer.GetLayerValueFromID(a.sortingLayerID);
+            int layerB = SortingLayer.GetLayerValueFromID(b.sortingLayerID);
+            return layerA != layerB ? layerA < layerB : a.sortingOrder < b.sortingOrder;
+        }
+
+        private void CopySideFoamTiles()
+        {
+            if (sideFoam == null) return;
+            for (int i = 0; i < coastTilemaps.Length; i++)
+            {
+                var source = coastTilemaps[i];
+                if (source == null) continue;
+                var bounds = source.cellBounds;
+                var tiles = source.GetTilesBlock(bounds);
+                for (int side = 0; side < 2; side++)
+                {
+                    var twin = sideFoam[i * 2 + side];
+                    twin.ClearAllTiles();
+                    twin.SetTilesBlock(bounds, tiles);
+                }
+            }
+        }
+
+        // Colour every frame (cheap: our own material) so tuning the prefab's obstruction colour in Play Mode
+        // shows on the sides too; the shift only when the width changes.
+        private void UpdateSideFoam()
+        {
+            if (sideFoam == null) return;
+
+            var settings = water.settings._waterSettings;
+            Color colour = settings.obstructionColor.value;
+            colour.a *= settings.obstructionAlpha.value;
+            sideFoamMaterial.color = colour;
+
+            if (sideFoamPixels == sideFoamPlaced) return;
+            sideFoamPlaced = sideFoamPixels;
+            for (int i = 0; i < sideFoam.Length; i++)
+            {
+                var twin = sideFoam[i];
+                if (twin == null) continue;
+                float shift = (i % 2 == 0 ? -1f : 1f) * sideFoamPixels / ArtPixelsPerUnit;
+                twin.transform.localPosition = coastTilemaps[i / 2].transform.localPosition + new Vector3(shift, 0f, 0f);
+                twin.gameObject.SetActive(sideFoamPixels > 0);
+            }
         }
     }
 }

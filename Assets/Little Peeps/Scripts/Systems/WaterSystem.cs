@@ -28,9 +28,15 @@ namespace LittlePeeps
     // a few art pixels left and one right, drawn just under the island. The island hides them everywhere
     // except a strip along its vertical edges. Same colour and alpha as the band, read from the prefab.
     //
+    // Bending coast: while the island rises its land bends (IslandBend), and the coast the water sees has to
+    // bend with it, or the band stays where the coast was and the land lifts off its foam. The package draws
+    // its twins with its own material ("Red"), which knows nothing of the bend — so each twin gets a flat red
+    // silhouette in the side foam's shader instead, bending like the land. For a tile that is all Red draws:
+    // the sprite's alpha in red (its _h cut-off is 1 on the coast, so it cuts nothing).
+    //
     // Wire: waterPrefab → the water prefab; coastTilemaps → Ground and GroundTrim (the trim draws the
     // coastline on water cells, so it is part of the coast the ripples meet); sideFoamShader → the
-    // "Little Peeps/Sprite Flat Color" shader.
+    // "Little Peeps/Sprite Flat Color" shader (the side foam and the bending coast).
     public class WaterSystem : MonoBehaviour
     {
         [SerializeField] private ModernWater2D waterPrefab;
@@ -48,7 +54,8 @@ namespace LittlePeeps
         [SerializeField] private bool foamWholePixels = true;
 
         [Header("Side foam")]
-        [Tooltip("The \"Little Peeps/Sprite Flat Color\" shader. Empty = no foam along the sides.")]
+        [Tooltip("The \"Little Peeps/Sprite Flat Color\" shader. Empty = no foam along the sides, and the coast the " +
+                 "water sees does not bend with the island (the land rises off its foam).")]
         [SerializeField] private Shader sideFoamShader;
         [Tooltip("Width of the foam along the island's east and west edges, in art pixels. 0 = none.")]
         [Min(0)] [SerializeField] private int sideFoamPixels = 1;
@@ -62,6 +69,7 @@ namespace LittlePeeps
         private ModernWater2D water;
         private MaterialPropertyBlock foamBlock;
         private ObstructorTilemap[] coast;   // null until Start
+        private Material coastMaterial;      // what the coast twins draw with; null without a shader
 
         // Two twins per coast tilemap: [2i] shifted left and [2i + 1] shifted right of coastTilemaps[i].
         private Tilemap[] sideFoam;          // null until Start, and without a shader
@@ -105,6 +113,13 @@ namespace LittlePeeps
                 if (coastTilemaps[i] != null)
                     coast[i] = coastTilemaps[i].gameObject.AddComponent<ObstructorTilemap>();
 
+            if (sideFoamShader != null)
+            {
+                coastMaterial = new Material(sideFoamShader) { color = Color.red };
+                IslandBend.SetWeight(coastMaterial, 1f);
+            }
+            BendCoast();
+
             CreateSideFoam();
             CopySideFoamTiles();
         }
@@ -112,6 +127,7 @@ namespace LittlePeeps
         private void OnDestroy()
         {
             if (sideFoamMaterial != null) Destroy(sideFoamMaterial);
+            if (coastMaterial != null) Destroy(coastMaterial);
         }
 
         // A repaint before Start (the first island) needs nothing: Start's copies are taken after it.
@@ -126,8 +142,20 @@ namespace LittlePeeps
                     twin.obstructor.GetComponent<Tilemap>().ClearAllTiles();   // CreateData only ever adds
                 twin.CreateData();
             }
+            BendCoast();
 
             CopySideFoamTiles();
+        }
+
+        // After every CreateData: it hands the twin the package's material again each time.
+        private void BendCoast()
+        {
+            if (coastMaterial == null) return;
+            foreach (var twin in coast)
+            {
+                var twinRenderer = twin != null && twin.obstructor != null ? twin.obstructor.GetComponent<TilemapRenderer>() : null;
+                if (twinRenderer != null) twinRenderer.sharedMaterial = coastMaterial;
+            }
         }
 
         private void LateUpdate()

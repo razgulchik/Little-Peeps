@@ -39,8 +39,8 @@ namespace LittlePeeps
     // sheet under both (IslandBend: the shader that draws it moves every corner of the grid on its own,
     // so no two tiles ever come apart), and the old island never moves — the sheet is pinned wherever it
     // touches it. What is drawn as part of the land (a river, a mountain) bends with it; what stands on it
-    // rides up by the height under its root. Every lift, hop, bounce and breath can move in whole art
-    // pixels (the profile's pixel snap).
+    // rides up by the height under its root, and a den's animals by the height under their feet. Every lift,
+    // hop, bounce and breath can move in whole art pixels (the profile's pixel snap).
     //
     // Around that, what goes off at a moment rather than lasting: bubbles over a cell until its tile breaks
     // the surface; a splash, a note and a camera kick as it does; a puff as it touches down; dust and a
@@ -102,7 +102,7 @@ namespace LittlePeeps
         private StructureDef[] defs;
         private AnimalSpawner[][] dens;    // the dens in each structure, whose animals pop with it
         private bool[] popped;
-        private readonly Dictionary<Transform, Vector3> animalScales = new();   // animal root → its own scale
+        private readonly Dictionary<Transform, (Vector3 scale, Vector3 position)> animalBodies = new();   // animal root → its own scale and place
 
         private readonly Stack<Proxy> pool = new();
         private bool obstructorsBuilt;     // whether the pooled stand-ins carry an Obstructor
@@ -265,9 +265,13 @@ namespace LittlePeeps
                     roots[j].position = rootPositions[j];
                 }
 
-            foreach (var animal in animalScales)
-                if (animal.Key != null) animal.Key.localScale = animal.Value;
-            animalScales.Clear();
+            foreach (var body in animalBodies)
+                if (body.Key != null)
+                {
+                    body.Key.localScale = body.Value.scale;
+                    body.Key.position = body.Value.position;
+                }
+            animalBodies.Clear();
 
             schedule = null;
             speed = 1f;
@@ -355,10 +359,14 @@ namespace LittlePeeps
             }
             bend.Apply();
 
-            // What stands on the zone rides up by the height under its root, the bottom-centre of its footprint.
+            // What stands on the zone rides up by the height under its root, the bottom-centre of its footprint;
+            // a den's animal by the height under its feet, where its root is. Frozen, nothing else moves them.
             for (int j = 0; j < roots.Length; j++)
                 if (roots[j] != null && rides[j])
                     roots[j].position = rootPositions[j] + new Vector3(0f, profile.Snap(bend.HeightAt(rootPositions[j])), 0f);
+            foreach (var body in animalBodies)
+                if (body.Key != null)
+                    body.Key.position = body.Value.position + new Vector3(0f, profile.Snap(bend.HeightAt(body.Value.position)), 0f);
         }
 
         // A cell's lift for this frame: the highest asked of it, in whole pixels when the profile snaps — one
@@ -430,7 +438,8 @@ namespace LittlePeeps
         }
 
         // A den's animals come out with it. They are made in the den's Start, a frame or so after its pop
-        // switched it on, so they are picked up whenever they turn up and scaled in step with the den.
+        // switched it on, so they are picked up whenever they turn up and scaled in step with the den. Where one
+        // stands when picked up is where it rides the land from (Lift) and where Finish puts it back.
         private void ScaleAnimals(int j, float scale)
         {
             foreach (var den in dens[j])
@@ -440,8 +449,8 @@ namespace LittlePeeps
                 {
                     if (animal == null) continue;
                     var body = animal.transform.root;
-                    if (!animalScales.TryGetValue(body, out var full)) animalScales[body] = full = body.localScale;
-                    body.localScale = full * scale;
+                    if (!animalBodies.TryGetValue(body, out var own)) animalBodies[body] = own = (body.localScale, body.position);
+                    body.localScale = own.scale * scale;
                 }
             }
         }
@@ -627,7 +636,7 @@ namespace LittlePeeps
                 dens[j] = roots[j].GetComponentsInChildren<AnimalSpawner>(true);
             }
             popped = new bool[roots.Length];
-            animalScales.Clear();
+            animalBodies.Clear();
             return items;
         }
 

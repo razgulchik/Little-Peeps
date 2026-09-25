@@ -170,6 +170,17 @@ namespace LittlePeeps
         [Tooltip("How fast the rest of the rise plays after the first tap.")]
         [Min(1f)] public float tapSpeedUp = 3f;
 
+        [Header("Slow frames")]
+        [Tooltip("On: a slow frame moves the rise by at most Max Frame Step, so the rise stands still for " +
+                 "that frame instead of jumping over what it should have shown — the first rise of a session " +
+                 "is slow to start while its code compiles. Off: the rise keeps to real time and skips ahead. " +
+                 "The game only; the tuning window caps its own step.")]
+        public bool capFrameStep = true;
+
+        [Tooltip("Most seconds of the rise one frame may play, before the tap's speed-up. 0.034 = two frames " +
+                 "at 60 FPS.")]
+        [Min(0.001f)] public float maxFrameStep = 0.034f;
+
         // Semitones of the major pentatonic scale within one octave.
         private static readonly int[] Pentatonic = { 0, 2, 4, 7, 9 };
 

@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d7d9cf6b62a77fa40bf960202c8949ed, type: 3}
-  m_Name: Island Rise Profile
+  m_Name: Default Island Rise Profile
   m_EditorClassIdentifier: 
   timing:
-    order: 3
-    leadIn: 0.05
-    cascade: 0.9
-    crescendo: 1.1
+    order: 0
+    leadIn: 0.5
+    cascade: 1.6
+    crescendo: 1.8
     jitter: 0.4
     noiseScale: 3.2
     noiseStrength: 0.7
-    depthRise: 0.3
+    depthRise: 0.4
     hop: 0.32
     squash: 0.2
     contentStart: 0.7
@@ -320,5 +320,3 @@ MonoBehaviour:
   shakeCap: 0.2
   shakeDuration: 0.2
   tapSpeedUp: 3
-  capFrameStep: 1
-  maxFrameStep: 0.034

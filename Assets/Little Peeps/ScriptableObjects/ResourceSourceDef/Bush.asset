@@ -25,4 +25,4 @@ MonoBehaviour:
   pickupFxCount: 1
   infinite: 0
   hitsBeforeDespawn: 1
-  respawnTime: 10
+  respawnTime: 15

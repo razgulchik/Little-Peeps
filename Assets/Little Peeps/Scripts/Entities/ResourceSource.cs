@@ -3,24 +3,31 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Resource node behaviour: grants def.resource each time an allowed worker hits the host
-    // CollisionTarget, depletes after def.hitsBeforeDespawn hits, then respawns after
-    // def.respawnTime. Config lives in the ResourceSourceDef asset; per-instance state lives here.
-    // Attach to a natural node (tree/wheat/stone) or a building-source (Forge/Church, infinite def).
+    // CollisionTarget, and after def.hitsToDeplete paying hits does what def.depletion says — regrow
+    // in place, despawn, or never run out at all. Config lives in the ResourceSourceDef asset;
+    // per-instance state lives here. The one harvest component for every source: a natural node
+    // (tree/wheat/stone), a building-source (Forge/Market, Never) and an animal (alpaca/boar/fox,
+    // next to Animal + AnimalWander) alike.
     //
-    // Two visual states (skipped for infinite sources):
+    // Two visual states (Regrow sources only):
     //   Ready     — ripe/grown, harvestable; shows readyRoot.
-    //   Harvested — used up, collider off, regrowing; shows harvestedRoot. After def.respawnTime
-    //               it returns to Ready.
+    //   Harvested — used up, regrowing; shows harvestedRoot. Its colliders are off unless the def
+    //               keeps the body (a shorn alpaca still bumps into units, it just pays nothing).
+    //               After def.regrowTime it returns to Ready.
     // Each root is fully configured in the prefab (its own SpriteRenderer + Sorting Layer + pivot),
     // so a tall Ready node (wheat/tree) can Y-sort against passing units while the flat Harvested
-    // node sits on a lower layer that units always walk over. Infinite sources (Forge/Church) keep
-    // their single visual and leave both roots untouched.
+    // node sits on a lower layer that units always walk over. Never and Despawn sources keep their
+    // single visual and leave both roots untouched.
+    //
+    // Despawn destroys the whole object on the hit that uses it up. Only a den's animal may do that:
+    // the den (AnimalSpawner, told through Animal) replaces it, while a structure would leave its grid
+    // cells taken by nothing — Start refuses that combination loudly.
     //
     // The Ready→Harvested switch is not instant: the ready root fades out over fadeOutTime while the
     // harvested one shows through underneath, which is what reads as the field being reaped. A second
     // curve on the same clock squashes and stretches the ready root vertically — the kick of the reap.
-    // It is presentation only — the collider is off and the regrow clock is running from the moment
-    // of the hit, so no length of fade can ever be harvested through. Speed and shape are per-prefab:
+    // It is presentation only — the node is Harvested (no hit pays) and the regrow clock is running
+    // from the moment of the hit, so no length of fade can ever be harvested through. Speed and shape are per-prefab:
     // a field and a tree vanish at their own rates.
     //
     // swapStateVisuals controls how the two roots are composited:
@@ -36,7 +43,7 @@ namespace LittlePeeps
         [SerializeField] private ResourceSourceDef def;
         [SerializeField] private ResourceSystem resourceSystem; // scene ref — can't live in the SO
 
-        [Header("State visuals (leave empty for infinite sources)")]
+        [Header("State visuals (Regrow sources only)")]
         [SerializeField] private GameObject readyRoot;
         [SerializeField] private GameObject harvestedRoot;
         [Tooltip("On: swap one root for the other per state (mutually exclusive). " +
@@ -83,7 +90,7 @@ namespace LittlePeeps
             // Own GameObject only, not children: a scale belongs to the source it sits on, and in a
             // composite prefab (forest) each child tree is its own source with its own scales.
             yieldScales = GetComponents<IYieldScale>();
-            if (def != null) hitsLeft = def.hitsBeforeDespawn;
+            if (def != null) hitsLeft = def.hitsToDeplete;
             if (readyRoot != null)
             {
                 readyRenderers = readyRoot.GetComponentsInChildren<SpriteRenderer>(true);
@@ -103,9 +110,11 @@ namespace LittlePeeps
         // Null before injection or outside a run — callers fall back to their base value.
         public RunStats Stats => resourceSystem != null ? resourceSystem.Stats : null;
 
-        // Whether a worker of this type gets paid here at all. The def decides; exposed so a gate on
-        // this object can tell a paying hit from a stray bounce BEFORE OnHit settles it.
-        public bool Accepts(UnitType type) => def != null && def.TryGetYield(type, out _);
+        // Whether a worker of this type gets paid here right now. The def decides who, the state decides
+        // when — a source that keeps its body while regrowing still takes hits, and none of them pay.
+        // Exposed so a gate on this object can tell a paying hit from a stray bounce BEFORE OnHit
+        // settles it.
+        public bool Accepts(UnitType type) => def != null && state == State.Ready && def.TryGetYield(type, out _);
 
         private void Start()
         {
@@ -114,14 +123,19 @@ namespace LittlePeeps
             if (resourceSystem == null)
                 Debug.LogError($"ResourceSource on '{name}' has no ResourceSystem assigned.", this);
 
-            // Infinite sources (Forge/Church) never change state, so they don't need state roots.
-            if (def != null && !def.infinite)
+            // Only a regrowing source changes state, so only it needs the state roots.
+            if (def != null && def.depletion == Depletion.Regrow)
             {
                 if (readyRoot == null)
                     Debug.LogError($"ResourceSource on '{name}' has no readyRoot assigned.", this);
                 if (harvestedRoot == null)
                     Debug.LogError($"ResourceSource on '{name}' has no harvestedRoot assigned.", this);
             }
+
+            if (def != null && def.depletion == Depletion.Despawn && GetComponentInParent<Structure>(true) != null)
+                Debug.LogError($"ResourceSource on '{name}': '{def.name}' is set to Despawn, but this is a " +
+                               "structure — destroying it would leave its grid cells taken. Despawn is for " +
+                               "a den's animals; use Regrow here.", this);
 
             ApplyStateVisual();
         }
@@ -141,8 +155,13 @@ namespace LittlePeeps
             // is the yield modifier's source scope, not just where the ResourceType came from.
             resourceSystem.AddHarvest(def, unit.Type, amount, FxOrigin);
 
-            if (def.infinite) return;
-            if (--hitsLeft <= 0) Deplete();
+            if (def.depletion == Depletion.Never) return;
+            if (--hitsLeft > 0) return;
+
+            // Despawn: gone for good. The feedback above was already sent with the position, so it
+            // outlives the node; the den hears about the loss from Animal.OnDestroy.
+            if (def.depletion == Depletion.Despawn) Destroy(gameObject);
+            else Deplete();
         }
 
         // Where harvest feedback leaves from. Authored in the prefab so art decides it, not code.
@@ -210,16 +229,18 @@ namespace LittlePeeps
         {
             var stats = resourceSystem != null ? resourceSystem.Stats : null;
             return stats != null
-                ? stats.Apply(def.respawnTime, StatId.SourceRespawn, source: def)
-                : def.respawnTime;
+                ? stats.Apply(def.regrowTime, StatId.SourceRespawn, source: def)
+                : def.regrowTime;
         }
 
-        // Harvested: used up, collider off, showing the harvested sprite until it regrows.
+        // Harvested: used up, showing the harvested sprite until it regrows. The colliders go off unless
+        // the def keeps the body — then units still bump into it (or cross its trigger) and OnHit, gated
+        // on the state, pays nothing.
         private void Deplete()
         {
             state = State.Harvested;
             respawnTimer = ResolveRespawnTime();
-            host.SetColliderEnabled(false);
+            if (!def.keepBodyWhileDepleted) host.SetColliderEnabled(false);
 
             if (fadeOutTime <= 0f || readyRenderers == null || readyRenderers.Length == 0)
             {
@@ -227,8 +248,8 @@ namespace LittlePeeps
                 return;
             }
 
-            // Gameplay is already over for this node — the collider is off and the regrow clock is
-            // running — so the fade is pure presentation and its length can be whatever looks right
+            // Gameplay is already over for this node — it is Harvested, so no hit pays, and the regrow
+            // clock is running — so the fade is pure presentation and its length can be whatever looks right
             // without ever handing out a free harvest.
             //
             // ApplyStateVisual is NOT called yet: it would switch the ready root off outright, which is
@@ -247,8 +268,8 @@ namespace LittlePeeps
         private void Respawn()
         {
             state = State.Ready;
-            hitsLeft = def.hitsBeforeDespawn;
-            host.SetColliderEnabled(true);
+            hitsLeft = def.hitsToDeplete;
+            if (!def.keepBodyWhileDepleted) host.SetColliderEnabled(true);
 
             // A regrow can land mid-fade whenever a def's respawn time is shorter than the fade (or a
             // perk drags it there). The node has to come back solid either way, so the fade is dropped
@@ -259,11 +280,11 @@ namespace LittlePeeps
             ApplyStateVisual();
         }
 
-        // Drives the two roots from the current state. Infinite sources keep their single visual, so
-        // both roots are left as the prefab set them (typically only one is present and active).
+        // Drives the two roots from the current state. Never and Despawn sources keep their single
+        // visual, so both roots are left as the prefab set them (typically only one is present and active).
         private void ApplyStateVisual()
         {
-            if (def == null || def.infinite) return;
+            if (def == null || def.depletion != Depletion.Regrow) return;
 
             if (!swapStateVisuals)
             {

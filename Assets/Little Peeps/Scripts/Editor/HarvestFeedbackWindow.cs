@@ -35,8 +35,8 @@ namespace LittlePeeps.EditorTools
             None,       // no prefab, or nothing recognisable on it
             Fades,      // ResourceSource with fadeOutTime > 0: ready visual dissolves
             Vanishes,   // ResourceSource with fadeOutTime == 0: ready visual switches off outright
-            Infinite,   // ResourceSourceDef.infinite: Market/Smithy never change at all
-            Despawns    // Animal: destroyed outright, no fade anywhere in the component
+            Infinite,   // Depletion.Never: Market/Smithy never change at all
+            Despawns    // Depletion.Despawn: boar/fox destroyed outright, no fade
         }
 
         private HarvestNumberMotionDef motion;
@@ -217,18 +217,19 @@ namespace LittlePeeps.EditorTools
                 EditorGUILayout.HelpBox("The preview runs in Edit Mode only.", MessageType.Warning);
         }
 
-        // Spells out which of the three disappearance mechanics this prefab has, because the
-        // difference between "fades", "stays put" and "gone instantly" is authored in three different
-        // places and is the single most confusing thing about harvest feedback.
+        // Spells out which of the disappearance mechanics this prefab has, because the difference
+        // between "fades", "stays put" and "gone instantly" is authored in two different places (the
+        // def's depletion, the prefab's fade) and is the single most confusing thing about harvest
+        // feedback.
         private void DrawPrefabNote()
         {
             if (resourcePrefab == null) return;
 
-            var node = FindNode(resourcePrefab, out bool isAnimal);
+            var node = FindNode(resourcePrefab);
             if (node == null)
             {
                 EditorGUILayout.HelpBox(
-                    "No ResourceSource or Animal on this prefab — nothing to read.", MessageType.Warning);
+                    "No ResourceSource on this prefab — nothing to read.", MessageType.Warning);
                 return;
             }
 
@@ -241,19 +242,20 @@ namespace LittlePeeps.EditorTools
                 return;
             }
 
-            string hits = def.infinite
+            string hits = def.depletion == Depletion.Never
                 ? "never used up"
-                : $"{def.hitsBeforeDespawn} hit(s) to use up";
+                : $"{def.hitsToDeplete} hit(s) to use up";
 
             string ending;
-            if (isAnimal)
-                ending = def.infinite ? "stays put (infinite)" : "destroyed outright, no fade";
-            else if (def.infinite)
-                ending = "stays put (infinite) — Market and Smithy never change state";
+            if (def.depletion == Depletion.Never)
+                ending = "stays put — never changes state";
+            else if (def.depletion == Depletion.Despawn)
+                ending = "destroyed outright, no fade";
             else
             {
                 float t = Prop(so, "fadeOutTime")?.floatValue ?? 0f;
                 ending = t > 0f ? $"ready visual fades out over {t:0.##}s" : "ready visual switches off at once";
+                ending += $", back in {def.regrowTime:0.##}s";
             }
 
             EditorGUILayout.HelpBox($"{def.name}: {hits}; {ending}.", MessageType.None);
@@ -361,7 +363,7 @@ namespace LittlePeeps.EditorTools
         }
 
         // Instantiates the node prefab and reads everything the preview needs off it. The fields are
-        // private [SerializeField] on ResourceSource/Animal and are read through SerializedObject on
+        // private [SerializeField] on ResourceSource and are read through SerializedObject on
         // purpose: a preview is no reason to widen a gameplay class's public surface. The cost is that
         // the field NAMES are the contract, so a rename must fail loudly — see Prop.
         private void SpawnNode()
@@ -376,11 +378,11 @@ namespace LittlePeeps.EditorTools
             foreach (var mb in nodeView.GetComponentsInChildren<MonoBehaviour>(true)) mb.enabled = false;
             foreach (var col in nodeView.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
 
-            var node = FindNode(nodeView, out bool isAnimal);
+            var node = FindNode(nodeView);
             if (node == null)
             {
                 Debug.LogWarning(
-                    $"HarvestFeedbackWindow: '{resourcePrefab.name}' has no ResourceSource or Animal; " +
+                    $"HarvestFeedbackWindow: '{resourcePrefab.name}' has no ResourceSource; " +
                     "showing it as scenery only.", resourcePrefab);
                 ApplyShowObject();
                 return;
@@ -390,13 +392,13 @@ namespace LittlePeeps.EditorTools
             var def = Prop(so, "def")?.objectReferenceValue as ResourceSourceDef;
             var anchor = Prop(so, "fxAnchor")?.objectReferenceValue as Transform;
 
-            // Mirrors ResourceSource.FxOrigin / Animal's inline equivalent exactly.
+            // Mirrors ResourceSource.FxOrigin exactly.
             fxOrigin = anchor != null ? anchor.position : nodeView.transform.position;
 
             if (def == null) { ApplyShowObject(); return; }
 
-            if (def.infinite) behaviour = NodeBehaviour.Infinite;
-            else if (isAnimal) behaviour = NodeBehaviour.Despawns;
+            if (def.depletion == Depletion.Never) behaviour = NodeBehaviour.Infinite;
+            else if (def.depletion == Depletion.Despawn) behaviour = NodeBehaviour.Despawns;
             else
             {
                 readyRootView = Prop(so, "readyRoot")?.objectReferenceValue as GameObject;
@@ -590,24 +592,15 @@ namespace LittlePeeps.EditorTools
 
         // ---------------------------------------------------------------- plumbing
 
-        private static Component FindNode(GameObject root, out bool isAnimal)
+        // Animals carry the same ResourceSource as trees, so one lookup covers every node prefab.
+        private static ResourceSource FindNode(GameObject root)
         {
-            isAnimal = false;
-            if (root == null) return null;
-
-            var rs = root.GetComponentInChildren<ResourceSource>(true);
-            if (rs != null) return rs;
-
-            var animal = root.GetComponentInChildren<Animal>(true);
-            if (animal == null) return null;
-
-            isAnimal = true;
-            return animal;
+            return root != null ? root.GetComponentInChildren<ResourceSource>(true) : null;
         }
 
         private ResourceSourceDef ResolvePrefabDef()
         {
-            var node = FindNode(resourcePrefab, out _);
+            var node = FindNode(resourcePrefab);
             if (node == null) return null;
 
             var so = new SerializedObject(node);

@@ -6,8 +6,8 @@ namespace LittlePeeps
     // Kinematic wandering for animals: pick a point in the owning spawner's territory, walk
     // straight to it, pause, repeat. The Rigidbody2D must be Kinematic: the animal then passes
     // through terrain (only destinations are validated, by the spawner), while dynamic units
-    // still get collision callbacks against its collider and bounce off — that bounce is the
-    // harvest hit (see Animal).
+    // still get callbacks against its collider — bouncing off a solid one, crossing a trigger —
+    // and that contact is the harvest hit (see the ResourceSource next to it).
     // Reactions are code-driven because kinematic pairs generate no physics callbacks: while
     // walking the animal keeps a comfort distance to other animals and probes the ground ahead
     // (island edge, structures flagged animalsAvoid — see AnimalSpawner.IsBlocked); on either encounter

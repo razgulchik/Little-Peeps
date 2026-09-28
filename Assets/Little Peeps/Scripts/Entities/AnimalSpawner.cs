@@ -5,8 +5,9 @@ namespace LittlePeeps
 {
     // Placed on a structure (stable, forest den); keeps up to maxAnimals Animal instances
     // wandering in the structure's territory. Unlike Spawner's launch -> return -> rest slot
-    // cycle, animals never come back: a harvested one is destroyed and a replacement is spawned
-    // after spawnCooldown (one per cooldown while below maxAnimals). Registered with SpawnSystem
+    // cycle, animals never come back: one whose source despawns (boar, fox) is destroyed and a
+    // replacement is spawned after spawnCooldown (one per cooldown while below maxAnimals). One that
+    // regrows (a shorn alpaca) stays out and keeps its slot. Registered with SpawnSystem
     // via IStructureSpawner so build mode clears and re-warms it together with the unit spawners.
     [RequireComponent(typeof(Structure))]
     public class AnimalSpawner : MonoBehaviour, IStructureSpawner
@@ -116,9 +117,9 @@ namespace LittlePeeps
             respawnTimer = spawnCooldown;   // one replacement per cooldown, even when several are missing
         }
 
-        // Called by a depleted Animal right before it destroys itself: free its slot so Update
-        // starts counting down toward the replacement.
-        public void NotifyHarvested(Animal animal)
+        // Called by an Animal as it is destroyed: free its slot so Update starts counting down toward
+        // the replacement. A no-op for the ones ResetForBuildMode already cleared out of the list.
+        public void NotifyGone(Animal animal)
         {
             animals.Remove(animal);
         }
@@ -136,7 +137,10 @@ namespace LittlePeeps
                 return false;
             }
 
-            animal.Initialize(resourceSystem, this);
+            animal.Initialize(this);
+            // Same injection StructureSystem gives a placed structure's sources.
+            foreach (var source in go.GetComponentsInChildren<ResourceSource>(true))
+                source.Initialize(resourceSystem);
             foreach (var wander in go.GetComponentsInChildren<AnimalWander>(true))
                 wander.Initialize(this);
 

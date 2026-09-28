@@ -17,10 +17,11 @@ MonoBehaviour:
   workerYields:
   - worker: 0
     amount: 1
-  - worker: 4
-    amount: 2
+  - worker: 5
+    amount: 5
   pickupFx: {fileID: 3137257105596504295, guid: 73ebf0e938632254b99cf0fa6a1d9ac4, type: 3}
   pickupFxCount: 1
-  infinite: 1
-  hitsBeforeDespawn: 0
-  respawnTime: 0
+  depletion: 2
+  hitsToDeplete: 0
+  regrowTime: 0
+  keepBodyWhileDepleted: 0

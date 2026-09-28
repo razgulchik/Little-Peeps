@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c3a4a91d14169846ab526ecdb5af30a, type: 3}
+  m_Name: Tavern
+  m_EditorClassIdentifier: 
+  id: tavern
+  resource: 4
+  workerYields: []
+  pickupFx: {fileID: 1316142203753392457, guid: e895b80a6ceda93419f8ff05bb7929cb, type: 3}
+  pickupFxCount: 1
+  depletion: 2
+  hitsToDeplete: 0
+  regrowTime: 0
+  keepBodyWhileDepleted: 0

@@ -139,7 +139,7 @@ MonoBehaviour:
   overrideMainCamera:
     _value: 0
   cameraOverride: {fileID: 0}
-  raymarchUnits: 0
+  raymarchUnits: 1
   settings:
     _obstructorSettings:
       mainCamera: {fileID: 0}
@@ -211,9 +211,9 @@ MonoBehaviour:
         _value: 1
       DistortionFPRH:
         _value: 0
-      raymarchlayers: 
+      raymarchlayers: 00000000
       raymarchSteps:
-        _value: 16
+        _value: 64
       type2:
         _value: 0
       raymarchFalloffStart:

@@ -5,16 +5,17 @@ namespace LittlePeeps
 {
     // Placed on a structure; drives a per-slot spawn -> travel -> return -> rest cycle.
     // Each slot is an independent place for one little person: it launches a unit, then stands
-    // free for ANY tired unit — houses provide population, not professions, so a house neither owns
-    // the units it launched nor cares what they work as when they come back (the tool goes back to
-    // its rack on entry, see Unit.EnterRest). There is no lockout after a launch: the unit that just
-    // left has full stamina, and CollisionTarget never routes a working unit to a shelter, so nothing
-    // can duck straight back in — a free slot simply takes the next tired unit that hits the house.
+    // free for ANY tired or drunk unit — houses provide population, not professions, so a house neither
+    // owns the units it launched nor cares what they work as when they come back (the tool goes back
+    // to its rack on entry, see Unit.EnterRest). There is no lockout after a launch: the unit that just
+    // left has full stamina and is sober, and the house's door (TryEnter) lets only tired or drunk units
+    // in, so nothing can duck straight back in — a free slot simply takes the next such unit that hits
+    // the house.
     // `capacity` is the BASE slot count; the run's HouseCapacity modifier is applied on top at Warmup,
     // and the result — slots.Count — is what is registered into SpawnSystem's global cap under this
     // house's `unitDef` (population is counted per kind of unit) and what OnDestroy gives back.
     [RequireComponent(typeof(Structure))]
-    public class Spawner : MonoBehaviour, IShelter, IStructureSpawner
+    public class Spawner : MonoBehaviour, IEntrance, IStructureSpawner
     {
         [SerializeField] private SpawnSystem spawnSystem;
 
@@ -233,18 +234,21 @@ namespace LittlePeeps
             }
         }
 
-        // IShelter — CollisionTarget.HandleHit calls this when a TIRED unit hits THIS structure; a
-        // working unit's hit is routed past every shelter, so no stamina check is needed here. Dispatch
-        // is local, so no target filter is needed either (the target is already our structure). No
-        // unit-type check either: any house takes any tired worker, whichever house launched it and
-        // whatever it worked as — the only thing that can refuse is a full house, and then the unit
-        // bounces on toward another structure.
-        public void OnTiredHit(Unit unit) => TryShelter(unit);
+        // IEntrance — CollisionTarget.HandleHit asks this for EVERY unit that hits THIS structure, working
+        // or tired. The house's door rule (design doc): a unit that is tired, drunk or both comes in; one
+        // that is neither bounces off, which is what keeps a unit that was just launched from ducking
+        // straight back in. A drunk one comes in even with stamina left and loses its outing to the house
+        // reset (Unit.EnterRest) — the tavern → house cycle is legitimate economy, not an exploit. Dispatch
+        // is local, so no target filter is needed (the target is already our structure). No unit-type
+        // check either: any house takes any such worker, whichever house launched it and whatever it
+        // worked as — past the door rule, the only thing that can refuse is a full house, and then the
+        // unit bounces on toward another structure.
+        public bool TryEnter(Unit unit) => unit != null && (unit.IsTired || unit.IsDrunk) && TryShelter(unit);
 
         // Take `unit` in to rest in the first free slot; false when every slot is occupied. The one
-        // door for a unit coming in from the field, whether it hit the house tired (OnTiredHit) or
-        // SpawnSystem brought it here because it was stuck — the house takes either the same way, and
-        // sends it back out launched after its rest.
+        // way in from the field, whether the unit came through the door (TryEnter) or SpawnSystem
+        // brought it here because it was stuck — the house takes either the same way, and sends it back
+        // out launched after its rest. No door rule here: a stuck unit may still have stamina.
         public bool TryShelter(Unit unit)
         {
             if (slots == null || unit == null) return false;
@@ -297,9 +301,10 @@ namespace LittlePeeps
             slot.timer = 0f;
         }
 
-        // Choose a launch direction toward an OPEN perimeter cell. Without grid context (scene-placed
-        // spawner) fall back to a random direction — that path is never "blocked". Otherwise gather the
-        // open perimeter directions and pick one at random (+ a little jitter); false = none are open.
+        // Choose a launch direction toward an OPEN perimeter cell (an exit, see StructureExits). Without
+        // grid context (scene-placed spawner) fall back to a random direction — that path is never
+        // "blocked". Otherwise gather the exits and pick one at random (+ a little jitter); false = the
+        // house is sealed in on every side.
         private bool TryPickSpawnDirection(out Vector2 dir)
         {
             if (grid == null || instance == null || instance.Def == null)
@@ -308,77 +313,9 @@ namespace LittlePeeps
                 return true;
             }
 
-            CollectAllowedDirections(grid, instance.Cell, instance.Def.Footprint, instance.Def.border, allowedDirs);
-            if (allowedDirs.Count == 0) { dir = Vector2.zero; return false; }
-
-            dir = allowedDirs[Random.Range(0, allowedDirs.Count)];
-            if (launchJitterDegrees > 0f)
-                dir = Rotate(dir, Random.Range(-launchJitterDegrees, launchJitterDegrees));
-            return true;
+            return StructureExits.TryPickDirection(grid, instance.Cell, instance.Def.Footprint, instance.Def.border,
+                                                   allowedDirs, launchJitterDegrees, out dir);
         }
-
-        // Fill `buffer` with one direction per OPEN perimeter cell. We walk the cells one step outside this
-        // structure's claimed territory (footprint, plus its border if it has one); a cell is open when it
-        // is land, not occupied by ANOTHER solid structure (or its border), and it shares at least one
-        // unfenced edge with the territory. A passable occupant (field, bush, rack — see
-        // StructureDef.passable) leaves the side open: the unit lands in its trigger and walks on through.
-        //   - border 0 (the common case): the outer cells ARE the footprint's immediate neighbours, so a
-        //     corner house simply has its off-island sides excluded and the unit lands on that open cell.
-        //   - border >= 1: requiring the cell BEYOND the border ring to be open gives the "one clear cell
-        //     from the map edge / a neighbour" rule for free; the unit still lands in the border ring.
-        //   - a shaped footprint: the ring hugs the shape, so a notch's cells are exits too — the unit
-        //     starts at the notch's wall and flies out through it.
-        // Cells touching the territory only at a corner are not exits; a cell that touches it along
-        // several edges is one exit, not several.
-        //
-        // Static and parameterised (rather than reading the injected `grid`/`instance` fields) so this
-        // geometry can be exercised on a bare IslandGrid with no scene, GameObject or spawner behind it.
-        public static void CollectAllowedDirections(IslandGrid grid, Vector2Int origin, Footprint footprint, int border, List<Vector2> buffer)
-        {
-            buffer.Clear();
-
-            Vector2 center = grid.OriginToWorldCenter(origin, footprint.Size);
-            Vector2Int s = footprint.Size;
-
-            // The box grown by border + 1 holds every cell one step outside the claimed territory.
-            for (int x = -border - 1; x <= s.x + border; x++)
-                for (int y = -border - 1; y <= s.y + border; y++)
-                {
-                    if (footprint.Claims(x, y, border)) continue;
-                    var outer = new Vector2Int(origin.x + x, origin.y + y);
-                    if (!HasOpenEdgeToTerritory(grid, outer, footprint, border, x, y)) continue;
-                    TryAddDirection(grid, buffer, center, outer);
-                }
-        }
-
-        // Does `outer` (local (x, y) of the box) share at least one UNFENCED edge with a claimed cell?
-        // Each side reads the edge between the two cells in its canonical form (see Edge): the bottom
-        // edge belongs to the cell above it, the left edge to the cell right of it.
-        private static bool HasOpenEdgeToTerritory(IslandGrid grid, Vector2Int outer, Footprint footprint, int border, int x, int y)
-        {
-            if (footprint.Claims(x, y - 1, border) && grid.GetEdge(new Edge(outer, true)) == null) return true;                                   // south neighbour: our bottom edge
-            if (footprint.Claims(x, y + 1, border) && grid.GetEdge(new Edge(new Vector2Int(outer.x, outer.y + 1), true)) == null) return true;    // north neighbour: its bottom edge
-            if (footprint.Claims(x - 1, y, border) && grid.GetEdge(new Edge(outer, false)) == null) return true;                                  // west neighbour: our left edge
-            if (footprint.Claims(x + 1, y, border) && grid.GetEdge(new Edge(new Vector2Int(outer.x + 1, outer.y), false)) == null) return true;   // east neighbour: its left edge
-            return false;
-        }
-
-        // Add the direction toward `outerCell` if that cell is open: on-island and free of solid occupants.
-        private static void TryAddDirection(IslandGrid grid, List<Vector2> buffer, Vector2 center, Vector2Int outerCell)
-        {
-            var cell = grid.GetCell(outerCell);
-            if (cell == null) return;                       // off-island (map edge, with the border as the clear cell)
-            if (IsSolid(cell.occupant)) return;             // another solid structure or its border — don't launch into it
-
-            Vector2 dir = grid.GridToWorld(outerCell) - center;
-            if (dir.sqrMagnitude < 1e-6f) return;
-            buffer.Add(dir.normalized);
-        }
-
-        // An occupant closes a side unless its def says units pass through it. No def (an occupant
-        // registered without one, as the grid tests do) is read as solid — the safe default.
-        private static bool IsSolid(StructureInstance occupant)
-            => occupant != null && (occupant.Def == null || !occupant.Def.passable);
 
         private static Vector2 RandomDirection()
         {
@@ -386,72 +323,20 @@ namespace LittlePeeps
             return d.sqrMagnitude < 1e-4f ? Vector2.up : d;
         }
 
-        private static Vector2 Rotate(Vector2 v, float degrees)
-        {
-            float r = degrees * Mathf.Deg2Rad;
-            float cos = Mathf.Cos(r), sin = Mathf.Sin(r);
-            return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
-        }
-
         // Place the unit just outside the structure along dir: where the launch ray leaves the building,
-        // plus unit radius and launchGap. On the grid the building is its FOOTPRINT (ExitDistance), which
-        // is right for any shape — the collider's box bounds are not: for an L or a U the box edge can lie
-        // in a notch, inside the bounds yet outside the walls. A scene-placed spawner has no footprint and
-        // keeps measuring against its collider box.
+        // plus unit radius and launchGap. On the grid the building is its FOOTPRINT (StructureExits.
+        // ExitPoint), which is right for any shape. A scene-placed spawner has no footprint and keeps
+        // measuring against its collider box.
         private Vector2 SpawnPosition(Vector2 dir, Unit unit)
         {
             if (grid != null && instance != null && instance.Def != null)
-            {
-                var footprint = instance.Def.Footprint;
-                Vector2 center = grid.OriginToWorldCenter(instance.Cell, footprint.Size);
-                float structureEdge = ExitDistance(grid, instance.Cell, footprint, center, dir);
-                return center + dir * (structureEdge + unit.Radius + launchGap);
-            }
+                return StructureExits.ExitPoint(grid, instance.Cell, instance.Def.Footprint, dir, unit.Radius + launchGap);
 
             if (structureCollider == null)
                 return (Vector2)transform.position + dir * launchGap; // fallback: measure from center
 
             return BoxExit(structureCollider.bounds.center, structureCollider.bounds.extents, dir)
                  + dir * (unit.Radius + launchGap);
-        }
-
-        // Distance along `dir` (unit length) from `center` to the point where the ray leaves the LAST
-        // footprint cell it crosses — the launch ray's exit from the building. For a rectangle that is the
-        // box edge along dir; for a shape the ray may leave a cell, cross a notch and enter another, and
-        // the exit is where it finally clears the walls. Zero when the ray crosses no footprint cell (a
-        // centre that falls in a notch, aiming away from the walls).
-        public static float ExitDistance(IslandGrid grid, Vector2Int origin, Footprint footprint, Vector2 center, Vector2 dir)
-        {
-            float cs = grid.CellSize;
-            float exit = 0f;
-            for (int x = 0; x < footprint.Size.x; x++)
-                for (int y = 0; y < footprint.Size.y; y++)
-                {
-                    if (!footprint.Contains(x, y)) continue;
-                    float x0 = (origin.x + x) * cs, y0 = (origin.y + y) * cs;
-                    if (RayLeavesBox(center, dir, x0, y0, x0 + cs, y0 + cs, out float t) && t > exit) exit = t;
-                }
-            return exit;
-        }
-
-        // Slab test: does the ray center + dir * t (t >= 0) pass through the box [x0,x1]x[y0,y1], and at
-        // what t does it leave? A ray starting inside leaves at its first wall.
-        private static bool RayLeavesBox(Vector2 center, Vector2 dir, float x0, float y0, float x1, float y1, out float tExit)
-        {
-            float tEnter = 0f;
-            tExit = float.PositiveInfinity;
-            return Slab(center.x, dir.x, x0, x1, ref tEnter, ref tExit)
-                && Slab(center.y, dir.y, y0, y1, ref tEnter, ref tExit);
-        }
-
-        private static bool Slab(float c, float d, float lo, float hi, ref float tEnter, ref float tExit)
-        {
-            if (Mathf.Abs(d) < 1e-6f) return c >= lo && c <= hi;   // parallel to this axis: inside its slab or never
-            float t0 = (lo - c) / d, t1 = (hi - c) / d;
-            if (t0 > t1) (t0, t1) = (t1, t0);
-            if (t0 > tEnter) tEnter = t0;
-            if (t1 < tExit) tExit = t1;
-            return tExit >= tEnter;
         }
 
         // The point where a ray from the box centre along dir crosses the box edge.

@@ -4,9 +4,11 @@ using UnityEngine;
 
 namespace LittlePeeps.Tests
 {
-    // Spawner.CollectAllowedDirections decides where a unit may be launched: it walks the ring of cells
-    // one step outside the structure's claimed territory and keeps the directions toward cells that are
-    // land, free of solid structures (a passable one — field, bush, rack — doesn't count) and not fenced off.
+    // StructureExits decides where a unit may leave a structure — a house launching through any open side
+    // (CollectAllowedDirections), a building with one door asking about that cell (IsOpenExit). Collect
+    // walks the ring of cells one step outside the structure's claimed territory and keeps the directions
+    // toward cells that are land, free of solid structures (a passable one — field, bush, rack — doesn't
+    // count) and not fenced off; IsOpenExit is that same verdict for one cell.
     //
     // The fence check is the fragile part. Each side reads a DIFFERENT edge anchor (south and west use
     // the territory's own min corner, north and east use one past its max), so an implementation that
@@ -16,7 +18,7 @@ namespace LittlePeeps.Tests
     // The 1x1 cases sit at (-3,-2) — negative coordinates, since the island is centred on the origin —
     // where the expected directions are still the exact cardinals, so nothing has to be re-derived from
     // the implementation to state what the answer should be.
-    public class SpawnerDirectionTests
+    public class StructureExitsTests
     {
         private static readonly Vector2Int Origin = new Vector2Int(-3, -2);
         private static readonly Vector2Int Size1x1 = new Vector2Int(1, 1);
@@ -60,10 +62,10 @@ namespace LittlePeeps.Tests
         }
 
         private void Collect(IslandGrid grid, Vector2Int origin, Vector2Int size, int border = 0)
-            => Spawner.CollectAllowedDirections(grid, origin, Footprint.Rect(size), border, dirs);
+            => StructureExits.CollectAllowedDirections(grid, origin, Footprint.Rect(size), border, dirs);
 
         private void Collect(IslandGrid grid, Vector2Int origin, Footprint shape, int border = 0)
-            => Spawner.CollectAllowedDirections(grid, origin, shape, border, dirs);
+            => StructureExits.CollectAllowedDirections(grid, origin, shape, border, dirs);
 
         private static Vector2 Toward(Vector2 from, Vector2 to) => (to - from).normalized;
 
@@ -369,10 +371,10 @@ namespace LittlePeeps.Tests
             var box = Footprint.Rect(2, 2);
             var centre = grid.OriginToWorldCenter(C(0, 0), box.Size);   // (1,1)
 
-            Assert.AreEqual(1f, Spawner.ExitDistance(grid, C(0, 0), box, centre, Vector2.right), 1e-5f);
-            Assert.AreEqual(1f, Spawner.ExitDistance(grid, C(0, 0), box, centre, Vector2.down), 1e-5f);
+            Assert.AreEqual(1f, StructureExits.ExitDistance(grid, C(0, 0), box, centre, Vector2.right), 1e-5f);
+            Assert.AreEqual(1f, StructureExits.ExitDistance(grid, C(0, 0), box, centre, Vector2.down), 1e-5f);
             // Toward the corner cell's centre (2.5,-0.5): the ray leaves through the corner at (2,0).
-            Assert.AreEqual(Mathf.Sqrt(2f), Spawner.ExitDistance(grid, C(0, 0), box, centre, Toward(centre, new Vector2(2.5f, -0.5f))), 1e-4f);
+            Assert.AreEqual(Mathf.Sqrt(2f), StructureExits.ExitDistance(grid, C(0, 0), box, centre, Toward(centre, new Vector2(2.5f, -0.5f))), 1e-4f);
         }
 
         [Test]
@@ -381,9 +383,9 @@ namespace LittlePeeps.Tests
             var grid = new IslandGrid(1f);
             // The L's centre (1,1) is the corner shared by all four cells of its box. Aiming at the
             // notch the ray crosses no footprint cell — the unit starts right at the walls' corner.
-            Assert.AreEqual(0f, Spawner.ExitDistance(grid, C(0, 0), L, LCentre, Toward(LCentre, new Vector2(1.5f, 1.5f))), 1e-5f);
+            Assert.AreEqual(0f, StructureExits.ExitDistance(grid, C(0, 0), L, LCentre, Toward(LCentre, new Vector2(1.5f, 1.5f))), 1e-5f);
             // Aiming east the ray runs along the base's top edge and leaves it at x=2.
-            Assert.AreEqual(1f, Spawner.ExitDistance(grid, C(0, 0), L, LCentre, Vector2.right), 1e-5f);
+            Assert.AreEqual(1f, StructureExits.ExitDistance(grid, C(0, 0), L, LCentre, Vector2.right), 1e-5f);
 
             // A 3x3 L whose box centre (1.5,1.5) lies in the hole: aiming south-east the ray enters the
             // base cell (2,0) at y=1 and leaves it at x=3, so the exit is measured to that wall, not zero.
@@ -392,10 +394,62 @@ namespace LittlePeeps.Tests
                                       "###");
             var bigCentre = new Vector2(1.5f, 1.5f);
             var dir = Toward(bigCentre, new Vector2(3.5f, 0.5f));   // toward the cell east of the base's end
-            float t = Spawner.ExitDistance(grid, C(0, 0), big, bigCentre, dir);
+            float t = StructureExits.ExitDistance(grid, C(0, 0), big, bigCentre, dir);
             var exit = bigCentre + dir * t;
             Assert.AreEqual(3f, exit.x, 1e-4f, "leaves through the base's east wall");
             Assert.That(exit.y, Is.InRange(0f, 1f), "within the base row");
+        }
+
+        [Test]
+        public void ExitPoint_IsTheFootprintExitPlusTheClearance()
+        {
+            var grid = new IslandGrid(1f);
+            var box = Footprint.Rect(2, 2);   // centre (1,1), east wall at x=2
+
+            var p = StructureExits.ExitPoint(grid, C(0, 0), box, Vector2.right, 0.25f);
+
+            Assert.AreEqual(2.25f, p.x, 1e-5f);
+            Assert.AreEqual(1f, p.y, 1e-5f);
+        }
+
+        // --- one cell at a time: the question a building with a single door asks ---------------------
+
+        [Test]
+        public void IsOpenExit_AnOpenNeighbour_IsAnExit()
+        {
+            var grid = TestIsland.Square(-5, 5);
+
+            Assert.IsTrue(StructureExits.IsOpenExit(grid, Origin, Footprint.Rect(Size1x1), 0, C(-3, -3)), "the cell below");
+            Assert.IsTrue(StructureExits.IsOpenExit(grid, Origin, Footprint.Rect(Size1x1), 0, C(-2, -2)), "the cell to the right");
+        }
+
+        [Test]
+        public void IsOpenExit_ACellThatIsNotBesideTheTerritory_IsNoExit()
+        {
+            // A door marker can be put anywhere in a prefab, so any cell may be asked about; only the ring
+            // one step outside the territory holds exits.
+            var grid = TestIsland.Square(-5, 5);
+            var shape = Footprint.Rect(Size1x1);
+
+            Assert.IsFalse(StructureExits.IsOpenExit(grid, Origin, shape, 0, Origin), "the structure's own cell");
+            Assert.IsFalse(StructureExits.IsOpenExit(grid, Origin, shape, 0, C(-2, -3)), "diagonal, touching only a corner");
+            Assert.IsFalse(StructureExits.IsOpenExit(grid, Origin, shape, 0, C(-3, -4)), "two rows below, not touching");
+            Assert.IsFalse(StructureExits.IsOpenExit(grid, C(0, 0), shape, 1, C(0, -1)), "inside the border ring");
+            Assert.IsTrue(StructureExits.IsOpenExit(grid, C(0, 0), shape, 1, C(0, -2)), "just past the border ring");
+        }
+
+        [Test]
+        public void IsOpenExit_AClosedCell_IsNoExit()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            var shape = Footprint.Rect(Size1x1);
+            Occupy(grid, C(-2, -2));                                          // a solid neighbour east
+            grid.PlaceEdge(new Edge(C(-3, -2), true), new EdgeInstance());    // a fence on the south edge
+
+            Assert.IsFalse(StructureExits.IsOpenExit(grid, Origin, shape, 0, C(-2, -2)), "the occupied cell");
+            Assert.IsFalse(StructureExits.IsOpenExit(grid, Origin, shape, 0, C(-3, -3)), "the cell behind the fence");
+            Assert.IsFalse(StructureExits.IsOpenExit(grid, C(-5, -5), shape, 0, C(-5, -6)), "off the island");
+            Assert.IsTrue(StructureExits.IsOpenExit(grid, Origin, shape, 0, C(-4, -2)), "the untouched west side");
         }
 
         [Test]

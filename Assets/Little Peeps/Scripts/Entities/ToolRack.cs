@@ -50,7 +50,7 @@ namespace LittlePeeps
         }
 
         // ICollisionEffect — a WORKING unit crossed the rack (a tired one never gets here; it is on
-        // its way home and CollisionTarget routes it to shelters only). Only an Unassigned worker
+        // its way home and CollisionTarget stops it before the effects). Only an Unassigned worker
         // takes the tool: one tool per outing, and an equipped worker passes every other rack without
         // taking or swapping. An empty stand is no effect at all — the unit just walks through.
         public void OnHit(Unit unit, CollisionTarget target)

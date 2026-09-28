@@ -50,7 +50,7 @@ namespace LittlePeeps
         // Units pass through this structure: its collider is a trigger (fields, bushes, tool racks —
         // CollisionTarget's "interactable path"), so it is not an obstacle and never closes a launch
         // direction of a spawner next to it. Off = solid: a unit launched that way would land inside
-        // the collider, so the side stays shut (Spawner.CollectAllowedDirections). Physics only —
+        // the collider, so the side stays shut (StructureExits.IsOpenExit). Physics only —
         // what animals do about it is `animalsAvoid`.
         public bool passable = false;
 

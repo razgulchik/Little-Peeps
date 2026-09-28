@@ -16,9 +16,14 @@ namespace LittlePeeps
                  "keeps a unit from shuttling forever between two parallel fences.")]
         [SerializeField, Range(0f, 45f)] private float minBounceAngle = 10f;
 
-        [Tooltip("Random turn added to every bounce, in degrees either way, so two units on the same " +
-                 "line drift apart instead of tracing one path. 0 = off.")]
+        [Tooltip("Random turn added to a bounce, in degrees either way, so two units on the same line " +
+                 "drift apart instead of tracing one path. 0 = off. Only from bounce Exact Bounces + 1 on.")]
         [SerializeField, Range(0f, 30f)] private float bounceJitterDegrees = 3f;
+
+        [Tooltip("The first this-many bounces after the unit comes out of a building are exact — no random " +
+                 "turn — so a building can aim it (the tavern banks tired drunks home off the coast; see " +
+                 "BilliardAim). The jitter starts at the next one. 4 = jitter from the 5th bounce on.")]
+        [SerializeField, Min(0)] private int exactBounces = 4;
 
         [Header("Stuck")]
         [Tooltip("A unit that never gets further than this (world units) from where it stood at the start " +
@@ -51,30 +56,69 @@ namespace LittlePeeps
         // destroyed component by then, and its tool simply goes with it (a new rack comes full).
         private ToolRack rack;
 
+        // The tavern holding the unit right now (EnterHold), so a despawn from inside can give its seat
+        // back (LeaveHold) — the same two-way link as the rack's. Null on the field and in a house: a
+        // house clears its own slots on build mode. Cleared when the tavern lets the unit out (Resume).
+        private Tavern holder;
+
         // World-space radius of the unit's collider (used for spawn-clearance math).
         public float Radius => bodyCollider != null ? bodyCollider.bounds.extents.x : 0f;
         public IslandSystem Island => island;
 
         // Stamina: seconds of field work left. It ticks down in FixedUpdate the whole time the unit is
-        // out of a house, boosted or not — a boost makes the outing more productive, never longer. A
-        // unit with stamina left is WORKING: it harvests and refuses every house. At zero it is TIRED:
-        // it harvests nothing, moves at def.tiredSpeedMultiplier of its speed, and the next house of
-        // its type takes it in. CollisionTarget.HandleHit routes every hit by this one flag. Only a
-        // house refills stamina (Launch); a tap does so only if TapSystem says it does. Tired by
-        // default (stamina == 0) so a never-launched unit isn't stuck.
+        // on the field, boosted or not — a boost makes the outing more productive, never longer — and
+        // stands still while a building holds it (EnterHold). A unit with stamina left is WORKING: it
+        // harvests and refuses every house (unless it is drunk — see IsDrunk). At zero it is TIRED: it
+        // harvests nothing, moves at
+        // def.tiredSpeedMultiplier of its speed, and the next house with a free slot takes it in. This
+        // one flag is what CollisionTarget.HandleHit stops a unit at before the work path, and what a
+        // house's door (Spawner.TryEnter) lets it in by. Only a house refills stamina (Launch); a tap
+        // does so only if TapSystem says it does. Tired by default (stamina == 0) so a never-launched
+        // unit isn't stuck.
         public bool IsTired => stamina <= 0f;
         private float stamina;
 
+        // Drunk: a timed status a building puts on the unit (the tavern, on the way out — MakeDrunk). It
+        // slows the unit by its own factor, multiplied with the tired one when both hold, and does
+        // nothing else: the unit works, bounces and turns exactly as before, and stamina neither drains
+        // faster nor refills. It wears off after the time it was given (simulation time, see
+        // FixedUpdate); a house takes it off at once — resting is the house reset (EnterRest) — and so
+        // does leaving the field for good (the pool, OnEnable). Where a drunk unit may go is each
+        // building's own door rule (IEntrance): a house lets it in, a tavern turns it away.
+        public bool IsDrunk => drunkTimer > 0f;
+        private float drunkTimer;
+        private float drunkSpeedMultiplier = 1f;
+
         // Whether the unit has stopped getting anywhere (see StuckWatch): it cannot free itself — a
         // tired one can't chop, a farmer never could — so SpawnSystem sweeps for this flag and takes
-        // the unit into a house. Ticked in FixedUpdate on the field only; a placement (Launch,
-        // EnterRest) resets it, so the house never sees the verdict that brought the unit there.
+        // the unit into a house. Ticked in FixedUpdate on the field only; every way off the field
+        // (EnterRest, EnterHold) and back onto it (Launch, Resume) resets it, so a building never sees
+        // the verdict that brought the unit there.
         public bool IsStuck => stuckWatch.IsStuck;
         private StuckWatch stuckWatch;
+
+        // Bounces since the unit last came out of a building (Resume, and so Launch, resets it): the first
+        // exactBounces of them get no random turn, see OnCollisionEnter2D.
+        private int bouncesSinceRelease;
 
         private Rigidbody2D rb;
         private Collider2D bodyCollider;
         private float baseSpeed;
+
+        // What a path predictor (BilliardAim) has to know to trace this unit's body the way the physics
+        // will move it. Read from the collider's own fields, not its physics bounds, so they are right
+        // even while the unit sits inside a building with physics off — which is exactly when a building
+        // aims it. BodyOffset: from the transform (the feet) to the body circle's centre.
+        public Vector2 BodyOffset => bodyCollider != null
+            ? (Vector2)(bodyCollider.transform.TransformPoint(bodyCollider.offset) - transform.position)
+            : Vector2.zero;
+        public float BodyRadius => bodyCollider is CircleCollider2D circle
+            ? circle.radius * Mathf.Abs(circle.transform.lossyScale.x)
+            : Radius;
+        public int BodyLayer => bodyCollider != null ? bodyCollider.gameObject.layer : gameObject.layer;
+        public float CruiseSpeed => TargetSpeed;
+        public float MinBounceAngle => minBounceAngle;
+        public int ExactBounces => exactBounces;
 
         private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
         private RunStats stats;        // injected on spawn; applies the UnitSpeed modifier to def.speed
@@ -83,11 +127,13 @@ namespace LittlePeeps
         private float launchBoostTimer;
         private float launchTau;
 
-        // The speed the unit moves at once no boost is decaying: its base speed while working, a
-        // fraction of it while tired. Every boost settles back to THIS, and FixedUpdate holds the unit
-        // AT it (see there) — so the tired slowdown, a profession's speed, a perk, all are one number
-        // read in one place.
-        private float TargetSpeed => IsTired ? baseSpeed * TiredMultiplier : baseSpeed;
+        // The speed the unit moves at once no boost is decaying: its base speed, times the tired factor
+        // while tired, times the drunk factor while drunk — both at once for a tired drunk. Every boost
+        // settles back to THIS, and FixedUpdate holds the unit AT it (see there) — so the slowdowns, a
+        // profession's speed, a perk, all are one number read in one place.
+        private float TargetSpeed => baseSpeed
+                                   * (IsTired ? TiredMultiplier : 1f)
+                                   * (IsDrunk ? drunkSpeedMultiplier : 1f);
         private float TiredMultiplier => def != null ? def.tiredSpeedMultiplier : 1f;
 
         // How far the speed may drift from TargetSpeed before FixedUpdate writes it back — wide enough
@@ -106,8 +152,10 @@ namespace LittlePeeps
             // gone with it — Despawn already returned the tool — so the unit starts as it was born.
             Profession = BornProfession;
             rack = null;
+            holder = null;
             baseSpeed = ResolveBaseSpeed();
             stuckWatch = default;   // a verdict from the previous outing must not survive the pool
+            drunkTimer = 0f;        // nor a drink
         }
 
         private void Start()
@@ -168,13 +216,24 @@ namespace LittlePeeps
             Profession = BornProfession;
         }
 
-        // Launch from a house in a direction, with full stamina — the house is what refills it. The unit
-        // leaves at its speed * speedMultiplier and a decaying braking force eases it back down over
-        // ~boostDuration seconds (see FixedUpdate). Direction is preserved through bounces.
+        // Launch from a house in a direction, with full stamina — the house is what refills it. Otherwise
+        // exactly a Resume: see there for the speed and the boost.
         public void Launch(Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
         {
             stamina = ResolveMaxStamina();
-            stuckWatch.Reset(transform.position);   // the house placed us here — that jump is not travel
+            Resume(direction, speedMultiplier, boostDuration);
+        }
+
+        // Back onto the field from a building that held the unit (EnterHold) — with the stamina it went
+        // in with, the profession and the tool it had: nothing here refills or resets, only a house does
+        // (Launch). The caller has already put the unit where it steps out. It leaves at its speed *
+        // speedMultiplier and a decaying braking force eases it back down over ~boostDuration seconds
+        // (see FixedUpdate); 1 and 0 = it simply walks out. Direction is preserved through bounces.
+        public void Resume(Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
+        {
+            holder = null;                          // out of the tavern, if that is where it was
+            bouncesSinceRelease = 0;                // a fresh run of exact bounces, for a building's aim
+            stuckWatch.Reset(transform.position);   // the building placed us here — that jump is not travel
             ApplyLaunch(direction, speedMultiplier, boostDuration);
         }
 
@@ -195,17 +254,19 @@ namespace LittlePeeps
             ApplyLaunch(dir, speedMultiplier, duration);
         }
 
-        // Shared body of Launch and Boost. Reads TargetSpeed AFTER the caller has settled stamina, so a
-        // tired unit that is boosted without a refill leaves at its tired speed times the multiplier
-        // and settles back to the tired speed — weaker all the way through, as it should be.
+        // Shared body of Resume (and so Launch) and Boost. Reads TargetSpeed AFTER the caller has settled
+        // stamina, so a tired unit that is boosted or resumed without a refill leaves at its tired speed
+        // times the multiplier and settles back to the tired speed — weaker all the way through, as it
+        // should be.
         private void ApplyLaunch(Vector2 direction, float speedMultiplier, float boostDuration)
         {
             baseSpeed = ResolveBaseSpeed();
 
-            // Coming back out of rest: re-enable physics and visuals. Toggling the whole visual root
-            // rather than one renderer's `enabled` also stops and restarts the Animator that lives on
-            // it, so a running clip can never draw a resting unit back onto the screen. Stamina is
-            // already settled by the caller, so TiredView.OnEnable reads the right state.
+            // Coming back out of a building: re-enable physics and visuals (a no-op for a Boost on the
+            // field). Toggling the whole visual root rather than one renderer's `enabled` also stops and
+            // restarts the Animator that lives on it, so a running clip can never draw a hidden unit back
+            // onto the screen. Stamina is already settled by the caller, so TiredView.OnEnable reads the
+            // right state.
             rb.simulated = true;
             if (visualRoot != null) visualRoot.SetActive(true);
 
@@ -223,18 +284,57 @@ namespace LittlePeeps
             }
         }
 
-        // Pull the unit inside a building: stop and hide it while it rests. Resting is not working, so
-        // the stamina is dropped too — Launch refills it on the way out anyway; this only keeps IsTired
-        // truthful while the unit is inside. Not through OnBecameTired: there is no velocity to touch.
-        // Going home ends the outing, so the profession (and its tool) is given up here as well. The
-        // stuck verdict goes too: a unit brought here BECAUSE it was stuck must not read as stuck
-        // still, or the next sweep would put it into a second slot.
+        // Pull the unit inside a house to rest — the end of the outing. Resting is not working, so the
+        // stamina is dropped — Launch refills it on the way out anyway; this only keeps IsTired truthful
+        // while the unit is inside. Not through OnBecameTired: there is no velocity to touch. Going home
+        // ends the outing, so the profession (and its tool) is given up here as well, and the house reset
+        // sobers the unit up — a drunk one comes back out clean, at full stamina, Unassigned.
         public void EnterRest()
         {
-            launchBoostTimer = 0f;
             stamina = 0f;
-            stuckWatch.Reset(transform.position);
+            drunkTimer = 0f;
             Unequip();
+            LeaveField();
+        }
+
+        // Put the Drunk status on (see IsDrunk): for `duration` seconds of simulation time the unit moves
+        // at `speedMultiplier` of the speed it would otherwise have. A second call replaces the first —
+        // nothing stacks. The numbers are the caller's (the tavern's tuning); the next FixedUpdate picks
+        // the new speed up, with no rescale here.
+        public void MakeDrunk(float duration, float speedMultiplier)
+        {
+            drunkTimer = duration;
+            drunkSpeedMultiplier = speedMultiplier;
+        }
+
+        // Take the unit inside a building that keeps it AS IT IS — the tavern: not the end of the outing,
+        // a stop in the middle of it. Stamina, profession and tool all stay; the stamina clock simply
+        // stands still while the unit is off the field (FixedUpdate), and Resume brings it back out with
+        // the same numbers. Whatever the building does to the unit is the building's own business; the
+        // unit only remembers WHICH building, for LeaveHold.
+        public void EnterHold(Tavern tavern)
+        {
+            holder = tavern;
+            LeaveField();
+        }
+
+        // The unit is leaving the game from inside a tavern (SpawnSystem.Despawn: build mode, run
+        // teardown): tell the tavern, so the seat is free again and it never lets a pooled unit out.
+        // `!= null`, not `?.`: a tavern torn down with the run is a destroyed component by then, and
+        // there is nothing left to tell. Nothing to do for a unit that is not held.
+        public void LeaveHold()
+        {
+            if (holder != null) holder.Forget(this);
+            holder = null;
+        }
+
+        // What every way into a building shares: stop, switch physics off, hide. The boost is over, and
+        // the stuck verdict goes too: a unit brought inside BECAUSE it was stuck must not read as stuck
+        // still, or the next sweep would put it into a second slot.
+        private void LeaveField()
+        {
+            launchBoostTimer = 0f;
+            stuckWatch.Reset(transform.position);
 
             rb.linearVelocity = Vector2.zero;
             rb.simulated = false;
@@ -245,24 +345,31 @@ namespace LittlePeeps
         // speed through a hit on anything static, but animals are moving kinematic bodies and a bounce
         // off one is taken in the animal's frame — head-on the unit comes away at its speed plus twice
         // the boar's, from behind at nearly nothing. So every step the magnitude is held at TargetSpeed
-        // (or eased toward it while a boost decays), and a tired transition or a new profession simply
-        // shows up here on the next step, with no rescale of its own anywhere else.
+        // (or eased toward it while a boost decays), and a tired transition, a drink wearing on or off or
+        // a new profession simply shows up here on the next step, with no rescale of its own anywhere else.
         private void FixedUpdate()
         {
-            // The stamina clock runs whenever the unit is on the field, boosted or not. A resting unit
-            // sits at zero (EnterRest), so the guard skips it for free.
-            if (stamina > 0f)
+            // The stamina clock runs whenever the unit is on the field, boosted or not — and only there.
+            // Inside a building physics is off and the clock stands still: a resting unit sits at zero
+            // anyway (EnterRest), a held one keeps what it went in with (EnterHold) — the whole
+            // difference between a house and a tavern.
+            if (rb.simulated && stamina > 0f)
             {
                 stamina -= Time.fixedDeltaTime;
                 if (stamina <= 0f) OnBecameTired();
             }
 
-            // The stuck watch runs on the same clock, on the field only: a resting unit is off the
-            // field, not stuck. Reads the transform, which the last simulation step has already synced.
+            // The drunk clock runs on simulation time, on the field or not — the doc's rule. Today it
+            // makes no difference: the only building that takes a drunk unit in is a house, which sobers
+            // it up on the spot. Wearing off needs nothing else: TargetSpeed stops reading the factor.
+            if (drunkTimer > 0f) drunkTimer -= Time.fixedDeltaTime;
+
+            // The stuck watch runs on the same clock, on the field only: a unit inside a building is off
+            // the field, not stuck. Reads the transform, which the last simulation step has already synced.
             if (rb.simulated && stuckWindow > 0f)
                 stuckWatch.Tick(transform.position, Time.fixedDeltaTime, stuckRadius, stuckWindow);
 
-            // Resting inside a house: physics is off, nothing to hold. Any other unit at a standstill is
+            // Inside a building: physics is off, nothing to hold. Any other unit at a standstill is
             // WEDGED — a boar pinned it to a wall and the solver killed both components — and would sit
             // there forever, since nothing else ever writes its velocity. Kick it out in a random
             // direction; the boost is over either way.
@@ -303,10 +410,14 @@ namespace LittlePeeps
         //   - never leave closer than minBounceAngle to the surface normal: a near-perpendicular exit
         //     is bent out to that angle on the side it already leaned (a coin toss if it is dead on),
         //     which walks the unit along the corridor and out in a couple of crossings;
-        //   - a small random turn on top, so units never settle into one shared groove.
+        //   - a small random turn on top, so units never settle into one shared groove — but not on the
+        //     first exactBounces after the unit came out of a building, so a building can aim it (the
+        //     tavern's BilliardAim traces those bounces with the same BendAwayFromNormal as here).
         // Triggers (racks, fields, the market passage) are not bounces and never get here.
         private void OnCollisionEnter2D(Collision2D collision)
         {
+            bouncesSinceRelease++;
+
             Vector2 velocity = rb.linearVelocity;
             float speed = velocity.magnitude;
             if (speed < 0.0001f) return;   // wedged — FixedUpdate's kick handles it
@@ -320,18 +431,28 @@ namespace LittlePeeps
                 Vector2 normal = collision.GetContact(0).normal;
                 if (Vector2.Dot(normal, dir) < 0f) normal = -normal;
 
-                float angle = Vector2.SignedAngle(normal, dir);
-                if (Mathf.Abs(angle) < minBounceAngle)
-                {
-                    float side = angle != 0f ? Mathf.Sign(angle) : (Random.value < 0.5f ? -1f : 1f);
-                    dir = Rotate(normal, side * minBounceAngle);
-                }
+                dir = BendAwayFromNormal(dir, normal, minBounceAngle, Random.value < 0.5f ? -1f : 1f);
             }
 
-            if (bounceJitterDegrees > 0f)
+            if (bounceJitterDegrees > 0f && bouncesSinceRelease > exactBounces)
                 dir = Rotate(dir, Random.Range(-bounceJitterDegrees, bounceJitterDegrees));
 
             rb.linearVelocity = dir * speed;
+        }
+
+        // The bounce rule itself, shared by the physics above and by anything that predicts a path
+        // (BilliardAim) so the two can never disagree: a direction leaving closer than minAngle to the
+        // surface normal is bent out to minAngle on the side it already leaned; exactly on the normal,
+        // `tieSide` (±1) picks the side. `outwardNormal` must point the way the unit is leaving.
+        public static Vector2 BendAwayFromNormal(Vector2 dir, Vector2 outwardNormal, float minAngle, float tieSide)
+        {
+            if (minAngle <= 0f) return dir;
+
+            float angle = Vector2.SignedAngle(outwardNormal, dir);
+            if (Mathf.Abs(angle) >= minAngle) return dir;
+
+            float side = angle != 0f ? Mathf.Sign(angle) : tieSide;
+            return Rotate(outwardNormal, side * minAngle);
         }
 
         private static Vector2 Rotate(Vector2 v, float degrees)

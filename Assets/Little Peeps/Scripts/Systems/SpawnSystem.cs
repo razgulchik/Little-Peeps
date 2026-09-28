@@ -83,8 +83,8 @@ namespace LittlePeeps
 
         // A stuck unit — pinned inside a regrown tree, wedged, sealed into a pocket; the unit itself
         // decides, see StuckWatch — cannot free itself, so it goes home: into the nearest house with a
-        // free slot, through the same door a tired unit walks in by, so it rests and comes back out
-        // launched with full stamina. Houses hold no units of their own, so any house will do, and the
+        // free slot — the same slot a tired unit walks into, but past the door rule, since a stuck unit
+        // may still have stamina — so it rests and comes back out launched with full stamina. Houses hold no units of their own, so any house will do, and the
         // nearest reads as the unit having walked into it. No house free (a sold house's roaming units
         // outnumber the slots left): the unit stays put and the next sweep tries again. Sheltering
         // keeps the unit active, so the list is safe to walk in place.
@@ -117,6 +117,20 @@ namespace LittlePeeps
                 }
             }
             return best;
+        }
+
+        // Houses with a free slot within `radius` of `from` (measured to the house's root), for a caller
+        // that sends a unit home on purpose — the tavern aiming its tired drunks. Same filter as the stuck
+        // rescue: unit Spawners only, AnimalSpawners skipped.
+        public void CollectHousesWithFreeSlot(Vector2 from, float radius, List<Spawner> buffer)
+        {
+            buffer.Clear();
+            float radiusSq = radius * radius;
+            for (int i = 0; i < spawners.Count; i++)
+            {
+                if (spawners[i] is not Spawner house || !house.HasFreeSlot) continue;
+                if (((Vector2)house.transform.position - from).sqrMagnitude <= radiusSq) buffer.Add(house);
+            }
         }
 
         // A spawner registers/unregisters itself when it warms up / is destroyed.
@@ -173,11 +187,13 @@ namespace LittlePeeps
 
         // Every exit from the field goes through here (house teardown, build mode, run teardown), so
         // this is where a mid-outing profession ends: Unequip before the pool takes the unit — the
-        // tool goes back on its rack — and the count comes off the def TrySpawn put it on.
+        // tool goes back on its rack — and the count comes off the def TrySpawn put it on. A unit
+        // sitting in a tavern gives its seat back the same way (LeaveHold).
         public void Despawn(Unit unit)
         {
             if (unit == null) return;
 
+            unit.LeaveHold();
             unit.Unequip();
 
             if (unit.def != null)

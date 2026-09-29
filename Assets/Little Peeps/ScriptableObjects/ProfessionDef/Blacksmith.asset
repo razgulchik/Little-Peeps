@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b1475b38f3f503a4589e704d0a9651f6, type: 3}
   m_Name: Blacksmith
   m_EditorClassIdentifier: 
-  type: 4
+  type: 5
   frames:
-  - {fileID: 21300000, guid: 7621f1a8b13687a478743d10c194be7b, type: 3}
+  - {fileID: 21300000, guid: 2bf283d4ebb3e254aa4b5e527872ae04, type: 3}

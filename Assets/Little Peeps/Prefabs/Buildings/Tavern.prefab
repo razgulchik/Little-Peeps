@@ -295,17 +295,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   capacity: 5
-  stayDuration: 4
+  stayDuration: 5
   payout: 1
   coinSource: {fileID: 11400000, guid: cc0ba8f5393f5f94184bcb0e08035617, type: 2}
   fxAnchor: {fileID: 6218793812256843068}
   drunkDuration: 10
-  drunkSpeedMultiplier: 0.8
+  drunkSpeedMultiplier: 0.85
   releaseGap: 0.1
   releaseJitterDegrees: 12
-  sendTiredHome: 1
-  homeSearchRadius: 12
-  maxCoastBounces: 3
+  autopilot: 1
 --- !u!1 &3660868618199599061
 GameObject:
   m_ObjectHideFlags: 0

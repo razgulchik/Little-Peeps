@@ -17,4 +17,4 @@ MonoBehaviour:
   speed: 2
   profession: {fileID: 11400000, guid: 975d5ed362995a347b266105b7521b9a, type: 2}
   stamina: 10
-  tiredSpeedMultiplier: 0.8
+  tiredSpeedMultiplier: 0.85

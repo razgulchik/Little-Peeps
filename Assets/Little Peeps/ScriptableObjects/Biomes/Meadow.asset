@@ -17,7 +17,7 @@ MonoBehaviour:
     terrain: 0
     openPercent: 50
     mountainPercent: 0
-    riverPercent: 35
+    riverPercent: 20
     objectPercent: 15
     riverChance: 0.8
     mountain: {fileID: 11400000, guid: 2cdbe31ff286476458be07a23231e5e0, type: 2}

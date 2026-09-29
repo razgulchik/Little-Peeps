@@ -62,12 +62,21 @@ namespace LittlePeeps
         private void Start()
         {
             fallbackAnchor = rb.position;
-            // Random initial pause so animals spawned the same frame don't move in lockstep.
-            pauseTimer = Random.Range(0f, pauseMax);
+            // Random initial pause so animals spawned the same frame don't move in lockstep — except one
+            // that has just come out of its building (Initialize set an away bias): it walks off at once.
+            pauseTimer = awayBias != Vector2.zero ? 0f : Random.Range(0f, pauseMax);
         }
 
-        // Runtime injection (AnimalSpawner calls this on spawn).
-        public void Initialize(AnimalSpawner spawner) => owner = spawner;
+        // Runtime injection (AnimalSpawner calls this on spawn, before Start). `leaveDirection` is the way
+        // the animal came out of its building, zero when it did not come out of one. It becomes the same
+        // away bias an encounter leaves behind: the first destination is picked on the far side of the
+        // door rather than back across the building, and the encounter immunity that comes with it lets
+        // animals leaving one door together walk apart instead of stopping on each other.
+        public void Initialize(AnimalSpawner spawner, Vector2 leaveDirection)
+        {
+            owner = spawner;
+            if (leaveDirection.sqrMagnitude > 0.0001f) awayBias = leaveDirection.normalized;
+        }
 
         private void FixedUpdate()
         {

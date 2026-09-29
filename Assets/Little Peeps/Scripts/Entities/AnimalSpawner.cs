@@ -4,9 +4,11 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Placed on a structure (stable, forest den); keeps up to maxAnimals Animal instances
-    // wandering in the structure's territory. Unlike Spawner's launch -> return -> rest slot
+    // wandering in the structure's territory. Each one comes OUT of the building through a free side —
+    // the house's exits (StructureExits) — and walks off into the territory; a building boxed in on
+    // every side lets nobody out until a side opens again. Unlike Spawner's launch -> return -> rest slot
     // cycle, animals never come back: one whose source despawns (boar, fox) is destroyed and a
-    // replacement is spawned after spawnCooldown (one per cooldown while below maxAnimals). One that
+    // replacement is let out after spawnCooldown (one per cooldown while below maxAnimals). One that
     // regrows (a shorn alpaca) stays out and keeps its slot. Registered with SpawnSystem
     // via IStructureSpawner so build mode clears and re-warms it together with the unit spawners.
     [RequireComponent(typeof(Structure))]
@@ -19,8 +21,15 @@ namespace LittlePeeps
         [SerializeField] private GameObject animalPrefab;
         [SerializeField] private int maxAnimals = 1;
         [SerializeField] private float spawnCooldown = 5f;
-        [Tooltip("Territory radius in cells around the footprint; animals spawn and wander inside it.")]
+        [Tooltip("Territory radius in cells around the footprint; animals wander inside it.")]
         [SerializeField] private int territoryRadiusCells = 2;
+
+        [Header("Release")]
+        [Tooltip("Gap between the building's edge and the animal's feet as it comes out.")]
+        [SerializeField, Min(0f)] private float releaseGap = 0.3f;
+
+        [Tooltip("Random spread on the chosen side's direction, so animals don't all come out on exact lines.")]
+        [SerializeField, Min(0f)] private float releaseJitterDegrees = 12f;
 
         // Grid context injected on placement (same pattern as Spawner). `instance.Cell` auto-updates
         // when the structure is moved, so after a build-mode move the territory follows the building.
@@ -37,6 +46,7 @@ namespace LittlePeeps
 
         private readonly List<Vector2> freeCells = new();      // reused per pick — unoccupied land in territory
         private readonly List<Vector2> occupiedCells = new();  // reused per pick — occupied-land fallback
+        private readonly List<Vector2> exitDirs = new();       // reused per release — directions toward free sides
 
         // Optional runtime injection (StructureSystem calls this when placing a structure at runtime).
         public void Initialize(SpawnSystem system, ResourceSystem resources, IslandGrid grid, StructureInstance instance)
@@ -62,10 +72,10 @@ namespace LittlePeeps
             Warmup();
         }
 
-        // IStructureSpawner — placement and build-mode exit: fill the territory up to maxAnimals at
-        // once. Instant refill is not farmable: the animal COUNT is capped, and only post-harvest
-        // replacements are rate-limited (by spawnCooldown in Update) — toggling build mode swaps
-        // animals one-for-one, it never mints extra ones.
+        // IStructureSpawner — placement and build-mode exit: let out up to maxAnimals at once, each
+        // through its own random free side. Instant refill is not farmable: the animal COUNT is capped,
+        // and only post-harvest replacements are rate-limited (by spawnCooldown in Update) — toggling
+        // build mode swaps animals one-for-one, it never mints extra ones.
         public void Warmup()
         {
             if (animalPrefab == null) return;
@@ -77,13 +87,13 @@ namespace LittlePeeps
             }
 
             // Placed during build mode: register only. Build-mode exit runs WarmupAllSpawners with the
-            // flag already cleared, which fills the territory then — so animals appear when the player
+            // flag already cleared, which lets the animals out then — so they appear when the player
             // leaves build mode, not the moment the den is dropped.
             if (spawnSystem != null && spawnSystem.IsBuildMode) return;
 
             maxAnimals = Mathf.Max(1, maxAnimals);
             while (animals.Count < maxAnimals)
-                if (!SpawnAnimal()) break;   // no valid spot right now — Update keeps retrying on cooldown
+                if (!SpawnAnimal()) break;   // sealed in right now — Update keeps retrying on cooldown
 
             respawnTimer = spawnCooldown;
         }
@@ -126,7 +136,7 @@ namespace LittlePeeps
 
         private bool SpawnAnimal()
         {
-            if (!TryPickPointInTerritory(out Vector2 pos)) return false;
+            if (!TryPickReleasePoint(out Vector2 pos, out Vector2 dir)) return false;
 
             var go = Instantiate(animalPrefab, pos, Quaternion.identity);
             var animal = go.GetComponentInChildren<Animal>(true);
@@ -142,17 +152,44 @@ namespace LittlePeeps
             foreach (var source in go.GetComponentsInChildren<ResourceSource>(true))
                 source.Initialize(resourceSystem);
             foreach (var wander in go.GetComponentsInChildren<AnimalWander>(true))
-                wander.Initialize(this);
+                wander.Initialize(this, dir);
 
             animals.Add(animal);
+            return true;
+        }
+
+        // Where a new animal comes out: just outside the building on a random free side, the same exits
+        // a house launches through (StructureExits — land, no fence on that edge, no solid neighbour; a
+        // field or a bush leaves the side open). False = sealed in on every side; the caller lets nobody
+        // out and Update tries again after the next cooldown. The generator leaves every den at least
+        // one free side (IslandContent's access rule), so only the player can close the last one. `dir`
+        // is the way out, for AnimalWander's first walk. Without grid context (a scene-placed spawner):
+        // a random point in the territory circle, and no direction.
+        private bool TryPickReleasePoint(out Vector2 point, out Vector2 dir)
+        {
+            if (grid == null || instance == null || instance.Def == null)
+            {
+                dir = Vector2.zero;
+                return TryPickPointInTerritory(out point);
+            }
+
+            var footprint = instance.Def.Footprint;
+            if (!StructureExits.TryPickDirection(grid, instance.Cell, footprint, instance.Def.border,
+                                                 exitDirs, releaseJitterDegrees, out dir))
+            {
+                point = default;
+                return false;
+            }
+
+            point = StructureExits.ExitPoint(grid, instance.Cell, footprint, dir, releaseGap);
             return true;
         }
 
         // Random point inside the territory: a land cell within territoryRadiusCells of the footprint
         // (the footprint itself excluded). Prefers unoccupied cells but falls back to occupied land —
         // a den sitting in a forest is surrounded by tree cells, and animals pass through everything
-        // anyway (kinematic body). Also used by AnimalWander for destinations, so spawn spots and
-        // wander targets follow one rule. Without grid context: a plain circle around the spawner.
+        // anyway (kinematic body). AnimalWander's destinations, and the spawn spot of a scene-placed
+        // spawner. Without grid context: a plain circle around the spawner.
         public bool TryPickPointInTerritory(out Vector2 point)
         {
             if (grid == null || instance == null || instance.Def == null)

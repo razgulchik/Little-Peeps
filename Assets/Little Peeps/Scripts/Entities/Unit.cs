@@ -17,13 +17,18 @@ namespace LittlePeeps
         [SerializeField, Range(0f, 45f)] private float minBounceAngle = 10f;
 
         [Tooltip("Random turn added to a bounce, in degrees either way, so two units on the same line " +
-                 "drift apart instead of tracing one path. 0 = off. Only from bounce Exact Bounces + 1 on.")]
+                 "drift apart instead of tracing one path. 0 = off.")]
         [SerializeField, Range(0f, 30f)] private float bounceJitterDegrees = 3f;
 
-        [Tooltip("The first this-many bounces after the unit comes out of a building are exact — no random " +
-                 "turn — so a building can aim it (the tavern banks tired drunks home off the coast; see " +
-                 "BilliardAim). The jitter starts at the next one. 4 = jitter from the 5th bounce on.")]
-        [SerializeField, Min(0)] private int exactBounces = 4;
+        [Header("Autopilot")]
+        [Tooltip("A unit on autopilot (a tired one the tavern made drunk — see EnterAutopilot) looks for a " +
+                 "house with a free slot within this distance (world units, to the house's root) at every " +
+                 "bounce, and leaves toward it if the way is clear.")]
+        [SerializeField, Min(0f)] private float autopilotRadius = 12f;
+
+        [Tooltip("How far an autopilot bounce may turn off the physical reflection, in degrees either way. It " +
+                 "never leaves into the wall or skimming along it, whatever this says.")]
+        [SerializeField, Range(0f, 180f)] private float autopilotMaxTurnDegrees = 90f;
 
         [Header("Stuck")]
         [Tooltip("A unit that never gets further than this (world units) from where it stood at the start " +
@@ -61,6 +66,16 @@ namespace LittlePeeps
         // house clears its own slots on build mode. Cleared when the tavern lets the unit out (Resume).
         private Tavern holder;
 
+        // Autopilot: how a drunk finds its way home without knowing how. A building switches it on
+        // (EnterAutopilot — the tavern, for a tired guest it lets out drunk) and it holds for as long as
+        // the unit stays drunk; sobered up short of a house, the unit is on its own again. On autopilot,
+        // every bounce looks for a house in sight and leaves toward it (see OnCollisionEnter2D). No
+        // destination is kept — each bounce looks again from where the unit is — so a knock from an animal,
+        // or a house that filled up meanwhile, only means the next bounce looks again. Cleared on every
+        // way off the field and back onto it (LeaveField, Resume, OnEnable).
+        public bool IsOnAutopilot => autopilot && IsDrunk;
+        private bool autopilot;
+
         // World-space radius of the unit's collider (used for spawn-clearance math).
         public float Radius => bodyCollider != null ? bodyCollider.bounds.extents.x : 0f;
         public IslandSystem Island => island;
@@ -97,18 +112,17 @@ namespace LittlePeeps
         public bool IsStuck => stuckWatch.IsStuck;
         private StuckWatch stuckWatch;
 
-        // Bounces since the unit last came out of a building (Resume, and so Launch, resets it): the first
-        // exactBounces of them get no random turn, see OnCollisionEnter2D.
+        // Bounces since the unit last came out of a building (Resume, and so Launch, resets it). Read by
+        // AimProbe, the autopilot diagnostics.
         private int bouncesSinceRelease;
 
         private Rigidbody2D rb;
         private Collider2D bodyCollider;
         private float baseSpeed;
 
-        // What a path predictor (BilliardAim) has to know to trace this unit's body the way the physics
-        // will move it. Read from the collider's own fields, not its physics bounds, so they are right
-        // even while the unit sits inside a building with physics off — which is exactly when a building
-        // aims it. BodyOffset: from the transform (the feet) to the body circle's centre.
+        // What the autopilot's eyes (BilliardAim) have to know to cast this unit's body the way the physics
+        // moves it. Read from the collider's own fields, not its physics bounds, so they hold whether the
+        // physics is on or not. BodyOffset: from the transform (the feet) to the body circle's centre.
         public Vector2 BodyOffset => bodyCollider != null
             ? (Vector2)(bodyCollider.transform.TransformPoint(bodyCollider.offset) - transform.position)
             : Vector2.zero;
@@ -116,12 +130,14 @@ namespace LittlePeeps
             ? circle.radius * Mathf.Abs(circle.transform.lossyScale.x)
             : Radius;
         public int BodyLayer => bodyCollider != null ? bodyCollider.gameObject.layer : gameObject.layer;
-        public float CruiseSpeed => TargetSpeed;
-        public float MinBounceAngle => minBounceAngle;
-        public int ExactBounces => exactBounces;
+
+        // For AimProbe, the autopilot diagnostics.
+        public int BouncesSinceRelease => bouncesSinceRelease;
+        public bool IsHeld => holder != null;
 
         private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
         private RunStats stats;        // injected on spawn; applies the UnitSpeed modifier to def.speed
+        private SpawnSystem spawns;    // injected on spawn; the houses the autopilot looks for
 
         // Decaying launch boost, ticked in FixedUpdate (physics-based acceleration).
         private float launchBoostTimer;
@@ -153,6 +169,7 @@ namespace LittlePeeps
             Profession = BornProfession;
             rack = null;
             holder = null;
+            autopilot = false;
             baseSpeed = ResolveBaseSpeed();
             stuckWatch = default;   // a verdict from the previous outing must not survive the pool
             drunkTimer = 0f;        // nor a drink
@@ -170,6 +187,9 @@ namespace LittlePeeps
         // Injected by SpawnSystem on spawn. baseSpeed is re-resolved on each launch (which runs after
         // injection), so a speed bonus gained mid-run applies from the unit's next launch onward.
         public void SetStats(RunStats runStats) => stats = runStats;
+
+        // Injected by SpawnSystem on spawn: where the autopilot finds the houses.
+        public void SetSpawns(SpawnSystem spawnSystem) => spawns = spawnSystem;
 
         // Base movement speed with the UnitSpeed modifier applied — keyed on the PROFESSION, so a
         // "lumberjacks walk faster" perk reaches a villager the moment it picks up an axe (Equip
@@ -232,7 +252,8 @@ namespace LittlePeeps
         public void Resume(Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
         {
             holder = null;                          // out of the tavern, if that is where it was
-            bouncesSinceRelease = 0;                // a fresh run of exact bounces, for a building's aim
+            autopilot = false;                      // a building putting it on autopilot says so after this
+            bouncesSinceRelease = 0;
             stuckWatch.Reset(transform.position);   // the building placed us here — that jump is not travel
             ApplyLaunch(direction, speedMultiplier, boostDuration);
         }
@@ -328,13 +349,18 @@ namespace LittlePeeps
             holder = null;
         }
 
+        // Switch the autopilot on (see IsOnAutopilot) — after Resume, which clears it. It lasts while the
+        // unit is drunk, so a sober unit is put on it for nothing.
+        public void EnterAutopilot() => autopilot = true;
+
         // What every way into a building shares: stop, switch physics off, hide. The boost is over, and
         // the stuck verdict goes too: a unit brought inside BECAUSE it was stuck must not read as stuck
-        // still, or the next sweep would put it into a second slot.
+        // still, or the next sweep would put it into a second slot. The way home is over as well.
         private void LeaveField()
         {
             launchBoostTimer = 0f;
             stuckWatch.Reset(transform.position);
+            autopilot = false;
 
             rb.linearVelocity = Vector2.zero;
             rb.simulated = false;
@@ -410,9 +436,9 @@ namespace LittlePeeps
         //   - never leave closer than minBounceAngle to the surface normal: a near-perpendicular exit
         //     is bent out to that angle on the side it already leaned (a coin toss if it is dead on),
         //     which walks the unit along the corridor and out in a couple of crossings;
-        //   - a small random turn on top, so units never settle into one shared groove — but not on the
-        //     first exactBounces after the unit came out of a building, so a building can aim it (the
-        //     tavern's BilliardAim traces those bounces with the same BendAwayFromNormal as here).
+        //   - a small random turn on top, so units never settle into one shared groove.
+        // A unit on autopilot leaves toward a house in sight instead, if there is one; that leg is aimed,
+        // and neither correction touches it.
         // Triggers (racks, fields, the market passage) are not bounces and never get here.
         private void OnCollisionEnter2D(Collision2D collision)
         {
@@ -424,6 +450,12 @@ namespace LittlePeeps
 
             Vector2 dir = velocity / speed;
 
+            if (IsOnAutopilot && TryAutopilot(collision, dir, out Vector2 home))
+            {
+                rb.linearVelocity = home * speed;
+                return;
+            }
+
             if (minBounceAngle > 0f && collision.contactCount > 0)
             {
                 // Oriented along the way OUT: whichever way Unity reports it, the normal a bounce
@@ -434,16 +466,37 @@ namespace LittlePeeps
                 dir = BendAwayFromNormal(dir, normal, minBounceAngle, Random.value < 0.5f ? -1f : 1f);
             }
 
-            if (bounceJitterDegrees > 0f && bouncesSinceRelease > exactBounces)
+            if (bounceJitterDegrees > 0f)
                 dir = Rotate(dir, Random.Range(-bounceJitterDegrees, bounceJitterDegrees));
 
             rb.linearVelocity = dir * speed;
         }
 
-        // The bounce rule itself, shared by the physics above and by anything that predicts a path
-        // (BilliardAim) so the two can never disagree: a direction leaving closer than minAngle to the
-        // surface normal is bent out to minAngle on the side it already leaned; exactly on the normal,
-        // `tieSide` (±1) picks the side. `outwardNormal` must point the way the unit is leaving.
+        // One autopilot bounce: the way to a house in sight from where the unit bounces, turned no more
+        // than autopilotMaxTurnDegrees off `reflected` (BilliardAim); false = a plain bounce. Nothing to aim
+        // if what it hit has just taken it in (physics off already).
+        private bool TryAutopilot(Collision2D collision, Vector2 reflected, out Vector2 dir)
+        {
+            dir = reflected;
+            if (spawns == null || !rb.simulated || collision.contactCount == 0) return false;
+
+            // Out of the wall, toward the body: the contact lies on the body circle's rim, so this holds even
+            // for a slide, where the velocity says nothing about which side is out.
+            var contact = collision.GetContact(0);
+            Vector2 bodyAt = rb.position + BodyOffset;
+            Vector2 normal = contact.normal;
+            if (Vector2.Dot(normal, bodyAt - contact.point) < 0f) normal = -normal;
+
+            AimProbe.Begin();
+            bool found = BilliardAim.TrySteer(this, spawns, autopilotRadius, bodyAt, normal, reflected,
+                                              autopilotMaxTurnDegrees, out dir);
+            AimProbe.Steered(this, found);
+            return found;
+        }
+
+        // The bounce rule itself: a direction leaving closer than minAngle to the surface normal is bent
+        // out to minAngle on the side it already leaned; exactly on the normal, `tieSide` (±1) picks the
+        // side. `outwardNormal` must point the way the unit is leaving.
         public static Vector2 BendAwayFromNormal(Vector2 dir, Vector2 outwardNormal, float minAngle, float tieSide)
         {
             if (minAngle <= 0f) return dir;

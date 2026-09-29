@@ -243,7 +243,12 @@ namespace LittlePeeps
         // check either: any house takes any such worker, whichever house launched it and whatever it
         // worked as — past the door rule, the only thing that can refuse is a full house, and then the
         // unit bounces on toward another structure.
-        public bool TryEnter(Unit unit) => unit != null && (unit.IsTired || unit.IsDrunk) && TryShelter(unit);
+        public bool TryEnter(Unit unit)
+        {
+            bool entered = unit != null && (unit.IsTired || unit.IsDrunk) && TryShelter(unit);
+            if (entered) AimProbe.Entered(this, unit);
+            return entered;
+        }
 
         // Take `unit` in to rest in the first free slot; false when every slot is occupied. The one
         // way in from the field, whether the unit came through the door (TryEnter) or SpawnSystem

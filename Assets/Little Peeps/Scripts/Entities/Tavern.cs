@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace LittlePeeps
 {
@@ -15,9 +16,9 @@ namespace LittlePeeps
     // tired one leaves tired AND drunk. A house takes a drunk worker in and resets it (Unit.EnterRest),
     // so tavern → house is a legitimate loop the doc wants balanced, not forbidden.
     //
-    // With sendTiredHome on, a guest that leaves tired AND drunk is not let out at random: the tavern aims
-    // it at a random house nearby with a free slot (BilliardAim — straight, or banked off the coast), and
-    // it walks there. No shot found, the ordinary release. A working guest always leaves the ordinary way.
+    // With autopilot on, a guest that leaves tired AND drunk is put on autopilot (Unit.EnterAutopilot): it
+    // leaves the ordinary way, and from then on finds its way home by itself while it stays drunk. The
+    // tavern only switches it on. A working guest leaves without it.
     //
     // Sealed in on every side, the tavern keeps its guests and tries again after another stay — never
     // removes or teleports them, like a house. Only reachable through StructureSystem (it needs the grid
@@ -63,19 +64,12 @@ namespace LittlePeeps
         [Tooltip("Random spread on the chosen side's direction, so guests don't all leave on exact lines.")]
         [SerializeField, Min(0f)] private float releaseJitterDegrees = 12f;
 
-        [Header("Send home")]
-        [Tooltip("Tired AND drunk guests are aimed at a random house nearby with a free slot and walk there — " +
-                 "straight, or banked off the island's coast. Nothing but the coast is banked off: a shot " +
-                 "that would touch anything else is not taken. No shot found → the ordinary release.")]
-        [SerializeField] private bool sendTiredHome;
-
-        [Tooltip("Houses within this distance (world units, from the tavern's root to the house's) are the " +
-                 "candidates.")]
-        [SerializeField, Min(0f)] private float homeSearchRadius = 12f;
-
-        [Tooltip("Most coast bounces a shot may take; fewer is always preferred. Also capped by the unit's " +
-                 "Exact Bounces — past those a bounce gets its random turn and no aim holds.")]
-        [SerializeField, Range(0, 3)] private int maxCoastBounces = 3;
+        [Header("Autopilot")]
+        [Tooltip("Tired guests leave on autopilot: while drunk, at every bounce they turn toward a house in " +
+                 "sight, if there is one. The unit's Autopilot settings say how far it looks and how sharply " +
+                 "it may turn.")]
+        [FormerlySerializedAs("sendTiredHome")]
+        [SerializeField] private bool autopilot;
 
         // One seat taken: who, and how long until it is let out. A struct in a list — the list is the
         // only state, its count is the occupancy.
@@ -87,25 +81,18 @@ namespace LittlePeeps
 
         private readonly List<Guest> guests = new();
         private readonly List<Vector2> exitDirs = new();   // reused per release
-        private readonly List<Spawner> nearbyHouses = new();   // reused per aimed release
-        private readonly BilliardAim aim = new();
 
         // Injected by StructureSystem on placement, before Start. The instance's Cell follows a move.
         private ResourceSystem resourceSystem;
-        private SpawnSystem spawnSystem;     // the houses, for sendTiredHome
-        private IslandSystem islandSystem;   // the coast, for sendTiredHome
         private IslandGrid grid;
         private StructureInstance instance;
 
         public int Capacity => capacity;
         public int Occupied => guests.Count;
 
-        public void Initialize(ResourceSystem resources, SpawnSystem spawns, IslandSystem island,
-                               IslandGrid grid, StructureInstance instance)
+        public void Initialize(ResourceSystem resources, IslandGrid grid, StructureInstance instance)
         {
             resourceSystem = resources;
-            spawnSystem = spawns;
-            islandSystem = island;
             this.grid = grid;
             this.instance = instance;
         }
@@ -119,9 +106,6 @@ namespace LittlePeeps
                 Debug.LogError($"Tavern on '{name}' has no coin source (ResourceSourceDef) — it pays nothing.", this);
             if (resourceSystem == null)
                 Debug.LogError($"Tavern on '{name}' has no ResourceSystem — it pays nothing.", this);
-            if (sendTiredHome && (spawnSystem == null || islandSystem == null || islandSystem.GroundTilemap == null))
-                Debug.LogWarning($"Tavern on '{name}' sends tired guests home, but has no houses or no coast to " +
-                                 "aim with — they will leave the ordinary way.", this);
         }
 
         // IEntrance — asked for every unit that hits the tavern. The door rule: anyone sober with a seat
@@ -153,6 +137,7 @@ namespace LittlePeeps
         // Walked backwards so a guest let out can be removed in place.
         private void Update()
         {
+            AimProbe.Tick();
             float dt = Time.deltaTime;
             for (int i = guests.Count - 1; i >= 0; i--)
             {
@@ -169,20 +154,13 @@ namespace LittlePeeps
             }
         }
 
-        // Let `unit` out drunk: aimed at a house if it is a tired guest and sendTiredHome is on, otherwise
-        // through an open side, the house's way. Drunk goes on FIRST — the aim reads the drunk walking speed,
-        // and the first velocity the unit gets is already it. False = every side is closed; the unit stays
-        // exactly where it is (drunk already, which changes nothing inside — the next try puts it on anew).
+        // Let `unit` out drunk through an open side, the house's way — on autopilot if it is tired and the
+        // tavern sends its guests home that way. Drunk goes on FIRST, so the first velocity the unit gets is
+        // already the drunk one. False = every side is closed; the unit stays exactly where it is (drunk
+        // already, which changes nothing inside — the next try puts it on anew).
         private bool TryRelease(Unit unit)
         {
             unit.MakeDrunk(drunkDuration, drunkSpeedMultiplier);
-
-            if (sendTiredHome && unit.IsTired && unit.IsDrunk && TryAimHome(unit, out Vector2 bodyStart, out Vector2 homeDir))
-            {
-                unit.transform.position = bodyStart - unit.BodyOffset;
-                unit.Resume(homeDir);
-                return true;
-            }
 
             var footprint = instance.Def.Footprint;
             if (!StructureExits.TryPickDirection(grid, instance.Cell, footprint, instance.Def.border,
@@ -191,19 +169,13 @@ namespace LittlePeeps
 
             unit.transform.position = StructureExits.ExitPoint(grid, instance.Cell, footprint, dir, unit.Radius + releaseGap);
             unit.Resume(dir);
+
+            if (autopilot && unit.IsTired)
+            {
+                unit.EnterAutopilot();              // after Resume, which clears it
+                AimProbe.Released(this, unit);
+            }
             return true;
-        }
-
-        // A shot home for a tired drunk (see BilliardAim): the candidates are the houses within
-        // homeSearchRadius that have a free slot right now; one the shot can reach is picked at random.
-        private bool TryAimHome(Unit unit, out Vector2 bodyStart, out Vector2 dir)
-        {
-            bodyStart = dir = Vector2.zero;
-            if (spawnSystem == null || islandSystem == null || islandSystem.GroundTilemap == null) return false;
-
-            spawnSystem.CollectHousesWithFreeSlot(transform.position, homeSearchRadius, nearbyHouses);
-            return aim.TryAimFromStructure(unit, grid, instance, transform, islandSystem.GroundTilemap.gameObject,
-                                           nearbyHouses, maxCoastBounces, releaseGap, out bodyStart, out dir);
         }
 
         // The unit left the game from inside (Unit.LeaveHold, from SpawnSystem.Despawn): free its seat

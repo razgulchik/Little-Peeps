@@ -120,7 +120,7 @@ namespace LittlePeeps
         }
 
         // Houses with a free slot within `radius` of `from` (measured to the house's root), for a caller
-        // that sends a unit home on purpose — the tavern aiming its tired drunks. Same filter as the stuck
+        // that sends a unit home on purpose — a unit on autopilot looking for one. Same filter as the stuck
         // rescue: unit Spawners only, AnimalSpawners skipped.
         public void CollectHousesWithFreeSlot(Vector2 from, float radius, List<Spawner> buffer)
         {
@@ -177,6 +177,7 @@ namespace LittlePeeps
 
             unit.SetIsland(islandSystem);
             unit.SetStats(stats);
+            unit.SetSpawns(this);
             unit.transform.position = position;
             activeByDef.TryGetValue(def, out var active);
             activeByDef[def] = active + 1;

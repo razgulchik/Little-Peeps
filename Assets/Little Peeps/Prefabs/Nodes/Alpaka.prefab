@@ -366,7 +366,7 @@ MonoBehaviour:
   harvestedRoot: {fileID: 3970093221132146869}
   swapStateVisuals: 1
   fxAnchor: {fileID: 2908992283057913503}
-  fadeOutTime: 0
+  fadeOutTime: 0.3
   fadeCurve:
     serializedVersion: 2
     m_Curve:

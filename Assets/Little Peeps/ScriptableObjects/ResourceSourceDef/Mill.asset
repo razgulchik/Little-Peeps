@@ -12,15 +12,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c3a4a91d14169846ab526ecdb5af30a, type: 3}
   m_Name: Mill
   m_EditorClassIdentifier: 
-  id: 
+  id: mill
   resource: 0
   workerYields:
   - worker: 0
     amount: 1
   - worker: 1
-    amount: 3
+    amount: 1
+  - worker: 2
+    amount: 1
+  - worker: 3
+    amount: 1
+  - worker: 4
+    amount: 1
+  - worker: 5
+    amount: 1
+  - worker: 6
+    amount: 1
   pickupFx: {fileID: 4737561740087932183, guid: 17dd9b64cda166c4fba8ff8ea6076dbf, type: 3}
   pickupFxCount: 1
-  infinite: 0
-  hitsBeforeDespawn: 1
-  respawnTime: 20
+  depletion: 2
+  hitsToDeplete: 1
+  regrowTime: 20
+  keepBodyWhileDepleted: 0

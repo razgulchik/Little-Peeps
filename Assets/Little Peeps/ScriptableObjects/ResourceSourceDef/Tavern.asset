@@ -14,7 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: tavern
   resource: 4
-  workerYields: []
+  workerYields:
+  - worker: 0
+    amount: 1
+  - worker: 1
+    amount: 1
+  - worker: 2
+    amount: 1
+  - worker: 3
+    amount: 1
+  - worker: 4
+    amount: 1
+  - worker: 5
+    amount: 1
+  - worker: 6
+    amount: 2
   pickupFx: {fileID: 1316142203753392457, guid: e895b80a6ceda93419f8ff05bb7929cb, type: 3}
   pickupFxCount: 1
   depletion: 2

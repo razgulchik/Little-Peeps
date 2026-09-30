@@ -12,16 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c3a4a91d14169846ab526ecdb5af30a, type: 3}
   m_Name: Tree
   m_EditorClassIdentifier: 
-  id: 
+  id: tree
   resource: 1
   workerYields:
   - worker: 0
     amount: 1
   - worker: 2
-    amount: 3
+    amount: 5
   pickupFx: {fileID: 4371847270752138857, guid: a285e262118a29846bc987227ea4bb18, type: 3}
   pickupFxCount: 1
   depletion: 0
   hitsToDeplete: 1
-  regrowTime: 40
+  regrowTime: 50
   keepBodyWhileDepleted: 0

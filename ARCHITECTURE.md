@@ -48,12 +48,13 @@
 │  Entities                       │    │  Effects                    │
 │  CollisionTarget (base)         │    │  Entrances (IEntrance):     │
 │   ├ Structure                   │    │  Spawner · Tavern           │
-│  Unit · Spawner · Tavern        │    │  ICollisionEffect impls:    │
+│  Unit · Spawner · Tavern · Mill │    │  ICollisionEffect impls:    │
 │  ToolRack · Pier · ForgeHeat    │    │  ResourceSource · ToolRack  │
-│  ResourceSource · Animal        │    │  Gates (IHitGate impls):    │
-│  AnimalSpawner · AnimalWander   │    │  VisitZone · ForgeHeat      │
-│  IStructureSpawner (contract)   │    │  Yield (IYieldScale impls): │
-│  + their views (TiredView, …)   │    │  ForgeHeat                  │
+│  ResourceSource · Animal        │    │  Mill                       │
+│  AnimalSpawner · AnimalWander   │    │  Gates (IHitGate impls):    │
+│  IStructureSpawner (contract)   │    │  VisitZone · ForgeHeat      │
+│  + their views (TiredView,      │    │  Yield (IYieldScale impls): │
+│    WaterSideVisual, …)          │    │  ForgeHeat                  │
 └──────┬──────────────────────────┘    └─────────────────────────────┘
        │ uses
 ┌──────▼─────────────────────────────────────────────────────────────┐
@@ -100,15 +101,22 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
     `[RequireComponent(Collider2D, Rigidbody2D)]`.
   - `ForgeHeat` (heat per paying hit — a gate AND an `IYieldScale`) —
     `[RequireComponent(typeof(ResourceSource))]`.
+  - `Mill` (grinds Food into a store of sacks; a hit carries the store off — an `ICollisionEffect`) —
+    `[RequireComponent(typeof(CollisionTarget))]`.
 - Examples: House = Structure + Spawner · Tavern = Structure + Tavern · Market = Structure +
   ResourceSource (`Depletion.Never`) + VisitZone (the passage) · Smithy = Structure + ResourceSource
   (`Never`) + ForgeHeat (+ `ForgeHeatView`) · Tree/Wheat/Rock/Bush = Structure + ResourceSource
   (`Regrow`) · Tool rack = Structure + ToolRack · Stable/Den = Structure + AnimalSpawner ·
-  Mountain/River = a bare Structure (a wall the generator places; `canSell`/`canMove` off).
+  Watermill = Structure + Mill + WaterSideVisual · Mountain/River = a bare Structure (a wall the
+  generator places; `canSell`/`canMove` off; the river's def is `isWater`).
+- Who may take a building's resource, and how much, is ALWAYS its `ResourceSourceDef.workerYields` —
+  a node, the tavern and the mill alike. "Anyone can" means the def lists every profession; no
+  component skips the list, and an unlisted worker gets a plain bounce.
 - Looks are components too, and never gameplay: `SpriteShadow` (a drop shadow made from the sprite
   at Start, so the build-mode ghost — every behaviour disabled — never gets one), `WaterReflection`
   (the silhouette in the water), `DualVisual` (one of two roots: a fence by orientation, a forest by
-  grid-row parity — the caller decides), `TiredView`, `ProfessionView`, `ForgeHeatView`.
+  grid-row parity — the caller decides), `WaterSideVisual` (one of three roots: a watermill by the
+  side its river runs along), `TiredView`, `ProfessionView`, `ForgeHeatView`.
 
 **Footprints and exits.** `StructureDef.size` is the footprint's box; `footprintMask` paints which
 of its cells the structure really takes (`StructureDef.Footprint`, e.g. the smithy's staircase), and
@@ -143,11 +151,11 @@ outing more productive, never longer. Stamina > 0 = WORKING; 0 = TIRED. `Unit.Is
 derived flag; there is no second variable. The state decides exactly two things:
 - **Dispatch.** `CollisionTarget.HandleHit` asks every `IEntrance` on the target first, for every
   unit: WHO may come in is each building's own door rule (`TryEnter` decides and takes the unit in
-  one call) — a house takes the tired and the drunk, a tavern anyone sober with a seat free. Past the
-  entrances a tired unit stops; a working one goes on to gates → effects. So a tired unit pays
-  nothing anywhere (no market visit is debited, the forge does not heat) and a working unit gets into
-  a house only drunk. Entrances check the unit's state themselves, on purpose — every door differs;
-  gates and effects never do.
+  one call) — a house takes the tired and the drunk, a tavern anyone sober it serves with a seat
+  free. Past the entrances a tired unit stops; a working one goes on to gates → effects. So a tired
+  unit pays nothing anywhere (no market visit is debited, the forge does not heat, the mill keeps its
+  sacks) and a working unit gets into a house only drunk. Entrances check the unit's state
+  themselves, on purpose — every door differs; gates and effects never do.
 - **Speed.** `Unit.TargetSpeed` = base (`UnitSpeed`) × `UnitDef.tiredSpeedMultiplier` while tired ×
   the drunk factor while drunk (`tiredSpeedMultiplier` is `[Range(0.1, 1)]` — never zero, a tired
   unit must stay distinct from a stopped one). `FixedUpdate` holds the speed AT TargetSpeed every
@@ -179,9 +187,10 @@ derived from `Unit.Profession`, and every yield table and stat scope keys on it.
 per `UnitType`, Unassigned included) also carries the look — frames that `ProfessionView` cycles
 itself (no Animator).
 
-**Tavern, Drunk and the autopilot** (design doc: *Tavern*). The `Tavern` (`IEntrance`) lets in any
-SOBER unit with a seat free, working or tired, and pays `payout` coins ONCE on entry through
-`AddHarvest(coinSource, …)` — the service exception: a tired worker, who may not work, still pays.
+**Tavern, Drunk and the autopilot** (design doc: *Tavern*). The `Tavern` (`IEntrance`) lets in a
+SOBER unit with a seat free, working or tired, if its coin source serves it: `coinSource.workerYields`
+lists who is served and the price, paid ONCE on entry through `AddHarvest(coinSource, …)` — the
+service exception: a tired worker, who may not work, still pays. An unlisted one bounces off.
 Inside, the unit is HELD, not rested (`Unit.EnterHold`): it keeps its stamina, profession and tool,
 and its stamina clock stands still. The unit remembers its tavern (`holder`) so a despawn from inside
 gives the seat back (`SpawnSystem.Despawn` → `Unit.LeaveHold` → `Tavern.Forget`). After
@@ -209,6 +218,19 @@ guest went to the one house in sight and the first ones filled it.
 `AimProbe` (end of `BilliardAim.cs`) logs every look and outcome with a running TOTAL line; it is
 `[Conditional("AIM_PROBE")]`, so it compiles away unless that scripting define is set.
 
+**Watermill** (design doc: *Mill*). The `Mill` (`ICollisionEffect`) grinds Food by itself into a store
+of WHOLE sacks — one per `secondsPerSack` of game time, up to `capacity` — and a working hit by a
+worker its `foodSource` lists carries the whole store off: sacks × that worker's `workerYields`
+amount (the worth of ONE sack), through `AddHarvest(foodSource, …)`. An empty mill or an unlisted
+worker is a plain bounce, and the store stays. While the store is full the clock stands at zero —
+nothing is ground ahead — which is the doc's tradeoff: enough visits that it never sits full, and past
+that, more traffic adds nothing. Whole sacks rather than a running amount, so a double bounce never
+pays "+0.03" and a sack on screen is a sack in the store. The clock and the cap live on the component;
+the def's `depletion` is `Never` and is not read. The store belongs to the object, so it rides a move
+and is gone with the run. `Stored` / `Capacity` / `IsFull` are there for the view (sacks around the
+mill, the wheel's frames when full), which waits for art. Where a mill may stand: *One placement rule*
+below.
+
 **Stuck rescue.** A unit that cannot get anywhere cannot free itself (a tired one can't chop, a
 farmer never could). `StuckWatch` (on `Unit`, field only) cuts time into `stuckWindow` windows (5 s):
 a window in which the unit never got further than `stuckRadius` (1) from where it started it = STUCK
@@ -226,6 +248,33 @@ build mode may sell or pick a structure up — off for the generated mountains a
 part of the island rather than something the player owns; generated trees and the starting house
 stay sellable (there is no "player-placed" distinction, only what a def allows). `PlacementTarget`
 answers both, so the hover tint and the click agree.
+
+**One placement rule, and a look taken from the place.** Every path that puts a structure on cells —
+build, move, generated content, the pier — asks `IslandGrid.CanPlace(origin, def)`: the cell rule
+(land, free, allowed terrain, border) plus whatever the def adds on top, so the build ghost can never
+promise a spot the builder then refuses. What a def adds today is `needsWaterSide` (the watermill):
+one WHOLE side along water (`WaterSides.Find`). Water is a cell holding a structure whose def is
+`isWater` — the river; the sea is no cell at all and never counts. Only a whole side counts (every
+cell just outside it), so a river that turns away at the building's corner leaves the spot refused,
+and one step along it fits; a side follows the footprint's outline, not its box. Where the river bends
+round a corner two sides qualify and the first of South → West → East wins; North never counts, the
+wheel would hide behind the building. That order is the watermill's art, so it is code, not data.
+Such a def needs `border` 0 — the river's cells are taken, so a border ring could never reach them.
+`WaterSides.Find` also takes "what is water" as a predicate, so a generator's own cell sets can run
+the same rule.
+
+The look a structure takes from WHERE it stands is `StructureSystem.ApplyPlacementVisual(go, grid,
+origin, footprint)`: a forest's `DualVisual` by row parity, a watermill's `WaterSideVisual` by the side
+its river runs along (a root per side, each fully authored in the prefab — the wheel hangs over a
+different neighbour each time; no side → the south root, so a red ghost is always the plain front
+view). It runs wherever a structure lands or is shown landing — `Build`, the move drop, the build ghost
+and the carried structure — so the preview is exactly what lands. It is decided only then:
+surroundings that change later (a river a new zone brings next to an old building) do not re-dress a
+standing one. Extending: another "look by place" is one component + one line in
+`ApplyPlacementVisual`. A building tied to ANOTHER neighbour (a mine by the mountains) keeps the
+geometry, the one placement check and the visual hook, but needs the water-only parts made general:
+the neighbour flag (`isWater`), the requirement (`needsWaterSide`) and the side order (fixed to the
+mill's art).
 
 Units are villagers: a unit leaves a house as its `UnitDef` was born (the Unassigned villager) and
 works as whatever profession it picks up (Farmer / Lumberjack / Hunter / Miner / Blacksmith — see
@@ -623,11 +672,11 @@ its number, via `HarvestFade` / `HarvestNumberMotionDef` / `HarvestNumberFormat`
 `SceneGridGizmo` is a runtime-assembly component whose drawing compiles out of a build.
 
 Tests cover the risk points, one file each: `RunStats`, `IslandGrid` (+ a grid smoke test),
-`EventBus`, `StateMachine`, structure exits, footprints, the stuck watch, the unit's bounce rule, run
-teardown, harvest ledger, prestige formula + payout, perk roll, perk state + card, the modifier card
-text, placement target, house capacity, the island's shape rules (with a seed sweep, so tuned rules
-can never fail in play), island content, zone offers, the zone pick state, the island rise's schedule
-and notes, and the coast painter (tile-by-tile repaint must equal a full repaint at every step).
+`EventBus`, `StateMachine`, structure exits, water sides, footprints, the stuck watch, the unit's
+bounce rule, run teardown, harvest ledger, prestige formula + payout, perk roll, perk state + card,
+the modifier card text, placement target, house capacity, the island's shape rules (with a seed
+sweep, so tuned rules can never fail in play), island content, zone offers, the zone pick state, the
+island rise's schedule and notes, and the coast painter (tile-by-tile repaint must equal a full repaint at every step).
 Two shared fixtures keep them free of assets: `TestIsland` (a rectangle of cells, for the grid and
 exit geometry) and `TestBiomes` (the prototype's biome profiles, built in code). Physics casts (the
 autopilot's `BilliardAim`) have no Edit Mode test: they need a live physics scene. **Edit Mode runs
@@ -642,7 +691,7 @@ belongs in a PlayMode assembly (none yet).
 | Component | Type | Responsibility |
 |-----------|------|---------------|
 | `RunManager` | MB | The one way a run starts and ends. `StartNewRun` = `EndRun` + fresh `RunContext` seeded from `StartConfigDef` (resources, baseline modifiers) → init resource/structure/spawn systems → `IslandSystem.GenerateForRun(seed, rules, start biome, house)` — the start zone brings its own content, the house included → `PierSystem.PlaceForRun` → `RunStartedEvent`. `EndRun` tears down pier → structures → spawn system (order load-bearing: spawners despawn their resting units, then SpawnSystem collects the roamers). `[ContextMenu("Restart Run")]` debug trigger, refused from build mode |
-| `IslandGrid` | Plain C# | Grid data: sparse cells (`terrain` + `occupant`), placement validation (`CanPlace/Place/Remove` with footprint, allowed terrain, border), edge registry (`CanPlaceEdge/PlaceEdge/RemoveEdge`), world↔grid and world↔edge conversion; `CellBounds` / `WorldBounds` for the camera and the pier |
+| `IslandGrid` | Plain C# | Grid data: sparse cells (`terrain` + `occupant`), placement validation (`CanPlace/Place/Remove` with footprint, allowed terrain, border; `CanPlace(origin, def)` adds the def's extras — a side along water — and is the one every placement path asks), edge registry (`CanPlaceEdge/PlaceEdge/RemoveEdge`), world↔grid and world↔edge conversion; `CellBounds` / `WorldBounds` for the camera and the pier |
 | `IslandSystem` | MB | Owns Grid + Generator + `Drawing` and the `biomes` list (validated at run start — a bad biome is reported and skipped). `GenerateForRun(seed, rules, startBiome, house)`; `ProposeZones()` (one populated offer per biome) and `CommitZone(offer, forRise)` — driven explicitly by `AgeSequencer`, not an event. Places every zone's content through `StructureSystem.PlaceInitial` (house first, then mountains and river, then objects). `forRise` commits the zone whole (grid, run, structures) but hides its land and switches its structures off in the same frame, so their `Start` waits for the rise to switch them on. Remembers `LastSection` / `LastContent` (what the rise brings up); publishes `IslandRepaintedEvent` once a frame. `[ContextMenu] Generate Island` previews one in the editor |
 | `IslandGenerator` | Plain C# | Decides which cells exist, section by section (the prototype's `island_shapes.py`): `GenerateStart` / `Propose(n)` sample valid shapes grouped by family, `Populate` fills one with a biome's content, `Commit` makes it a section; a stale candidate throws. Knows nothing of tiles, terrain or structures. `Seed` / `Land` / `LastAttempts` for the logs |
 | `IslandShape` / `IslandContent` | static | The generator's two halves: shape checks and operations on sets of signed cells (width, holes, bays, joins, connectivity; every set sorted before sampling, so a seed reproduces); a zone's content (the prototype's `island_resources.py`: reservations, mountains grown in 2×2 blocks, a river, the biome's objects — each only where the island stays reachable, planned bridges counted) |
@@ -660,7 +709,7 @@ belongs in a PlayMode assembly (none yet).
 | `SharedEmitter` | static | The one-shared-ParticleSystem-per-effect rule (World space, looping, no self-emission; `pausedPlay` also demands Use Unscaled Time): `Create` validates loudly and refuses, `EmitAt` moves + emits. Used by `HarvestVfxSystem` and the rise |
 | `WaterSystem` | MB | The sea: Modern 2D Water spawned from a prefab at run time (never a scene object — the package's edit-mode code would churn the scene); the coast copied into the water's obstruction layer after every `IslandRepaintedEvent`; the south foam sized in art pixels and pulsing on real time; side foam along the east and west edges; coast copies that bend with the land during a rise. `HasWater` for the rise |
 | `UnscaledShaderTimeFeature` | URP renderer feature | Shader time from unscaled time — always, since switching at a pause would jump every wave's phase — for every camera on the 2D renderer, so the sea keeps moving through build mode and the picks |
-| `StructureSystem` | MB | Place / Sell / Remove / PickUp / Drop for BOTH cell and edge structures; `PlaceStructure` validates + spends, `PlaceInitial` is the free path for generated content (zone content, the starting house) and the pier — still validated, it warns and skips a blocked cell; `ClearAll` sweeps the run's registries on `EndRun`. Returns the created instance so owners (the pier) can track and move it |
+| `StructureSystem` | MB | Place / Sell / Remove / PickUp / Drop for BOTH cell and edge structures; `PlaceStructure` validates + spends, `PlaceInitial` is the free path for generated content (zone content, the starting house) and the pier — still validated, it warns and skips a blocked cell; `ClearAll` sweeps the run's registries on `EndRun`. Returns the created instance so owners (the pier) can track and move it. `ApplyPlacementVisual` = the look a structure takes from where it lands (a forest's row, a watermill's river side), shared with the build ghost and the carried structure |
 | `PlacementController` | MB | Build-mode input router, active between `Begin()` / `End()` (called by `BuildModeState`): the panel selection chooses the tool — card → `PlaceTool`, sell button → `SellTool`, nothing → `MoveTool` (default). Right-click cancels the tool's action or clears the selection (`ToolCleared` → panel). Clicks over UI are ignored. Owns the inspector-authored `PlacementVisuals` |
 | `IPlacementTool` / `PlaceTool` / `MoveTool` / `SellTool` | Plain C# | One tool active at a time. Contract: `Exit` leaves NOTHING behind (no ghost, no tint, no half-finished drag). `PlaceTool` is one instance per `StructureDef` (ghost, cell or edge); `MoveTool` is the only tool with state between clicks and the only one that holds a structure off the grid; `SellTool` refunds `sellRefundPercent`. Sell and Move ask the target's `CanSell` / `CanMove` |
 | `PlacementTarget` | struct | THE answer to "what is under the cursor" — fence on an edge, structure on a cell, or nothing — and whether its def may be sold or moved; shared by Sell, Move pick-up and the hover highlight, so the fence-wins rule exists once |
@@ -684,19 +733,21 @@ belongs in a PlayMode assembly (none yet).
 | `HarvestFade` / `HarvestNumberFormat` | static | One implementation each of a reaped node's fade + squash and of the number's spelling ("+1", "+2.5", "+1.2k"), shared by the game and the `HarvestFeedbackWindow` so the preview cannot drift |
 | `CollisionTarget` | MB (base) | Collision callbacks → `IEntrance` (root) for every unit, the first that takes it in ends the hit → a tired unit stops there → working: `IHitGate` check (root + children) → `ICollisionEffect` dispatch (root); `SetColliderEnabled` toggles every collider under it, a `VisitZone` trigger included |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (`StructureDef`) |
-| `IEntrance` | interface | `TryEnter(unit)` — a building a unit can go INTO; decides by its own door rule and takes the unit off the field in one call, asked for every unit before anything else. Implemented by `Spawner` (tired or drunk) and `Tavern` (sober, seat free) |
+| `IEntrance` | interface | `TryEnter(unit)` — a building a unit can go INTO; decides by its own door rule and takes the unit off the field in one call, asked for every unit before anything else. Implemented by `Spawner` (tired or drunk) and `Tavern` (sober, served, seat free) |
 | `IHitGate` | interface | `TryConsume(unit)` — decides AND spends in one call; asked before any effect, one refusal = plain bounce. Effect-agnostic, so a gate composes onto any target; one rationing gate per target. Implemented by `VisitZone` and `ForgeHeat` |
-| `ICollisionEffect` | interface | `OnHit(unit, target)` — what a hit by a WORKING unit does once every gate let it through; the worker check lives inside. Implemented by `ResourceSource` and `ToolRack` |
+| `ICollisionEffect` | interface | `OnHit(unit, target)` — what a hit by a WORKING unit does once every gate let it through; the worker check lives inside. Implemented by `ResourceSource`, `ToolRack` and `Mill` |
 | `IYieldScale` | interface | `Factor(unit)` — a per-hit multiplier on what a `ResourceSource` pays, UNDER the run's modifiers; asked only for a hit that pays, must not mutate. Implemented by `ForgeHeat` |
 | `VisitZone` | MB, `IHitGate` | Per-visit hit ration (`hitsPerVisit` on the component, not in a def): `Dictionary<Unit,int>` filled on trigger enter, debited per hit, dropped on exit. Sits on its own child with the trigger AND a Static Rigidbody2D so its trigger events stay off the root; `Reset()` sets both up, `Awake` errors if the collider isn't a trigger |
 | `ForgeHeat` | MB, `IHitGate`, `IYieldScale` | The smithy's heat: every paying hit adds heat (only hits the source actually pays for); reaching the cap OVERHEATS it — plain bounces until it has cooled all the way to zero; cooling never stops. Hot yield = `ForgeHotYield` (×1 until a perk) shaped by the `hotness` curve, sampled after the hit's own heat. All four numbers are stats, resolved at use; `HitPaid` for presentation |
 | `ForgeHeatView` | MB | The heat bar in the smithy's window: a flat cover shrinks over a fixed gradient (the fill never moves or stretches); overheat darkens the fill and lights overlays that fade with the HEAT, not a clock. Authored cold, so the build ghost shows a cold forge. Presentation only |
 | `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit) |
 | `Spawner` | MB, `IEntrance`, `IStructureSpawner` | The house. Per-slot spawn → travel → rest cycle, slot = `Free ↔ Occupied` (no lockout); the door (`TryEnter`) takes a tired or drunk unit into any free slot, whichever house launched it and whatever it works as; `TryShelter` is the same without the door rule (stuck rescue); launches through an open side (`StructureExits`); self-registers with SpawnSystem; base `capacity` × `HouseCapacity` materialised into slots at `Warmup`, grown on `RefreshFromStats`; rest duration through `SpawnerRecharge`; launch boost (`launchSpeedMultiplier` / `launchBoostDuration`) |
-| `Tavern` | MB, `IEntrance` | Lets in any sober unit with a seat free (`capacity`), pays `payout` coins once on entry, holds it `stayDuration` (`Unit.EnterHold`), lets it out Drunk through an open side; with `autopilot` on, a tired guest leaves on autopilot. Sealed in → keeps its guests and tries again after another stay. Injected by StructureSystem (resources, grid, instance); `Forget(unit)` frees a seat on despawn; `Occupied` / `Capacity` for a future occupancy view |
+| `Tavern` | MB, `IEntrance` | Lets in a sober unit its `coinSource` serves (`workerYields`: who, and the price), with a seat free (`capacity`), and charges that price once on entry; holds it `stayDuration` (`Unit.EnterHold`), lets it out Drunk through an open side; with `autopilot` on, a tired guest leaves on autopilot. Sealed in → keeps its guests and tries again after another stay. Injected by StructureSystem (resources, grid, instance); `Forget(unit)` frees a seat on despawn; `Occupied` / `Capacity` for a future occupancy view |
+| `Mill` | MB, `ICollisionEffect` | The watermill: grinds whole sacks of Food on game time (`secondsPerSack`, up to `capacity`; the clock stands at zero while full); a working hit by a worker `foodSource` lists carries every sack off — sacks × its `workerYields` amount (per sack), through `AddHarvest`; empty or unlisted = plain bounce. Injected by StructureSystem (resources); `Stored` / `Capacity` / `IsFull` for the future view |
 | `Unit` | MB | Bouncing villager: stamina clock (`UnitDef.stamina` × `UnitStamina`, ticks whenever on the field) → `IsTired`; Drunk (`MakeDrunk`, timed) → `IsDrunk`; `TargetSpeed` (`UnitSpeed` × tired factor × drunk factor) held every step; profession for the outing (`Equip` / `Unequip`, `Type`); `Launch` (house — refills), `Resume` (out of a hold — refills nothing), `Boost(mult, duration, refreshStamina)` (tap), `EnterRest` (house: stamina 0, sober, tool back), `EnterHold` / `LeaveHold` (tavern), `OnBecameTired` (the one transition); the bounce rule (`minBounceAngle` bend + `bounceJitterDegrees` turn, `BendAwayFromNormal`), or the autopilot's turn to a house (`EnterAutopilot`, `autopilotRadius`, `autopilotMaxTurnDegrees`); `StuckWatch` → `IsStuck`; wedged kick; injected with the island, `RunStats` and `SpawnSystem` on spawn |
 | `StuckWatch` | struct | Fixed windows: a window the unit never left a disc of `radius` = stuck; the verdict clears once it gets out. No dependency beyond `Vector2` — tested offline |
 | `StructureExits` | static | Where a unit or an animal may leave a structure on the grid (`CollectAllowedDirections`, `IsOpenExit`, `TryPickDirection` + jitter) and where it is put (`ExitPoint`: the ray from the box centre out of the footprint, plus a clearance). Parameterised by grid + origin + footprint + border, not components — tested on a bare `IslandGrid` |
+| `WaterSides` | static | Which side of a footprint runs along water: a WHOLE side (its outline, not its box), first of South → West → East, never North; water = a cell whose structure's def is `isWater` (the sea never counts). `Find(grid, …)` for the island, `Find(origin, footprint, isWater)` over any predicate — the geometry tested offline. Behind `IslandGrid.CanPlace(origin, def)` for `needsWaterSide` and behind `WaterSideVisual` |
 | `BilliardAim` | static | The autopilot's eyes: `TrySteer` — the way to a house with a free slot in sight from a bounce (radius, turn limit, ≥15° off the wall, a body-circle `CircleCast` whose first hit must be that free house; animals ignored). Decides nothing; shared buffers, main thread only |
 | `AimProbe` | static | Autopilot diagnostics (cost per look, what blocks the view, where units end up, running TOTAL). Every method `[Conditional("AIM_PROBE")]` — compiled away without that scripting define |
 | `ToolRack` | MB, `ICollisionEffect` | One tool of one `ProfessionDef` on a walk-through trigger: an Unassigned worker crossing it takes the tool for the outing (`Unit.Equip`); Available / Taken visual roots. No system injection: the tool only ever comes back through the unit holding it |
@@ -709,7 +760,8 @@ belongs in a PlayMode assembly (none yet).
 | `Pier` | MB (marker) | Sits on the pier prefab's ROOT: `TapSystem` resolves a click with `GetComponentInParent<Pier>()` from whichever collider was hit |
 | `SpriteShadow` | MB | A drop shadow built at Start from the `SpriteRenderer` beside it (black, translucent, one sorting step behind, a few pixels off) and re-synced every frame (sprite, flip, sorting). The ghost never Starts, so it never has one; a carried structure hides its own |
 | `WaterReflection` | MB | The object's silhouette in the water: adds the package's `Reflector` at Start in sprite-pivot mode and raises the package's update flag once, so the reflection is actually placed. No edit-mode code — put THIS on prefabs, never the package's `Reflector` |
-| `DualVisual` | MB | Shows one of two child roots — a fence by edge orientation, a forest by grid-row parity (neighbours interlock). The caller decides; the build ghost uses it too |
+| `DualVisual` | MB | Shows one of two child roots — a fence by edge orientation, a forest by grid-row parity (neighbours interlock). The caller decides (`StructureSystem.ApplyPlacementVisual` for a forest); the build ghost uses it too |
+| `WaterSideVisual` | MB | Shows one of three child roots — the watermill's art for its river side (south / west / east, each authored in full in the prefab); no side = south. Set by `StructureSystem.ApplyPlacementVisual`, for the ghost too |
 | `StatModifierText` | static | A modifier as card text ("+5% FOOD (FARMER)") — mechanical on purpose, durations named as durations so a sign never reads inverted. Behind `AgeDef.BonusText` and `StatPerkDef.GeneratedDescription`: an empty override keeps a card following the data |
 | `ResourceFormat` / `RomanNumeral` | static | The one abbreviation rule for amounts (wallet and prices must shorten alike: floored, ≤ 4 digits + a suffix); ages in roman numerals everywhere the player sees one |
 | `UIRoot` | MB (UI) | The UI's front door on the Canvas prefab: the two screens a state drives (`ZoneScreen`, `PerkScreen`) and the three age panels that need the run (`Initialize`). `GameBootstrap` holds this one reference. Not a singleton, no logic; errors in `Start` on a missing screen, warns on a missing panel |

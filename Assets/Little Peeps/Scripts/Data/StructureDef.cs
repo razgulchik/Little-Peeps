@@ -61,6 +61,17 @@ namespace LittlePeeps
         [UnityEngine.Serialization.FormerlySerializedAs("impassable")]
         public bool animalsAvoid = false;
 
+        // The river: its cells count as water for a structure that needs a side along water. Terrain
+        // can't say it — a river cell is land with this structure standing on it.
+        [Tooltip("This structure is water (the river): a building that needs a side along water counts its cells.")]
+        public bool isWater = false;
+
+        // Must stand with one whole side along water — a watermill, its wheel over the river. Which sides
+        // count and which one wins is WaterSides; which art shows is the prefab's WaterSideVisual.
+        [Tooltip("Placeable only with one whole side (south, west or east) along water. Needs Border 0: " +
+                 "the river's cells are taken, so a border ring could never reach them.")]
+        public bool needsWaterSide = false;
+
         // Required clear margin (in cells) around the footprint: those cells must be on-island and free
         // of OTHER bordered structures. Keeps spawner-buildings off the map edge and apart from each
         // other (e.g. house = 1); passive structures like trees/fields use 0 (no margin, may sit anywhere).

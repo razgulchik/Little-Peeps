@@ -4,8 +4,10 @@ using UnityEngine.Serialization;
 
 namespace LittlePeeps
 {
-    // The tavern: a solid building any SOBER worker walks into for a drink — working or tired, whatever
-    // its profession — as long as there is a free seat. A drunk worker bounces off it like off any wall.
+    // The tavern: a solid building a SOBER worker walks into for a drink — working or tired — as long as
+    // there is a free seat and its profession is served. Who is served, and what they pay, is the coin
+    // source's worker yields, as for every source; "everyone" is the def listing every profession. A drunk
+    // worker, or one the def doesn't list, bounces off it like off any wall.
     //
     // It serves, it does not employ: the coins are paid ONCE, the moment the worker comes in (the
     // "service exception" — a tired worker, who may not work, still pays). Inside, the worker is HELD,
@@ -35,14 +37,11 @@ namespace LittlePeeps
         [Tooltip("Seconds a worker stays inside before it is let out.")]
         [SerializeField, Min(0f)] private float stayDuration = 4f;
 
-        [Tooltip("Coins paid once, the moment a worker comes in — for serving it, not for work, so a tired " +
-                 "worker pays too. Credited through the production gateway like any harvest: bonuses, " +
-                 "prestige and the coin effect come with it.")]
-        [SerializeField, Min(0f)] private float payout = 1f;
-
-        [Tooltip("What the payout counts as: a ResourceSourceDef with Coins as its resource and the coin " +
-                 "pickup effect. Its worker yields are NOT read — the payout above is. Also the scope a " +
-                 "'more coins from taverns' perk would name.")]
+        [Tooltip("The tavern's source: Coins as its resource, the coin pickup effect, and the worker yields — " +
+                 "who is served and what they pay, once, the moment they come in (for being served, not for " +
+                 "work, so a tired worker pays too). An unlisted worker is not let in. Credited through the " +
+                 "production gateway like any harvest: bonuses, prestige and the coin effect come with it. " +
+                 "Also the scope a 'more coins from taverns' perk would name.")]
         [SerializeField] private ResourceSourceDef coinSource;
 
         [Tooltip("Where the coin effect and the floating number leave from. Empty = this transform.")]
@@ -103,32 +102,33 @@ namespace LittlePeeps
                 Debug.LogError($"Tavern on '{name}' has no grid context — it must be built through StructureSystem, " +
                                "and until then it lets nobody in.", this);
             if (coinSource == null)
-                Debug.LogError($"Tavern on '{name}' has no coin source (ResourceSourceDef) — it pays nothing.", this);
+                Debug.LogError($"Tavern on '{name}' has no coin source (ResourceSourceDef) — it serves nobody.", this);
             if (resourceSystem == null)
                 Debug.LogError($"Tavern on '{name}' has no ResourceSystem — it pays nothing.", this);
         }
 
-        // IEntrance — asked for every unit that hits the tavern. The door rule: anyone sober with a seat
-        // free. A drunk unit is refused and simply bounces (the door animation hangs here later). Without
-        // grid context there would be no way back out, so nobody comes in at all.
+        // IEntrance — asked for every unit that hits the tavern. The door rule: sober, served (listed in the
+        // coin source) and a seat free. Anyone else is refused and simply bounces (the door animation hangs
+        // here later). Without grid context there would be no way back out, so nobody comes in at all.
         public bool TryEnter(Unit unit)
         {
             if (unit == null || unit.IsDrunk) return false;
+            if (coinSource == null || !coinSource.TryGetYield(unit.Type, out float price)) return false;
             if (guests.Count >= capacity) return false;
             if (grid == null || instance == null || instance.Def == null) return false;
 
             guests.Add(new Guest { unit = unit, timeLeft = stayDuration });
             unit.EnterHold(this);
-            Pay(unit);
+            Pay(unit, price);
             return true;
         }
 
         // Once, on entry. unit.Type still names the profession it came in with: the yield modifiers key on
         // it the same way they do for a harvest.
-        private void Pay(Unit unit)
+        private void Pay(Unit unit, float price)
         {
-            if (resourceSystem == null || coinSource == null || payout <= 0f) return;
-            resourceSystem.AddHarvest(coinSource, unit.Type, payout, FxOrigin);
+            if (resourceSystem == null || price <= 0f) return;
+            resourceSystem.AddHarvest(coinSource, unit.Type, price, FxOrigin);
         }
 
         private Vector3 FxOrigin => fxAnchor != null ? fxAnchor.position : transform.position;

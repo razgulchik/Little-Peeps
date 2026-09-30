@@ -85,6 +85,16 @@ namespace LittlePeeps
             return true;
         }
 
+        // The whole placement rule for `def` at origin: the cell rule above, plus what the def adds on top —
+        // a watermill needs a side along the river (WaterSides). Every placement path asks this one (build,
+        // move, generated content, the pier), so the ghost can never promise a spot the builder refuses.
+        public bool CanPlace(Vector2Int origin, StructureDef def)
+        {
+            var footprint = def.Footprint;
+            if (!CanPlace(origin, footprint, def.allowedTerrain, def.border)) return false;
+            return !def.needsWaterSide || WaterSides.Find(this, origin, footprint) != WaterSide.None;
+        }
+
         private static bool IsTerrainAllowed(TerrainType terrain, TerrainType[] allowed)
         {
             if (allowed == null || allowed.Length == 0) return true;

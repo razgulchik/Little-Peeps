@@ -49,7 +49,6 @@ namespace LittlePeeps
         private GameObject ghost;
         private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
         private DualVisual ghostVisual;                // non-null when the ghost is an edge structure (fence)
-        private DualVisual ghostRowVisual;             // non-null when the cell ghost interlocks by row (forest)
 
         // Faint tiles showing the footprint+border the ghost would claim (Place and Move): one quad per
         // claimed cell under a common parent, pooled — a shaped footprint needs the halo to follow its
@@ -91,11 +90,10 @@ namespace LittlePeeps
         }
 
         // Cell ghost: the neutralised prefab (SpawnGhost), centered on the footprint each frame
-        // (PoseCellGhost). A forest's DualVisual is kept so the preview interlocks by row too.
+        // (PoseCellGhost), where it also takes the look of the spot — a forest's row, a watermill's side.
         private void BuildCellGhost(StructureDef def)
         {
             ghost = SpawnGhost(def);
-            ghostRowVisual = ghost.GetComponent<DualVisual>();
         }
 
         // Edge ghost (fence): the neutralised prefab (SpawnGhost), both poses collected for the tint; the
@@ -128,14 +126,15 @@ namespace LittlePeeps
             return go;
         }
 
-        // Put the cell ghost on `origin`, lap it to the row, and tint it by validity.
-        public void PoseCellGhost(Vector2Int origin, Vector2Int size, bool valid)
+        // Put the cell ghost on `origin`, give it the spot's look (row, river side), and tint it by validity.
+        public void PoseCellGhost(IslandGrid grid, Vector2Int origin, Footprint footprint, bool valid)
         {
             if (ghost == null) return;
 
-            // Same anchoring the builder uses, so the preview matches the placed structure exactly.
-            structureSystem.AnchorOnFootprint(ghost.transform, origin, size);
-            if (ghostRowVisual != null) ghostRowVisual.Show((origin.y & 1) == 0);   // forest: preview the row's layout
+            // Same anchoring and the same placement visual the builder uses, so the preview matches the
+            // placed structure exactly.
+            structureSystem.AnchorOnFootprint(ghost.transform, origin, footprint.Size);
+            StructureSystem.ApplyPlacementVisual(ghost, grid, origin, footprint);
             TintGhost(valid);
         }
 
@@ -158,7 +157,6 @@ namespace LittlePeeps
             ghost = null;
             ghostRenderers = null;
             ghostVisual = null;
-            ghostRowVisual = null;
             HideTerritory();
         }
 
@@ -263,13 +261,14 @@ namespace LittlePeeps
             foreach (var shadow in heldShadows) shadow.SetVisible(false);
         }
 
-        // Drag pose for a cell structure: anchored on `origin`, re-lapped to its new row, tinted by validity.
-        public void PoseHeldCell(Vector2Int origin, Vector2Int size, bool valid)
+        // Drag pose for a cell structure: anchored on `origin`, given the spot's look (a dragged forest
+        // re-laps to the row, a watermill turns to the river), tinted by validity.
+        public void PoseHeldCell(IslandGrid grid, Vector2Int origin, Footprint footprint, bool valid)
         {
             if (heldRoot == null) return;
 
-            structureSystem.AnchorOnFootprint(heldRoot, origin, size);
-            StructureSystem.ApplyRowVisual(heldRoot.gameObject, origin.y);   // re-lap a dragged forest
+            structureSystem.AnchorOnFootprint(heldRoot, origin, footprint.Size);
+            StructureSystem.ApplyPlacementVisual(heldRoot.gameObject, grid, origin, footprint);
             heldTint.Retint(valid ? validColor : invalidColor);
         }
 

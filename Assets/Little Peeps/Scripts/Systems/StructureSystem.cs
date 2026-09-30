@@ -21,7 +21,7 @@ namespace LittlePeeps
         // builds. Returns false (no-op) if the cell is blocked or the cost can't be paid.
         public bool PlaceStructure(StructureDef def, Vector2Int cell)
         {
-            if (!islandSystem.Grid.CanPlace(cell, def.Footprint, def.allowedTerrain, def.border)) return false;
+            if (!islandSystem.Grid.CanPlace(cell, def)) return false;
             if (!resourceSystem.CanAfford(def.cost)) return false;
             resourceSystem.Spend(def.cost);
             Build(def, cell);
@@ -35,9 +35,9 @@ namespace LittlePeeps
         // know it had no room.
         public StructureInstance PlaceInitial(StructureDef def, Vector2Int cell)
         {
-            if (!islandSystem.Grid.CanPlace(cell, def.Footprint, def.allowedTerrain, def.border))
+            if (!islandSystem.Grid.CanPlace(cell, def))
             {
-                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, or border overlap) — skipped.", this);
+                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, border overlap, or no side along water) — skipped.", this);
                 return null;
             }
             return Build(def, cell);
@@ -69,9 +69,10 @@ namespace LittlePeeps
             foreach (var source in go.GetComponentsInChildren<ResourceSource>(true)) source.Initialize(resourceSystem);
             foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
             foreach (var tavern in go.GetComponentsInChildren<Tavern>(true)) tavern.Initialize(resourceSystem, grid, instance);
+            foreach (var mill in go.GetComponentsInChildren<Mill>(true)) mill.Initialize(resourceSystem);
 
-            // Forest-style structures pick their interlocking layout by the row they land on.
-            ApplyRowVisual(go, cell.y);
+            // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river.
+            ApplyPlacementVisual(go, grid, cell, def.Footprint);
 
             grid.Place(cell, def.Footprint, instance);
             run.structures[cell] = instance;
@@ -93,14 +94,18 @@ namespace LittlePeeps
             root.position = new Vector3(anchor.x, anchor.y, root.position.z);
         }
 
-        // A forest carries a DualVisual whose two roots interlock by grid row: even rows show the first
-        // layout, odd rows the second, so adjacent forests form a brick-laid pattern. (row & 1) is correct
-        // for negative rows too on the signed grid. No-op for structures without a DualVisual. Shared by
-        // Build and the Move drop so a forest re-laps itself when carried to another row; the build-mode
-        // ghost mirrors this so the preview matches.
-        public static void ApplyRowVisual(GameObject go, int row)
+        // The look a structure takes from WHERE it stands, set whenever it lands:
+        //   - a forest carries a DualVisual whose two roots interlock by grid row: even rows show the first
+        //     layout, odd rows the second, so adjacent forests form a brick-laid pattern. (row & 1) is
+        //     correct for negative rows too on the signed grid;
+        //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along.
+        // No-op for structures with neither. Shared by Build, the Move drop (a carried forest re-laps itself
+        // on another row) and the build-mode ghost and carried structure (PlacementVisuals), so the preview
+        // shows exactly what lands.
+        public static void ApplyPlacementVisual(GameObject go, IslandGrid grid, Vector2Int origin, Footprint footprint)
         {
-            if (go.TryGetComponent<DualVisual>(out var visual)) visual.Show((row & 1) == 0);
+            if (go.TryGetComponent<DualVisual>(out var rows)) rows.Show((origin.y & 1) == 0);
+            if (go.TryGetComponent<WaterSideVisual>(out var sides)) sides.Show(WaterSides.Find(grid, origin, footprint));
         }
 
         // Sell the structure occupying `cell` (any footprint cell): refund a fraction of its build
@@ -157,7 +162,7 @@ namespace LittlePeeps
             instance.Cell = origin;
 
             AnchorOnFootprint(instance.RuntimeObject.transform, origin, instance.Def.size);
-            ApplyRowVisual(instance.RuntimeObject.gameObject, origin.y);   // re-lap a moved forest onto its new row
+            ApplyPlacementVisual(instance.RuntimeObject.gameObject, grid, origin, instance.Def.Footprint);   // new row, new river side
         }
 
         // --- Edge-placed structures (fences) ------------------------------------------------------

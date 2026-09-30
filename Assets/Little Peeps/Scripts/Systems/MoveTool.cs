@@ -55,9 +55,9 @@ namespace LittlePeeps
             var def = heldInstance.Def;
             Vector2Int origin = grid.WorldToOrigin(cursor, def.size);
 
-            bool ok = grid.CanPlace(origin, def.Footprint, def.allowedTerrain, def.border);
+            bool ok = grid.CanPlace(origin, def);
 
-            ctx.Visuals.PoseHeldCell(origin, def.size, ok);
+            ctx.Visuals.PoseHeldCell(grid, origin, def.Footprint, ok);
             ctx.Visuals.ShowTerritory(grid, origin, def.Footprint, def.border, ok);
         }
 
@@ -108,7 +108,7 @@ namespace LittlePeeps
             var grid = ctx.Grid;
             var def = heldInstance.Def;
             Vector2Int origin = grid.WorldToOrigin(world, def.size);
-            if (!grid.CanPlace(origin, def.Footprint, def.allowedTerrain, def.border)) return;   // invalid — stay held
+            if (!grid.CanPlace(origin, def)) return;   // invalid — stay held
 
             ctx.Structures.DropStructure(heldInstance, origin);
             ReleaseInstance();

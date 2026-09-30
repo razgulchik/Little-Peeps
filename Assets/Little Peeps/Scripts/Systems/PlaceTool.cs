@@ -36,10 +36,10 @@ namespace LittlePeeps
             Vector2Int origin = grid.WorldToOrigin(cursor, def.size);
 
             // Same placement rule as a real structure — the builder owns it (ghost matches exactly).
-            bool ok = grid.CanPlace(origin, def.Footprint, def.allowedTerrain, def.border)
+            bool ok = grid.CanPlace(origin, def)
                       && ctx.Resources.CanAfford(def.cost);
 
-            ctx.Visuals.PoseCellGhost(origin, def.size, ok);
+            ctx.Visuals.PoseCellGhost(grid, origin, def.Footprint, ok);
             ctx.Visuals.ShowTerritory(grid, origin, def.Footprint, def.border, ok);
         }
 
@@ -67,7 +67,7 @@ namespace LittlePeeps
             var grid = ctx.Grid;
             Vector2Int origin = grid.WorldToOrigin(world, def.size);
 
-            if (!grid.CanPlace(origin, def.Footprint, def.allowedTerrain, def.border)) return; // bad cell — ghost is already red
+            if (!grid.CanPlace(origin, def)) return; // bad cell — ghost is already red
             if (!ctx.Resources.CanAfford(def.cost))
             {
                 EventBus<BuildDeniedEvent>.Publish(new BuildDeniedEvent { Def = def });

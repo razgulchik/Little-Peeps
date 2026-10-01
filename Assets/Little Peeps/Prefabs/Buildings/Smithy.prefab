@@ -387,7 +387,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8135140974681441538}
-  - component: {fileID: 4058313795355412925}
   m_Layer: 0
   m_Name: HeatBar
   m_TagString: Untagged
@@ -412,76 +411,6 @@ Transform:
   - {fileID: 2591294782569688436}
   m_Father: {fileID: 5378558355796777515}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4058313795355412925
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2769291599837332609}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa84e7d0d36267540afb186be59cdc96, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  fillAxis: 0
-  cover: {fileID: 6291595725325635210}
-  fill: {fileID: 7662788488669864397}
-  overheatedTint: {r: 0.990566, g: 0.21960661, b: 0.21960661, a: 1}
-  overheatOverlays:
-  - {fileID: 1815386865133769710}
-  - {fileID: 4967473083626691826}
-  overlayAlpha:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 2
-      outSlope: 2
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  smoke: {fileID: 4851265105943543518}
-  smokeRate:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  sparks: {fileID: 6018754256048595197}
-  sparksPerHit: 6
 --- !u!1 &4099877344906552177
 GameObject:
   m_ObjectHideFlags: 0
@@ -669,6 +598,7 @@ GameObject:
   - component: {fileID: 7416442596656453354}
   - component: {fileID: 4224157785750937982}
   - component: {fileID: 924163572890424882}
+  - component: {fileID: 5048821319037612963}
   m_Layer: 0
   m_Name: Smithy
   m_TagString: Untagged
@@ -748,10 +678,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: c0d549710b3163043bb80bc6ba21d711, type: 2}
   resourceSystem: {fileID: 0}
+  fxAnchor: {fileID: 7450329643176518056}
   readyRoot: {fileID: 0}
   harvestedRoot: {fileID: 0}
   swapStateVisuals: 0
-  fxAnchor: {fileID: 7450329643176518056}
   fadeOutTime: 0.2
   fadeCurve:
     serializedVersion: 2
@@ -840,6 +770,76 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &5048821319037612963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7501885316365535831}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa84e7d0d36267540afb186be59cdc96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fillAxis: 0
+  cover: {fileID: 6291595725325635210}
+  fill: {fileID: 7662788488669864397}
+  overheatedTint: {r: 0.990566, g: 0.21960661, b: 0.21960661, a: 1}
+  overheatOverlays:
+  - {fileID: 1815386865133769710}
+  - {fileID: 4967473083626691826}
+  overlayAlpha:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  smoke: {fileID: 4851265105943543518}
+  smokeRate:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  sparks: {fileID: 6018754256048595197}
+  sparksPerHit: 6
 --- !u!1 &8174730359364412869
 GameObject:
   m_ObjectHideFlags: 0

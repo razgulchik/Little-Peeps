@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4884472561083697461}
   - component: {fileID: 5286831532999077229}
   - component: {fileID: 7508964017746026031}
+  - component: {fileID: 2328017362065068085}
   m_Layer: 0
   m_Name: BaseTree
   m_TagString: Untagged
@@ -90,10 +91,83 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: f859f958ef8491246bab7b0e37c3aae4, type: 2}
   resourceSystem: {fileID: 0}
+  fxAnchor: {fileID: 4397935584344865524}
   readyRoot: {fileID: 4148876988465624626}
   harvestedRoot: {fileID: 1827955332502405057}
   swapStateVisuals: 1
-  fxAnchor: {fileID: 4397935584344865524}
+  fadeOutTime: 0.4
+  fadeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: -1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: -1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  fadeScaleY:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.83
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.5
+      value: 1.17
+      inSlope: 0.16538215
+      outSlope: 0.16538215
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &2328017362065068085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1346494078730204555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f055b01510394a498e743df53ddc496, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  readyRoot: {fileID: 4148876988465624626}
+  harvestedRoot: {fileID: 1827955332502405057}
+  swapStateVisuals: 1
   fadeOutTime: 0.4
   fadeCurve:
     serializedVersion: 2

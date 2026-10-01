@@ -5,11 +5,12 @@ using UnityEngine.UI;
 namespace LittlePeeps
 {
     // Bottom build palette. Its CARDS follow the UI mode (UIModeChangedEvent); whether the panel is on
-    // screen is UIVisibility's table, not this class. Spawns a card per BuildPaletteDef entry and drives
-    // the PlacementController's tool: click a card to place a structure, click the separate sell button
-    // to sell, click the selected card/button again (or right-click in the world, or leave build mode) to
-    // clear — which drops back to the Move tool. A right-click clear comes from the controller via its
-    // ToolCleared event.
+    // screen is UIVisibility's table, not this class. Spawns a tab button per non-empty BuildPaletteDef
+    // tab and a card per structure in it, showing one tab's cards at a time (click a tab or press its
+    // digit). Drives the PlacementController's tool: click a card to place a structure, click the
+    // separate sell button to sell, click the selected card/button again (or right-click in the world,
+    // or leave build mode) to clear — which drops back to the Move tool. A right-click clear comes from
+    // the controller via its ToolCleared event.
     public class BuildPanelUI : MonoBehaviour
     {
         [SerializeField] private BuildPaletteDef palette;
@@ -19,14 +20,29 @@ namespace LittlePeeps
         [SerializeField] private Transform cardContainer;   // parent with a Horizontal Layout Group
         [SerializeField] private BuildPanelScroller scroller;
 
+        [Header("Tabs")]
+        [SerializeField] private BuildTabUI tabPrefab;
+        [SerializeField] private Transform tabContainer;    // parent with any Layout Group
+
         [Header("Sell tool")]
         [SerializeField] private Button sellButton;          // separate sell-tool button (not a card)
         [SerializeField] private GameObject sellHighlight;   // selected indicator on the sell button
 
+        // A shown tab: its button (null while no tab prefab is wired — the digits still switch) and the
+        // cards it owns. Every card is spawned once and lives in exactly one tab; switching tabs only
+        // toggles them, so a card keeps its state while hidden.
+        private sealed class Tab
+        {
+            public BuildTabUI Button;
+            public readonly List<BuildCardUI> Cards = new();
+        }
+
+        private readonly List<Tab> tabs = new();
         private readonly List<BuildCardUI> cards = new();
+        private int currentTab = -1;   // survives Close(): build mode reopens on the last tab
         private BuildCardUI selectedCard;
         private bool sellSelected;
-        private bool isOpen;   // true while in build mode (panel visible) — gates the sell hotkey
+        private bool isOpen;   // true while in build mode (panel visible) — gates the sell and tab hotkeys
         private int currentAge;
 
         private void Awake()
@@ -40,6 +56,7 @@ namespace LittlePeeps
             EventBus<UIModeChangedEvent>.Subscribe(OnUIMode);
             EventBus<BuildDeniedEvent>.Subscribe(OnBuildDenied);
             EventBus<SellModeRequestedEvent>.Subscribe(OnSellHotkey);
+            EventBus<BuildTabRequestedEvent>.Subscribe(OnTabHotkey);
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
             if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
@@ -51,6 +68,7 @@ namespace LittlePeeps
             EventBus<UIModeChangedEvent>.Unsubscribe(OnUIMode);
             EventBus<BuildDeniedEvent>.Unsubscribe(OnBuildDenied);
             EventBus<SellModeRequestedEvent>.Unsubscribe(OnSellHotkey);
+            EventBus<BuildTabRequestedEvent>.Unsubscribe(OnTabHotkey);
             EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
             if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
@@ -61,15 +79,65 @@ namespace LittlePeeps
         {
             if (palette == null || cardPrefab == null || cardContainer == null) return;
 
-            foreach (var def in palette.structures)
+            foreach (var source in palette.tabs)
             {
-                if (def == null) continue;
-                var card = Instantiate(cardPrefab, cardContainer);
-                card.Init(def, OnCardClicked);
-                cards.Add(card);
+                if (source == null) continue;
+
+                var tab = new Tab();
+                foreach (var def in source.structures)
+                {
+                    if (def == null) continue;
+                    var card = Instantiate(cardPrefab, cardContainer);
+                    card.Init(def, OnCardClicked);
+                    cards.Add(card);
+                    tab.Cards.Add(card);
+                }
+                if (tab.Cards.Count == 0) continue;   // an empty tab gets no button and no digit
+
+                if (tabPrefab != null && tabContainer != null)
+                {
+                    tab.Button = Instantiate(tabPrefab, tabContainer);
+                    tab.Button.Init(source, tabs.Count, SelectTab);
+                }
+                tabs.Add(tab);
             }
 
+            SelectTab(0);
+        }
+
+        // Shows one tab's cards and hides the rest. The selected tool is left alone: a hidden card stays
+        // selected (the tool is still in hand) and shows its highlight again when its tab comes back.
+        private void SelectTab(int index)
+        {
+            if (index < 0 || index >= tabs.Count || index == currentTab) return;
+
+            if (currentTab >= 0)
+            {
+                Tab previous = tabs[currentTab];
+                if (previous.Button != null) previous.Button.SetSelected(false);
+                foreach (var card in previous.Cards)
+                {
+                    card.ResetInteractionVisuals();   // drop a hover that would resume half-way on return
+                    card.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                // First pick: every card was spawned active, so hide all but the chosen tab's.
+                foreach (var card in cards) card.gameObject.SetActive(false);
+            }
+
+            currentTab = index;
+            Tab current = tabs[index];
+            if (current.Button != null) current.Button.SetSelected(true);
+            foreach (var card in current.Cards) card.gameObject.SetActive(true);
+
             if (scroller != null) scroller.ResetToStart();
+        }
+
+        private void OnTabHotkey(BuildTabRequestedEvent e)
+        {
+            if (isOpen) SelectTab(e.Index);
         }
 
         // The palette's CONTENT follows the mode; its visibility is UIVisibility's row for this group.
@@ -100,6 +168,8 @@ namespace LittlePeeps
             isOpen = false;
             Deselect();
             foreach (var card in cards) card.ResetInteractionVisuals();
+            foreach (var tab in tabs)
+                if (tab.Button != null) tab.Button.ResetHover();
         }
 
         // Sell hotkey: route through the same toggle path as the sell button so the highlight and the

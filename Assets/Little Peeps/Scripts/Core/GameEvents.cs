@@ -66,6 +66,13 @@ namespace LittlePeeps
     // button highlight and the PlacementController stay in sync; a no-op outside build mode (panel hidden).
     public struct SellModeRequestedEvent { }
 
+    // Published by the digit hotkeys (GameHotkeys): open the build panel's tab at this index (0 = key 1).
+    // BuildPanelUI acts on it only while open; an index past the last tab is ignored.
+    public struct BuildTabRequestedEvent
+    {
+        public int Index;
+    }
+
     // Published by the exit-to-menu hotkey (GameHotkeys). GameBootstrap transitions the app FSM to MainMenu.
     public struct ExitToMenuRequestedEvent { }
 

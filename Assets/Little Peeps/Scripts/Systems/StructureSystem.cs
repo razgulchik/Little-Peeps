@@ -69,7 +69,6 @@ namespace LittlePeeps
             foreach (var source in go.GetComponentsInChildren<ResourceSource>(true)) source.Initialize(resourceSystem);
             foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
             foreach (var tavern in go.GetComponentsInChildren<Tavern>(true)) tavern.Initialize(resourceSystem, grid, instance);
-            foreach (var mill in go.GetComponentsInChildren<Mill>(true)) mill.Initialize(resourceSystem);
 
             // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river.
             ApplyPlacementVisual(go, grid, cell, def.Footprint);

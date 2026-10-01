@@ -33,8 +33,9 @@ namespace LittlePeeps.EditorTools
         private enum NodeBehaviour
         {
             None,       // no prefab, or nothing recognisable on it
-            Fades,      // ResourceSource with fadeOutTime > 0: ready visual dissolves
-            Vanishes,   // ResourceSource with fadeOutTime == 0: ready visual switches off outright
+            Fades,      // ResourceSourceView with fadeOutTime > 0: ready visual dissolves
+            Vanishes,   // ResourceSourceView with fadeOutTime == 0: ready visual switches off outright
+            Unchanged,  // Depletion.Regrow but no ResourceSourceView: it regrows, its look never changes
             Infinite,   // Depletion.Never: Market/Smithy never change at all
             Despawns    // Depletion.Despawn: boar/fox destroyed outright, no fade
         }
@@ -78,7 +79,7 @@ namespace LittlePeeps.EditorTools
         private float fadeDuration;
         private AnimationCurve fadeCurve;
         private AnimationCurve fadeScaleY;
-        private float readyScaleY = 1f;   // the prefab's own scale; mirrors ResourceSource.readyScaleY
+        private float readyScaleY = 1f;   // the prefab's own scale; mirrors ResourceSourceView.readyScaleY
 
         [MenuItem("Window/Little Peeps/Harvest Feedback")]
         private static void Open()
@@ -253,8 +254,14 @@ namespace LittlePeeps.EditorTools
                 ending = "destroyed outright, no fade";
             else
             {
-                float t = Prop(so, "fadeOutTime")?.floatValue ?? 0f;
-                ending = t > 0f ? $"ready visual fades out over {t:0.##}s" : "ready visual switches off at once";
+                var view = node.GetComponent<ResourceSourceView>();
+                if (view == null)
+                    ending = "no ResourceSourceView, so its look never changes";
+                else
+                {
+                    float t = Prop(new SerializedObject(view), "fadeOutTime")?.floatValue ?? 0f;
+                    ending = t > 0f ? $"ready visual fades out over {t:0.##}s" : "ready visual switches off at once";
+                }
                 ending += $", back in {def.regrowTime:0.##}s";
             }
 
@@ -363,9 +370,10 @@ namespace LittlePeeps.EditorTools
         }
 
         // Instantiates the node prefab and reads everything the preview needs off it. The fields are
-        // private [SerializeField] on ResourceSource and are read through SerializedObject on
-        // purpose: a preview is no reason to widen a gameplay class's public surface. The cost is that
-        // the field NAMES are the contract, so a rename must fail loudly — see Prop.
+        // private [SerializeField] on ResourceSource (def, anchor) and ResourceSourceView (roots, fade)
+        // and are read through SerializedObject on purpose: a preview is no reason to widen a gameplay
+        // class's public surface. The cost is that the field NAMES are the contract, so a rename must
+        // fail loudly — see Prop.
         private void SpawnNode()
         {
             nodeView = Instantiate(resourcePrefab);
@@ -397,16 +405,22 @@ namespace LittlePeeps.EditorTools
 
             if (def == null) { ApplyShowObject(); return; }
 
+            // Unity's == on purpose, not a pattern: in the Editor a missing component comes back as a
+            // fake-null object that only Unity's operator reports as null.
+            var view = node.GetComponent<ResourceSourceView>();
+
             if (def.depletion == Depletion.Never) behaviour = NodeBehaviour.Infinite;
             else if (def.depletion == Depletion.Despawn) behaviour = NodeBehaviour.Despawns;
+            else if (view == null) behaviour = NodeBehaviour.Unchanged;
             else
             {
-                readyRootView = Prop(so, "readyRoot")?.objectReferenceValue as GameObject;
-                harvestedRootView = Prop(so, "harvestedRoot")?.objectReferenceValue as GameObject;
-                swapStateVisuals = Prop(so, "swapStateVisuals")?.boolValue ?? false;
-                fadeDuration = Prop(so, "fadeOutTime")?.floatValue ?? 0f;
-                fadeCurve = Prop(so, "fadeCurve")?.animationCurveValue;
-                fadeScaleY = Prop(so, "fadeScaleY")?.animationCurveValue;
+                var vo = new SerializedObject(view);
+                readyRootView = Prop(vo, "readyRoot")?.objectReferenceValue as GameObject;
+                harvestedRootView = Prop(vo, "harvestedRoot")?.objectReferenceValue as GameObject;
+                swapStateVisuals = Prop(vo, "swapStateVisuals")?.boolValue ?? false;
+                fadeDuration = Prop(vo, "fadeOutTime")?.floatValue ?? 0f;
+                fadeCurve = Prop(vo, "fadeCurve")?.animationCurveValue;
+                fadeScaleY = Prop(vo, "fadeScaleY")?.animationCurveValue;
 
                 if (readyRootView != null)
                 {
@@ -463,7 +477,7 @@ namespace LittlePeeps.EditorTools
             switch (behaviour)
             {
                 case NodeBehaviour.Fades:
-                    // Mirrors ResourceSource.Deplete: the harvested sprite is brought up front by hand
+                    // Mirrors ResourceSourceView.OnDepleted: the harvested sprite is brought up front by hand
                     // so it shows THROUGH the fading one, and the ready root is left on to be animated
                     // — from its 0-sample, so the squash lands on the hit tick as it does in the game.
                     if (harvestedRootView != null) harvestedRootView.SetActive(true);
@@ -509,7 +523,7 @@ namespace LittlePeeps.EditorTools
                 }
                 else
                 {
-                    // Mirrors ResourceSource.EndFade: alpha and scale go back to authored before the
+                    // Mirrors the end of ResourceSourceView.TickFade: alpha and scale go back to authored before the
                     // roots settle, or the node would come back invisible or squashed when it regrows.
                     ResetFade();
                     ApplyHarvestedVisual();
@@ -517,7 +531,7 @@ namespace LittlePeeps.EditorTools
             }
         }
 
-        // Mirrors ResourceSource.ApplyFade / ResetFade: both curves at normalized fade time `k`,
+        // Mirrors ResourceSourceView.ApplyFade / ResetFade: both curves at normalized fade time `k`,
         // written through the same HarvestFade the game uses. The scale curve is null only when Prop
         // could not find the field (it has logged); the preview then fades without the squash rather
         // than throwing every tick.
@@ -558,7 +572,7 @@ namespace LittlePeeps.EditorTools
 
         // ---------------------------------------------------------------- node visuals
 
-        // Mirrors ResourceSource.ApplyStateVisual for the Ready state.
+        // Mirrors ResourceSourceView.ApplyStateVisual for the Ready state.
         private void ApplyReadyVisual()
         {
             if (!swapStateVisuals)
@@ -573,7 +587,7 @@ namespace LittlePeeps.EditorTools
             }
         }
 
-        // Mirrors ResourceSource.ApplyStateVisual for the Harvested state.
+        // Mirrors ResourceSourceView.ApplyStateVisual for the Harvested state.
         private void ApplyHarvestedVisual()
         {
             if (harvestedRootView != null) harvestedRootView.SetActive(true);

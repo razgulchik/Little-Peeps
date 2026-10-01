@@ -9,7 +9,7 @@ namespace LittlePeeps
     // before. So the number of racks IS the number of workers of that profession the village can
     // field at once.
     //
-    // Two states, two visual roots (the ResourceSource idiom — each fully configured in the prefab):
+    // Two states, two visual roots (the ResourceSourceView idiom — each fully configured in the prefab):
     //   Available — the tool is on the stand; shows availableRoot.
     //   Taken     — a worker is carrying it; shows takenRoot (the empty stand reads as "in use").
     //

@@ -1,40 +1,33 @@
+using System;
 using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Resource node behaviour: grants def.resource each time an allowed worker hits the host
-    // CollisionTarget, and after def.hitsToDeplete paying hits does what def.depletion says — regrow
-    // in place, despawn, or never run out at all. Config lives in the ResourceSourceDef asset;
+    // The resource on anything that pays when a worker hits it: grants def.resource each time an allowed
+    // worker hits the host CollisionTarget, and after def.hitsToDeplete paying hits does what def.depletion
+    // says — regrow in place, despawn, or never run out at all. Config lives in the ResourceSourceDef asset;
     // per-instance state lives here. The one harvest component for every source: a natural node
     // (tree/wheat/stone), a building-source (Forge/Market, Never) and an animal (alpaca/boar/fox,
     // next to Animal + AnimalWander) alike.
     //
-    // Two visual states (Regrow sources only):
-    //   Ready     — ripe/grown, harvestable; shows readyRoot.
-    //   Harvested — used up, regrowing; shows harvestedRoot. Its colliders are off unless the def
-    //               keeps the body (a shorn alpaca still bumps into units, it just pays nothing).
-    //               After def.regrowTime it returns to Ready.
-    // Each root is fully configured in the prefab (its own SpriteRenderer + Sorting Layer + pivot),
-    // so a tall Ready node (wheat/tree) can Y-sort against passing units while the flat Harvested
-    // node sits on a lower layer that units always walk over. Never and Despawn sources keep their
-    // single visual and leave both roots untouched.
+    // Two states (Regrow sources only):
+    //   Ready     — ripe/grown, harvestable.
+    //   Harvested — used up, regrowing. Its colliders are off unless the def keeps the body (a shorn
+    //               alpaca still bumps into units, it just pays nothing). After def.regrowTime it
+    //               returns to Ready.
+    //
+    // What the states LOOK like is not this component's business: each kind of source has its own view
+    // next to it — ResourceSourceView for nodes (ready and harvested roots, the reap fade), ForgeHeatView
+    // for the forge, and so on — which reads IsReady and listens to Depleted / Regrown. A source with no
+    // view simply never changes its look.
+    //
+    // A building with rules of its own (the forge's heat, the paddy's crop, the mill's store) is an add-on
+    // next to this, never a second payer: an IHitGate says WHETHER a hit pays, an IYieldScale HOW MUCH, and
+    // Paid tells it the hit did. The def, the payout and the pickup effect stay here, one place for all.
     //
     // Despawn destroys the whole object on the hit that uses it up. Only a den's animal may do that:
     // the den (AnimalSpawner, told through Animal) replaces it, while a structure would leave its grid
     // cells taken by nothing — Start refuses that combination loudly.
-    //
-    // The Ready→Harvested switch is not instant: the ready root fades out over fadeOutTime while the
-    // harvested one shows through underneath, which is what reads as the field being reaped. A second
-    // curve on the same clock squashes and stretches the ready root vertically — the kick of the reap.
-    // It is presentation only — the node is Harvested (no hit pays) and the regrow clock is running
-    // from the moment of the hit, so no length of fade can ever be harvested through. Speed and shape are per-prefab:
-    // a field and a tree vanish at their own rates.
-    //
-    // swapStateVisuals controls how the two roots are composited:
-    //   off (default base) — harvestedRoot is the always-on background base; readyRoot is an overlay
-    //                        on top that switches off once harvested. Not mutually exclusive.
-    //   on                 — mutually exclusive swap: exactly one root is shown for the current state.
-    // Gameplay (collider toggle, deplete, respawn) is identical either way; only the visual differs.
     [RequireComponent(typeof(CollisionTarget))]
     public class ResourceSource : MonoBehaviour, ICollisionEffect
     {
@@ -43,33 +36,11 @@ namespace LittlePeeps
         [SerializeField] private ResourceSourceDef def;
         [SerializeField] private ResourceSystem resourceSystem; // scene ref — can't live in the SO
 
-        [Header("State visuals (Regrow sources only)")]
-        [SerializeField] private GameObject readyRoot;
-        [SerializeField] private GameObject harvestedRoot;
-        [Tooltip("On: swap one root for the other per state (mutually exclusive). " +
-                 "Off (base): harvestedRoot stays on as the background; readyRoot is an overlay that " +
-                 "switches off once harvested.")]
-        [SerializeField] private bool swapStateVisuals;
-
         [Header("Harvest VFX")]
         [Tooltip("Where the pickup effect and the floating number leave from. Empty = this transform. " +
                  "Wheat's Visual root is offset from the prefab root, so without an anchor the ear " +
                  "would fly out of the cell's pivot rather than the middle of the field.")]
         [SerializeField] private Transform fxAnchor;
-
-        [Tooltip("Seconds the ready visual takes to fade out when the node is harvested; the harvested " +
-                 "sprite underneath shows through as it goes. 0 = it simply disappears. Lives on the " +
-                 "prefab rather than the def on purpose — a field and a tree are allowed to vanish at " +
-                 "different speeds.")]
-        [Min(0f)] [SerializeField] private float fadeOutTime = 0.2f;
-
-        [Tooltip("Alpha across the fade, left to right. Default is a straight 1 → 0.")]
-        [SerializeField] private AnimationCurve fadeCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
-
-        [Tooltip("Vertical scale of the ready visual across the fade, left to right, as a factor of its " +
-                 "authored scale. Flat 1 = no squash. Scales the ready root, so the sprite's pivot " +
-                 "decides what stays put: wheat is bottom-centre and squashes toward the ground.")]
-        [SerializeField] private AnimationCurve fadeScaleY = AnimationCurve.Constant(0f, 1f, 1f);
 
         private CollisionTarget host;
         private IYieldScale[] yieldScales;
@@ -77,12 +48,20 @@ namespace LittlePeeps
         private State state = State.Ready;
         private float respawnTimer;
 
-        // Cached once: the fade runs per harvest and must not allocate. Covers the whole ready root, so
-        // a multi-sprite visual (trunk + crown) fades as one piece without extra wiring.
-        private SpriteRenderer[] readyRenderers;
-        private Transform readyTransform;
-        private float readyScaleY = 1f;  // the prefab's own scale; the squash curve is a factor on it
-        private float fadeTimer = -1f;   // < 0 = not fading
+        // A hit has just paid — after the credit, before any depletion. What an add-on settles its own
+        // state on (the mill empties its store), since only here is it certain the hit paid.
+        public event Action Paid;
+
+        // Used up (Regrow only) — fired on the hit that does it, so a view's reaction lands on that frame.
+        public event Action Depleted;
+
+        // Back to Ready after the regrow time.
+        public event Action Regrown;
+
+        public ResourceSourceDef Def => def;
+
+        // Harvestable right now. Always true for Never and Despawn sources.
+        public bool IsReady => state == State.Ready;
 
         private void Awake()
         {
@@ -91,12 +70,6 @@ namespace LittlePeeps
             // composite prefab (forest) each child tree is its own source with its own scales.
             yieldScales = GetComponents<IYieldScale>();
             if (def != null) hitsLeft = def.hitsToDeplete;
-            if (readyRoot != null)
-            {
-                readyRenderers = readyRoot.GetComponentsInChildren<SpriteRenderer>(true);
-                readyTransform = readyRoot.transform;
-                readyScaleY = readyTransform.localScale.y;
-            }
         }
 
         // Optional runtime injection (StructureSystem calls this when placing a structure at runtime,
@@ -123,21 +96,10 @@ namespace LittlePeeps
             if (resourceSystem == null)
                 Debug.LogError($"ResourceSource on '{name}' has no ResourceSystem assigned.", this);
 
-            // Only a regrowing source changes state, so only it needs the state roots.
-            if (def != null && def.depletion == Depletion.Regrow)
-            {
-                if (readyRoot == null)
-                    Debug.LogError($"ResourceSource on '{name}' has no readyRoot assigned.", this);
-                if (harvestedRoot == null)
-                    Debug.LogError($"ResourceSource on '{name}' has no harvestedRoot assigned.", this);
-            }
-
             if (def != null && def.depletion == Depletion.Despawn && GetComponentInParent<Structure>(true) != null)
                 Debug.LogError($"ResourceSource on '{name}': '{def.name}' is set to Despawn, but this is a " +
                                "structure — destroying it would leave its grid cells taken. Despawn is for " +
                                "a den's animals; use Regrow here.", this);
-
-            ApplyStateVisual();
         }
 
         // ICollisionEffect — dispatched by CollisionTarget.HandleHit when a unit hits the host.
@@ -154,6 +116,7 @@ namespace LittlePeeps
             // and the global production multiplier before being credited. The def goes along because it
             // is the yield modifier's source scope, not just where the ResourceType came from.
             resourceSystem.AddHarvest(def, unit.Type, amount, FxOrigin);
+            Paid?.Invoke();
 
             if (def.depletion == Depletion.Never) return;
             if (--hitsLeft > 0) return;
@@ -169,56 +132,10 @@ namespace LittlePeeps
 
         private void Update()
         {
-            if (fadeTimer >= 0f) TickFade();
-
             if (state != State.Harvested) return;
 
             respawnTimer -= Time.deltaTime;
             if (respawnTimer <= 0f) Respawn();
-        }
-
-        // Advances the fade of the ready visual. Deliberately in the existing Update rather than a
-        // coroutine: the node already ticks every frame for its regrow timer, so the fade rides along
-        // for one float compare and costs no allocation per harvest — which matters when hundreds of
-        // fields are being reaped.
-        private void TickFade()
-        {
-            fadeTimer += Time.deltaTime;
-
-            if (fadeTimer < fadeOutTime)
-            {
-                ApplyFade(fadeTimer / fadeOutTime);
-                return;
-            }
-
-            EndFade();
-        }
-
-        // Settles the roots for the current state and — the part that matters — puts the alpha and the
-        // scale BACK to authored. These are the same objects the regrown node shows: leaving them
-        // transparent or squashed would bring the field back wrong seconds later, far from anything
-        // that looks like a cause.
-        private void EndFade()
-        {
-            fadeTimer = -1f;
-            ResetFade();
-            ApplyStateVisual();
-        }
-
-        // Both curves sampled at normalized fade time `k` (0 = the hit, 1 = gone). The writes go
-        // through HarvestFade, shared with the Edit Mode preview, so the tool cannot fade a node any
-        // differently from the way the game does.
-        private void ApplyFade(float k)
-        {
-            HarvestFade.ApplyAlpha(readyRenderers, fadeCurve.Evaluate(k));
-            HarvestFade.ApplyScaleY(readyTransform, readyScaleY * fadeScaleY.Evaluate(k));
-        }
-
-        // The ready visual exactly as the prefab authored it.
-        private void ResetFade()
-        {
-            HarvestFade.ApplyAlpha(readyRenderers, 1f);
-            HarvestFade.ApplyScaleY(readyTransform, readyScaleY);
         }
 
         // Regrow delay with the run modifier applied. The stats sheet is asked for at the point of use,
@@ -233,71 +150,23 @@ namespace LittlePeeps
                 : def.regrowTime;
         }
 
-        // Harvested: used up, showing the harvested sprite until it regrows. The colliders go off unless
-        // the def keeps the body — then units still bump into it (or cross its trigger) and OnHit, gated
-        // on the state, pays nothing.
+        // Harvested: used up until it regrows. The colliders go off unless the def keeps the body — then
+        // units still bump into it (or cross its trigger) and OnHit, gated on the state, pays nothing.
         private void Deplete()
         {
             state = State.Harvested;
             respawnTimer = ResolveRespawnTime();
             if (!def.keepBodyWhileDepleted) host.SetColliderEnabled(false);
-
-            if (fadeOutTime <= 0f || readyRenderers == null || readyRenderers.Length == 0)
-            {
-                ApplyStateVisual();
-                return;
-            }
-
-            // Gameplay is already over for this node — it is Harvested, so no hit pays, and the regrow
-            // clock is running — so the fade is pure presentation and its length can be whatever looks right
-            // without ever handing out a free harvest.
-            //
-            // ApplyStateVisual is NOT called yet: it would switch the ready root off outright, which is
-            // the very thing being animated. The harvested sprite is brought up front by hand instead,
-            // because it is what has to show THROUGH the fading one — in swapStateVisuals mode nothing
-            // else would turn it on until the fade ended, and the field would dissolve into bare grass.
-            //
-            // Sampled at 0 right here, not left to the first tick: the squash is the field taking the
-            // hit, so it has to land on the same frame as the hit, not one later.
-            fadeTimer = 0f;
-            if (harvestedRoot != null) harvestedRoot.SetActive(true);
-            ApplyFade(0f);
+            Depleted?.Invoke();
         }
 
-        // Ready again: regrown, harvestable, showing the ready sprite.
+        // Ready again: regrown, harvestable.
         private void Respawn()
         {
             state = State.Ready;
             hitsLeft = def.hitsToDeplete;
             if (!def.keepBodyWhileDepleted) host.SetColliderEnabled(true);
-
-            // A regrow can land mid-fade whenever a def's respawn time is shorter than the fade (or a
-            // perk drags it there). The node has to come back solid either way, so the fade is dropped
-            // rather than left to finish over a visual that is already Ready again.
-            fadeTimer = -1f;
-            ResetFade();
-
-            ApplyStateVisual();
-        }
-
-        // Drives the two roots from the current state. Never and Despawn sources keep their single
-        // visual, so both roots are left as the prefab set them (typically only one is present and active).
-        private void ApplyStateVisual()
-        {
-            if (def == null || def.depletion != Depletion.Regrow) return;
-
-            if (!swapStateVisuals)
-            {
-                // Base: harvestedRoot is the always-on background; readyRoot overlays it while Ready.
-                if (harvestedRoot != null) harvestedRoot.SetActive(true);
-                if (readyRoot != null) readyRoot.SetActive(state == State.Ready);
-            }
-            else
-            {
-                // Mutually exclusive: exactly the root for the current state is shown.
-                if (readyRoot != null) readyRoot.SetActive(state == State.Ready);
-                if (harvestedRoot != null) harvestedRoot.SetActive(state == State.Harvested);
-            }
+            Regrown?.Invoke();
         }
     }
 }

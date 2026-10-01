@@ -4,7 +4,7 @@ namespace LittlePeeps
 {
     // The forge's heat bar, drawn in the window of the building. Presentation only: reads ForgeHeat
     // every frame and never writes to it, so removing this component leaves the mechanic untouched.
-    // Sits on the bar's own object under the forge and finds ForgeHeat up the hierarchy.
+    // Sits on the forge's root, next to ForgeHeat, like every view; the renderers it drives are wired in.
     //
     // Layers, back to front, all authored in the prefab: a black Back filling the window, the gradient
     // Fill at its FULL length (the art carries the colour — yellow at the start, red at the end), a

@@ -74,8 +74,10 @@ SampleScene
 │   │   └── BuildBar
 │   │       ├── ModeButton      → Button + BuildModeButton      (правый-нижний угол: Play↔Build)
 │   │       ├── Palette         → CanvasGroup + BuildPanelUI
-│   │       │   └── Viewport    → RectMask2D + BuildPanelScroller
-│   │       │       └── CardRow → Horizontal Layout Group       (карточки построек в рантайме)
+│   │       │   ├── Viewport    → RectMask2D + BuildPanelScroller
+│   │       │   │   └── CardRow → Horizontal Layout Group       (карточки построек в рантайме)
+│   │       │   └── TabConteiner → Vertical Layout Group        (кнопки вкладок в рантайме; ВНУТРИ Palette —
+│   │       │                                                    видны только в стройке, своя строка UIVisibility не нужна)
 │   │       └── Sell            → CanvasGroup
 │   │           └── SellButton  → Button
 │   │               └── SelectedFrame   → Image                 (подсветка выбранного инструмента)
@@ -151,7 +153,7 @@ SampleScene
 | | | spawnJitter | случайный разброс точки рождения (0.15, 0.1) — чтобы одновременные цифры не слипались в одну кляксу |
 | | | maxConcurrent | 60 (дефолт) — потолок живых цифр; сверх него перерабатывается ближайшая к смерти |
 | @Input | **InputHandler** | **mainCamera** | Main Camera |
-| @Input | GameHotkeys | buildModeKey, sellKey, exitToMenuKey, infoKey | клавиши команд: B / X / Esc / I (дефолты, правятся в инспекторе) |
+| @Input | GameHotkeys | buildModeKey, sellKey, exitToMenuKey, infoKey | клавиши команд: B / X / Esc / I (дефолты, правятся в инспекторе); цифры 1–9 — вкладки стройки (зашиты в коде) |
 | CameraTarget | **CameraController** | **islandSystem, viewCamera** | IslandSystem (кламп по острову); viewCamera = Main Camera (только для перевода drag-пикселей в мир) |
 | | | panSpeed, edgePanEnabled, edgeThickness | скорость WASD/стрелок (12), вкл. край-скролл, толщина края в px (12) — дефолты |
 | | | boundsMargin | насколько центр (= цель) может уйти за край острова (4) — дефолт |
@@ -187,6 +189,7 @@ SampleScene
 | Canvas/Hud/BuildBar/Palette | **BuildPanelUI** | palette | BuildPaletteDef-ассет |
 | | | placementController, resourceSystem | PlacementController, ResourceSystem (в сцене!) |
 | | | cardPrefab, cardContainer | префаб BuildCard, дочерний `Viewport/CardRow` |
+| | | tabPrefab, tabContainer | префаб `Prefabs/Elements/BuildTabUi`, дочерний `TabConteiner` |
 | | | scroller | BuildPanelScroller на `Viewport` |
 | | | sellButton, sellHighlight | `Sell/SellButton` и его `SelectedFrame` |
 | Canvas/Hud/ResourceBar/Slots | ResourcePanel | resourceSystem, unitPrefab, container, iconSet | ResourceSystem (в сцене!), ResourceUnit, себя, ResourceIconSet |
@@ -371,6 +374,17 @@ Root → Button + BuildCardUI + CanvasGroup
 ```
 Поля `BuildCardUI`: button, iconImage, costText, selectedHighlight, canvasGroup.
 
+### BuildTabUi (префаб вкладки, инстанцируется BuildPanelUI в рантайме — по кнопке на непустую вкладку)
+```
+Root → Button + BuildTabUI + Image          (область клика — стоит на месте, корень двигает Layout Group)
+└── Visual          → Image (фон)           (едет вправо, пока вкладка под курсором или открыта)
+    ├── Label       → TMP_Text              (название вкладки)
+    └── Image       → Image                 (иконка вкладки; без спрайта прячется)
+```
+Поля `BuildTabUI`: button, label, iconImage, selectedIndicator (необязателен — класть внутрь `Visual`),
+visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Подпись и иконка необязательны:
+что назначено, то и показывается.
+
 ### Пирс (Pier)
 Пирс — обычная **Structure** (footprint в клетках), но его позицией владеет `PierSystem`, а не игрок: он всегда стоит в правом-нижнем углу острова и переезжает туда заново на каждой смене эпохи (за чёрным экраном перехода).
 - **Префаб** = `Structure` + `Pier` (маркер для клика-престижа) + `Collider2D (isTrigger = true, отдельный слой)` + спрайт. Свес настила в воду клади в **дочерний** SpriteRenderer (корень двигается по footprint — оффсет сохранится), `Order in Layer` поверх воды/травы.
@@ -385,7 +399,7 @@ Root → Button + BuildCardUI + CanvasGroup
 | **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), infinite, hitsBeforeDespawn, respawnTime *(визуалы состояний живут в префабе как ReadyRoot/HarvestedRoot, не в дефе)*, **pickupFx** (префаб FX_Pickup_* — эффект вылета ресурса; пусто = только цифра, без частиц) + **pickupFxCount** (частиц за сбор). `pickupFx` — единственный визуал в дефе, и намеренно: он отвечает на вопрос «что именно добыли», а на него нельзя ответить типом ресурса (Wheat/Boar/Fox все Food, Alpaka/Market оба Coins). Один и тот же деф-тип для статичных источников (Tree/Wheat/Forge) и зверей (Alpaca/Boar/Fox); **для зверей respawnTime не используется** — каденс замены задаёт `AnimalSpawner.spawnCooldown` |
 | **UnitDef** | (см. ассет) | unitType, prefab (→ BaseUnit), скорость и т.д. |
 | **StartingLayoutDef** | LittlePeeps/StartingLayout | entries: список { StructureDef def; Vector2Int cell } — стартовые постройки (cell = origin/нижний-левый, SIGNED) |
-| **BuildPaletteDef** | LittlePeeps/BuildPalette | structures: список StructureDef для нижней панели |
+| **BuildPaletteDef** | LittlePeeps/BuildPalette | tabs: вкладки нижней панели, у каждой name, icon, structures (список StructureDef). Порядок вкладок = порядок кнопок и цифр 1–9, порядок structures = порядок карточек; пустая вкладка кнопку не получает. Группировка живёт здесь, на StructureDef категории нет |
 | **AgeDef** | LittlePeeps/AgeDef | title, resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), expansionBlocks[] (RectInt — рост острова; **правый край должен расти на высоту ≥ размера Пирса**, иначе PierSystem не найдёт слот и напишет warning). Порядок задаётся списком `AgeSystem.ages`. См. BONUS_SYSTEM_GUIDE / ISLAND_EXPANSION_GUIDE |
 | PerkDef | (см. ассет) | перки для PerkSystem.catalogue |
 
@@ -401,6 +415,7 @@ Root → Button + BuildCardUI + CanvasGroup
 - **`GameHotkeys`** (на @Input) — дискретные команды по нажатию, публикует события в `EventBus`, ни во что не лезет напрямую:
   - **B** → `BuildModeToggleRequestedEvent` (тот же путь, что кнопка build mode → `GameplayContainerState`, с 5-сек кулдауном);
   - **X** → `SellModeRequestedEvent` → `BuildPanelUI` тогглит инструмент Sell тем же путём, что кнопка (подсветка + контроллер синхронны); вне build mode — no-op;
+  - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildPanelUI` открывает N-ю вкладку; вне build mode — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
   - **Esc** → `ExitToMenuRequestedEvent` → `GameBootstrap` переводит App FSM в `MainMenuState` (выход из контейнера восстанавливает `timeScale`); меню — пока заглушка;
   - **I** → `InfoToggleRequestedEvent` → подписчика пока нет (окно информации в бэклоге; событие уже публикуется).
 

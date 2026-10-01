@@ -619,9 +619,9 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7450329643176518056}
   - {fileID: 5378558355796777515}
   - {fileID: 692371220754233493}
+  - {fileID: 7450329643176518056}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &8943410788371918876
@@ -679,58 +679,6 @@ MonoBehaviour:
   def: {fileID: 11400000, guid: c0d549710b3163043bb80bc6ba21d711, type: 2}
   resourceSystem: {fileID: 0}
   fxAnchor: {fileID: 7450329643176518056}
-  readyRoot: {fileID: 0}
-  harvestedRoot: {fileID: 0}
-  swapStateVisuals: 0
-  fadeOutTime: 0.2
-  fadeCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: -1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: -1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  fadeScaleY:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
 --- !u!114 &924163572890424882
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -283,9 +283,9 @@ GameObject:
   - component: {fileID: 3867302214612423989}
   - component: {fileID: 3442869824636118119}
   - component: {fileID: 3357912009212520022}
+  - component: {fileID: 3749353880335653855}
   - component: {fileID: 16993739003303937}
   - component: {fileID: 6161588675538162229}
-  - component: {fileID: 3749353880335653855}
   m_Layer: 0
   m_Name: Mill
   m_TagString: Untagged
@@ -353,6 +353,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: e2a44f98353c6d34f86197216d6085fd, type: 2}
+--- !u!114 &3749353880335653855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2603376487552531715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac4615e2a3756cb43bffe61e0d09d943, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  def: {fileID: 11400000, guid: 0a3bca92bfac1964cac759e0b68e2a99, type: 2}
+  resourceSystem: {fileID: 0}
+  fxAnchor: {fileID: 1796290442394435010}
 --- !u!114 &16993739003303937
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -382,21 +397,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   secondsPerSack: 4
   capacity: 5
---- !u!114 &3749353880335653855
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2603376487552531715}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac4615e2a3756cb43bffe61e0d09d943, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  def: {fileID: 11400000, guid: 0a3bca92bfac1964cac759e0b68e2a99, type: 2}
-  resourceSystem: {fileID: 0}
-  fxAnchor: {fileID: 1796290442394435010}
 --- !u!1 &3529896695006375015
 GameObject:
   m_ObjectHideFlags: 0

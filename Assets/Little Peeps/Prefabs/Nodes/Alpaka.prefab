@@ -250,9 +250,9 @@ GameObject:
   - component: {fileID: 93628366060213750}
   - component: {fileID: 1737034506181278831}
   - component: {fileID: 8915726199202687961}
+  - component: {fileID: 7270638941847769388}
   - component: {fileID: 6609456226784602871}
   - component: {fileID: 6397397186826937979}
-  - component: {fileID: 7270638941847769388}
   - component: {fileID: 3343459373676637106}
   m_Layer: 0
   m_Name: Alpaka
@@ -317,6 +317,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e754c3aff41496478d157b7f9bbf2a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &7270638941847769388
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351574669674349449}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac4615e2a3756cb43bffe61e0d09d943, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  def: {fileID: 11400000, guid: 710836cfba095204593dcde7e61b3afd, type: 2}
+  resourceSystem: {fileID: 0}
+  fxAnchor: {fileID: 2908992283057913503}
 --- !u!114 &6609456226784602871
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -349,73 +364,6 @@ MonoBehaviour:
   personalSpace: 0.6
   encounterImmunity: 1.5
   lookAhead: 0.3
---- !u!114 &7270638941847769388
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4351574669674349449}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac4615e2a3756cb43bffe61e0d09d943, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  def: {fileID: 11400000, guid: 710836cfba095204593dcde7e61b3afd, type: 2}
-  resourceSystem: {fileID: 0}
-  fxAnchor: {fileID: 2908992283057913503}
-  readyRoot: {fileID: 1453821114716043123}
-  harvestedRoot: {fileID: 3970093221132146869}
-  swapStateVisuals: 1
-  fadeOutTime: 0.3
-  fadeCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: -1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: -1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  fadeScaleY:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
 --- !u!114 &3343459373676637106
 MonoBehaviour:
   m_ObjectHideFlags: 0

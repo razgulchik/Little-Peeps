@@ -16,20 +16,14 @@ MonoBehaviour:
   resourceCost:
   - resourceType: 0
     amount: 10
+  - resourceType: 1
+    amount: 10
   modifiers:
-  - id: 1
-    unitScope: 1
+  - id: 0
+    unitScope: 0
+    anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
     flat: 0
     percent: 0.05
-  bonusOverride: +5% FOOD (FARMER)
-  expansionBlocks:
-  - x: -3
-    y: -2
-    width: 1
-    height: 6
-  - x: -3
-    y: 3
-    width: 6
-    height: 1
+  bonusOverride: +5% ALL PRODUCTION

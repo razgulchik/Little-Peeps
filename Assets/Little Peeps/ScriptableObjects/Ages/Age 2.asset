@@ -15,19 +15,15 @@ MonoBehaviour:
   title: Age 2
   resourceCost:
   - resourceType: 0
-    amount: 10
+    amount: 20
   - resourceType: 1
-    amount: 10
+    amount: 20
   modifiers:
   - id: 0
     unitScope: 0
+    anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
     flat: 0
     percent: 0.05
   bonusOverride: +5% ALL PRODUCTION
-  expansionBlocks:
-  - x: -4
-    y: -4
-    width: 7
-    height: 7

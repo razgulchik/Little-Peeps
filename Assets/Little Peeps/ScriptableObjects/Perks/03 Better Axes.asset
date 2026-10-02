@@ -10,18 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
-  m_Name: Stat Perk Def 4
+  m_Name: 03 Better Axes
   m_EditorClassIdentifier: 
-  id: perk_04
-  title: Wood God
-  description: +90% WOOD (FARMER)
+  id: Better Axes
+  title: Better Axes
+  description: +100% WOOD (TREE)
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
-  minAge: 1
+  minAge: 0
   modifiers:
   - id: 1
-    unitScope: 1
+    unitScope: 0
+    anyProfession: 1
     resourceScope: 1
-    sourceScope: {fileID: 0}
+    sourceScope: {fileID: 11400000, guid: f859f958ef8491246bab7b0e37c3aae4, type: 2}
     flat: 0
-    percent: 0.9
+    percent: 1

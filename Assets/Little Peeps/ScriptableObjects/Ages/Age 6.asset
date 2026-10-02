@@ -12,20 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d42896010a8f2fa4382c366b1d870752, type: 3}
   m_Name: Age 6
   m_EditorClassIdentifier: 
-  title: Age 5
+  title: Age 6
   resourceCost:
   - resourceType: 3
     amount: 10
   modifiers:
-  - id: 2
-    unitScope: 1
+  - id: 0
+    unitScope: 0
+    anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
     flat: 0
-    percent: 0.5
-  bonusOverride: +50% SPEED (FARMER)
-  expansionBlocks:
-  - x: -6
-    y: -6
-    width: 13
-    height: 13
+    percent: 0.05
+  bonusOverride: +5% ALL PRODUCTION

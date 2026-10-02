@@ -10,17 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
-  m_Name: Stat Perk Def 3
+  m_Name: 07 New Boots
   m_EditorClassIdentifier: 
-  id: perk_03
-  title: Capacity God
-  description: +1 HOUSE SLOTS (FARMER)
+  id: New Boots
+  title: New Boots
+  description: +1 SPEED
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 0
   modifiers:
-  - id: 10
+  - id: 2
     unitScope: 0
+    anyProfession: 1
     resourceScope: 0
     sourceScope: {fileID: 0}
     flat: 1

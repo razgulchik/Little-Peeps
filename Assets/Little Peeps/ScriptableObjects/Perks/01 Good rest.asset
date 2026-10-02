@@ -10,18 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
-  m_Name: Stat Perk Def 5
+  m_Name: 01 Good rest
   m_EditorClassIdentifier: 
-  id: perk_05
-  title: Hot forging
-  description: +50% HOT FORGE YIELD
+  id: good_rest
+  title: Good rest
+  description: +100% STAMINA
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 0
   modifiers:
-  - id: 9
+  - id: 4
     unitScope: 0
+    anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
     flat: 0
-    percent: 0.5
+    percent: 1

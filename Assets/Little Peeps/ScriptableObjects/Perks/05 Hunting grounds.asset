@@ -10,35 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
-  m_Name: Stat Perk Def 2
+  m_Name: 05 Hunting grounds
   m_EditorClassIdentifier: 
-  id: perk_02
-  title: Speed God
-  description: '+1 FOOD (FARMER, BOAR)
-
-    +1 FOOD (LUMBERJACK, BOAR)
-
-    +1, +100%
-    FOOD (MINER, BOAR)'
+  id: Hunting grounds
+  title: Hunting grounds
+  description: x2 CREATURES IN THE WOODS
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 0
   modifiers:
-  - id: 1
-    unitScope: 1
+  - id: 12
+    unitScope: 0
+    anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 11400000, guid: e0054fbed09707348934a51a09164497, type: 2}
-    flat: 1
-    percent: 0
-  - id: 1
-    unitScope: 2
+    flat: 0
+    percent: 1
+  - id: 12
+    unitScope: 0
+    anyProfession: 0
     resourceScope: 0
-    sourceScope: {fileID: 11400000, guid: e0054fbed09707348934a51a09164497, type: 2}
-    flat: 1
-    percent: 0
-  - id: 1
-    unitScope: 4
-    resourceScope: 0
-    sourceScope: {fileID: 11400000, guid: e0054fbed09707348934a51a09164497, type: 2}
-    flat: 1
-    percent: 0
+    sourceScope: {fileID: 11400000, guid: f375d82bc4766d14ca6b20f304f37ba6, type: 2}
+    flat: 0
+    percent: 1

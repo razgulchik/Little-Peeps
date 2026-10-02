@@ -12,32 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d42896010a8f2fa4382c366b1d870752, type: 3}
   m_Name: Age 9
   m_EditorClassIdentifier: 
-  title: Age 1
+  title: Age 9
   resourceCost:
-  - resourceType: 0
-    amount: 0
+  - resourceType: 4
+    amount: 1000
   modifiers:
-  - id: 5
+  - id: 0
     unitScope: 0
+    anyProfession: 0
     resourceScope: 0
-    sourceScope: {fileID: 11400000, guid: 31767cd1cafbb69428e75771e561bfa0, type: 2}
+    sourceScope: {fileID: 0}
     flat: 0
-    percent: -0.1
-  bonusOverride: -10% REGROW TIME (WHEAT)
-  expansionBlocks:
-  - x: 3
-    y: -1
-    width: 1
-    height: 3
-  - x: -3
-    y: -1
-    width: 1
-    height: 3
-  - x: -1
-    y: -3
-    width: 3
-    height: 1
-  - x: -1
-    y: 3
-    width: 3
-    height: 1
+    percent: 0.2
+  bonusOverride: +20% ALL PRODUCTION

@@ -9,19 +9,20 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d42896010a8f2fa4382c366b1d870752, type: 3}
-  m_Name: Age 5
+  m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
+  m_Name: 08 New Better
   m_EditorClassIdentifier: 
-  title: Age 5
-  resourceCost:
-  - resourceType: 4
-    amount: 100
+  id: 08 New Better
+  title: 08 New Better
+  description: +1 SPEED
+  icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
+  weight: 1
+  minAge: 0
   modifiers:
   - id: 2
     unitScope: 0
     anyProfession: 1
     resourceScope: 0
     sourceScope: {fileID: 0}
-    flat: 0
-    percent: 0.2
-  bonusOverride: +20% SPEED
+    flat: 1
+    percent: 0

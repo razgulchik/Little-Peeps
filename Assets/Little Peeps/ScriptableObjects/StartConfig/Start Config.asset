@@ -27,13 +27,13 @@ MonoBehaviour:
   pier: {fileID: 11400000, guid: bba560cbe974ff841a3d97f30603d8ac, type: 2}
   startingResources:
   - resourceType: 0
-    amount: 10000
+    amount: 1000
   - resourceType: 1
-    amount: 10000
+    amount: 1000
   - resourceType: 2
-    amount: 10000
+    amount: 1000
   - resourceType: 3
-    amount: 10000
+    amount: 1000
   - resourceType: 4
-    amount: 10000
+    amount: 1000
   startingModifiers: []

@@ -16,7 +16,7 @@ MonoBehaviour:
     id: desert
     terrain: 2
     openPercent: 45
-    mountainPercent: 35
+    mountainPercent: 15
     riverPercent: 0
     objectPercent: 15
     riverChance: 0

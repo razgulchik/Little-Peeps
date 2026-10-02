@@ -18,7 +18,7 @@ MonoBehaviour:
     amount: 50
   - resourceType: 1
     amount: 50
-  - resourceType: 4
+  - resourceType: 3
     amount: 30
   modifiers:
   - id: 0

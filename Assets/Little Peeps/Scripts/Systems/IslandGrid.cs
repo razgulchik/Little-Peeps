@@ -87,7 +87,7 @@ namespace LittlePeeps
 
         // The whole placement rule for `def` at origin: the cell rule above, plus what the def adds on top —
         // a watermill needs a side along the river (WaterSides). Every placement path asks this one (build,
-        // move, generated content, the pier), so the ghost can never promise a spot the builder refuses.
+        // move, generated content), so the ghost can never promise a spot the builder refuses.
         public bool CanPlace(Vector2Int origin, StructureDef def)
         {
             var footprint = def.Footprint;
@@ -186,8 +186,8 @@ namespace LittlePeeps
 
         // Cell-coordinate AABB: the min and max EXISTING cell coordinates (both inclusive). Returns false
         // for an empty grid (out params left at zero). This is the raw integer extent — WorldBounds turns
-        // it into a world box; edge-anchored props (e.g. the pier snapping to the right edge) read it
-        // directly so they work in cell space with no float round-trip.
+        // it into a world box; callers that work in cell space (the island rise) read it directly, with
+        // no float round-trip.
         public bool CellBounds(out Vector2Int min, out Vector2Int max)
         {
             if (cells.Count == 0) { min = max = Vector2Int.zero; return false; }

@@ -53,17 +53,23 @@ namespace LittlePeeps
         public Tilemap GroundTilemap => tilemap;
         public Tilemap TrimTilemap => trimTilemap;
 
-        private StructureDef house;   // the run's starting house def, attached to the start zone's footprint
+        // The run's starting house and pier defs, attached to the footprints the start zone keeps for them.
+        private StructureDef house;
+        private StructureDef pier;
 
         // Generate the island for a new run. RunManager.StartNewRun() owns the timing — IslandSystem
         // never auto-builds in Awake, so generation isn't duplicated or ordered by chance. Seed 0 means
         // a fresh random seed; whichever seed is used is logged, so any island a player reports can be
         // rebuilt by copying it into the StartConfig. Null rules fall back to the defaults; a null start
-        // biome leaves the start as bare land.
-        public void GenerateForRun(int seed = 0, IslandRules rules = null, BiomeDef startBiome = null, StructureDef house = null)
+        // biome leaves the start as bare land — no house, no pier.
+        //
+        // The pier is start content like the house: it stands on the start's east coast for the whole
+        // run, and the generator keeps the sea in front of it open through every age.
+        public void GenerateForRun(int seed = 0, IslandRules rules = null, BiomeDef startBiome = null, StructureDef house = null, StructureDef pier = null)
         {
             if (seed == 0) seed = Random.Range(1, int.MaxValue);
             this.house = house;
+            this.pier = pier;
             Build(seed, rules ?? new IslandRules(), startBiome);
         }
 
@@ -157,6 +163,7 @@ namespace LittlePeeps
         private void GenerateIsland()
         {
             house = null;
+            pier = null;
             Build(previewSeed, new IslandRules(), null);
     #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(tilemap);
@@ -178,10 +185,12 @@ namespace LittlePeeps
             IslandSectionContent content = null;
             if (startBiome != null)
             {
-                content = Generator.Populate(start, startBiome.profile, house != null ? house.Footprint : default);
+                content = Generator.Populate(start, startBiome.profile, house != null ? house.Footprint : default,
+                                             pier != null ? pier.Footprint : default);
                 if (content == null)
                     Debug.LogError($"IslandSystem: start biome '{startBiome.name}' does not fit the starting island " +
-                                   $"(seed {seed}) — starting as bare land. Loosen its budgets.", this);
+                                   $"together with the house and the pier (seed {seed}) — starting as bare land. " +
+                                   $"Loosen its budgets.", this);
             }
             var section = Generator.Commit(start, content);
             LastSection = section;
@@ -234,7 +243,7 @@ namespace LittlePeeps
 
         // Natural content goes through the regular placement path, so it is registered, sellable (where
         // the def allows) and torn down with the run like anything else. Placement order is the
-        // generator's: house first, then mountains and river, then objects.
+        // generator's: house and pier first, then mountains and river, then objects.
         private void PlaceContent(IslandSection section)
         {
             lastContent.Clear();
@@ -248,7 +257,7 @@ namespace LittlePeeps
             var biome = section.Content.biome;
             bool missing = false;
             var wrongTerrain = new HashSet<StructureDef>();
-            foreach (var (cell, def) in section.Content.Features(house))
+            foreach (var (cell, def) in section.Content.Features(house, pier))
             {
                 if (def == null) { missing = true; continue; }
                 // A def that forbids this biome's ground is a data conflict, not a placement problem:

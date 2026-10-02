@@ -22,10 +22,13 @@ MonoBehaviour:
     cells: 
   cost: []
   requiredAge: 0
-  allowedTerrain: 
+  lockedUntilPerk: 0
+  allowedTerrain: 00000000
   sellRefundPercent: 0
-  canSell: 1
+  canSell: 0
   canMove: 0
   passable: 0
   animalsAvoid: 1
+  isWater: 0
+  needsWaterSide: 0
   border: 0

@@ -106,6 +106,7 @@ namespace LittlePeeps
             foreach (var p in IslandShape.Sorted(land))
                 foreach (var d in IslandShape.Dirs)
                     if (!land.Contains(p + d)) coast.Add((p, d));
+            var pierLane = IslandContent.PierLane(Contents());
 
             var candidates = new SortedDictionary<SilhouetteKey, IslandCandidate>();
             int attempt = 0;
@@ -130,6 +131,8 @@ namespace LittlePeeps
 
                 var added = new HashSet<Vector2Int>(combined);
                 added.ExceptWith(land);
+                // The pier looks out on open sea for the whole run; the repair's fill counts too.
+                if (IslandContent.CrossesLane(pierLane, added)) continue;
                 if (added.Count < lower || added.Count > upper) continue;
                 if (!IslandShape.Connected(added) || !IslandShape.BroadJoin(land, added, rules.minWidth)) continue;
                 if (IslandShape.NarrowLand(combined, rules.minWidth) || IslandShape.NarrowLand(added, 2)) continue;
@@ -157,15 +160,22 @@ namespace LittlePeeps
         }
 
         // Fill a candidate with a biome's content, against the island as it stands. A non-empty
-        // `house` marks the starting zone. Null when the biome's rules can't be met on this shape —
-        // nothing is committed, and the shape rng is untouched either way (content has its own streams).
-        // Safe to call for several candidates and biomes before choosing one.
-        public IslandSectionContent Populate(IslandCandidate candidate, IslandBiome biome, Footprint house = default)
+        // `house` marks the starting zone; a non-empty `pier` stands the pier on its east coast, and
+        // from the commit on no zone may cover the sea in front of it (Propose). Null when the biome's
+        // rules can't be met on this shape — nothing is committed, and the shape rng is untouched
+        // either way (content has its own streams). Safe to call for several candidates and biomes
+        // before choosing one.
+        public IslandSectionContent Populate(IslandCandidate candidate, IslandBiome biome, Footprint house = default, Footprint pier = default)
         {
             CheckCurrent(candidate);
-            var previous = new List<IslandSectionContent>(sections.Count);
-            foreach (var s in sections) if (s.Content != null) previous.Add(s.Content);
-            return IslandContent.Populate(Seed, sections.Count, biome, candidate.cells, previous, house);
+            return IslandContent.Populate(Seed, sections.Count, biome, candidate.cells, Contents(), house, pier);
+        }
+
+        private List<IslandSectionContent> Contents()
+        {
+            var contents = new List<IslandSectionContent>(sections.Count);
+            foreach (var s in sections) if (s.Content != null) contents.Add(s.Content);
+            return contents;
         }
 
         // Make a proposed zone the island's next section, with its content — or bare, when the caller

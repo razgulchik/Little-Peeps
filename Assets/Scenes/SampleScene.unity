@@ -2359,53 +2359,6 @@ MonoBehaviour:
   viewCamera: {fileID: 519420031}
   offscreenMargin: 0.1
   maxConcurrent: 60
---- !u!1 &340968259
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 340968260}
-  - component: {fileID: 340968261}
-  m_Layer: 0
-  m_Name: PierSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &340968260
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 340968259}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1009994986}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &340968261
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 340968259}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af7ec6be73a61c54bbfa843eeaae61bb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  islandSystem: {fileID: 738684714}
-  structureSystem: {fileID: 42342360}
-  pierDef: {fileID: 11400000, guid: bba560cbe974ff841a3d97f30603d8ac, type: 2}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -3161,7 +3114,6 @@ Transform:
   - {fileID: 596618326}
   - {fileID: 2118373958}
   - {fileID: 669469168}
-  - {fileID: 340968260}
   - {fileID: 1015335231}
   - {fileID: 1656171578}
   - {fileID: 42342359}
@@ -3220,7 +3172,6 @@ MonoBehaviour:
   islandSystem: {fileID: 738684714}
   structureSystem: {fileID: 42342360}
   spawnSystem: {fileID: 711440996}
-  pierSystem: {fileID: 340968261}
   startConfig: {fileID: 11400000, guid: 627ada24423ec1e4ca22ff04184af04a, type: 2}
 --- !u!1 &1088972179
 GameObject:

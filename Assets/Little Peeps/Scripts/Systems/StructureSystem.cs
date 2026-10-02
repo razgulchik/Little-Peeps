@@ -31,8 +31,7 @@ namespace LittlePeeps
         // Free placement for generated structures (a zone's natural content, the pier): no cost, but
         // still validated. Returns the placed instance, or null when the cell is blocked — the generator
         // keeps its own cells clear, so a failure here is a data error (a def's terrain or border rule
-        // fighting the biome), so warn and skip rather than corrupt the grid; the pier reads the null to
-        // know it had no room.
+        // fighting the biome), so warn and skip rather than corrupt the grid.
         public StructureInstance PlaceInitial(StructureDef def, Vector2Int cell)
         {
             if (!islandSystem.Grid.CanPlace(cell, def))

@@ -12,10 +12,10 @@ namespace LittlePeeps
     //   UI (Canvas) [UIRoot — the only UI reference this component holds; every panel is wired inside
     //                the Canvas prefab. UIVisibility sits beside it and owns what is on screen per mode]
     //
-    // The pier is NOT in this list: PierSystem instantiates it per run from the "Pier" StructureDef and
-    // parks it in the island's bottom-right corner. What that def's PREFAB needs is a Collider2D (on the
-    // root or any child) plus the Pier marker component ON THE ROOT — TapSystem resolves a click with
-    // GetComponentInParent<Pier>(), walking up from whichever collider was hit.
+    // The pier is NOT in this list: it is start content, like the house — IslandSystem places it per run
+    // from StartConfig.pier on the start's east coast, where it stays. What that def's PREFAB needs is a
+    // Collider2D (on the root or any child) plus the Pier marker component ON THE ROOT — TapSystem
+    // resolves a click with GetComponentInParent<Pier>(), walking up from whichever collider was hit.
     //
     // Initialization (all in Awake — order-independent, see note on Awake below):
     //   1. Application.runInBackground

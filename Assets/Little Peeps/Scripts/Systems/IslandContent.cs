@@ -156,15 +156,82 @@ namespace LittlePeeps
                             var a = d.x != 0 ? new Vector2Int(line, value) : new Vector2Int(value, line);
                             var b = d.x != 0 ? new Vector2Int(line, value + 1) : new Vector2Int(value + 1, line);
                             if (IsGate(a, content, oldWalk) || IsGate(b, content, oldWalk)) continue;
-                            if (content.land.Contains(a) && !content.house.Contains(a)) content.reserved.Add(a);
-                            else if (content.land.Contains(b) && !content.house.Contains(b)) content.reserved.Add(b);
+                            if (content.land.Contains(a) && !content.Built(a)) content.reserved.Add(a);
+                            else if (content.land.Contains(b) && !content.Built(b)) content.reserved.Add(b);
                         }
                 }
             }
         }
 
         private static bool IsGate(Vector2Int p, IslandSectionContent content, HashSet<Vector2Int> oldWalk) =>
-            oldWalk.Contains(p) || (content.reserved.Contains(p) && !content.house.Contains(p));
+            oldWalk.Contains(p) || (content.reserved.Contains(p) && !content.Built(p));
+
+        // --- Pier ------------------------------------------------------------------------------------
+
+        // The sea the pier looks out on, as row → the pier's eastmost cell in that row: everything east
+        // of it in that row, to the horizon, stays water for the whole run. IslandGenerator.Propose
+        // throws away any zone that puts land there, itself or through a filled bay. To the horizon, not
+        // a few cells: a short lane could be walled off past its end and closed into a lake, while land
+        // flanking the open lane is held off by the shape rules themselves — a bay narrower than minBay,
+        // or deeper than its width allows, is filled, and the fill lands in the lane.
+        public static Dictionary<int, int> PierLane(IEnumerable<IslandSectionContent> contents)
+        {
+            var lane = new Dictionary<int, int>();
+            foreach (var c in contents) AddToLane(lane, c.pier);
+            return lane;
+        }
+
+        private static void AddToLane(Dictionary<int, int> lane, IEnumerable<Vector2Int> pier)
+        {
+            foreach (var p in pier)
+                lane[p.y] = lane.TryGetValue(p.y, out int edge) ? Math.Max(edge, p.x) : p.x;
+        }
+
+        public static bool InLane(Dictionary<int, int> lane, Vector2Int p) =>
+            lane.TryGetValue(p.y, out int edge) && p.x > edge;
+
+        public static bool CrossesLane(Dictionary<int, int> lane, IEnumerable<Vector2Int> cells)
+        {
+            if (lane.Count == 0) return false;
+            foreach (var p in cells) if (InLane(lane, p)) return true;
+            return false;
+        }
+
+        // Where the pier goes: on the east coast, each of its rows looking out on open sea — no land, old
+        // or new, anywhere east of it in that row. Rightmost column first, lowest first within it (the
+        // island's bottom-right, where the pier has always stood), skipping cells already reserved (the
+        // clearing, the house and its ring, the join to older land). The east coast always has room in
+        // principle — the shape rules make every column run at least minWidth long, and the rightmost
+        // column's runs all face open sea — so null means this attempt's reservations took it.
+        public static HashSet<Vector2Int> PierSlot(HashSet<Vector2Int> section, HashSet<Vector2Int> land, HashSet<Vector2Int> reserved, Footprint pier, out Vector2Int origin)
+        {
+            var order = new List<Vector2Int>(section);
+            order.Sort((a, b) => a.x != b.x ? b.x.CompareTo(a.x) : a.y.CompareTo(b.y));
+            var anchor = pier.Anchor;
+            var lane = new Dictionary<int, int>();
+
+            foreach (var at in order)
+            {
+                origin = at - anchor;
+                var block = new HashSet<Vector2Int>();
+                bool free = true;
+                for (int i = 0; i < pier.Size.x && free; i++)
+                    for (int j = 0; j < pier.Size.y; j++)
+                    {
+                        if (!pier.Contains(i, j)) continue;
+                        var p = new Vector2Int(origin.x + i, origin.y + j);
+                        if (!section.Contains(p) || reserved.Contains(p)) { free = false; break; }
+                        block.Add(p);
+                    }
+                if (!free) continue;
+
+                lane.Clear();
+                AddToLane(lane, block);
+                if (!CrossesLane(lane, land)) return block;
+            }
+            origin = default;
+            return null;
+        }
 
         // --- Features --------------------------------------------------------------------------------
 
@@ -428,8 +495,9 @@ namespace LittlePeeps
         // Fill `section` (zone number `index` of the island seeded `seed`) with `biome`'s content, given
         // the content of every earlier zone. A non-empty `house` marks the starting zone: that footprint is
         // reserved in the clearing and the zone is regenerated until every fired rule's minimum is met.
-        // Null when no attempt produced a valid zone — the caller decides what to do about it.
-        public static IslandSectionContent Populate(int seed, int index, IslandBiome biome, IReadOnlyCollection<Vector2Int> section, IReadOnlyList<IslandSectionContent> previous, Footprint house = default)
+        // A non-empty `pier` is given a slot on the zone's east coast (PierSlot) before anything natural
+        // is placed. Null when no attempt produced a valid zone — the caller decides what to do about it.
+        public static IslandSectionContent Populate(int seed, int index, IslandBiome biome, IReadOnlyCollection<Vector2Int> section, IReadOnlyList<IslandSectionContent> previous, Footprint house = default, Footprint pier = default)
         {
             if (biome == null) throw new ArgumentNullException(nameof(biome));
             biome.Validate();
@@ -452,7 +520,7 @@ namespace LittlePeeps
             for (int attempt = 0; attempt < Attempts; attempt++)
             {
                 var rng = IslandRng.Derive(seed, (ulong)index, IslandRng.Hash(biome.id), (ulong)attempt);
-                var content = new IslandSectionContent(biome, sectionCells, house);
+                var content = new IslandSectionContent(biome, sectionCells, house, pier);
                 content.clearing.UnionWith(clearings[attempt % clearings.Count]);
                 content.reserved.UnionWith(content.clearing);
 
@@ -480,6 +548,17 @@ namespace LittlePeeps
                                 var q = new Vector2Int(p.x + dx, p.y + dy);
                                 if (sectionCells.Contains(q)) content.reserved.Add(q);
                             }
+                }
+
+                // After the house, so the house keeps its pick of the clearing; the pier's own slot is
+                // the whole coast to choose from.
+                if (pier.CellCount > 0)
+                {
+                    var slot = PierSlot(sectionCells, land, content.reserved, pier, out var pierOrigin);
+                    if (slot == null) continue;
+                    content.pier.UnionWith(slot);
+                    content.pierOrigin = pierOrigin;
+                    content.reserved.UnionWith(slot);
                 }
 
                 ReserveFutureGates(content, previous, land);
@@ -515,7 +594,7 @@ namespace LittlePeeps
             Check(c.OpenCells * 100 >= c.land.Count * biome.openPercent, "open land below the biome's minimum");
 
             var natural = c.Natural();
-            Check(natural.IsSubsetOf(c.land) && c.reserved.IsSubsetOf(c.land) && c.house.IsSubsetOf(c.reserved), "content outside the zone");
+            Check(natural.IsSubsetOf(c.land) && c.reserved.IsSubsetOf(c.land) && c.house.IsSubsetOf(c.reserved) && c.pier.IsSubsetOf(c.reserved), "content outside the zone");
             Check(!natural.Overlaps(c.reserved), "natural feature on a reserved cell");
             Check(natural.Count == c.mountains.Count + c.river.Count + c.objects.Count, "features overlap");
             foreach (var rule in c.objects.Values) Check(biome.objects.Contains(rule), "object of a rule the biome does not have");
@@ -555,10 +634,17 @@ namespace LittlePeeps
                     Check(n >= rule.minCount, "a guaranteed object kind is short");
                 }
             }
+
+            if (c.pierFootprint.CellCount > 0)
+            {
+                Check(c.pier.Count == c.pierFootprint.CellCount && c.pier.Contains(c.pierOrigin + c.pierFootprint.Anchor), "pier footprint incomplete");
+                Check(!c.pier.Overlaps(c.house), "pier on the house");
+            }
+            else Check(c.pier.Count == 0, "a pier in a zone that was not given one");
         }
 
-        // Every zone against its section, and the island as a whole: access with planned bridges, and
-        // rivers of different zones never touching.
+        // Every zone against its section, and the island as a whole: access with planned bridges, rivers
+        // of different zones never touching, and open sea in front of the pier.
         public static void ValidateAll(IReadOnlyList<IslandSection> sections)
         {
             var land = new HashSet<Vector2Int>();
@@ -572,6 +658,7 @@ namespace LittlePeeps
                 contents.Add(s.Content);
             }
             Check(AccessOk(land, contents), "island access broken");
+            Check(!CrossesLane(PierLane(contents), land), "land in front of the pier");
             for (int i = 0; i < contents.Count; i++)
                 for (int j = 0; j < i; j++)
                 {

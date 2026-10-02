@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // The whole starting state of a run, bundled into one asset: island seed, shape rules and start
-    // biome, the house, resources, and stat modifiers. RunManager reads it in StartNewRun so a run's start is fully
+    // biome, the house and the pier, resources, and stat modifiers. RunManager reads it in StartNewRun so a run's start is fully
     // data-driven. Keep several assets around (default / debug / test presets) and swap the reference
     // on RunManager to change what a run begins with — no code edits, no scene surgery.
     [CreateAssetMenu(menuName = "LittlePeeps/StartConfig")]
@@ -25,6 +25,10 @@ namespace LittlePeeps
         [Tooltip("The starting house. The generator keeps a footprint for it in the start's clearing and " +
                  "places it through the normal StructureSystem path.")]
         public StructureDef house;
+
+        [Tooltip("The pier, the way out to prestige. The generator stands it on the start's east coast and " +
+                 "keeps the sea in front of it open for the whole run — it never moves.")]
+        public StructureDef pier;
 
         [Tooltip("Resources the run begins with, one entry per type. Types not listed start at 0.")]
         public List<ResourceCost> startingResources = new();

@@ -22,6 +22,7 @@ MonoBehaviour:
     attempts: 2000
   startBiome: {fileID: 11400000, guid: 02e80794d88abbeb5f609fb04ce4fa27, type: 2}
   house: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
+  pier: {fileID: 11400000, guid: bba560cbe974ff841a3d97f30603d8ac, type: 2}
   startingResources:
   - resourceType: 0
     amount: 10000

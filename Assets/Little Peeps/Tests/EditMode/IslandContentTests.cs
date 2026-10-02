@@ -15,17 +15,19 @@ namespace LittlePeeps.Tests
     {
         private const int HouseSide = 2;
         private static readonly Footprint House = Footprint.Rect(HouseSide, HouseSide);
+        private static readonly Footprint Pier = Footprint.Rect(1, 3);   // the game's pier def
 
         private static IslandRules Rules(int startArea = 36) => new() { startArea = startArea };
 
         private static HashSet<Vector2Int> Set(IEnumerable<Vector2Int> cells) => new(cells);
 
-        // Start a populated island: shape, then the starting biome with the house.
-        private static IslandGenerator Start(int seed, IslandBiome biome, int startArea = 36)
+        // Start a populated island: shape, then the starting biome with the house (and the pier, when
+        // given one — without it, growth is free to go anywhere).
+        private static IslandGenerator Start(int seed, IslandBiome biome, int startArea = 36, Footprint pier = default)
         {
             var g = new IslandGenerator(Rules(startArea), seed);
             var candidate = g.GenerateStart();
-            var content = g.Populate(candidate, biome, House);
+            var content = g.Populate(candidate, biome, House, pier);
             Assert.IsNotNull(content, $"seed {seed}: the start could not be populated");
             g.Commit(candidate, content);
             return g;
@@ -164,6 +166,98 @@ namespace LittlePeeps.Tests
             Assert.AreEqual(1, fits.Count);
             CollectionAssert.AreEquivalent(cells, fits[0]);
             Assert.IsEmpty(IslandContent.Rects(cells, new Vector2Int(2, 2)), "the full box does not fit");
+        }
+
+        // --- the pier ---------------------------------------------------------------------------------
+
+        private static void AssertOpenSeaAhead(IslandGenerator g, string at)
+        {
+            var c = g.Sections[0].Content;
+            foreach (var p in c.pier)
+                foreach (var q in g.Land)
+                    Assert.IsFalse(q.y == p.y && q.x > p.x, $"{at}: land at {q} in front of the pier cell {p}");
+        }
+
+        [Test]
+        public void Start_StandsThePierOnTheEastCoast_FacingOpenSea()
+        {
+            foreach (int size in new[] { 25, 36, 64 })
+                for (int seed = 0; seed < 40; seed++)
+                {
+                    string at = $"size {size}, seed {seed}";
+                    var g = Start(seed, StartingGrasslands(), size, Pier);
+                    Assert.DoesNotThrow(() => IslandContent.ValidateAll(g.Sections), at);
+
+                    var c = g.Sections[0].Content;
+                    Assert.AreEqual(3, c.pier.Count, $"{at}: pier footprint");
+                    Assert.IsTrue(c.pier.Contains(c.pierOrigin), $"{at}: pier origin inside its footprint");
+                    Assert.IsTrue(c.pier.IsSubsetOf(c.land), $"{at}: the pier stands on land");
+                    Assert.IsFalse(c.pier.Overlaps(c.house), $"{at}: pier on the house");
+                    Assert.IsFalse(c.pier.Overlaps(c.Natural()), $"{at}: something natural on the pier");
+                    AssertOpenSeaAhead(g, at);
+                    Assert.IsTrue(IslandShape.Connected(Walkable(g, withBridges: false)), $"{at}: the pier cut the start apart");
+                }
+        }
+
+        [Test]
+        public void PierSlot_TakesTheRightmostLowestRun_ThatFacesOpenSea()
+        {
+            // A C opening east: two 2-row arms reach x = 6, the back wall stands at x = 3. The arms are
+            // too short for a 1×3 pier, so the slot is the back wall — lowest first.
+            var land = new HashSet<Vector2Int>();
+            for (int x = 0; x <= 6; x++) for (int y = 0; y <= 7; y++)
+                if (x <= 3 || y <= 1 || y >= 6) land.Add(new Vector2Int(x, y));
+
+            var slot = IslandContent.PierSlot(land, land, new HashSet<Vector2Int>(), Pier, out var origin);
+            Assert.AreEqual(new Vector2Int(3, 2), origin);
+            CollectionAssert.AreEquivalent(new[] { new Vector2Int(3, 2), new Vector2Int(3, 3), new Vector2Int(3, 4) }, slot);
+
+            // A reserved cell pushes it up the wall.
+            IslandContent.PierSlot(land, land, new HashSet<Vector2Int> { new Vector2Int(3, 2) }, Pier, out origin);
+            Assert.AreEqual(new Vector2Int(3, 3), origin);
+
+            // Land beyond the bay in the pier's rows: the wall no longer faces open sea, nothing does.
+            land.Add(new Vector2Int(8, 4));
+            Assert.IsNull(IslandContent.PierSlot(land, land, new HashSet<Vector2Int>(), Pier, out _));
+        }
+
+        // The pier's counterpart of the shape sweep: a start with the pier, then every age grows on — the
+        // lane only takes shapes away, so this is the guard that it never takes them all — and no age
+        // ever puts land in front of the pier. Then the same seeds without the pier: some of them DO
+        // grow into that sea, or the sweep above would prove nothing.
+        [Test]
+        public void PierSweep_EveryAgeStillGrows_AndNoneCoversTheSeaAhead()
+        {
+            const int seeds = 100, steps = 8;
+            int coveredWithoutRule = 0;
+            for (int seed = 0; seed < seeds; seed++)
+            {
+                var world = Start(seed, StartingGrasslands(), pier: Pier);
+                var lane = IslandContent.PierLane(Contents(world));
+                var cycle = Cycle();
+                for (int step = 0; step < steps; step++)
+                {
+                    string at = $"seed {seed}, step {step}";
+                    var proposals = world.Propose(3);
+                    Assert.AreEqual(3, proposals.Count, $"{at}: fewer zones on offer");
+                    foreach (var p in proposals)
+                        Assert.IsFalse(IslandContent.CrossesLane(lane, p.Cells), $"{at}: a zone in front of the pier");
+
+                    var biome = cycle[step % cycle.Length];
+                    IslandSectionContent content = null;
+                    foreach (var p in proposals)
+                        if ((content = world.Populate(p, biome)) != null) { world.Commit(p, content); break; }
+                    Assert.IsNotNull(content, $"{at}: biome '{biome.id}' fits no proposed zone");
+                }
+                Assert.DoesNotThrow(() => IslandContent.ValidateAll(world.Sections), $"seed {seed}");
+                AssertOpenSeaAhead(world, $"seed {seed}");
+
+                var free = new IslandGenerator(Rules(), seed);
+                free.Commit(free.GenerateStart());
+                for (int step = 0; step < steps; step++) free.Commit(free.Propose(1)[0]);
+                if (IslandContent.CrossesLane(lane, free.Land)) coveredWithoutRule++;
+            }
+            Assert.That(coveredWithoutRule, Is.GreaterThan(0), "no seed ever grew in front of the pier — the sweep tests nothing");
         }
 
         // --- growth -----------------------------------------------------------------------------------

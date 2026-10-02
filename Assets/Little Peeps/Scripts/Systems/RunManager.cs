@@ -9,7 +9,6 @@ namespace LittlePeeps
         [SerializeField] private IslandSystem islandSystem;
         [SerializeField] private StructureSystem structureSystem;
         [SerializeField] private SpawnSystem spawnSystem;
-        [SerializeField] private PierSystem pierSystem;
 
         [Tooltip("The run's starting state: island seed, rules and start biome, resources and modifiers. One asset per " +
                  "preset — swap it here to change what a fresh run begins with (useful for tests/debug).")]
@@ -44,11 +43,9 @@ namespace LittlePeeps
             structureSystem.Initialize(CurrentRun);
             spawnSystem.Initialize(CurrentRun);
 
-            // The island brings its own starting content (house, food, wood) through StructureSystem.
-            if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSeed, startConfig.islandRules, startConfig.startBiome, startConfig.house);
+            // The island brings its own starting content (house, pier, food, wood) through StructureSystem.
+            if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSeed, startConfig.islandRules, startConfig.startBiome, startConfig.house, startConfig.pier);
             else                     islandSystem.GenerateForRun();
-
-            if (pierSystem != null) pierSystem.PlaceForRun();   // after the island exists; owns its own cell
 
             // Last: the run is fully built, so observers that cache the context can safely re-bind.
             // On the FIRST run this reaches nobody — GameBootstrap.Awake publishes it before the other
@@ -96,7 +93,6 @@ namespace LittlePeeps
         {
             if (CurrentRun == null) return;
 
-            if (pierSystem != null) pierSystem.ClearForRun();
             structureSystem.ClearAll();
             spawnSystem.ResetForNewRun();
 

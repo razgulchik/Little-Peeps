@@ -13,8 +13,32 @@ namespace LittlePeeps.Tests
     public class StatModifierTextTests
     {
         private static StatModifier Mod(StatId id, float flat = 0f, float percent = 0f,
-                                        UnitType unit = default)
-            => new StatModifier { id = id, unitScope = unit, flat = flat, percent = percent };
+                                        UnitType unit = default, bool anyProfession = false)
+            => new StatModifier
+            {
+                id = id, unitScope = unit, anyProfession = anyProfession, flat = flat, percent = percent,
+            };
+
+        // Any profession is the wide default on the unit axis, so it is silent like an empty source —
+        // naming the leftover profession under it would advertise the narrowest reading of the widest bonus.
+        [Test]
+        public void AnyProfession_IsNotNamed()
+        {
+            Assert.That(StatModifierText.Describe(Mod(StatId.UnitSpeed, percent: 0.5f,
+                                                      unit: UnitType.Lumberjack, anyProfession: true)),
+                        Is.EqualTo("+50% SPEED"));
+
+            var yield = Mod(StatId.ResourceYield, percent: 1f, anyProfession: true);
+            yield.resourceScope = ResourceType.Wood;
+            Assert.That(StatModifierText.Describe(yield), Is.EqualTo("+100% WOOD"));
+        }
+
+        [Test]
+        public void DenCapacity_ReadsAsAnimalsPerDen()
+        {
+            Assert.That(StatModifierText.Describe(Mod(StatId.DenCapacity, flat: 1f)),
+                        Is.EqualTo("+1 ANIMALS PER DEN"));
+        }
 
         [Test]
         public void List_GivesOneLinePerModifier()

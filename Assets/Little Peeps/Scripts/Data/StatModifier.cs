@@ -17,6 +17,15 @@ namespace LittlePeeps
     {
         public StatId id;
         public UnitType unitScope;
+
+        // "Any profession" — the unit axis' counterpart of an empty sourceScope below. A flag beside the
+        // enum rather than a value inside it: UnitType has no free zero for a wildcard (Unassigned is 0
+        // and is a real profession — it harvests trees and alpacas), and an "Any" entry in the enum would
+        // also turn up everywhere else a profession is picked, workerYields included, where it means
+        // nothing. When set, unitScope is ignored. On a yield it reaches only the professions the source
+        // actually pays: ResourceSource checks the worker against workerYields before the formula runs.
+        public bool anyProfession;
+
         public ResourceType resourceScope;
 
         // Which SOURCE this applies to — drag in Tree / Wheat / Alpaka / Market. Left EMPTY it means

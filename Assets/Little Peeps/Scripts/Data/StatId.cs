@@ -43,6 +43,13 @@ namespace LittlePeeps
         // ResourceYield scoped to the market's source.
         MarketVisitHits,    // no scope — counted hits one unit gets per market visit (base: VisitZone.hitsPerVisit)
 
+        // Animal dens and the stable (AnimalSpawner). A count like the two above — "+1 animal" is
+        // authored as flat. Read at the point of use, not materialised: a den compares its live animals
+        // against it on every check, so a raise is seen without a push. Scoped by the ANIMAL's own
+        // source (Boar, Fox, Alpaka), which is what lets "more creatures in the woods" leave the stable's
+        // alpacas alone; left empty it reaches every den and the stable.
+        DenCapacity,        // scope: source — animals one den keeps out at once (base: AnimalSpawner.maxAnimals)
+
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
     }
@@ -57,6 +64,8 @@ namespace LittlePeeps
         // The worker's PROFESSION (Unit.Type — what it does, not what it was born as; see UnitType).
         // Only stats read while the unit is out working can carry it: a worker has no profession
         // before it crosses a rack, so anything resolved at the house or at launch stays unscoped.
+        // Like Source it can be left open — StatModifier.anyProfession — but the open value is a flag
+        // beside the enum, because the enum's zero (Unassigned) is a profession of its own.
         Unit     = 1 << 0,
         Resource = 1 << 1,
 
@@ -86,6 +95,10 @@ namespace LittlePeeps
             // the second dimension would add nothing but a way to author a mismatched key. Left empty
             // it means every source, exactly as on ResourceYield.
             StatId.SourceRespawn    => StatScope.Source,
+
+            // Source only, for the same reason, and the source is the ANIMAL, not the den: the den has no
+            // def of its own on the stat axis, while the animal's def already tells a boar from an alpaca.
+            StatId.DenCapacity      => StatScope.Source,
 
             // Listed although they fall through to None anyway, so the choice reads as made rather than
             // forgotten: the one forge needs no Source axis, and "the forge" is not a resource either.

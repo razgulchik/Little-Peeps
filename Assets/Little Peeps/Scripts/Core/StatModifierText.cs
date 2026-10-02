@@ -82,6 +82,7 @@ namespace LittlePeeps
             StatId.ForgeCoolingTime => ("FORGE COOLING TIME", StatScope.None),
             StatId.ForgeHotYield    => ("HOT FORGE YIELD", StatScope.None),
             StatId.MarketVisitHits  => ("HITS PER MARKET VISIT", StatScope.None),
+            StatId.DenCapacity      => ("ANIMALS PER DEN", StatScope.None),
 
             // A stat added to the enum but not named here falls back to its own name. Visibly ugly on
             // the card, which is the right failure: it asks for a name instead of hiding the bonus.
@@ -97,7 +98,9 @@ namespace LittlePeeps
             var parts = new List<string>(3);
 
             if ((mask & StatScope.Resource) != 0) parts.Add(Upper(m.resourceScope.ToString()));
-            if ((mask & StatScope.Unit) != 0) parts.Add(Upper(m.unitScope.ToString()));
+            // Any profession is the wide default on this axis, exactly as an empty source is below, and is
+            // silent for the same reason.
+            if ((mask & StatScope.Unit) != 0 && !m.anyProfession) parts.Add(Upper(m.unitScope.ToString()));
 
             // An unset source means EVERY source (see StatModifier.sourceScope), which is the default
             // and needs no words — naming it would turn the widest bonus into the narrowest-looking one.

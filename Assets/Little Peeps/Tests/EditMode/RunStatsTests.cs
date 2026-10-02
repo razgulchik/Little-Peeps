@@ -18,11 +18,13 @@ namespace LittlePeeps.Tests
         private const float Tolerance = 1e-4f;
 
         private static StatModifier Mod(StatId id, float flat = 0f, float percent = 0f,
-                                        UnitType unit = default, ResourceType res = default)
+                                        UnitType unit = default, ResourceType res = default,
+                                        bool anyProfession = false)
             => new StatModifier
             {
                 id = id,
                 unitScope = unit,
+                anyProfession = anyProfession,
                 resourceScope = res,
                 flat = flat,
                 percent = percent,
@@ -162,6 +164,65 @@ namespace LittlePeeps.Tests
 
             Assert.That(stats.Apply(1f, StatId.UnitSpeed, UnitType.Miner),
                         Is.EqualTo(1f).Within(Tolerance));
+        }
+
+        // --- any profession ---------------------------------------------------------------------------
+        //
+        // The unit axis' open value. Unassigned is a real profession (it harvests trees and alpacas), so
+        // the enum's zero cannot double as "anyone" the way an empty source does; the flag carries it.
+
+        [Test]
+        public void AnyProfession_ReachesEveryProfession_AndIgnoresTheOneUnderneath()
+        {
+            var stats = new RunStats();
+            // Miner underneath on purpose: a leftover profession under Any must not narrow it back.
+            stats.Add(Mod(StatId.ResourceYield, percent: 1f, unit: UnitType.Miner, res: ResourceType.Wood,
+                          anyProfession: true));
+
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, UnitType.Lumberjack, ResourceType.Wood),
+                        Is.EqualTo(4f).Within(Tolerance), "a lumberjack on wood");
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, UnitType.Unassigned, ResourceType.Wood),
+                        Is.EqualTo(4f).Within(Tolerance), "an unassigned villager on wood");
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, UnitType.Lumberjack, ResourceType.Stone),
+                        Is.EqualTo(2f).Within(Tolerance), "the resource still narrows it");
+        }
+
+        [Test]
+        public void AnyProfession_AndASpecificOne_StackAdditively()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.ResourceYield, percent: 1f, res: ResourceType.Wood, anyProfession: true));
+            stats.Add(Mod(StatId.ResourceYield, percent: 0.5f, unit: UnitType.Lumberjack, res: ResourceType.Wood));
+
+            // One formula over both buckets: 10 * (1 + 1.5) = 25, not 10 * 2 * 1.5 = 30.
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, UnitType.Lumberjack, ResourceType.Wood),
+                        Is.EqualTo(25f).Within(Tolerance));
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, UnitType.Miner, ResourceType.Wood),
+                        Is.EqualTo(20f).Within(Tolerance), "everyone else gets the open half only");
+        }
+
+        [Test]
+        public void AnyProfession_WorksOnEveryProfessionScopedStat_NotJustYield()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.UnitSpeed, percent: 0.5f, anyProfession: true));
+
+            Assert.That(stats.Apply(2f, StatId.UnitSpeed, UnitType.Miner), Is.EqualTo(3f).Within(Tolerance));
+            Assert.That(stats.Apply(2f, StatId.UnitSpeed, UnitType.Unassigned), Is.EqualTo(3f).Within(Tolerance));
+        }
+
+        // On a stat with no unit dimension the flag is a stray value like any other scope: MakeKey drops
+        // it into the one global bucket, and Apply must not read that bucket a second time as "any".
+        [TestCase(StatId.UnitStamina)]
+        [TestCase(StatId.ProductionGlobal)]
+        public void AnyProfession_IsNotCountedTwice_OnAStatWithoutAUnitDimension(StatId id)
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(id, flat: 1f, percent: 1f, anyProfession: true));
+
+            // (3 + 1) * 2 = 8. Read twice it would be (3 + 2) * 3 = 15.
+            Assert.That(stats.Apply(3f, id), Is.EqualTo(8f).Within(Tolerance));
+            Assert.That(stats.Apply(3f, id, UnitType.Miner), Is.EqualTo(8f).Within(Tolerance));
         }
 
         // --- durations ------------------------------------------------------------------------------
@@ -521,6 +582,52 @@ namespace LittlePeeps.Tests
                         Is.EqualTo(2f).Within(Tolerance));
             Assert.That(stats.Apply(4f, StatId.SourceRespawn, source: cave),
                         Is.EqualTo(2f).Within(Tolerance));
+        }
+
+        [Test]
+        public void AllFourBuckets_MeetInOneFormula()
+        {
+            var stats = new RunStats();
+            stats.Add(Yield(percent: 0.1f, source: quarry));                     // this worker, this source
+            stats.Add(Yield(percent: 0.2f));                                     // this worker, any source
+            var any = Yield(percent: 0.3f, source: quarry);
+            any.anyProfession = true;
+            stats.Add(any);                                                      // anyone, this source
+            any = Yield(percent: 0.4f);
+            any.anyProfession = true;
+            stats.Add(any);                                                      // anyone, any source
+
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, Worker, Res, quarry),
+                        Is.EqualTo(20f).Within(Tolerance), "all four: 10 * (1 + 1.0)");
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, Worker, Res, cave),
+                        Is.EqualTo(16f).Within(Tolerance), "this worker elsewhere: 0.2 + 0.4");
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, UnitType.Lumberjack, Res, quarry),
+                        Is.EqualTo(17f).Within(Tolerance), "someone else here: 0.3 + 0.4");
+            Assert.That(stats.Apply(10f, StatId.ResourceYield, UnitType.Lumberjack, Res, cave),
+                        Is.EqualTo(14f).Within(Tolerance), "someone else elsewhere: 0.4 only");
+        }
+
+        // The den's count is keyed by the ANIMAL's source. Fails if DenCapacity ever loses its ScopeOf
+        // line: the `_ => None` default would turn "more boars" into more of every animal.
+        [Test]
+        public void DenCapacity_IsScopedToItsAnimal()
+        {
+            var stats = new RunStats();
+            stats.Add(new StatModifier { id = StatId.DenCapacity, sourceScope = quarry, flat = 1f });
+
+            Assert.That(stats.ApplyCount(1, StatId.DenCapacity, source: quarry), Is.EqualTo(2));
+            Assert.That(stats.ApplyCount(1, StatId.DenCapacity, source: cave), Is.EqualTo(1),
+                        "another animal's den is left alone");
+        }
+
+        [Test]
+        public void DenCapacity_WithNoSource_ReachesEveryDen()
+        {
+            var stats = new RunStats();
+            stats.Add(new StatModifier { id = StatId.DenCapacity, percent = 1f });
+
+            Assert.That(stats.ApplyCount(1, StatId.DenCapacity, source: quarry), Is.EqualTo(2));
+            Assert.That(stats.ApplyCount(2, StatId.DenCapacity, source: cave), Is.EqualTo(4));
         }
 
         [Test]

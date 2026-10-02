@@ -35,19 +35,20 @@ namespace LittlePeeps.EditorTools
         // something that only looks like a StatModifier -- see the guard in OnGUI.
         private readonly struct Fields
         {
-            public readonly SerializedProperty id, unit, res, src, flat, percent;
+            public readonly SerializedProperty id, unit, anyUnit, res, src, flat, percent;
 
             public Fields(SerializedProperty p)
             {
                 id = p.FindPropertyRelative("id");
                 unit = p.FindPropertyRelative("unitScope");
+                anyUnit = p.FindPropertyRelative("anyProfession");
                 res = p.FindPropertyRelative("resourceScope");
                 src = p.FindPropertyRelative("sourceScope");
                 flat = p.FindPropertyRelative("flat");
                 percent = p.FindPropertyRelative("percent");
             }
 
-            public bool Valid => id != null && unit != null && res != null
+            public bool Valid => id != null && unit != null && anyUnit != null && res != null
                               && src != null && flat != null && percent != null;
         }
 
@@ -160,9 +161,30 @@ namespace LittlePeeps.EditorTools
                     break;
 
                 case Row.Unit:
-                    EditorGUI.PropertyField(r, f.unit,
-                        new GUIContent("Unit", "Which unit type the bonus applies to."));
+                {
+                    // "Any" heads the list but is not one of the professions: it is the separate
+                    // anyProfession flag (see StatModifier), so the enum itself keeps no wildcard that
+                    // workerYields or a rack could pick. Choosing it also resets the profession
+                    // underneath, so no hidden leftover sits under the wildcard.
+                    var names = f.unit.enumDisplayNames;
+                    var options = new GUIContent[names.Length + 1];
+                    options[0] = new GUIContent("Any");
+                    for (int i = 0; i < names.Length; i++) options[i + 1] = new GUIContent(names[i]);
+
+                    int current = f.anyUnit.boolValue ? 0 : f.unit.enumValueIndex + 1;
+                    EditorGUI.BeginChangeCheck();
+                    int picked = EditorGUI.Popup(r,
+                        new GUIContent("Unit", "Which profession the bonus applies to. Any = every " +
+                                               "profession; on a yield that means everyone the source " +
+                                               "pays (its workerYields), never a profession it does not."),
+                        current, options);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        f.anyUnit.boolValue = picked == 0;
+                        f.unit.enumValueIndex = picked == 0 ? 0 : picked - 1;
+                    }
                     break;
+                }
 
                 case Row.Resource:
                     EditorGUI.PropertyField(r, f.res,
@@ -234,7 +256,11 @@ namespace LittlePeeps.EditorTools
         // by accident and back must not cost the author a source reference they had dragged in.
         private static void Normalise(StatScope scope, Fields f)
         {
-            if ((scope & StatScope.Unit) == 0) f.unit.enumValueIndex = 0;
+            if ((scope & StatScope.Unit) == 0)
+            {
+                f.unit.enumValueIndex = 0;
+                f.anyUnit.boolValue = false;
+            }
             if ((scope & StatScope.Source) == 0) f.src.objectReferenceValue = null;
 
             // After the source has been dropped, not before: DerivedSource must see the cleared state
@@ -299,7 +325,7 @@ namespace LittlePeeps.EditorTools
             // A stat that belongs to a THING (Forge, House) names it first: with no scope to speak of,
             // "Hot yield +50%" alone would not say whose yield.
             if (Owner(id) is string owner) who.Add(owner);
-            if ((scope & StatScope.Unit) != 0) who.Add(EnumName(f.unit));
+            if ((scope & StatScope.Unit) != 0) who.Add(f.anyUnit.boolValue ? "any profession" : EnumName(f.unit));
             // The resource the RUNTIME will key on, which is the source's own whenever there is one --
             // reading back the raw field here would let the header state something MakeKey overrules.
             if ((scope & StatScope.Resource) != 0)
@@ -341,6 +367,7 @@ namespace LittlePeeps.EditorTools
             StatId.ForgeCoolingTime => "Structures/Forge",
             StatId.ForgeHotYield    => "Structures/Forge",
             StatId.MarketVisitHits  => "Structures/Market",
+            StatId.DenCapacity      => "Structures/Den",
             _ => null,
         };
 
@@ -374,6 +401,7 @@ namespace LittlePeeps.EditorTools
             StatId.ForgeCoolingTime => "Cooling time",
             StatId.ForgeHotYield => "Hot yield",
             StatId.MarketVisitHits => "Hits per visit",
+            StatId.DenCapacity => "Animals",
             _ => ObjectNames.NicifyVariableName(id.ToString()),
         };
 
@@ -400,6 +428,7 @@ namespace LittlePeeps.EditorTools
                 StatId.ForgeCoolingTime => "Seconds the forge takes to cool from full to zero. Negative percent = cools faster.",
                 StatId.ForgeHotYield => "Multiplies forge yield at full heat, scaling down with heat. Reads x1 until a perk adds percent.",
                 StatId.MarketVisitHits => "Counted hits one unit gets per market visit; each pays that worker's coins. Rounds DOWN - author Flat +1 for one more hit.",
+                StatId.DenCapacity => "Animals one den (or the stable) keeps out at once. Source = the ANIMAL (Boar, Fox, Alpaka); empty = every den and the stable. Rounds DOWN: +50% on a 1-animal den does nothing, Flat +1 or +100% doubles it.",
                 _ => "",
             };
 
@@ -424,6 +453,8 @@ namespace LittlePeeps.EditorTools
 
             if ((scope & StatScope.Unit) == 0 && f.unit.enumValueIndex != 0)
                 Report("Unit = " + EnumName(f.unit));
+            if ((scope & StatScope.Unit) == 0 && f.anyUnit.boolValue)
+                Report("Unit = Any");
             if ((scope & StatScope.Resource) == 0 && f.res.enumValueIndex != 0)
                 Report("Resource = " + EnumName(f.res));
             if ((scope & StatScope.Source) == 0 && f.src.objectReferenceValue != null)

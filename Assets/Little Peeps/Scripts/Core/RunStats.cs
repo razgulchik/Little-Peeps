@@ -13,8 +13,8 @@ namespace LittlePeeps
     // sheet deterministically at run start, so stored values can never drift.
     //
     // Perf: a lookup is one O(1) Dictionary hit on a struct key (IEquatable → no boxing, no per-hit
-    // garbage) — two for a source-scoped stat queried with a source, which is the price of the
-    // "any source" bucket in Apply. Modifiers change only a couple of times per run (age/perk), while
+    // garbage) — two for a source-scoped stat queried with a source, two for a profession-scoped one,
+    // four for ResourceYield, which carries both: the price of the "any" buckets in Apply. Modifiers change only a couple of times per run (age/perk), while
     // reads can be per-hit (harvest). That's cheap enough as-is; if profiling ever proves otherwise,
     // add a dirty-flag cache of computed values here — see TODO(perf) in Add — without touching any
     // call site.
@@ -62,6 +62,12 @@ namespace LittlePeeps
 
         private readonly Dictionary<Key, Accum> mods = new();
 
+        // The "any profession" bucket's unit (StatModifier.anyProfession). Outside the enum on purpose
+        // and never serialised: it exists only inside keys, so no asset, no query and no workerYields
+        // entry can name it — a query always arrives with a real profession and picks this bucket up in
+        // Apply alongside its own.
+        private const UnitType AnyUnit = (UnitType)(-1);
+
         // Raised after a modifier, or a whole authored list, has landed. Almost nothing needs it: a stat
         // read at the point of use — every duration, speed and yield — simply sees the new value on its
         // next read. It exists for the MATERIALISED stat (HouseCapacity), whose value was turned into
@@ -72,12 +78,14 @@ namespace LittlePeeps
         // The one place a scope tuple is turned into a key. Two corrections happen here, and Add and
         // Apply MUST both go through them or authored data and queries stop meeting:
         //
-        //   1. dimensions the stat does not use are zeroed, so stray authored values cannot shift a key;
+        //   1. dimensions the stat does not use are zeroed, so stray authored values cannot shift a key —
+        //      an "any profession" flag included, which on such a stat is just one more stray value;
         //   2. a resource that came with a source is REPLACED by that source's own.
-        private static Key MakeKey(StatId id, UnitType u, ResourceType r, ResourceSourceDef s)
+        private static Key MakeKey(StatId id, UnitType u, bool anyUnit, ResourceType r, ResourceSourceDef s)
         {
             var scope = StatMeta.ScopeOf(id);
             if ((scope & StatScope.Unit) == 0) u = default;
+            else if (anyUnit) u = AnyUnit;
             if ((scope & StatScope.Resource) == 0) r = default;
             if ((scope & StatScope.Source) == 0) s = null;
 
@@ -115,7 +123,7 @@ namespace LittlePeeps
 
         private void Accumulate(StatModifier m)
         {
-            var key = MakeKey(m.id, m.unitScope, m.resourceScope, m.sourceScope);
+            var key = MakeKey(m.id, m.unitScope, m.anyProfession, m.resourceScope, m.sourceScope);
             mods.TryGetValue(key, out var a);
             a.flat += m.flat;
             a.percent += m.percent;
@@ -125,33 +133,41 @@ namespace LittlePeeps
 
         // The one stacking formula. Returns baseValue unchanged when nothing modifies this stat.
         //
-        // Two buckets can contribute: the one for this exact source, and the source-agnostic one an
-        // author leaves by not filling sourceScope in. They are SUMMED and the formula runs ONCE, so
-        // percents from both still stack additively — running the formula twice would multiply them
-        // instead, and "+50% from trees" alongside "+50% from anything" would come out as x2.25.
+        // Up to four buckets can contribute: the exact one, the source-agnostic one an author leaves by
+        // not filling sourceScope in, the profession-agnostic one (anyProfession), and the one that is
+        // both. They are SUMMED and the formula runs ONCE, so percents from all of them still stack
+        // additively — running the formula per bucket would multiply them instead, and "+50% from
+        // trees" alongside "+50% from anything" would come out as x2.25.
         public float Apply(float baseValue, StatId id, UnitType unit = default,
                            ResourceType res = default, ResourceSourceDef source = null)
         {
-            var key = MakeKey(id, unit, res, source);
+            var key = MakeKey(id, unit, false, res, source);
+
+            // Each wildcard is read only where its dimension is live. key.src is the NORMALISED source,
+            // so the source-agnostic bucket is skipped both when the stat has no Source dimension and when
+            // the caller passed none; the unit check asks the mask for the same reason. In every skipped
+            // case MakeKey has already collapsed the wildcard key into the exact one, and reading that
+            // same bucket a second time would double the bonus.
+            bool anySource = !ReferenceEquals(key.src, null);
+            bool anyUnit = (StatMeta.ScopeOf(id) & StatScope.Unit) != 0;
 
             float flat = 0f, percent = 0f;
-            if (mods.TryGetValue(key, out var exact))
+            Collect(key, ref flat, ref percent);
+            if (anySource) Collect(new Key(id, key.unit, key.res, null), ref flat, ref percent);
+            if (anyUnit)
             {
-                flat = exact.flat;
-                percent = exact.percent;
-            }
-
-            // key.src is the NORMALISED source, so this is skipped both when the stat has no Source
-            // dimension and when the caller passed none. In either case MakeKey already collapsed the
-            // two keys into one, and adding that same bucket a second time would double the bonus.
-            if (!ReferenceEquals(key.src, null)
-                && mods.TryGetValue(new Key(id, key.unit, key.res, null), out var anySource))
-            {
-                flat += anySource.flat;
-                percent += anySource.percent;
+                Collect(new Key(id, AnyUnit, key.res, key.src), ref flat, ref percent);
+                if (anySource) Collect(new Key(id, AnyUnit, key.res, null), ref flat, ref percent);
             }
 
             return (baseValue + flat) * (1f + percent);
+        }
+
+        private void Collect(in Key key, ref float flat, ref float percent)
+        {
+            if (!mods.TryGetValue(key, out var a)) return;
+            flat += a.flat;
+            percent += a.percent;
         }
 
         // Convenience for pure-multiplier stats (e.g. ProductionGlobal): the factor with no base.

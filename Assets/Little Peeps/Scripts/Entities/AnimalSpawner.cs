@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Placed on a structure (stable, forest den); keeps up to maxAnimals Animal instances
+    // Placed on a structure (stable, forest den); keeps up to maxAnimals Animal instances (DenCapacity
+    // applied, see ResolveMaxAnimals)
     // wandering in the structure's territory. Each one comes OUT of the building through a free side —
     // the house's exits (StructureExits) — and walks off into the territory; a building boxed in on
     // every side lets nobody out until a side opens again. Unlike Spawner's launch -> return -> rest slot
@@ -37,6 +38,11 @@ namespace LittlePeeps
         private IslandGrid grid;
         private StructureInstance instance;
 
+        // The animal's own def, read off the prefab once: DenCapacity is scoped by it, which is what lets
+        // "more boars" leave the stable's alpacas alone. Null when the prefab carries no ResourceSource —
+        // the query then reaches only the modifiers authored for every den.
+        private ResourceSourceDef animalDef;
+
         private readonly List<Animal> animals = new();
         private float respawnTimer;
 
@@ -55,6 +61,12 @@ namespace LittlePeeps
             resourceSystem = resources;
             this.grid = grid;
             this.instance = instance;
+        }
+
+        private void Awake()
+        {
+            var source = animalPrefab != null ? animalPrefab.GetComponentInChildren<ResourceSource>(true) : null;
+            animalDef = source != null ? source.Def : null;
         }
 
         private void Start()
@@ -91,16 +103,31 @@ namespace LittlePeeps
             // leaves build mode, not the moment the den is dropped.
             if (spawnSystem != null && spawnSystem.IsBuildMode) return;
 
-            maxAnimals = Mathf.Max(1, maxAnimals);
-            while (animals.Count < maxAnimals)
+            int max = ResolveMaxAnimals();
+            while (animals.Count < max)
                 if (!SpawnAnimal()) break;   // sealed in right now — Update keeps retrying on cooldown
 
             respawnTimer = spawnCooldown;
         }
 
-        // IStructureSpawner — nothing here is materialised from the stat sheet (maxAnimals is plain
-        // config), so a sheet change has nothing to refresh. An animal-count stat would land here.
+        // IStructureSpawner — nothing here is materialised from the stat sheet: DenCapacity is read at
+        // every check (ResolveMaxAnimals), so a sheet change has nothing to refresh.
         public void RefreshFromStats() { }
+
+        // Animals this den keeps out: maxAnimals with the run modifier applied. Read at the point of use,
+        // like MarketVisitHits, so a perk bought mid-run needs no push — the next Update sees the higher
+        // cap and lets the extra animal out one spawnCooldown later, through a free side like any
+        // replacement. A cap LOWERED below the animals already out removes nobody; it only holds back
+        // replacements until the count falls under it. Never below one: a den with nothing in it is not
+        // a den, whatever a penalty says.
+        private int ResolveMaxAnimals()
+        {
+            var stats = spawnSystem != null ? spawnSystem.Stats : null;
+            int resolved = stats != null
+                ? stats.ApplyCount(maxAnimals, StatId.DenCapacity, source: animalDef)
+                : maxAnimals;
+            return Mathf.Max(1, resolved);
+        }
 
         // IStructureSpawner — build-mode enter: remove every live animal (the animal counterpart of
         // the units' despawn-all; animals aren't pooled units, so we destroy them ourselves).
@@ -118,7 +145,7 @@ namespace LittlePeeps
             // dt==0 frame would slip past the timer check and spawn an animal mid-build.
             if (spawnSystem != null && spawnSystem.IsBuildMode) return;
 
-            if (animals.Count >= maxAnimals) return;
+            if (animals.Count >= ResolveMaxAnimals()) return;
 
             respawnTimer -= Time.deltaTime;
             if (respawnTimer > 0f) return;

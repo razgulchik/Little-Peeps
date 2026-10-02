@@ -41,15 +41,20 @@ namespace LittlePeeps
         // best placement per shape family — never to weight the choice between families.
         public double Score { get; }
 
+        // Width / height of the whole island's bounding box with this zone attached: what the aspect lean
+        // (IslandRules.AspectWeight) weights the choice between families by.
+        public double Aspect { get; }
+
         internal readonly HashSet<Vector2Int> cells;
         internal readonly int islandVersion;   // section count it was proposed against
 
-        internal IslandCandidate(HashSet<Vector2Int> cells, int repairFill, double score, int islandVersion)
+        internal IslandCandidate(HashSet<Vector2Int> cells, int repairFill, double score, int islandVersion, double aspect)
         {
             this.cells = cells;
             RepairFill = repairFill;
             Score = score;
             this.islandVersion = islandVersion;
+            Aspect = aspect;
         }
 
         public bool Contains(Vector2Int cell) => cells.Contains(cell);

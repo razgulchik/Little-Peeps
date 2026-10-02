@@ -20,8 +20,10 @@ namespace LittlePeeps
     //
     // Selection is by SHAPE FAMILY (translations and rotations grouped): each distinct family sampled
     // gets one entry, however often it was proposed, and a repeated proposal can only improve that
-    // family's placement, never its odds. Ported from Prototypes/IslandShapeLab/island_shapes.py
-    // (class Island); see the README there for the rules and their reasoning.
+    // family's placement, never its odds. The odds themselves are equal, unless IslandRules leans them
+    // toward a target aspect (the island's frame closer to the screen's shape) — our addition, not the
+    // prototype's. Ported from Prototypes/IslandShapeLab/island_shapes.py (class Island); see the README
+    // there for the rules and their reasoning.
     public sealed class IslandGenerator
     {
         // How many distinct families to sample before choosing: the pool is uniform WITHIN itself, so
@@ -88,7 +90,9 @@ namespace LittlePeeps
                 throw new InvalidOperationException($"IslandGenerator: no valid start in {rules.attempts} attempts with these rules.");
 
             var chosen = rng.Choice(new List<SilhouetteKey>(families));   // SortedSet enumerates in key order
-            return new IslandCandidate(IslandShape.OrientMass(rng, chosen.Cells), 0, 0, 0);
+            var start = IslandShape.OrientMass(rng, chosen.Cells);
+            var box = IslandShape.Bounds(start);
+            return new IslandCandidate(start, 0, 0, 0, box.Width / (double)box.Height);
         }
 
         // Up to `count` candidate zones, each valid alone against the current island, no two from the
@@ -146,17 +150,35 @@ namespace LittlePeeps
 
                 var key = IslandShape.Silhouette(added);
                 if (!candidates.TryGetValue(key, out var existing) || score > existing.Score)
-                    candidates[key] = new IslandCandidate(added, combined.Count - proposalCount, score, sections.Count);
+                    candidates[key] = new IslandCandidate(added, combined.Count - proposalCount, score, sections.Count,
+                                                          cb.Width / (double)cb.Height);
                 if (candidates.Count >= ExpansionFamilies) break;
             }
             LastAttempts = Math.Min(attempt + 1, rules.attempts);
 
-            // Uniform among the families found; the values come out in key order, so the shuffle is
-            // the only thing that decides.
+            // The values come out in key order, so the rng is the only thing that decides. With no
+            // aspect lean every family found is equally likely — a plain shuffle; with one, families are
+            // drawn one by one, each by its AspectWeight. The score above can't do this job: it only
+            // picks a family's best placement, and a family is rarely sampled twice in one search.
             var pool = new List<IslandCandidate>(candidates.Values);
-            rng.Shuffle(pool);
-            if (pool.Count > count) pool.RemoveRange(count, pool.Count - count);
-            return pool;
+            if (rules.aspectStrength <= 0f)
+            {
+                rng.Shuffle(pool);
+                if (pool.Count > count) pool.RemoveRange(count, pool.Count - count);
+                return pool;
+            }
+
+            var offered = new List<IslandCandidate>(Math.Min(count, pool.Count));
+            var weights = new List<double>(pool.Count);
+            while (offered.Count < count && pool.Count > 0)
+            {
+                weights.Clear();
+                foreach (var c in pool) weights.Add(rules.AspectWeight(c.Aspect));
+                var pick = rng.WeightedChoice(pool, weights);
+                pool.Remove(pick);
+                offered.Add(pick);
+            }
+            return offered;
         }
 
         // Fill a candidate with a biome's content, against the island as it stands. A non-empty

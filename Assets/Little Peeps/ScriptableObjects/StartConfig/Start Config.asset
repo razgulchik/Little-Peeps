@@ -20,6 +20,8 @@ MonoBehaviour:
     minBay: 4
     depthRatio: 0.75
     attempts: 2000
+    targetAspect: {x: 16, y: 9}
+    aspectStrength: 3
   startBiome: {fileID: 11400000, guid: 02e80794d88abbeb5f609fb04ce4fa27, type: 2}
   house: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
   pier: {fileID: 11400000, guid: bba560cbe974ff841a3d97f30603d8ac, type: 2}

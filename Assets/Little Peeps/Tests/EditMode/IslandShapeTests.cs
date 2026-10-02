@@ -203,6 +203,63 @@ namespace LittlePeeps.Tests
         {
             var ex = Assert.Throws<ArgumentException>(() => new IslandGenerator(Rules(startArea: 9), 1));
             StringAssert.Contains("area targets", ex.Message);
+
+            var flat = Rules();
+            flat.targetAspect = new Vector2Int(16, 0);
+            ex = Assert.Throws<ArgumentException>(() => new IslandGenerator(flat, 1));
+            StringAssert.Contains("target aspect", ex.Message);
+        }
+
+        // --- aspect lean -----------------------------------------------------------------------------
+
+        [Test]
+        public void AspectWeight_PeaksAtTheTarget_AndFallsEvenlyBothWays()
+        {
+            var rules = Rules();
+            rules.targetAspect = new Vector2Int(16, 9);
+            rules.aspectStrength = 3f;
+            double target = 16 / 9.0;
+
+            Assert.AreEqual(1.0, rules.AspectWeight(target), 1e-9);
+            Assert.AreEqual(rules.AspectWeight(target * 2), rules.AspectWeight(target / 2), 1e-9, "twice too wide = twice too tall");
+            Assert.That(rules.AspectWeight(target * 1.5), Is.LessThan(rules.AspectWeight(target * 1.2)));
+            Assert.That(rules.AspectWeight(1.0), Is.LessThan(rules.AspectWeight(1.4)), "a square island is further from 16:9");
+            Assert.That(rules.AspectWeight(4.0), Is.LessThan(rules.AspectWeight(2.0)), "past the target, wider loses: no strips");
+
+            rules.aspectStrength = 0f;
+            Assert.AreEqual(1.0, rules.AspectWeight(0.3), 1e-9, "strength 0: no lean");
+            Assert.AreEqual(1.0, rules.AspectWeight(3.0), 1e-9, "strength 0: no lean");
+        }
+
+        // The lean, measured the way it was tuned: the same seeds grown with no lean, toward a wide
+        // target and toward the mirrored tall one. The wide run must come out wider and the tall run
+        // taller than the neutral one — by a margin the measurements give with room to spare.
+        [Test]
+        public void Propose_LeansGrowthTowardTheTargetAspect()
+        {
+            const int seeds = 30, steps = 4;
+            double MeanAspect(Vector2Int target, float strength)
+            {
+                double sum = 0;
+                for (int seed = 0; seed < seeds; seed++)
+                {
+                    var rules = Rules();
+                    rules.targetAspect = target;
+                    rules.aspectStrength = strength;
+                    var g = new IslandGenerator(rules, seed);
+                    g.Commit(g.GenerateStart());
+                    for (int step = 0; step < steps; step++) Expand(g);
+                    var b = IslandShape.Bounds(Set(g.Land));
+                    sum += b.Width / (double)b.Height;
+                }
+                return sum / seeds;
+            }
+
+            double neutral = MeanAspect(new Vector2Int(1, 1), 0f);
+            double wide = MeanAspect(new Vector2Int(16, 9), 4f);
+            double tall = MeanAspect(new Vector2Int(9, 16), 4f);
+            Assert.That(wide, Is.GreaterThan(neutral + 0.1), $"wide {wide:F2} vs neutral {neutral:F2}");
+            Assert.That(tall, Is.LessThan(neutral - 0.1), $"tall {tall:F2} vs neutral {neutral:F2}");
         }
 
         // --- geometry fixtures ----------------------------------------------------------------------

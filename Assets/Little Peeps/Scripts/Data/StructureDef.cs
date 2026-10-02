@@ -8,6 +8,10 @@ namespace LittlePeeps
     //  - Edge: sits on the boundary line between two cells (fences). size/border are unused for Edge.
     public enum PlacementKind { Cell, Edge }
 
+    // Why the build palette refuses a structure right now — see StructureDef.LockState. The reason, not
+    // just a bool, because the locked card says what would open it.
+    public enum StructureLock { None, Age, Perk }
+
     [CreateAssetMenu(menuName = "LittlePeeps/StructureDef")]
     public class StructureDef : ScriptableObject
     {
@@ -33,6 +37,23 @@ namespace LittlePeeps
         [Tooltip("Run age at which this structure becomes available in the build palette. " +
                  "Zero keeps it available from the beginning.")]
         [Min(0)] public int requiredAge;
+
+        // The second gate next to requiredAge: a building that stays out of reach in a run where no perk
+        // opened it, so runs differ in what they can build. Only the build palette reads it — a
+        // generated structure carrying this def still appears on the island.
+        [Tooltip("Shut in the build palette until an Unlock Structure Perk opens it, whatever the age. " +
+                 "Required Age still applies on top once the perk is taken.")]
+        public bool lockedUntilPerk;
+
+        // The one rule the build palette locks a card by. The perk gate is checked FIRST: a perk-locked
+        // building stays shut when its age comes, so "Open on the Age N" would be a promise the game does
+        // not keep. A null run (no run started yet) has opened nothing.
+        public StructureLock LockState(int currentAge, RunContext run)
+        {
+            if (lockedUntilPerk && (run == null || !run.unlockedStructures.Contains(this)))
+                return StructureLock.Perk;
+            return currentAge < requiredAge ? StructureLock.Age : StructureLock.None;
+        }
 
         // Biomes this structure may be placed on. Empty/null = any terrain.
         public TerrainType[] allowedTerrain;

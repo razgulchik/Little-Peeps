@@ -17,8 +17,8 @@ namespace LittlePeeps
 
         [Tooltip("Shown on the selection card. Leave EMPTY to let the perk describe itself from its " +
                  "data — a Stat Perk lists its modifiers, one per line — so a balance pass can never " +
-                 "leave a stale line behind. Fill it only to word this card by hand. A code perk has " +
-                 "no data to speak from: for it this field is the only text.")]
+                 "leave a stale line behind. Fill it only to word this card by hand. A code perk with " +
+                 "no data to speak from shows only this field.")]
         [TextArea] public string description;
 
         // What the card shows: the hand-written description when there is one, else whatever the perk
@@ -28,7 +28,8 @@ namespace LittlePeeps
             !string.IsNullOrWhiteSpace(description) ? description : GeneratedDescription;
 
         // The text the perk's data alone would put on the card. Empty here: the base perk has no data
-        // to speak from, which makes the field above its only voice. StatPerkDef overrides.
+        // to speak from, which makes the field above its only voice. StatPerkDef and
+        // UnlockStructurePerkDef override.
         public virtual string GeneratedDescription => string.Empty;
 
         [Tooltip("Shown on the selection card. Optional — a card with no icon just leaves the slot empty.")]

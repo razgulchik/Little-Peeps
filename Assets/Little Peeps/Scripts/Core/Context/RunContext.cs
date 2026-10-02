@@ -12,6 +12,11 @@ namespace LittlePeeps
         public int currentAge;
         public List<PerkDef> perksChosen = new();
 
+        // Structures a perk has opened this run (UnlockStructurePerkDef), read by StructureDef.LockState
+        // for the ones marked lockedUntilPerk. Derived from perksChosen, so it stays rebuildable like the
+        // stat sheet: replaying the chosen perks restores it.
+        public HashSet<StructureDef> unlockedStructures = new();
+
         // Everything PRODUCED this run, per type, as credited by ResourceSystem.AddHarvest — the single
         // production gateway. Spends and sell refunds go through AddResource and never land here, so the
         // prestige payout built on this ledger cannot be farmed by cycling build → sell → build.

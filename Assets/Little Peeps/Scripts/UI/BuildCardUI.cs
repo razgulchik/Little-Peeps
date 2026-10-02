@@ -87,7 +87,7 @@ namespace LittlePeeps
 
             SetSelected(false);
             SetAffordable(true);
-            SetLocked(def.requiredAge > 0, 0);
+            SetLocked(def.LockState(0, null));   // before any run: age 0, nothing opened by a perk yet
             ResetInteractionVisuals();
         }
 
@@ -130,12 +130,17 @@ namespace LittlePeeps
             RefreshArtworkAlpha();
         }
 
-        public void SetLocked(bool value, int currentAge)
+        // The overlay says what would open the card: its age, or a perk (StructureDef.LockState decides
+        // which wins when both apply).
+        public void SetLocked(StructureLock state)
         {
+            bool value = state != StructureLock.None;
             IsLocked = value;
             if (lockedOverlay != null) lockedOverlay.SetActive(value);
             if (lockedText != null && Def != null)
-                lockedText.text = $"Open on\nthe Age {RomanNumeral.From(Def.requiredAge)}";
+                lockedText.text = state == StructureLock.Perk
+                    ? "Open with\na perk"
+                    : $"Open on\nthe Age {RomanNumeral.From(Def.requiredAge)}";
 
             if (button != null) button.interactable = !value;
             if (value)

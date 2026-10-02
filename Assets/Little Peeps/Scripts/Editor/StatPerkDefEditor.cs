@@ -7,8 +7,8 @@ namespace LittlePeeps.EditorTools
     // description. A perk's card has room, so the generated text lists EVERY modifier — no note about
     // unspoken ones is needed here.
     //
-    // Only the stat perk gets this inspector: a code perk has no modifiers to generate from, so for
-    // it the default inspector and a hand-written description are the whole story.
+    // A code perk gets this inspector only when it has data to generate from (UnlockStructurePerkDef
+    // has its own); for the rest the default inspector and a hand-written description are the whole story.
     [CustomEditor(typeof(StatPerkDef))]
     public class StatPerkDefEditor : BonusOverrideEditor
     {

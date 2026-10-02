@@ -44,6 +44,7 @@ namespace LittlePeeps
         private bool sellSelected;
         private bool isOpen;   // true while in build mode (panel visible) — gates the sell and tab hotkeys
         private int currentAge;
+        private RunContext run;   // for the structures a perk opened (StructureDef.LockState)
 
         private void Awake()
         {
@@ -238,13 +239,15 @@ namespace LittlePeeps
             if (sellHighlight != null) sellHighlight.SetActive(on);
         }
 
-        // Resources don't change inside build mode (game paused), so refreshing on open is enough.
+        // Resources don't change inside build mode (game paused), so refreshing on open is enough — and
+        // so is it for a perk's unlock: the pick is its own screen, never taken with this panel open.
         private void RefreshCards()
         {
             foreach (var card in cards)
             {
-                bool locked = card.Def != null && currentAge < card.Def.requiredAge;
-                card.SetLocked(locked, currentAge);
+                var state = card.Def != null ? card.Def.LockState(currentAge, run) : StructureLock.None;
+                bool locked = state != StructureLock.None;
+                card.SetLocked(state);
                 card.SetAffordable(resourceSystem == null || resourceSystem.CanAfford(card.Def.cost));
 
                 if (locked && card == selectedCard) Deselect();
@@ -259,6 +262,7 @@ namespace LittlePeeps
 
         private void OnRunStarted(RunStartedEvent e)
         {
+            run = e.Run;
             currentAge = e.Run != null ? e.Run.currentAge : 0;
             RefreshCards();
         }

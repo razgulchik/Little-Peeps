@@ -126,6 +126,23 @@ namespace LittlePeeps
         public int Count;
     }
 
+    // Published by anything with a hint while the pointer rests on it (a build card for now). HintView, the
+    // one hint window on the Canvas, shows Content next to Anchor after a short delay. Publishing again
+    // with the same Owner while it is up refreshes the window in place.
+    public struct HintShowEvent
+    {
+        public object Owner;
+        public HintContent Content;
+        public RectTransform Anchor;
+    }
+
+    // The pointer left that source. Ignored unless Owner is the one whose hint is up or pending — the card
+    // just left must not close the hint the next card has already asked for.
+    public struct HintHideEvent
+    {
+        public object Owner;
+    }
+
     // Published by TapSystem when the player clicks the pier; handled by PlayingState. Deliberately by
     // the STATE rather than by PrestigeSystem: the subscription then lasts exactly as long as normal
     // play, so a run can never be ended from build mode or mid-age-transition.

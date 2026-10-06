@@ -48,6 +48,11 @@ namespace LittlePeeps
         [SerializeField] private GameObject lockedOverlay;
         [SerializeField] private TMP_Text lockedText;
 
+        [Header("Hint")]
+        [Tooltip("The hint window opens above this rect. Empty = the hit rect; point it at a child placed " +
+                 "where the card flies to if the hint should clear the raised card.")]
+        [SerializeField] private RectTransform hintAnchor;
+
         public StructureDef Def { get; private set; }
         public bool IsLocked { get; private set; }
 
@@ -63,10 +68,17 @@ namespace LittlePeeps
         private bool affordable = true;
         private int standing;   // how many of Def stand — the price shown is the next one's
         private int limit;      // only meaningful when Def.HasLimit
+        private StructureLock lockState;
         private bool pointerInside;
         private bool dragSuppressed;
         private Canvas uiCanvas;
         private CanvasGroup[] interactionCanvasGroups;
+
+        private ResourceSystem wallet;   // the hint paints each price line red or not against it
+        private readonly HintContent hint = new();
+        private bool hintShown;
+        private bool hintSuppressed;     // clicked: no hint until the pointer leaves the card
+        private bool hintStale;          // count / lock / wallet changed while the hint may be up
 
         private void Reset()
         {
@@ -74,10 +86,11 @@ namespace LittlePeeps
             hitRect = transform as RectTransform;
         }
 
-        public void Init(StructureDef def, Action<BuildCardUI> onClick)
+        public void Init(StructureDef def, Action<BuildCardUI> onClick, ResourceSystem wallet)
         {
             Def = def;
             this.onClick = onClick;
+            this.wallet = wallet;
             scroller = GetComponentInParent<BuildPanelScroller>();
             uiCanvas = GetComponentInParent<Canvas>();
             interactionCanvasGroups = GetComponentsInParent<CanvasGroup>(true);
@@ -99,7 +112,11 @@ namespace LittlePeeps
         private void Update()
         {
             dragSuppressed = scroller != null && scroller.IsDragging;
-            bool shouldHover = TryGetPointerOverCard(out Vector2 screenPosition, out Camera eventCamera);
+            bool over = TryGetPointerOverCard(out Vector2 screenPosition, out Camera eventCamera);
+            UpdateHint(over);
+
+            // A locked card stays put — but still answers with its hint (UpdateHint, above).
+            bool shouldHover = over && !IsLocked;
             if (shouldHover != pointerInside)
             {
                 pointerInside = shouldHover;
@@ -114,6 +131,8 @@ namespace LittlePeeps
         private void OnDisable()
         {
             CancelAllMotions();
+            HideHint();
+            hintSuppressed = false;
         }
 
         private void OnDestroy()
@@ -132,6 +151,7 @@ namespace LittlePeeps
         public void SetAffordable(bool value)
         {
             affordable = value;
+            hintStale = true;
             RefreshArtworkAlpha();
         }
 
@@ -143,6 +163,7 @@ namespace LittlePeeps
             if (Def == null) return;
             standing = run != null ? run.CountOf(Def) : 0;
             limit = Def.LimitIn(run);
+            hintStale = true;
 
             RefreshCost();
             if (countText != null)
@@ -158,6 +179,8 @@ namespace LittlePeeps
         {
             bool value = state != StructureLock.None;
             IsLocked = value;
+            lockState = state;
+            hintStale = true;
             if (lockedOverlay != null) lockedOverlay.SetActive(value);
             if (lockedText != null && Def != null)
                 lockedText.text = state switch
@@ -207,13 +230,48 @@ namespace LittlePeeps
         private void OnButtonClicked()
         {
             if (IsLocked || (scroller != null && scroller.ShouldSuppressClick)) return;
+            hintSuppressed = true;
+            HideHint();
             onClick?.Invoke(this);
         }
 
+        // Whether the pointer may count as over this card at all. Lock is not part of it: a locked card
+        // gets no flight (Update) but still shows its hint.
         private bool CanHover(RectTransform rect)
         {
-            return rect != null && !IsLocked && !dragSuppressed && ParentCanvasGroupsAllowInteraction() &&
+            return rect != null && !dragSuppressed && ParentCanvasGroupsAllowInteraction() &&
                    (scroller == null || scroller.CanHover(rect));
+        }
+
+        // The hint follows the pointer over the card — locked ones included, they are where "why is it shut"
+        // gets asked. A click puts it away until the pointer leaves: the tool is in hand. A refresh of the
+        // card's numbers while the hint is up republishes it (same owner = updated in place).
+        private void UpdateHint(bool over)
+        {
+            if (!over) hintSuppressed = false;
+            bool want = over && !hintSuppressed;
+
+            if (!want) HideHint();
+            else if (!hintShown || hintStale) PublishHint();
+        }
+
+        private void PublishHint()
+        {
+            hintShown = true;
+            hintStale = false;
+            StructureHint.Fill(hint, Def, standing, limit, lockState, wallet);
+
+            RectTransform anchor = hintAnchor != null ? hintAnchor
+                                 : hitRect != null ? hitRect
+                                 : transform as RectTransform;
+            EventBus<HintShowEvent>.Publish(new HintShowEvent { Owner = this, Content = hint, Anchor = anchor });
+        }
+
+        private void HideHint()
+        {
+            if (!hintShown) return;
+            hintShown = false;
+            EventBus<HintHideEvent>.Publish(new HintHideEvent { Owner = this });
         }
 
         private bool TryGetPointerOverCard(out Vector2 screenPosition, out Camera eventCamera)

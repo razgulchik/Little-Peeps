@@ -92,7 +92,7 @@ namespace LittlePeeps
                 {
                     if (def == null) continue;
                     var card = Instantiate(cardPrefab, cardContainer);
-                    card.Init(def, OnCardClicked);
+                    card.Init(def, OnCardClicked, resourceSystem);
                     cards.Add(card);
                     tab.Cards.Add(card);
                 }

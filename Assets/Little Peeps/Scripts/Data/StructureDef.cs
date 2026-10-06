@@ -18,6 +18,8 @@ namespace LittlePeeps
     {
         public string id;
         public string displayName;
+        [Tooltip("Shown under the name in the build card's hint. Empty = no description.")]
+        [TextArea(2, 5)] public string description;
         public Sprite icon;
         public GameObject prefab;
         public PlacementKind placement = PlacementKind.Cell;

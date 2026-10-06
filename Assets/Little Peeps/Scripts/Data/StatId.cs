@@ -50,6 +50,12 @@ namespace LittlePeeps
         // alpacas alone; left empty it reaches every den and the stable.
         DenCapacity,        // scope: source — animals one den keeps out at once (base: AnimalSpawner.maxAnimals)
 
+        // How many of a building may stand at once (StructureDef.LimitIn). A count like the three above —
+        // "+1 house" is authored as flat. Read at the point of use (the palette, every placement click),
+        // so a raise needs no push. Only a structure with a maxCount above zero has a limit to raise: the
+        // modifier never turns an unlimited one limited. Scoped by the building; empty = every limited one.
+        StructureLimit,     // scope: structure — how many may stand (base: StructureDef.maxCount)
+
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
     }
@@ -75,6 +81,11 @@ namespace LittlePeeps
         // the market too. Unlike the enum dimensions, this one has a meaningful EMPTY value — see
         // RunStats.Apply: an unset source means "any source", not "no source".
         Source   = 1 << 2,
+
+        // The BUILDING, as a direct StructureDef reference — for a stat that belongs to a kind of
+        // structure rather than to a unit or a resource (its build limit). Empty means "any structure",
+        // exactly like Source.
+        Structure = 1 << 3,
     }
 
     public static class StatMeta
@@ -99,6 +110,8 @@ namespace LittlePeeps
             // Source only, for the same reason, and the source is the ANIMAL, not the den: the den has no
             // def of its own on the stat axis, while the animal's def already tells a boar from an alpaca.
             StatId.DenCapacity      => StatScope.Source,
+
+            StatId.StructureLimit   => StatScope.Structure,
 
             // Listed although they fall through to None anyway, so the choice reads as made rather than
             // forgotten: the one forge needs no Source axis, and "the forge" is not a resource either.

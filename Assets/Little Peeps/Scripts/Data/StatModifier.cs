@@ -35,6 +35,11 @@ namespace LittlePeeps
         [Tooltip("Which source this applies to (Tree, Wheat, Alpaka, ...). Leave empty for ANY source.")]
         public ResourceSourceDef sourceScope;
 
+        // Which BUILDING this applies to (House, Stable, ...), on a stat that belongs to a kind of
+        // structure (its build limit). Empty = any structure, the same rule as sourceScope.
+        [Tooltip("Which building this applies to (House, Stable, ...). Leave empty for ANY building.")]
+        public StructureDef structureScope;
+
         public float flat;
         public float percent;
     }

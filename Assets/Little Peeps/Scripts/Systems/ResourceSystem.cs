@@ -149,5 +149,23 @@ namespace LittlePeeps
             for (int i = 0; i < cost.Count; i++)
                 AddResource(cost[i].resourceType, -cost[i].amount);
         }
+
+        // The same pair for a BUILDING, whose price grows with how many already stand — `standing` is that
+        // count (RunContext.CountOf). Entry by entry through StructureDef.CostAt, so no list is built per
+        // call: the placement ghost asks this every frame.
+        public bool CanAfford(StructureDef def, int standing)
+        {
+            if (def.cost == null) return true;
+            for (int i = 0; i < def.cost.Count; i++)
+                if (GetResource(def.cost[i].resourceType) < def.CostAt(i, standing)) return false;
+            return true;
+        }
+
+        public void Spend(StructureDef def, int standing)
+        {
+            if (def.cost == null) return;
+            for (int i = 0; i < def.cost.Count; i++)
+                AddResource(def.cost[i].resourceType, -def.CostAt(i, standing));
+        }
     }
 }

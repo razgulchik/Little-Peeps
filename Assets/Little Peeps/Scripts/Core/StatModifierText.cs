@@ -84,6 +84,11 @@ namespace LittlePeeps
             StatId.MarketVisitHits  => ("HITS PER MARKET VISIT", StatScope.None),
             StatId.DenCapacity      => ("ANIMALS PER DEN", StatScope.None),
 
+            // The building is the subject ("+1 HOUSE LIMIT"); empty = every limited building.
+            StatId.StructureLimit   => (m.structureScope != null
+                                            ? Upper(m.structureScope.ShownName) + " LIMIT"
+                                            : "BUILD LIMIT", StatScope.Structure),
+
             // A stat added to the enum but not named here falls back to its own name. Visibly ugly on
             // the card, which is the right failure: it asks for a name instead of hiding the bonus.
             _                       => (Upper(m.id.ToString()), StatScope.None),
@@ -105,6 +110,7 @@ namespace LittlePeeps
             // An unset source means EVERY source (see StatModifier.sourceScope), which is the default
             // and needs no words — naming it would turn the widest bonus into the narrowest-looking one.
             if ((mask & StatScope.Source) != 0 && m.sourceScope != null) parts.Add(Upper(SourceName(m.sourceScope)));
+            if ((mask & StatScope.Structure) != 0 && m.structureScope != null) parts.Add(Upper(m.structureScope.ShownName));
 
             return string.Join(", ", parts);
         }

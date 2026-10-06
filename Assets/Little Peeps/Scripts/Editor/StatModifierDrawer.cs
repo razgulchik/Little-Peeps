@@ -21,7 +21,7 @@ namespace LittlePeeps.EditorTools
     {
         // One entry per line the drawer puts on screen. Height measurement and drawing walk this same
         // list, which is what stops a conditional row from desynchronising the two.
-        private enum Row { Stat, Hint, Unit, Resource, ResourceFromSource, Source, Flat, Percent, NoEffect, Junk }
+        private enum Row { Stat, Hint, Unit, Resource, ResourceFromSource, Source, Structure, Flat, Percent, NoEffect, Junk }
 
         private static readonly StatId[] AllIds = (StatId[])System.Enum.GetValues(typeof(StatId));
         private static readonly ResourceType[] AllRes =
@@ -35,7 +35,7 @@ namespace LittlePeeps.EditorTools
         // something that only looks like a StatModifier -- see the guard in OnGUI.
         private readonly struct Fields
         {
-            public readonly SerializedProperty id, unit, anyUnit, res, src, flat, percent;
+            public readonly SerializedProperty id, unit, anyUnit, res, src, st, flat, percent;
 
             public Fields(SerializedProperty p)
             {
@@ -44,12 +44,13 @@ namespace LittlePeeps.EditorTools
                 anyUnit = p.FindPropertyRelative("anyProfession");
                 res = p.FindPropertyRelative("resourceScope");
                 src = p.FindPropertyRelative("sourceScope");
+                st = p.FindPropertyRelative("structureScope");
                 flat = p.FindPropertyRelative("flat");
                 percent = p.FindPropertyRelative("percent");
             }
 
             public bool Valid => id != null && unit != null && anyUnit != null && res != null
-                              && src != null && flat != null && percent != null;
+                              && src != null && st != null && flat != null && percent != null;
         }
 
         // ---------------------------------------------------------------- layout
@@ -86,6 +87,7 @@ namespace LittlePeeps.EditorTools
                 rows.Add(DerivedSource(scope, f) != null ? Row.ResourceFromSource : Row.Resource);
 
             if ((scope & StatScope.Source) != 0) rows.Add(Row.Source);
+            if ((scope & StatScope.Structure) != 0) rows.Add(Row.Structure);
 
             rows.Add(Row.Flat);
             rows.Add(Row.Percent);
@@ -217,6 +219,12 @@ namespace LittlePeeps.EditorTools
                                                  "modifier instead of one per source."));
                     break;
 
+                case Row.Structure:
+                    EditorGUI.PropertyField(r, f.st,
+                        new GUIContent("Structure", "Which building (House, Stable, ...). Leave EMPTY to " +
+                                                    "affect every building this stat applies to."));
+                    break;
+
                 case Row.Flat:
                     EditorGUI.PropertyField(r, f.flat,
                         new GUIContent("Flat", "Added to the base value, before percents."));
@@ -262,6 +270,7 @@ namespace LittlePeeps.EditorTools
                 f.anyUnit.boolValue = false;
             }
             if ((scope & StatScope.Source) == 0) f.src.objectReferenceValue = null;
+            if ((scope & StatScope.Structure) == 0) f.st.objectReferenceValue = null;
 
             // After the source has been dropped, not before: DerivedSource must see the cleared state
             // and fall through to zeroing, rather than copy a resource off a reference on its way out.
@@ -335,6 +344,11 @@ namespace LittlePeeps.EditorTools
                 var s = f.src.objectReferenceValue;
                 who.Add(s == null ? "any source" : s.name);
             }
+            if ((scope & StatScope.Structure) != 0)
+            {
+                var st = f.st.objectReferenceValue;
+                who.Add(st == null ? "any building" : st.name);
+            }
 
             var value = new List<string>();
             if (f.flat.floatValue != 0f)
@@ -383,6 +397,7 @@ namespace LittlePeeps.EditorTools
             if ((scope & StatScope.Resource) != 0) return "Resources";
             if ((scope & StatScope.Unit) != 0) return "Units";
             if ((scope & StatScope.Source) != 0) return "Sources";
+            if ((scope & StatScope.Structure) != 0) return "Structures";
             return "Global";
         }
 
@@ -402,6 +417,7 @@ namespace LittlePeeps.EditorTools
             StatId.ForgeHotYield => "Hot yield",
             StatId.MarketVisitHits => "Hits per visit",
             StatId.DenCapacity => "Animals",
+            StatId.StructureLimit => "Build limit",
             _ => ObjectNames.NicifyVariableName(id.ToString()),
         };
 
@@ -429,6 +445,7 @@ namespace LittlePeeps.EditorTools
                 StatId.ForgeHotYield => "Multiplies forge yield at full heat, scaling down with heat. Reads x1 until a perk adds percent.",
                 StatId.MarketVisitHits => "Counted hits one unit gets per market visit; each pays that worker's coins. Rounds DOWN - author Flat +1 for one more hit.",
                 StatId.DenCapacity => "Animals one den (or the stable) keeps out at once. Source = the ANIMAL (Boar, Fox, Alpaka); empty = every den and the stable. Rounds DOWN: +50% on a 1-animal den does nothing, Flat +1 or +100% doubles it.",
+                StatId.StructureLimit => "How many of a building may stand at once (its Max Count). Never limits a building left at Max Count 0. Structure empty = every limited building. Rounds DOWN - author Flat +1 for one more.",
                 _ => "",
             };
 
@@ -459,6 +476,8 @@ namespace LittlePeeps.EditorTools
                 Report("Resource = " + EnumName(f.res));
             if ((scope & StatScope.Source) == 0 && f.src.objectReferenceValue != null)
                 Report("Source = " + f.src.objectReferenceValue.name);
+            if ((scope & StatScope.Structure) == 0 && f.st.objectReferenceValue != null)
+                Report("Structure = " + f.st.objectReferenceValue.name);
 
             // Not a dimension the stat ignores, but a value its source overrules: authorable only by
             // hand-edited YAML, by code, or by an asset written before the source axis existed.

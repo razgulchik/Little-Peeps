@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // PLACE: a ghost preview follows the cursor, tinted green/red by buildable + affordable; clicking a
+    // PLACE: a ghost preview follows the cursor, tinted green/red by buildable + under the build limit +
+    // affordable (at the NEXT one's price — it grows with how many stand); clicking a
     // valid spot builds and stays in placement mode so the player can repeat.
     //
     // One tool instance per selected StructureDef — the def is what the tool IS, so switching cards makes
@@ -37,7 +38,8 @@ namespace LittlePeeps
 
             // Same placement rule as a real structure — the builder owns it (ghost matches exactly).
             bool ok = grid.CanPlace(origin, def)
-                      && ctx.Resources.CanAfford(def.cost);
+                      && !ctx.Structures.AtLimit(def)
+                      && ctx.Structures.CanAfford(def);
 
             ctx.Visuals.PoseCellGhost(grid, origin, def.Footprint, ok);
             ctx.Visuals.ShowTerritory(grid, origin, def.Footprint, def.border, ok);
@@ -50,7 +52,7 @@ namespace LittlePeeps
             var grid = ctx.Grid;
             Edge edge = grid.WorldToEdge(cursor);
 
-            bool ok = grid.CanPlaceEdge(edge) && ctx.Resources.CanAfford(def.cost);
+            bool ok = grid.CanPlaceEdge(edge) && !ctx.Structures.AtLimit(def) && ctx.Structures.CanAfford(def);
 
             ctx.Visuals.PoseEdgeGhost(grid, edge, ok);
             ctx.Visuals.HideTerritory();
@@ -68,7 +70,8 @@ namespace LittlePeeps
             Vector2Int origin = grid.WorldToOrigin(world, def.size);
 
             if (!grid.CanPlace(origin, def)) return; // bad cell — ghost is already red
-            if (!ctx.Resources.CanAfford(def.cost))
+            if (ctx.Structures.AtLimit(def)) return; // as many stand as the run allows — ghost is red, the card locks
+            if (!ctx.Structures.CanAfford(def))
             {
                 EventBus<BuildDeniedEvent>.Publish(new BuildDeniedEvent { Def = def });
                 return;
@@ -83,7 +86,8 @@ namespace LittlePeeps
             Edge edge = grid.WorldToEdge(world);
 
             if (!grid.CanPlaceEdge(edge)) return;   // occupied edge / both sides off-island — ghost is already red
-            if (!ctx.Resources.CanAfford(def.cost))
+            if (ctx.Structures.AtLimit(def)) return;
+            if (!ctx.Structures.CanAfford(def))
             {
                 EventBus<BuildDeniedEvent>.Publish(new BuildDeniedEvent { Def = def });
                 return;

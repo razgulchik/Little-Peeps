@@ -33,6 +33,15 @@ namespace LittlePeeps.Tests
             Assert.That(StatModifierText.Describe(yield), Is.EqualTo("+100% WOOD"));
         }
 
+        // An empty building is every limited one — the wide default, so the text names no building. The
+        // named form needs a real StructureDef and lives in StructureLimitTests.
+        [Test]
+        public void StructureLimit_WithNoBuilding_ReadsAsBuildLimit()
+        {
+            Assert.That(StatModifierText.Describe(Mod(StatId.StructureLimit, flat: 1f)),
+                        Is.EqualTo("+1 BUILD LIMIT"));
+        }
+
         [Test]
         public void DenCapacity_ReadsAsAnimalsPerDen()
         {

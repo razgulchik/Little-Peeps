@@ -33,6 +33,9 @@ namespace LittlePeeps
         [SerializeField] private GameObject costPanel;
         [SerializeField] private Image resourceIconImage;
         [SerializeField] private TMP_Text costText;
+        // Optional: "1/2" on a building with a limit, hidden on one without. Left empty, the card shows no
+        // count — the limit still locks it when reached.
+        [SerializeField] private TMP_Text countText;
         [SerializeField] private CanvasGroup artworkCanvasGroup;
         [SerializeField] private ResourceIconSet iconSet;
 
@@ -58,6 +61,8 @@ namespace LittlePeeps
         private Vector2 tiltValue;
         private bool selected;
         private bool affordable = true;
+        private int standing;   // how many of Def stand — the price shown is the next one's
+        private int limit;      // only meaningful when Def.HasLimit
         private bool pointerInside;
         private bool dragSuppressed;
         private Canvas uiCanvas;
@@ -79,7 +84,7 @@ namespace LittlePeeps
             ConfigureShineLocalSpace();
 
             if (iconImage != null) iconImage.sprite = def.icon;
-            RefreshCost(def);
+            ShowCount(null);   // before any run: nothing stands yet
 
             if (button == null) button = GetComponent<Button>();
             button.onClick.RemoveAllListeners();
@@ -130,17 +135,37 @@ namespace LittlePeeps
             RefreshArtworkAlpha();
         }
 
-        // The overlay says what would open the card: its age, or a perk (StructureDef.LockState decides
-        // which wins when both apply).
+        // The run-dependent numbers: how many of Def stand, which sets the price on the card (the NEXT
+        // one's) and, on a building with a limit, the "1/2" count. Before SetLocked, whose limit text
+        // reads them. A null run = nothing stands, the bare limit.
+        public void ShowCount(RunContext run)
+        {
+            if (Def == null) return;
+            standing = run != null ? run.CountOf(Def) : 0;
+            limit = Def.LimitIn(run);
+
+            RefreshCost();
+            if (countText != null)
+            {
+                countText.gameObject.SetActive(Def.HasLimit);
+                if (Def.HasLimit) countText.text = $"{standing}/{limit}";
+            }
+        }
+
+        // The overlay says what would open the card: its age, a perk, or a free slot under the limit
+        // (StructureDef.LockState decides which wins when several apply).
         public void SetLocked(StructureLock state)
         {
             bool value = state != StructureLock.None;
             IsLocked = value;
             if (lockedOverlay != null) lockedOverlay.SetActive(value);
             if (lockedText != null && Def != null)
-                lockedText.text = state == StructureLock.Perk
-                    ? "Open with\na perk"
-                    : $"Open on\nthe Age {RomanNumeral.From(Def.requiredAge)}";
+                lockedText.text = state switch
+                {
+                    StructureLock.Perk => "Open with\na perk",
+                    StructureLock.Limit => $"Limit\n{standing}/{limit}",
+                    _ => $"Open on\nthe Age {RomanNumeral.From(Def.requiredAge)}",
+                };
 
             if (button != null) button.interactable = !value;
             if (value)
@@ -465,16 +490,17 @@ namespace LittlePeeps
                 : affordable ? 1f : motionProfile.unaffordableAlpha;
         }
 
-        private void RefreshCost(StructureDef def)
+        // The first cost entry at the price the NEXT one costs — it grows with how many stand.
+        private void RefreshCost()
         {
-            bool hasCost = def.cost != null && def.cost.Count > 0 && def.cost[0] != null;
+            bool hasCost = Def.cost != null && Def.cost.Count > 0 && Def.cost[0] != null;
             if (costPanel != null) costPanel.SetActive(hasCost);
             if (!hasCost) return;
 
-            ResourceCost cost = def.cost[0];
+            ResourceCost cost = Def.cost[0];
             if (resourceIconImage != null)
                 resourceIconImage.sprite = iconSet != null ? iconSet.IconFor(cost.resourceType) : null;
-            if (costText != null) costText.text = ResourceFormat.Abbreviate(cost.amount);
+            if (costText != null) costText.text = ResourceFormat.Abbreviate(Def.CostAt(0, standing));
         }
 
         private static Vector2 PixelSnap(Vector2 value) =>

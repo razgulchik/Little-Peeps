@@ -44,7 +44,8 @@ namespace LittlePeeps
         private bool sellSelected;
         private bool isOpen;   // true while in build mode (panel visible) — gates the sell and tab hotkeys
         private int currentAge;
-        private RunContext run;   // for the structures a perk opened (StructureDef.LockState)
+        private RunContext run;   // for the structures a perk opened and how many stand (StructureDef.LockState)
+        private bool cardsDirty;  // a structure count changed — refresh in LateUpdate (OnStructureCountChanged)
 
         private void Awake()
         {
@@ -60,6 +61,7 @@ namespace LittlePeeps
             EventBus<BuildTabRequestedEvent>.Subscribe(OnTabHotkey);
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+            EventBus<StructureCountChangedEvent>.Subscribe(OnStructureCountChanged);
             if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared += OnToolCleared;
         }
@@ -72,6 +74,7 @@ namespace LittlePeeps
             EventBus<BuildTabRequestedEvent>.Unsubscribe(OnTabHotkey);
             EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+            EventBus<StructureCountChangedEvent>.Unsubscribe(OnStructureCountChanged);
             if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared -= OnToolCleared;
         }
@@ -239,19 +242,37 @@ namespace LittlePeeps
             if (sellHighlight != null) sellHighlight.SetActive(on);
         }
 
-        // Resources don't change inside build mode (game paused), so refreshing on open is enough — and
-        // so is it for a perk's unlock: the pick is its own screen, never taken with this panel open.
+        // On open, and after every build or sale (OnStructureCountChanged). Nothing is harvested inside
+        // build mode (game paused), so outside those two only the age, the run and a perk's unlock change
+        // a card — and the perk pick is its own screen, never taken with this panel open.
         private void RefreshCards()
         {
             foreach (var card in cards)
             {
-                var state = card.Def != null ? card.Def.LockState(currentAge, run) : StructureLock.None;
-                bool locked = state != StructureLock.None;
+                var def = card.Def;
+                card.ShowCount(run);   // first: the limit text in SetLocked reads the count
+                var state = def.LockState(currentAge, run);
                 card.SetLocked(state);
-                card.SetAffordable(resourceSystem == null || resourceSystem.CanAfford(card.Def.cost));
+                card.SetAffordable(resourceSystem == null
+                                   || resourceSystem.CanAfford(def, run != null ? run.CountOf(def) : 0));
 
-                if (locked && card == selectedCard) Deselect();
+                // Filling the limit puts the card down, which drops the tool back to Move.
+                if (state != StructureLock.None && card == selectedCard) Deselect();
             }
+        }
+
+        // A build or a sale changes the next price, the count against the limit, and the resources. The
+        // refresh waits for LateUpdate on purpose: this fires from INSIDE the tool's click
+        // (PlaceTool → StructureSystem), and a card locking on its limit would switch the tool away while
+        // that click is still running. Deferred, the tool finishes its click first; one refresh per frame
+        // also absorbs a burst (an island's worth of generated trees).
+        private void OnStructureCountChanged(StructureCountChangedEvent e) => cardsDirty = true;
+
+        private void LateUpdate()
+        {
+            if (!cardsDirty) return;
+            cardsDirty = false;
+            if (isOpen) RefreshCards();
         }
 
         private void OnAgeStarted(AgeStartedEvent e)

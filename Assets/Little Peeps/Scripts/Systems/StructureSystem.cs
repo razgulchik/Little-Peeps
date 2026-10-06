@@ -17,16 +17,24 @@ namespace LittlePeeps
             this.run = run;
         }
 
-        // Player-driven placement. Validates the cell and affordability, charges the cost, then
-        // builds. Returns false (no-op) if the cell is blocked or the cost can't be paid.
+        // Player-driven placement. Validates the cell, the build limit and affordability, charges the
+        // price, then builds. Returns false (no-op) if the cell is blocked, the limit is reached or the
+        // price can't be paid.
         public bool PlaceStructure(StructureDef def, Vector2Int cell)
         {
             if (!islandSystem.Grid.CanPlace(cell, def)) return false;
-            if (!resourceSystem.CanAfford(def.cost)) return false;
-            resourceSystem.Spend(def.cost);
+            if (AtLimit(def) || !CanAfford(def)) return false;
+            resourceSystem.Spend(def, run.CountOf(def));
             Build(def, cell);
             return true;
         }
+
+        // The run-dependent half of "can I build another": as many stand as the run allows. Placement asks
+        // it on every click — the palette locks the card too, but the tool stays in hand between clicks.
+        public bool AtLimit(StructureDef def) => def.AtLimit(run);
+
+        // Whether the NEXT one can be paid: its price grows with how many already stand.
+        public bool CanAfford(StructureDef def) => resourceSystem.CanAfford(def, run != null ? run.CountOf(def) : 0);
 
         // Free placement for generated structures (a zone's natural content, the pier): no cost, but
         // still validated. Returns the placed instance, or null when the cell is blocked — the generator
@@ -74,7 +82,18 @@ namespace LittlePeeps
 
             grid.Place(cell, def.Footprint, instance);
             run.structures[cell] = instance;
+            Recount(def, +1);
             return instance;
+        }
+
+        // The one writer of RunContext.standing. Paired with Build/BuildEdge and Remove*, never with
+        // PickUp/Drop: a carried structure still stands, or a move would make the next one cheaper and
+        // free a slot under the limit. Announced so the build palette can show the new price and count.
+        private void Recount(StructureDef def, int delta)
+        {
+            int count = Mathf.Max(0, run.CountOf(def) + delta);
+            run.standing[def] = count;
+            EventBus<StructureCountChangedEvent>.Publish(new StructureCountChangedEvent { Def = def, Count = count });
         }
 
         // Put a structure's ROOT at its footprint anchor: the bottom-center of the footprint. Prefab art is
@@ -127,16 +146,22 @@ namespace LittlePeeps
 
             grid.Remove(instance.Cell, instance.Def.Footprint);
             run.structures.Remove(instance.Cell);
+            Recount(instance.Def, -1);
             Destroy(instance.RuntimeObject.gameObject);
             return true;
         }
 
         // Refund sellRefundPercent of each cost entry to the player. Free structures (no cost) refund 0.
+        // The price refunded is the one the sold structure would cost to build AGAIN — the price with one
+        // fewer standing, i.e. what the last one bought cost — so a build → sell cycle always loses
+        // (1 - sellRefundPercent) and no stored "price paid" is needed. Called before the removal, while
+        // the sold one is still counted.
         private void RefundCost(StructureDef def)
         {
             if (def.cost == null) return;
+            int rebuiltAt = Mathf.Max(0, run.CountOf(def) - 1);
             for (int i = 0; i < def.cost.Count; i++)
-                resourceSystem.AddResource(def.cost[i].resourceType, def.cost[i].amount * def.sellRefundPercent);
+                resourceSystem.AddResource(def.cost[i].resourceType, def.CostAt(i, rebuiltAt) * def.sellRefundPercent);
         }
 
         // Build-mode MOVE, step 1: lift a structure off the grid so it can be dragged. Frees its cells
@@ -167,13 +192,14 @@ namespace LittlePeeps
         // Parallel to the cell placement path above, but addressed by Edge. Shares the same validation +
         // cost + event flow; only the grid addressing and the H/V pose differ.
 
-        // Player-driven fence placement. Validates the edge and affordability, charges the cost, builds.
-        // Returns false (no-op) if the edge is blocked or the cost can't be paid.
+        // Player-driven fence placement. Validates the edge, the build limit and affordability, charges the
+        // price, builds. Returns false (no-op) if the edge is blocked, the limit is reached or the price
+        // can't be paid.
         public bool PlaceEdgeStructure(StructureDef def, Edge edge)
         {
             if (!islandSystem.Grid.CanPlaceEdge(edge)) return false;
-            if (!resourceSystem.CanAfford(def.cost)) return false;
-            resourceSystem.Spend(def.cost);
+            if (AtLimit(def) || !CanAfford(def)) return false;
+            resourceSystem.Spend(def, run.CountOf(def));
             BuildEdge(def, edge);
             return true;
         }
@@ -195,6 +221,7 @@ namespace LittlePeeps
             var instance = new EdgeInstance { Def = def, RuntimeObject = structure, Edge = edge };
             grid.PlaceEdge(edge, instance);
             run.fences[edge] = instance;
+            Recount(def, +1);
             return structure;
         }
 
@@ -217,6 +244,7 @@ namespace LittlePeeps
 
             grid.RemoveEdge(edge);
             run.fences.Remove(edge);
+            Recount(instance.Def, -1);
             Destroy(instance.RuntimeObject.gameObject);
             return true;
         }
@@ -268,6 +296,8 @@ namespace LittlePeeps
                 DestroyWithTeardown(instance.RuntimeObject);
             }
             run.fences.Clear();
+
+            run.standing.Clear();   // silently, like the rest of the sweep
         }
 
         // Composite prefabs carry spawners at any depth (a forest is a root Structure over child trees),

@@ -117,6 +117,15 @@ namespace LittlePeeps
         public StructureDef Def;
     }
 
+    // Published by StructureSystem whenever one more or one fewer of a structure stands (built, generated,
+    // sold, removed — never moved). The build palette refreshes on it: the count drives that card's price
+    // and limit, and the build or sale behind it has just changed the resources too.
+    public struct StructureCountChangedEvent
+    {
+        public StructureDef Def;
+        public int Count;
+    }
+
     // Published by TapSystem when the player clicks the pier; handled by PlayingState. Deliberately by
     // the STATE rather than by PrestigeSystem: the subscription then lasts exactly as long as normal
     // play, so a run can never be ended from build mode or mid-age-transition.

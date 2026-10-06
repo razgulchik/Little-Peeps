@@ -9,6 +9,18 @@ namespace LittlePeeps
         public Dictionary<ResourceType, float> resources = new();
         public Dictionary<Vector2Int, StructureInstance> structures = new();
         public Dictionary<Edge, EdgeInstance> fences = new();
+
+        // How many of each structure stand on the island: cells and fences, generated ones included, and
+        // the one MoveTool is carrying (a move is not a sale, so it never leaves this count while it is
+        // off the grid). Kept by StructureSystem where structures are built and removed; read through
+        // CountOf, for the build limit and the growing price (StructureDef.AtLimit / CostAt). Derivable
+        // from structures + fences, so it needs no place in a save.
+        public Dictionary<StructureDef, int> standing = new();
+
+        // ReferenceEquals: the dictionary only needs a non-null key, not Unity's "destroyed equals null".
+        public int CountOf(StructureDef def) =>
+            !ReferenceEquals(def, null) && standing.TryGetValue(def, out int n) ? n : 0;
+
         public int currentAge;
         public List<PerkDef> perksChosen = new();
 

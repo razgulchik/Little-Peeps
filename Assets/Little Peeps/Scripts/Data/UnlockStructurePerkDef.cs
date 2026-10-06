@@ -16,14 +16,11 @@ namespace LittlePeeps
 
         // "UNLOCKS RICE PADDY" — the player-facing name, falling back to the asset's when it is blank.
         public override string GeneratedDescription =>
-            structure != null ? "UNLOCKS " + Name(structure).ToUpperInvariant() : string.Empty;
+            structure != null ? "UNLOCKS " + structure.ShownName.ToUpperInvariant() : string.Empty;
 
         public override void ApplyPerk(RunContext context)
         {
             if (context != null && structure != null) context.unlockedStructures.Add(structure);
         }
-
-        private static string Name(StructureDef def) =>
-            !string.IsNullOrEmpty(def.displayName) ? def.displayName : def.name;
     }
 }

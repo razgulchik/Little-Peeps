@@ -39,8 +39,10 @@ namespace LittlePeeps
         // through CostAt, never off this list.
         public List<ResourceCost> cost;
 
-        [Tooltip("Run age at which this structure becomes available in the build palette. " +
-                 "Zero keeps it available from the beginning.")]
+        // The age NUMBER the player sees (Age I = the start), the one the lock text prints — not
+        // RunContext.currentAge, which counts transitions from 0. LockState does the conversion.
+        [Tooltip("Age at which this structure becomes available in the build palette, numbered as the " +
+                 "player sees it: 2 = opens on the Age II. Zero or one keeps it available from the beginning.")]
         [Min(0)] public int requiredAge;
 
         // The second gate next to requiredAge: a building that stays out of reach in a run where no perk
@@ -59,7 +61,7 @@ namespace LittlePeeps
         {
             if (lockedUntilPerk && (run == null || !run.unlockedStructures.Contains(this)))
                 return StructureLock.Perk;
-            if (currentAge < requiredAge) return StructureLock.Age;
+            if (currentAge + 1 < requiredAge) return StructureLock.Age;   // currentAge 0 is the Age I
             return AtLimit(run) ? StructureLock.Limit : StructureLock.None;
         }
 

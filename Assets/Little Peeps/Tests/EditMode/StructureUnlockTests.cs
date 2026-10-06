@@ -45,8 +45,19 @@ namespace LittlePeeps.Tests
         {
             paddy.requiredAge = 2;
 
-            Assert.That(paddy.LockState(1, new RunContext()), Is.EqualTo(StructureLock.Age));
-            Assert.That(paddy.LockState(2, new RunContext()), Is.EqualTo(StructureLock.None));
+            // currentAge counts transitions: 0 is the Age I, 1 the Age II — the number the lock text prints.
+            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.Age));
+            Assert.That(paddy.LockState(1, new RunContext()), Is.EqualTo(StructureLock.None));
+        }
+
+        [Test]
+        public void TheAgeGate_OfZeroOrOne_IsOpenFromTheStart()
+        {
+            paddy.requiredAge = 1;
+            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.None));
+
+            paddy.requiredAge = 0;
+            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.None));
         }
 
         [Test]
@@ -87,7 +98,7 @@ namespace LittlePeeps.Tests
             run.unlockedStructures.Add(paddy);
 
             Assert.That(paddy.LockState(1, run), Is.EqualTo(StructureLock.Age));
-            Assert.That(paddy.LockState(3, run), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(2, run), Is.EqualTo(StructureLock.None));
         }
 
         // --- the perk --------------------------------------------------------------------------------

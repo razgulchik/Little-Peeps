@@ -52,7 +52,31 @@ namespace LittlePeeps
                 // A warning, not an error: a missing title costs a blank card, not a corrupt save.
                 if (string.IsNullOrEmpty(perk.title))
                     Debug.LogWarning($"Perk '{perk.name}' has no title — its card will read empty.", perk);
+
+                // A chain that can never be walked is a perk that silently never appears, which is
+                // exactly the failure nobody notices in play.
+                if (perk.requires != null && !catalogue.perks.Contains(perk.requires))
+                    Debug.LogWarning($"Perk '{perk.name}' requires '{perk.requires.name}', which is not in " +
+                                     "the catalogue — it can never be taken, so this one is never offered.",
+                                     perk);
+                if (InRequiresLoop(perk))
+                    Debug.LogError($"Perk '{perk.name}' is part of a Requires loop — no perk on it can " +
+                                   "ever be offered.", perk);
             }
+        }
+
+        // Whether following `requires` from this perk ever leads back to it (itself included). The
+        // walk is bounded by the catalogue size, so a loop further down the chain that does not pass
+        // through this perk ends the walk instead of spinning — that perk is reported on its own turn.
+        private bool InRequiresLoop(PerkDef perk)
+        {
+            var step = perk.requires;
+            for (int n = 0; step != null && n <= catalogue.perks.Count; n++)
+            {
+                if (step == perk) return true;
+                step = step.requires;
+            }
+            return false;
         }
 
         // The perks to offer this transition: eligible, distinct, weighted by PerkDef.weight.
@@ -101,6 +125,12 @@ namespace LittlePeeps
             if (perk.weight <= 0f) return false;          // deliberate off-switch, not a roll of zero
             if (currentAge < perk.minAge) return false;
             if (context != null && context.perksChosen.Contains(perk)) return false;
+
+            // The next level of a chain waits for the one before it. No run = nothing taken yet, so it
+            // waits then too.
+            if (perk.requires != null && (context == null || !context.perksChosen.Contains(perk.requires)))
+                return false;
+
             return true;
         }
 

@@ -126,12 +126,13 @@ namespace LittlePeeps.Tests
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private StatPerkDef Perk(string id, float weight = 1f, int minAge = 0)
+        private StatPerkDef Perk(string id, float weight = 1f, int minAge = 0, PerkDef requires = null)
         {
             var perk = ScriptableObject.CreateInstance<StatPerkDef>();
             perk.id = id;
             perk.weight = weight;
             perk.minAge = minAge;
+            perk.requires = requires;
             created.Add(perk);
             catalogue.perks.Add(perk);
             return perk;
@@ -200,6 +201,42 @@ namespace LittlePeeps.Tests
             Configure();
 
             Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { free }));
+        }
+
+        [Test]
+        public void RollPerks_WithholdsTheNextLevel_UntilThePreviousIsTaken()
+        {
+            var level1 = Perk("pressure-1");
+            Perk("pressure-2", requires: level1);
+            Configure();
+
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { level1 }),
+                        "level 2 must not share an offer with the level it builds on");
+        }
+
+        [Test]
+        public void RollPerks_OffersTheNextLevel_OnceThePreviousIsTaken()
+        {
+            var level1 = Perk("pressure-1");
+            var level2 = Perk("pressure-2", requires: level1);
+            Perk("pressure-3", requires: level2);
+            Configure();
+
+            system.ApplyPerk(level1, run);
+
+            // One step at a time: taking level 1 opens level 2 only, never level 3 past it.
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { level2 }));
+        }
+
+        [Test]
+        public void RollPerks_WithholdsAChainedPerk_WithoutARunContext()
+        {
+            var level1 = Perk("pressure-1");
+            Perk("pressure-2", requires: level1);
+            Configure();
+
+            // Same reading as RollPerks_SurvivesANullRunContext: no run means nothing taken.
+            Assert.That(system.RollPerks(0, null), Is.EquivalentTo(new[] { level1 }));
         }
 
         [Test]

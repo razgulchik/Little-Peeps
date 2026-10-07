@@ -43,6 +43,11 @@ namespace LittlePeeps
                  "rolls. 0 = available from the very first transition.")]
         [Min(0)] public int minAge;
 
+        [Tooltip("A perk that must already be taken this run before this one can be offered — the " +
+                 "previous level of a chain (Peer Pressure II requires Peer Pressure I). Empty = no " +
+                 "condition. The levels stack, so this perk's modifiers are the STEP, not the total.")]
+        public PerkDef requires;
+
         // Apply this perk's permanent effect to the current run state
         public abstract void ApplyPerk(RunContext context);
     }

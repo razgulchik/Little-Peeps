@@ -10,7 +10,9 @@ namespace LittlePeeps
         [SerializeField] private InputHandler inputHandler;
         [SerializeField] private TapRadiusVisual radiusVisual;
 
-        [Header("Boost (placeholder until perks/upgrades drive these)")]
+        // Radius and multiplier are BASES: perks scale them through RunStats (StatId.TapRadius,
+        // StatId.TapBoostMultiplier). Duration and refreshStamina are still read as they are.
+        [Header("Boost")]
         [SerializeField] private float tapRadius = 0.5f;
         [SerializeField] private float boostSpeedMultiplier = 2f;
         [SerializeField] private float boostDuration = 5f;
@@ -39,9 +41,8 @@ namespace LittlePeeps
             EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
         }
 
-        // Re-bind after a prestige. Nothing reads runContext yet (see GetBoostParams), but the field is
-        // wired the same way as everywhere else so the first perk that touches it isn't reading a run
-        // that ended several prestiges ago.
+        // Re-bind after a prestige, so the radius and the multiplier read this run's perks rather than
+        // those of a run that ended several prestiges ago.
         private void OnRunStarted(RunStartedEvent e) => runContext = e.Run;
 
         // Drive the cursor ring: visible & following the mouse only in live gameplay.
@@ -53,7 +54,9 @@ namespace LittlePeeps
             radiusVisual.SetVisible(active);
             if (!active) return;
 
-            radiusVisual.SetRadius(tapRadius);
+            // Resolved every frame, so a perk bought mid-run grows the ring at once. SetRadius rebuilds
+            // the circle only when the value actually changes.
+            radiusVisual.SetRadius(Resolve(tapRadius, StatId.TapRadius));
             radiusVisual.transform.position = inputHandler.WorldMousePosition;
         }
 
@@ -85,8 +88,13 @@ namespace LittlePeeps
 
         private (float speedMult, float radius, float duration, bool refresh) GetBoostParams()
         {
-            // TODO: fold in runContext perks/upgrades once they're implemented.
-            return (boostSpeedMultiplier, tapRadius, boostDuration, refreshStamina);
+            return (Resolve(boostSpeedMultiplier, StatId.TapBoostMultiplier),
+                    Resolve(tapRadius, StatId.TapRadius),
+                    boostDuration, refreshStamina);
         }
+
+        // The base as it is until Initialize has handed over a run.
+        private float Resolve(float baseValue, StatId id) =>
+            runContext != null ? runContext.stats.Apply(baseValue, id) : baseValue;
     }
 }

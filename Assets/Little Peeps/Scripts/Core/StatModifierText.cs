@@ -83,6 +83,8 @@ namespace LittlePeeps
             StatId.ForgeHotYield    => ("HOT FORGE YIELD", StatScope.None),
             StatId.MarketVisitHits  => ("HITS PER MARKET VISIT", StatScope.None),
             StatId.DenCapacity      => ("ANIMALS PER DEN", StatScope.None),
+            StatId.TapRadius        => ("TAP RADIUS", StatScope.None),
+            StatId.TapBoostMultiplier => ("TAP BOOST", StatScope.None),
 
             // The building is the subject ("+1 HOUSE LIMIT"); empty = every limited building.
             StatId.StructureLimit   => (m.structureScope != null

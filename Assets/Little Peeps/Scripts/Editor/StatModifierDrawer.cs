@@ -371,9 +371,12 @@ namespace LittlePeeps.EditorTools
         // Hand-kept, and only for stats that HAVE an owner: a building's parameters go under
         // Structures/<building>, however they happen to be scoped. Null = no owner, use Category —
         // which is why UnitStamina, unscoped and owned by nobody, files under Global next to
-        // ProductionGlobal: every villager's stamina is one number, and the picker says so.
+        // ProductionGlobal: every villager's stamina is one number, and the picker says so. The tap is
+        // not a building but owns its numbers the same way, so it gets a home of its own.
         private static string Group(StatId id) => id switch
         {
+            StatId.TapRadius        => "Tap",
+            StatId.TapBoostMultiplier => "Tap",
             StatId.SpawnerRecharge  => "Structures/House",
             StatId.HouseCapacity    => "Structures/House",
             StatId.ForgeHeatPerHit  => "Structures/Forge",
@@ -418,6 +421,8 @@ namespace LittlePeeps.EditorTools
             StatId.MarketVisitHits => "Hits per visit",
             StatId.DenCapacity => "Animals",
             StatId.StructureLimit => "Build limit",
+            StatId.TapRadius => "Radius",
+            StatId.TapBoostMultiplier => "Boost multiplier",
             _ => ObjectNames.NicifyVariableName(id.ToString()),
         };
 
@@ -446,6 +451,8 @@ namespace LittlePeeps.EditorTools
                 StatId.MarketVisitHits => "Counted hits one unit gets per market visit; each pays that worker's coins. Rounds DOWN - author Flat +1 for one more hit.",
                 StatId.DenCapacity => "Animals one den (or the stable) keeps out at once. Source = the ANIMAL (Boar, Fox, Alpaka); empty = every den and the stable. Rounds DOWN: +50% on a 1-animal den does nothing, Flat +1 or +100% doubles it.",
                 StatId.StructureLimit => "How many of a building may stand at once (its Max Count). Never limits a building left at Max Count 0. Structure empty = every limited building. Rounds DOWN - author Flat +1 for one more.",
+                StatId.TapRadius => "Radius of the tap boost circle (and the cursor ring), in world units. Flat adds units, percent scales the radius.",
+                StatId.TapBoostMultiplier => "Speed multiplier a tapped unit leaves at, easing back over the boost duration. Percent scales the whole multiplier (+50% turns x2 into x3); never drops below x1.",
                 _ => "",
             };
 

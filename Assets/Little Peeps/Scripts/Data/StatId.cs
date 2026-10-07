@@ -56,6 +56,12 @@ namespace LittlePeeps
         // modifier never turns an unlimited one limited. Scoped by the building; empty = every limited one.
         StructureLimit,     // scope: structure — how many may stand (base: StructureDef.maxCount)
 
+        // The player's tap (TapSystem). Unscoped: there is one tap, and it reaches whoever is inside the
+        // circle, whatever their profession. Read at the point of use — the radius every frame for the
+        // cursor ring and on every click, the multiplier on every click — so a perk needs no push.
+        TapRadius,          // no scope — radius of the boost circle, world units (base: TapSystem.tapRadius)
+        TapBoostMultiplier, // no scope — speed multiplier a tapped unit leaves at (base: TapSystem.boostSpeedMultiplier)
+
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
     }
@@ -115,12 +121,14 @@ namespace LittlePeeps
 
             // Listed although they fall through to None anyway, so the choice reads as made rather than
             // forgotten: the one forge needs no Source axis, and "the forge" is not a resource either.
-            // The market's passage is the same case.
+            // The market's passage and the tap are the same case.
             StatId.ForgeHeatPerHit  => StatScope.None,
             StatId.ForgeMaxHeat     => StatScope.None,
             StatId.ForgeCoolingTime => StatScope.None,
             StatId.ForgeHotYield    => StatScope.None,
             StatId.MarketVisitHits  => StatScope.None,
+            StatId.TapRadius        => StatScope.None,
+            StatId.TapBoostMultiplier => StatScope.None,
 
             // ProductionGlobal and any future global stat. NOTE this default is why a forgotten entry
             // above is dangerous: the stat silently becomes global instead of scoped.

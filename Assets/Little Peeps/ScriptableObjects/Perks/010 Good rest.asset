@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
-  m_Name: 02 Plentiful harvest
+  m_Name: 010 Good rest
   m_EditorClassIdentifier: 
-  id: plentiful_harvest
-  title: Plentiful harvest
-  description: +50% WHEAT GROW SPEED
+  id: good_rest
+  title: Good rest
+  description: +100% STAMINA
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
   weight: 1
   minAge: 0
   modifiers:
-  - id: 5
+  - id: 4
     unitScope: 0
     anyProfession: 0
     resourceScope: 0
-    sourceScope: {fileID: 11400000, guid: 31767cd1cafbb69428e75771e561bfa0, type: 2}
+    sourceScope: {fileID: 0}
     flat: 0
-    percent: -0.3333
+    percent: 1

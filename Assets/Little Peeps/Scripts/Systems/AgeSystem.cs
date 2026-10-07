@@ -8,6 +8,10 @@ namespace LittlePeeps
     // age lives on RunContext, so this system stays stateless between runs.
     public class AgeSystem : MonoBehaviour
     {
+        // Only the ages that are BOUGHT. The Age I is where every run starts — never bought, so it has no
+        // AgeDef: what a run starts with lives on the StartConfig (and later on the meta upgrades).
+        [Tooltip("The ages a run can buy, in order. The first entry is the Age II: the Age I is where " +
+                 "every run starts, it is never bought and has no AgeDef.")]
         [SerializeField] private List<AgeDef> ages = new();
         [SerializeField] private ResourceSystem resourceSystem;
 
@@ -25,20 +29,26 @@ namespace LittlePeeps
 
         private void OnRunStarted(RunStartedEvent e) => runContext = e.Run;
 
-        // The whole ladder, in order: ages[i] is the transition INTO age i+1. Exposed so the timeline
-        // column can draw every age, not only the next one.
-        public IReadOnlyList<AgeDef> Ages => ages;
+        // The number of the final age (player's number, see RunContext.currentAge): the Age I plus one
+        // per bought age. Exposed so the timeline column can draw every age, not only the next one.
+        public int LastAge => RunContext.FirstAge + ages.Count;
 
-        // The AgeDef for the transition OUT of `age` and INTO the next one, or null past the last age.
+        // The AgeDef OF the Age `age`: the price of entering it and the bonus it grants. Null for the
+        // Age I (never bought) and past the last age — always look ages up through here, never by
+        // indexing the list, so the one offset lives in one place.
+        //
         // A pure catalogue lookup that touches no run state, so a caller which learned the age from an
         // event payload (the cost and timeline UI do) gets the right answer no matter whether this
         // system's own RunStartedEvent handler happened to run before or after theirs — EventBus makes
         // no promise about subscriber order, and nothing here should depend on one.
-        public AgeDef TransitionFrom(int age) => (age >= 0 && age < ages.Count) ? ages[age] : null;
+        public AgeDef DefOf(int age)
+        {
+            int i = age - (RunContext.FirstAge + 1);
+            return (i >= 0 && i < ages.Count) ? ages[i] : null;
+        }
 
-        // The AgeDef for advancing into the NEXT age, or null when the final age has been reached.
-        // ages[currentAge] is the definition of the transition OUT of the current age into the next.
-        public AgeDef NextAge => runContext != null ? TransitionFrom(runContext.currentAge) : null;
+        // The AgeDef of the NEXT age — the one the "New Age" button buys — or null at the final age.
+        public AgeDef NextAge => runContext != null ? DefOf(runContext.currentAge + 1) : null;
 
         // True when there is a next age and its cost is currently affordable.
         public bool CanAdvance

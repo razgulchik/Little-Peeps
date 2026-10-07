@@ -40,7 +40,8 @@ namespace LittlePeeps
         public float weight = 1f;
 
         [Tooltip("Earliest age this perk can be offered in, so the strong ones stay out of the first " +
-                 "rolls. 0 = available from the very first transition.")]
+                 "rolls. Numbered as the player sees it: 3 = first offered on the transition into the " +
+                 "Age III. 0, 1 or 2 = from the very first transition (into the Age II).")]
         [Min(0)] public int minAge;
 
         [Tooltip("A perk that must already be taken this run before this one can be offered — the " +

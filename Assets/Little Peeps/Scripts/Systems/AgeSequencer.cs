@@ -134,9 +134,15 @@ namespace LittlePeeps
 
         // Fade in, hold, fade out. A tap past the grace cuts the fade-in or the hold short; the fade-out
         // always plays.
+        //
+        // The banner prints the age's NUMBER, never AgeDef.title: a number written by hand into an asset
+        // goes stale the moment the list is reordered, and this one can't. The title is only logged next
+        // to it, so a mismatch between the list and the asset names shows in the console.
         private IEnumerator ShowAgeTitle(int newAge, AgeDef def)
         {
-            string text = (def != null && !string.IsNullOrEmpty(def.title)) ? def.title : $"Age {newAge}";
+            string text = $"Age {RomanNumeral.From(newAge)}";
+            Debug.Log($"[Age] Banner \"{text}\" — AgeDef \"{(def != null ? def.name : "none")}\", " +
+                      $"title \"{(def != null ? def.title : string.Empty)}\"");
             if (titleLabel != null)
             {
                 titleLabel.text = text;

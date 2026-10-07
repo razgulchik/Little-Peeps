@@ -3,17 +3,17 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // The age timeline down the left edge: one card per age still AHEAD, with the age being bought
-    // right now as the highlighted card at the BOTTOM and the ones after it stacked above it. The
-    // whole ladder is on screen from the first frame and the column empties as ages are bought —
-    // it is a queue of what is coming, not a log of what happened.
+    // The age timeline down the left edge: the age we are standing IN as the highlighted card at the
+    // BOTTOM, and every age still ahead stacked above it — the next one to buy right above. The whole
+    // ladder is on screen from the first frame and the column shortens as ages are bought — it is
+    // the present and what is coming, not a log of what happened.
     //
-    // "The bought age drops out of the bottom and the rest slide down" is the LAYOUT, not code: the
+    // "The age we leave drops out of the bottom and the rest slide down" is the LAYOUT, not code: the
     // container's Vertical Layout Group is bottom-aligned, so the last card spawned sits at the
-    // bottom and the stack grows upward out of a RectMask2D that crops the top. Dropping the bought
-    // age simply leaves one card fewer, so the column is a row shorter and every remaining card
-    // lands a row lower. Nothing here positions or animates anything — which is also why the column
-    // cannot drift out of sync with itself.
+    // bottom and the stack grows upward out of a RectMask2D that crops the top. Buying an age
+    // simply leaves one card fewer, so the column is a row shorter, every remaining card lands a row
+    // lower and the bought age is now the highlighted one. Nothing here positions or animates
+    // anything — which is also why the column cannot drift out of sync with itself.
     //
     // Set up in the inspector: the card prefab and the container. GameBootstrap injects the system.
     public class AgeTimelinePanel : MonoBehaviour
@@ -26,7 +26,7 @@ namespace LittlePeeps
         // The age we are standing in. Taken from event payloads rather than read back off AgeSystem,
         // so the column never depends on which of the two handled RunStartedEvent first — EventBus
         // promises no subscriber order. Same reasoning as AgeCostPanel.
-        private int currentAge;
+        private int currentAge = RunContext.FirstAge;
 
         private readonly List<AgeTimelineCard> cards = new();
 
@@ -78,7 +78,7 @@ namespace LittlePeeps
         // A prestige starts the ladder over — rebuild against the new run's age, not the finished one's.
         private void OnRunStarted(RunStartedEvent e)
         {
-            currentAge = e.Run != null ? e.Run.currentAge : 0;
+            currentAge = e.Run != null ? e.Run.currentAge : RunContext.FirstAge;
             Rebuild();
         }
 
@@ -92,18 +92,17 @@ namespace LittlePeeps
             Clear();
 
             Transform parent = container != null ? container : transform;
-            IReadOnlyList<AgeDef> ages = ageSystem.Ages;
 
-            // ages[i] is the transition INTO age i+1, so age number N is authored in ages[N-1]. The
-            // age being bought now is currentAge+1 and everything above it is still ahead. Counted
-            // DOWN from the last age so the current one is spawned last: the bottom-aligned layout
-            // puts it at the bottom with the future stacked above it. Past the final age the loop
-            // does not run at all and the column is empty — there is nothing left to buy.
-            for (int number = ages.Count; number >= currentAge + 1; number--)
+            // Counted DOWN from the last age so the current one is spawned last: the bottom-aligned
+            // layout puts it at the bottom with the future stacked above it. Each card shows the bonus
+            // its own age grants — the current one's is already in effect. The Age I has no AgeDef
+            // (never bought), so its card carries no bonus line. On the final age only its own card
+            // is left.
+            for (int number = ageSystem.LastAge; number >= currentAge; number--)
             {
-                AgeDef def = ages[number - 1];
+                AgeDef def = ageSystem.DefOf(number);
                 var card = Instantiate(cardPrefab, parent);
-                card.Bind(number, def != null ? def.BonusText : string.Empty, number == currentAge + 1);
+                card.Bind(number, def != null ? def.BonusText : string.Empty, number == currentAge);
                 cards.Add(card);
             }
         }

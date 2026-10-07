@@ -5,11 +5,13 @@ namespace LittlePeeps
 {
     // One age/epoch the player can advance into. Authored as data: what it costs and which permanent
     // bonuses it grants (via the RunStats modifier system). How the island grows is not authored here —
-    // every age adds one generated zone (IslandGenerator, rules on the StartConfig).
+    // every age adds one generated zone (IslandGenerator, rules on the StartConfig). The Age I has no
+    // AgeDef: a run starts in it, nothing buys it (see AgeSystem).
     [CreateAssetMenu(menuName = "LittlePeeps/AgeDef")]
     public class AgeDef : ScriptableObject
     {
-        [Tooltip("Shown on the transition banner. Falls back to \"Age N\" when empty.")]
+        [Tooltip("Not shown in the game: the banner prints the age's number from its place in the list. " +
+                 "Logged next to that number on every transition, to check the list against the assets.")]
         public string title;
 
         [Tooltip("Resources spent to advance into this age.")]

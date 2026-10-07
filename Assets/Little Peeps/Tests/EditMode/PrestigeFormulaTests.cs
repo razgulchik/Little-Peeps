@@ -5,7 +5,7 @@ namespace LittlePeeps.Tests
 {
     // PrestigeFormula converts a finished run into meta currency. Two gross terms —
     //
-    //     age term     = pointsPerAge * currentAge
+    //     age term     = pointsPerAge * transitions bought (currentAge - RunContext.FirstAge)
     //     harvest term = floor(coefficient * pow(weighted harvest, exponent))
     //
     // — of which the run is paid only the part that beats the profile's record for that term.
@@ -49,9 +49,11 @@ namespace LittlePeeps.Tests
                 exponent      = exponent,
             };
 
-        private static RunContext Run(int age, ResourceType type = Listed, float harvested = 0f)
+        // Counted in transitions bought, the unit the age term pays in: currentAge is the player's age
+        // number, so `transitions: 3` is a run standing in the Age IV.
+        private static RunContext Run(int transitions, ResourceType type = Listed, float harvested = 0f)
         {
-            var run = new RunContext { currentAge = age };
+            var run = new RunContext { currentAge = RunContext.FirstAge + transitions };
             if (harvested != 0f) run.harvested[type] = harvested;
             return run;
         }
@@ -67,14 +69,22 @@ namespace LittlePeeps.Tests
         [Test]
         public void Points_PayOnePerAge_WhenTheRunHarvestedNothing()
         {
-            // A run that reached age 3 and produced nothing is still worth its three transitions.
-            Assert.That(Formula().Points(Run(age: 3), FreshProfile()), Is.EqualTo(3));
+            // A run that bought three ages and produced nothing is still worth its three transitions.
+            Assert.That(Formula().Points(Run(transitions: 3), FreshProfile()), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Points_AreZero_ForARunStillInTheFirstAge()
+        {
+            // The age the run starts in is not bought, so it pays nothing: the term counts transitions,
+            // not the age number the player sees.
+            Assert.That(Formula().Points(new RunContext(), FreshProfile()), Is.EqualTo(0));
         }
 
         [Test]
         public void Points_ScaleTheAgeTermByPointsPerAge()
         {
-            Assert.That(Formula(pointsPerAge: 2).Points(Run(age: 3), FreshProfile()), Is.EqualTo(6));
+            Assert.That(Formula(pointsPerAge: 2).Points(Run(transitions: 3), FreshProfile()), Is.EqualTo(6));
         }
 
         [Test]
@@ -89,7 +99,7 @@ namespace LittlePeeps.Tests
         public void Points_TreatANullProfileAsAFreshOne()
         {
             // A save that failed to load pays the player in full rather than throwing mid-prestige.
-            Assert.That(Formula().Points(Run(age: 3), null), Is.EqualTo(3));
+            Assert.That(Formula().Points(Run(transitions: 3), null), Is.EqualTo(3));
         }
 
         // --- each term is paid only for beating its record ---------------------------------------
@@ -97,8 +107,8 @@ namespace LittlePeeps.Tests
         [Test]
         public void Points_PayOnlyForTheAgesTheRunAddedToTheRecord()
         {
-            // Reached age 5, already paid 3 age points → only ages 4 and 5 are new.
-            Assert.That(Formula().Points(Run(age: 5), Profile(agePoints: 3)), Is.EqualTo(2));
+            // Bought 5 ages, already paid 3 age points → only the 4th and 5th transitions are new.
+            Assert.That(Formula().Points(Run(transitions: 5), Profile(agePoints: 3)), Is.EqualTo(2));
         }
 
         [Test]
@@ -107,7 +117,7 @@ namespace LittlePeeps.Tests
             var formula = Formula(exponent: 1f);
 
             // Harvested 100 (worth 100 gross), already paid 40 → 60.
-            Assert.That(formula.Points(Run(age: 0, Listed, 100f), Profile(harvestPoints: 40)),
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 100f), Profile(harvestPoints: 40)),
                         Is.EqualTo(60));
         }
 
@@ -115,7 +125,7 @@ namespace LittlePeeps.Tests
         public void Points_AreZero_ForARunThatBeatsNeitherRecord()
         {
             var formula = Formula(exponent: 1f);
-            var run = Run(age: 5, Listed, 100f);
+            var run = Run(transitions: 5, Listed, 100f);
 
             // Replaying your own best run is worth nothing at all — the whole point of the records.
             Assert.That(formula.Points(run, Profile(agePoints: 5, harvestPoints: 100)), Is.EqualTo(0));
@@ -125,7 +135,7 @@ namespace LittlePeeps.Tests
         public void Points_AreZero_ForARunThatFallsShortOfBothRecords()
         {
             var formula = Formula(exponent: 1f);
-            var run = Run(age: 2, Listed, 10f);
+            var run = Run(transitions: 2, Listed, 10f);
 
             // A run cut short earns nothing — and must not owe anything either.
             Assert.That(formula.Points(run, Profile(agePoints: 5, harvestPoints: 100)), Is.EqualTo(0));
@@ -135,7 +145,7 @@ namespace LittlePeeps.Tests
         public void Points_PayTheHarvestRecord_EvenWhenTheRunStoppedShortOfTheBestAge()
         {
             var formula = Formula(exponent: 1f);
-            var run = Run(age: 2, Listed, 150f);
+            var run = Run(transitions: 2, Listed, 150f);
 
             // Age falls 3 short, harvest beats the record by 50. Clamping the terms separately pays the
             // 50; clamping after summing would pay 47 — the age shortfall eating into earned harvest.
@@ -146,7 +156,7 @@ namespace LittlePeeps.Tests
         public void Points_PayTheAgeRecord_EvenWhenTheRunHarvestedLessThanTheBest()
         {
             var formula = Formula(exponent: 1f);
-            var run = Run(age: 7, Listed, 10f);
+            var run = Run(transitions: 7, Listed, 10f);
 
             // The mirror case: two new ages are paid although the harvest fell 90 short.
             Assert.That(formula.Points(run, Profile(agePoints: 5, harvestPoints: 100)), Is.EqualTo(2));
@@ -156,7 +166,7 @@ namespace LittlePeeps.Tests
         public void Points_IgnoreNegativeRecords()
         {
             // Garbage from a hand-edited save must not pay a bonus on top of the real payout.
-            Assert.That(Formula().Points(Run(age: 3), Profile(agePoints: -5, harvestPoints: -5)),
+            Assert.That(Formula().Points(Run(transitions: 3), Profile(agePoints: -5, harvestPoints: -5)),
                         Is.EqualTo(3));
         }
 
@@ -166,7 +176,7 @@ namespace LittlePeeps.Tests
         public void GrossTerms_AreTheRunsOwnValue_IgnoringWhatWasAlreadyPaid()
         {
             var formula = Formula(exponent: 1f);
-            var run = Run(age: 3, Listed, 100f);
+            var run = Run(transitions: 3, Listed, 100f);
 
             // ExecutePrestige raises each record to these, so they must NOT be net of anything.
             Assert.That(formula.AgePoints(run), Is.EqualTo(3));
@@ -188,7 +198,7 @@ namespace LittlePeeps.Tests
             var formula = Formula(weights: Weight(Listed, 2f));
 
             // 8 Stone * weight 2 = 16, linear, no age.
-            Assert.That(formula.Points(Run(age: 0, Listed, 8f), FreshProfile()), Is.EqualTo(16));
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 8f), FreshProfile()), Is.EqualTo(16));
         }
 
         [Test]
@@ -198,14 +208,14 @@ namespace LittlePeeps.Tests
 
             // Metal isn't listed → 5 * defaultWeight 3 = 15. If the fallback were 0 this would pay
             // nothing, and authoring one weight would have silently disabled every other resource.
-            Assert.That(formula.Points(Run(age: 0, Unlisted, 5f), FreshProfile()), Is.EqualTo(15));
+            Assert.That(formula.Points(Run(transitions: 0, Unlisted, 5f), FreshProfile()), Is.EqualTo(15));
         }
 
         [Test]
         public void Points_SumAcrossResourceTypes()
         {
             var formula = Formula(defaultWeight: 1f, weights: Weight(Listed, 2f));
-            var run = Run(age: 0, Listed, 8f);
+            var run = Run(transitions: 0, Listed, 8f);
             run.harvested[Unlisted] = 5f;
 
             // 8 * 2 + 5 * 1 = 21.
@@ -221,8 +231,8 @@ namespace LittlePeeps.Tests
 
             // How fast the harvest record gets more expensive to beat: quadrupling the harvest only
             // doubles what it is worth.
-            Assert.That(formula.Points(Run(age: 0, Listed, 100f), FreshProfile()), Is.EqualTo(10));
-            Assert.That(formula.Points(Run(age: 0, Listed, 400f), FreshProfile()), Is.EqualTo(20));
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 100f), FreshProfile()), Is.EqualTo(10));
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 400f), FreshProfile()), Is.EqualTo(20));
         }
 
         [Test]
@@ -231,8 +241,8 @@ namespace LittlePeeps.Tests
             // The knob the designer turns to change that, without a code change.
             var formula = Formula(exponent: 1f);
 
-            Assert.That(formula.Points(Run(age: 0, Listed, 100f), FreshProfile()), Is.EqualTo(100));
-            Assert.That(formula.Points(Run(age: 0, Listed, 400f), FreshProfile()), Is.EqualTo(400));
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 100f), FreshProfile()), Is.EqualTo(100));
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 400f), FreshProfile()), Is.EqualTo(400));
         }
 
         [Test]
@@ -240,7 +250,7 @@ namespace LittlePeeps.Tests
         {
             var formula = Formula(coefficient: 0.5f, exponent: 1f);
 
-            Assert.That(formula.Points(Run(age: 0, Listed, 100f), FreshProfile()), Is.EqualTo(50));
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 100f), FreshProfile()), Is.EqualTo(50));
         }
 
         [Test]
@@ -250,7 +260,7 @@ namespace LittlePeeps.Tests
 
             // sqrt(2) = 1.41... → 1, plus 3 ages. The fractional part is dropped, never rounded up:
             // prestige points are whole or the meta screen has to explain halves.
-            Assert.That(formula.Points(Run(age: 3, Listed, 2f), FreshProfile()), Is.EqualTo(4));
+            Assert.That(formula.Points(Run(transitions: 3, Listed, 2f), FreshProfile()), Is.EqualTo(4));
         }
 
         [Test]
@@ -259,7 +269,7 @@ namespace LittlePeeps.Tests
             // A coefficient typed with a stray minus in the inspector must cost the player nothing.
             var formula = Formula(coefficient: -5f, exponent: 1f);
 
-            Assert.That(formula.Points(Run(age: 0, Listed, 100f), FreshProfile()), Is.EqualTo(0));
+            Assert.That(formula.Points(Run(transitions: 0, Listed, 100f), FreshProfile()), Is.EqualTo(0));
         }
 
         // --- the ledger --------------------------------------------------------------------------

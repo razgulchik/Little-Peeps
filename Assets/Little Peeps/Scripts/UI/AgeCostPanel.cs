@@ -27,10 +27,10 @@ namespace LittlePeeps
         private AgeSystem ageSystem;
         private ResourceSystem resourceSystem;
 
-        // The age we are standing IN; the price shown is the transition out of it. Taken from event
+        // The age we are standing IN; the price shown is the next one's. Taken from event
         // payloads rather than read back off AgeSystem, so the panel never depends on which of the two
         // handled RunStartedEvent first.
-        private int currentAge;
+        private int currentAge = RunContext.FirstAge;
 
         private readonly List<ResourceUnit> units = new();
         private readonly List<ResourceCost> shown = new();   // the entry each unit displays, same index
@@ -89,7 +89,7 @@ namespace LittlePeeps
         // A prestige restarts the ladder at the new run's age — rebuild against that, not the finished run's.
         private void OnRunStarted(RunStartedEvent e)
         {
-            currentAge = e.Run != null ? e.Run.currentAge : 0;
+            currentAge = e.Run != null ? e.Run.currentAge : RunContext.FirstAge;
             Rebuild();
         }
 
@@ -103,7 +103,7 @@ namespace LittlePeeps
 
             Clear();
 
-            AgeDef next = ageSystem.TransitionFrom(currentAge);
+            AgeDef next = ageSystem.DefOf(currentAge + 1);
             GameObject root = visibilityRoot != null ? visibilityRoot : gameObject;
             if (root.activeSelf != (next != null)) root.SetActive(next != null);
 

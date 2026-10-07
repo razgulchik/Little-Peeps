@@ -12,8 +12,8 @@ namespace LittlePeeps
         [SerializeField] private PrestigeFormula formula = new();
 
         [Tooltip("The age at which the pier starts working. Below it, clicking the pier does nothing — " +
-                 "a run that young isn't worth cashing in. RunContext.currentAge counts transitions " +
-                 "from 0, so 3 means 'from the third age transition onwards'.")]
+                 "a run that young isn't worth cashing in. Numbered as the player sees it: 3 = opens " +
+                 "on the Age III.")]
         [Min(0)]
         [SerializeField] private int pierUnlockAge = 3;
 

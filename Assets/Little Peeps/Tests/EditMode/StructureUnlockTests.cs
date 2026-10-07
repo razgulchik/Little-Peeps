@@ -36,8 +36,8 @@ namespace LittlePeeps.Tests
         [Test]
         public void APlainStructure_IsOpen()
         {
-            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.None));
-            Assert.That(paddy.LockState(0, null), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(RunContext.FirstAge, new RunContext()), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(RunContext.FirstAge, null), Is.EqualTo(StructureLock.None));
         }
 
         [Test]
@@ -45,19 +45,19 @@ namespace LittlePeeps.Tests
         {
             paddy.requiredAge = 2;
 
-            // currentAge counts transitions: 0 is the Age I, 1 the Age II — the number the lock text prints.
-            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.Age));
-            Assert.That(paddy.LockState(1, new RunContext()), Is.EqualTo(StructureLock.None));
+            // Both on the player's scale: 1 is the Age I, 2 the Age II — the number the lock text prints.
+            Assert.That(paddy.LockState(1, new RunContext()), Is.EqualTo(StructureLock.Age));
+            Assert.That(paddy.LockState(2, new RunContext()), Is.EqualTo(StructureLock.None));
         }
 
         [Test]
         public void TheAgeGate_OfZeroOrOne_IsOpenFromTheStart()
         {
             paddy.requiredAge = 1;
-            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(RunContext.FirstAge, new RunContext()), Is.EqualTo(StructureLock.None));
 
             paddy.requiredAge = 0;
-            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(RunContext.FirstAge, new RunContext()), Is.EqualTo(StructureLock.None));
         }
 
         [Test]
@@ -76,7 +76,7 @@ namespace LittlePeeps.Tests
             var run = new RunContext();
             run.unlockedStructures.Add(paddy);
 
-            Assert.That(paddy.LockState(0, run), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(RunContext.FirstAge, run), Is.EqualTo(StructureLock.None));
         }
 
         [Test]
@@ -86,7 +86,7 @@ namespace LittlePeeps.Tests
             paddy.requiredAge = 3;
 
             // "Open on the Age III" would be a promise the game does not keep: the age alone won't open it.
-            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.Perk));
+            Assert.That(paddy.LockState(RunContext.FirstAge, new RunContext()), Is.EqualTo(StructureLock.Perk));
         }
 
         [Test]
@@ -97,8 +97,8 @@ namespace LittlePeeps.Tests
             var run = new RunContext();
             run.unlockedStructures.Add(paddy);
 
-            Assert.That(paddy.LockState(1, run), Is.EqualTo(StructureLock.Age));
-            Assert.That(paddy.LockState(2, run), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(2, run), Is.EqualTo(StructureLock.Age));
+            Assert.That(paddy.LockState(3, run), Is.EqualTo(StructureLock.None));
         }
 
         // --- the perk --------------------------------------------------------------------------------
@@ -111,8 +111,8 @@ namespace LittlePeeps.Tests
 
             perk.ApplyPerk(run);
 
-            Assert.That(paddy.LockState(0, run), Is.EqualTo(StructureLock.None));
-            Assert.That(paddy.LockState(0, new RunContext()), Is.EqualTo(StructureLock.Perk),
+            Assert.That(paddy.LockState(RunContext.FirstAge, run), Is.EqualTo(StructureLock.None));
+            Assert.That(paddy.LockState(RunContext.FirstAge, new RunContext()), Is.EqualTo(StructureLock.Perk),
                         "a fresh run (prestige) starts shut again");
         }
 

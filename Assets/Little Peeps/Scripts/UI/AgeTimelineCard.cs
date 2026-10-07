@@ -1,11 +1,12 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace LittlePeeps
 {
     // One row of the age timeline: the age number and the bonus that age grants. The SAME prefab is
-    // both the highlighted "being bought now" card and a dimmed age still ahead — two prefabs would
+    // both the highlighted card of the age we are in and a dimmed age still ahead — two prefabs would
     // be two places to restyle and two ways for the column to stop looking like one column.
     //
     // Every state field below is optional. A sprite left empty keeps whatever the prefab authored, so
@@ -18,10 +19,15 @@ namespace LittlePeeps
         [SerializeField] private TMP_Text bonusLabel;
         [SerializeField] private Image background;
 
-        [Header("Next age — the one being bought now")]
-        [SerializeField] private Sprite nextBackground;
-        [SerializeField] private Color nextTint = Color.white;
-        [Range(0f, 1f)] [SerializeField] private float nextAlpha = 1f;
+        // Were the "next age" fields while the highlight sat on the age being bought; the renames keep
+        // the values already authored on the prefab.
+        [Header("Current age — the one we are in")]
+        [FormerlySerializedAs("nextBackground")]
+        [SerializeField] private Sprite currentBackground;
+        [FormerlySerializedAs("nextTint")]
+        [SerializeField] private Color currentTint = Color.white;
+        [FormerlySerializedAs("nextAlpha")]
+        [Range(0f, 1f)] [SerializeField] private float currentAlpha = 1f;
 
         [Header("Ages still ahead")]
         [SerializeField] private Sprite upcomingBackground;
@@ -33,19 +39,19 @@ namespace LittlePeeps
         // Instantiate runs this before the panel calls Bind, so the group is always resolved in time.
         private void Awake() => canvasGroup = GetComponent<CanvasGroup>();
 
-        public void Bind(int ageNumber, string bonus, bool isNext)
+        public void Bind(int ageNumber, string bonus, bool isCurrent)
         {
             if (ageLabel != null) ageLabel.text = $"AGE {RomanNumeral.From(ageNumber)}";
             if (bonusLabel != null) bonusLabel.text = bonus ?? string.Empty;
 
             if (background != null)
             {
-                Sprite sprite = isNext ? nextBackground : upcomingBackground;
+                Sprite sprite = isCurrent ? currentBackground : upcomingBackground;
                 if (sprite != null) background.sprite = sprite;
-                background.color = isNext ? nextTint : upcomingTint;
+                background.color = isCurrent ? currentTint : upcomingTint;
             }
 
-            if (canvasGroup != null) canvasGroup.alpha = isNext ? nextAlpha : upcomingAlpha;
+            if (canvasGroup != null) canvasGroup.alpha = isCurrent ? currentAlpha : upcomingAlpha;
         }
     }
 }

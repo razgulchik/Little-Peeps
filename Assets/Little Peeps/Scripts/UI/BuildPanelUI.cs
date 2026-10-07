@@ -43,7 +43,7 @@ namespace LittlePeeps
         private BuildCardUI selectedCard;
         private bool sellSelected;
         private bool isOpen;   // true while in build mode (panel visible) — gates the sell and tab hotkeys
-        private int currentAge;
+        private int currentAge = RunContext.FirstAge;
         private RunContext run;   // for the structures a perk opened and how many stand (StructureDef.LockState)
         private bool cardsDirty;  // a structure count changed — refresh in LateUpdate (OnStructureCountChanged)
 
@@ -284,7 +284,7 @@ namespace LittlePeeps
         private void OnRunStarted(RunStartedEvent e)
         {
             run = e.Run;
-            currentAge = e.Run != null ? e.Run.currentAge : 0;
+            currentAge = e.Run != null ? e.Run.currentAge : RunContext.FirstAge;
             RefreshCards();
         }
 

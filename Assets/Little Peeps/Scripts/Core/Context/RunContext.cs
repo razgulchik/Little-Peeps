@@ -21,7 +21,13 @@ namespace LittlePeeps
         public int CountOf(StructureDef def) =>
             !ReferenceEquals(def, null) && standing.TryGetValue(def, out int n) ? n : 0;
 
-        public int currentAge;
+        // The age NUMBER the player sees: a run starts in the Age I, and every transition bought adds one.
+        // Every age-gated field the designer types in (StructureDef.requiredAge, PerkDef.minAge,
+        // PrestigeSystem.pierUnlockAge) is on this same scale, so it is compared as it stands — no +1
+        // anywhere. Transitions bought so far = currentAge - FirstAge.
+        public const int FirstAge = 1;
+        public int currentAge = FirstAge;
+
         public List<PerkDef> perksChosen = new();
 
         // Structures a perk has opened this run (UnlockStructurePerkDef), read by StructureDef.LockState

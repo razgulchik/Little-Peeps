@@ -15,7 +15,7 @@ namespace LittlePeeps
 
     // The prestige payout as tuning data rather than as code. Two gross terms —
     //
-    //     age term     = pointsPerAge * currentAge
+    //     age term     = pointsPerAge * transitions bought (currentAge - RunContext.FirstAge)
     //     harvest term = floor(coefficient * pow(weighted harvest, exponent))
     //
     // — of which a run is paid only the part that BEATS the profile's record for that term (see
@@ -34,7 +34,7 @@ namespace LittlePeeps
     [Serializable]
     public class PrestigeFormula
     {
-        [Tooltip("Points per age transition. RunContext.currentAge counts transitions, starting at 0.")]
+        [Tooltip("Points per age transition bought: a run cashed in on the Age III is worth two of them.")]
         public int pointsPerAge = 1;
 
         [Tooltip("Per-type weight in the harvest sum. A type left out of this list uses defaultWeight, " +
@@ -80,7 +80,7 @@ namespace LittlePeeps
         // show the payout as "earned, minus already paid" rather than as one unexplained number.
         public int AgePoints(RunContext run)
         {
-            return run != null ? Mathf.Max(0, pointsPerAge * run.currentAge) : 0;
+            return run != null ? Mathf.Max(0, pointsPerAge * (run.currentAge - RunContext.FirstAge)) : 0;
         }
 
         // The GROSS harvest term. Same reasoning as AgePoints.

@@ -26,7 +26,7 @@ namespace LittlePeeps
         {
             EndRun();
 
-            CurrentRun = new RunContext { currentAge = 0 };
+            CurrentRun = new RunContext();   // starts in RunContext.FirstAge
 
             // Seed the run's starting state from the StartConfig. Everything below only holds a
             // reference to CurrentRun (stats/resources) and reads lazily, so populating it here —

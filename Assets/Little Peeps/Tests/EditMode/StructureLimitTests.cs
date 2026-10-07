@@ -50,7 +50,7 @@ namespace LittlePeeps.Tests
 
             Assert.IsFalse(house.HasLimit);
             Assert.IsFalse(house.AtLimit(run));
-            Assert.That(house.LockState(0, run), Is.EqualTo(StructureLock.None));
+            Assert.That(house.LockState(RunContext.FirstAge, run), Is.EqualTo(StructureLock.None));
         }
 
         [Test]
@@ -58,9 +58,9 @@ namespace LittlePeeps.Tests
         {
             house.maxCount = 2;
 
-            Assert.That(house.LockState(0, RunWith(house, 1)), Is.EqualTo(StructureLock.None));
-            Assert.That(house.LockState(0, RunWith(house, 2)), Is.EqualTo(StructureLock.Limit));
-            Assert.That(house.LockState(0, RunWith(house, 3)), Is.EqualTo(StructureLock.Limit), "over it too");
+            Assert.That(house.LockState(RunContext.FirstAge, RunWith(house, 1)), Is.EqualTo(StructureLock.None));
+            Assert.That(house.LockState(RunContext.FirstAge, RunWith(house, 2)), Is.EqualTo(StructureLock.Limit));
+            Assert.That(house.LockState(RunContext.FirstAge, RunWith(house, 3)), Is.EqualTo(StructureLock.Limit), "over it too");
         }
 
         [Test]
@@ -139,10 +139,10 @@ namespace LittlePeeps.Tests
             house.requiredAge = 2;
             var run = RunWith(house, 1);   // the starting house
 
-            Assert.That(house.LockState(0, run), Is.EqualTo(StructureLock.Age));
+            Assert.That(house.LockState(RunContext.FirstAge, run), Is.EqualTo(StructureLock.Age));
 
             house.lockedUntilPerk = true;
-            Assert.That(house.LockState(0, run), Is.EqualTo(StructureLock.Perk));
+            Assert.That(house.LockState(RunContext.FirstAge, run), Is.EqualTo(StructureLock.Perk));
         }
 
         // --- the card text ---------------------------------------------------------------------------

@@ -105,7 +105,7 @@ namespace LittlePeeps
 
             SetSelected(false);
             SetAffordable(true);
-            SetLocked(def.LockState(0, null));   // before any run: age 0, nothing opened by a perk yet
+            SetLocked(def.LockState(RunContext.FirstAge, null));   // before any run: nothing opened by a perk yet
             ResetInteractionVisuals();
         }
 

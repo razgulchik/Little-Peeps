@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
   m_Name: 072 New Boots lvl 2
   m_EditorClassIdentifier: 
-  id: new_boots_lvl2
+  id: new_boots_lvl_2
   title: New Boots lvl 2
   description: +0.5 SPEED
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}

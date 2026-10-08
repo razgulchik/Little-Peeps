@@ -16,6 +16,17 @@ namespace LittlePeeps
 
         public RunContext CurrentRun { get; private set; }
 
+        // Where the meta perks come from: every run starts with the levels bought with prestige points.
+        // Injected by GameBootstrap before the first run rather than wired in the scene, so it cannot be
+        // left unassigned — a forgotten field here would silently start every run without them. Null in
+        // tests and in a scene without bootstrap: the run then starts with none.
+        private PrestigeSystem metaUpgrades;
+
+        public void Initialize(PrestigeSystem prestigeSystem)
+        {
+            metaUpgrades = prestigeSystem;
+        }
+
         // Create a fresh RunContext and re-generate the island.
         // Also the prestige entry point: it tears the previous run down FIRST, so there is exactly one
         // way to start a run and it can never be the one that leaks. On the very first call (from
@@ -34,10 +45,15 @@ namespace LittlePeeps
             // run boots with an empty bonus layer, zero resources and a random-seed default island.
             if (startConfig != null)
             {
-                // Bonus layer: config baseline first; ages/perks (and later meta) add theirs in-run.
+                // Bonus layer: config baseline first; ages/perks add theirs in-run.
                 CurrentRun.stats.Add(startConfig.startingModifiers);
                 SeedStartingResources();
             }
+
+            // Then the meta perks bought with prestige — a run-start bonus like the config's, so it goes
+            // into the sheet here, before any system below can read it. Outside the config check: a
+            // missing config must not cost the player what they paid for.
+            if (metaUpgrades != null) metaUpgrades.ApplyUpgrades(CurrentRun);
 
             resourceSystem.Initialize(CurrentRun);
             structureSystem.Initialize(CurrentRun);
@@ -55,8 +71,8 @@ namespace LittlePeeps
         }
 
         // Debug: restart the run from the Inspector while playing (right-click the component header).
-        // The only trigger that exists until prestige is wired, and useful long after as a way to reach
-        // a fresh island without leaving play mode.
+        // A way to reach a fresh island without leaving play mode — and without a prestige, so no points
+        // move; the meta perks already bought still apply, since StartNewRun is the same path.
         //
         // Refused from build mode ON PURPOSE, matching the design rule that a run can be neither
         // prestiged nor saved while building. That rule is what makes ClearAll's sweep over

@@ -90,7 +90,7 @@ namespace LittlePeeps.Tests
         [Test]
         public void Points_AreZero_ForANullRun()
         {
-            // ExecutePrestige can be reached with no run in progress (a teardown mid-frame); worth 0,
+            // CashIn can be reached with no run in progress (a teardown mid-frame); worth 0,
             // not a NullReferenceException.
             Assert.That(Formula().Points(null, FreshProfile()), Is.EqualTo(0));
         }
@@ -170,7 +170,7 @@ namespace LittlePeeps.Tests
                         Is.EqualTo(3));
         }
 
-        // --- the gross terms, which ExecutePrestige uses to raise the records ---------------------
+        // --- the gross terms, which CashIn uses to raise the records ------------------------------
 
         [Test]
         public void GrossTerms_AreTheRunsOwnValue_IgnoringWhatWasAlreadyPaid()
@@ -178,7 +178,7 @@ namespace LittlePeeps.Tests
             var formula = Formula(exponent: 1f);
             var run = Run(transitions: 3, Listed, 100f);
 
-            // ExecutePrestige raises each record to these, so they must NOT be net of anything.
+            // CashIn raises each record to these, so they must NOT be net of anything.
             Assert.That(formula.AgePoints(run), Is.EqualTo(3));
             Assert.That(formula.HarvestPoints(run), Is.EqualTo(100));
         }

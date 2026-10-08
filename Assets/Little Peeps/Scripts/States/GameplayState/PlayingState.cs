@@ -13,11 +13,20 @@ namespace LittlePeeps
         // point of use. See GameplayContainerState for the bug this rule came from.
         private readonly RunManager runManager;
 
-        public PlayingState(StateMachine gameplayFsm, RunManager runManager, PrestigeSystem prestigeSystem)
+        // The prestige chain: "End this run?" → the meta screen → back here. Built here rather than in
+        // GameBootstrap because both steps return to THIS state, so neither can exist before it.
+        private readonly PrestigeMenuState prestigeMenu;
+
+        public PlayingState(StateMachine gameplayFsm, RunManager runManager, PrestigeSystem prestigeSystem,
+                            ConfirmDialog confirmDialog, MetaUpgradesUI metaScreen)
         {
             this.gameplayFsm = gameplayFsm;
             this.runManager = runManager;
             this.prestigeSystem = prestigeSystem;
+
+            var metaUpgrades = new MetaUpgradesState(gameplayFsm, prestigeSystem, runManager, metaScreen, this);
+            prestigeMenu = new PrestigeMenuState(gameplayFsm, prestigeSystem, runManager, confirmDialog, this,
+                                                 metaUpgrades);
         }
 
         // The prestige subscription lives HERE, and not on PrestigeSystem itself, because its lifetime IS
@@ -46,8 +55,8 @@ namespace LittlePeeps
             // it also owns the build-mode toggle that must not run at the same time.
         }
 
-        // The player clicked the pier. The run is read HERE rather than held: this state outlives every
-        // prestige, and the run being measured is the one that is about to be replaced.
+        // The player clicked the prestige button. The run is read HERE rather than held: this state
+        // outlives every prestige, and the run being measured is the one that is about to be replaced.
         private void OnPrestigeTriggered(PrestigeTriggeredEvent _)
         {
             if (prestigeSystem == null || runManager == null) return;
@@ -57,16 +66,15 @@ namespace LittlePeeps
 
             if (!prestigeSystem.CanPrestige(run))
             {
-                // Quiet by design: the pier is visible from the first age on purpose, as a goal to reach.
-                // B2 turns this into the confirmation screen saying so; a log is enough until then.
-                Debug.Log($"[Prestige] The pier opens at age {prestigeSystem.PierUnlockAge} — " +
+                // The button only shows once the run can prestige, so this is a publisher that skipped
+                // that gate. Quiet: the run simply goes on.
+                Debug.Log($"[Prestige] Opens at age {prestigeSystem.PierUnlockAge} — " +
                           $"this run is at {run.currentAge}.");
                 return;
             }
 
-            // B2 replaces this with gameplayFsm.ChangeState(new PrestigeMenuState(...)), which shows the
-            // projected points and calls ExecutePrestige itself on Confirm.
-            prestigeSystem.ExecutePrestige(run);
+            // Ask first. PrestigeMenuState shows what the run is worth and ends it only on Yes.
+            gameplayFsm.ChangeState(prestigeMenu);
         }
     }
 }

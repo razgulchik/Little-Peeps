@@ -13,9 +13,9 @@ namespace LittlePeeps
     //                the Canvas prefab. UIVisibility sits beside it and owns what is on screen per mode]
     //
     // The pier is NOT in this list: it is start content, like the house — IslandSystem places it per run
-    // from StartConfig.pier on the start's east coast, where it stays. What that def's PREFAB needs is a
-    // Collider2D (on the root or any child) plus the Pier marker component ON THE ROOT — TapSystem
-    // resolves a click with GetComponentInParent<Pier>(), walking up from whichever collider was hit.
+    // from StartConfig.pier on the start's east coast, where it stays. What that def's PREFAB needs is the
+    // Pier marker component (on the root or any child): the prestige button finds the run's pier by it
+    // and hangs over it on screen.
     //
     // Initialization (all in Awake — order-independent, see note on Awake below):
     //   1. Application.runInBackground
@@ -65,6 +65,10 @@ namespace LittlePeeps
             // 2. Wire run-independent systems (Meta only).
             prestigeSystem.Initialize(metaContext);
 
+            //    Every run starts with the meta perks bought so far, so RunManager learns where they come
+            //    from before it builds the first one.
+            runManager.Initialize(prestigeSystem);
+
             // 3. Start the first run: RunManager creates the RunContext, seeds resources
             //    (via ResourceSystem.Initialize) and asks IslandSystem to generate the island.
             runManager.StartNewRun();
@@ -83,10 +87,12 @@ namespace LittlePeeps
                 Debug.LogError("[GameBootstrap] no UIRoot assigned — the game boots with no UI at all. " +
                                "Assign the Canvas's UIRoot.", this);
             else
-                uiRoot.Initialize(ageSystem, resourceSystem, run);
+                uiRoot.Initialize(ageSystem, resourceSystem, prestigeSystem, run);
 
             PerkSelectionUI perkScreen = uiRoot != null ? uiRoot.PerkScreen : null;
             ZoneSelectionUI zoneScreen = uiRoot != null ? uiRoot.ZoneScreen : null;
+            ConfirmDialog confirmDialog = uiRoot != null ? uiRoot.ConfirmDialog : null;
+            MetaUpgradesUI metaScreen = uiRoot != null ? uiRoot.MetaScreen : null;
 
             // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
             //    Gameplay (when async loading lands, BootState.Tick will own this transition).
@@ -98,7 +104,7 @@ namespace LittlePeeps
             //    The states are handed runManager, NOT the RunContext: they are built once here and live
             //    through every prestige, so a captured context would be the finished run's.
             var gameplayFsm = new StateMachine();
-            var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem);
+            var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem, confirmDialog, metaScreen);
             var buildModeState = new BuildModeState(spawnSystem, placementController);
             var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkScreen, runManager, playingState);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState,

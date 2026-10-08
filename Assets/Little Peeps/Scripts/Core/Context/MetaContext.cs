@@ -19,7 +19,7 @@ namespace LittlePeeps
         // and the lifetime total equals the payout of the single best run so far. Pushing further is the
         // only way to earn.
         //
-        // Raised by PrestigeSystem.ExecutePrestige and by nothing else. Deliberately not "best age
+        // Raised by PrestigeSystem.CashIn and by nothing else. Deliberately not "best age
         // reached" / "most ever harvested": a run abandoned without prestiging was never cashed in, so
         // it must not burn a record the player has not been paid for.
         //
@@ -52,7 +52,50 @@ namespace LittlePeeps
         // Return level for a specific upgrade; 0 if never purchased
         public int GetUpgradeLevel(string id)
         {
-            return globalUpgrades != null && globalUpgrades.TryGetValue(id, out var level) ? level : 0;
+            return id != null && globalUpgrades != null && globalUpgrades.TryGetValue(id, out var level) ? level : 0;
+        }
+
+        // The spending side of prestigePoints. prestigePoints is everything ever banked and is never spent
+        // DOWN: a level holds one point, and the points not held by any level are what the meta screen
+        // offers. That is what makes re-spending free — lowering a level gives its point straight back,
+        // with nothing to refund and no second balance to keep in step.
+        public int PointsInvested
+        {
+            get
+            {
+                int sum = 0;
+                if (globalUpgrades != null)
+                    foreach (int level in globalUpgrades.Values) sum += Math.Max(0, level);
+                return sum;
+            }
+        }
+
+        public int FreePoints => Math.Max(0, prestigePoints - PointsInvested);
+
+        // Plain ids and limits rather than GlobalUpgradeDef, so the rules stay testable without a
+        // ScriptableObject. PrestigeSystem passes the def's id and maxLevel.
+        public bool CanRaise(string id, int maxLevel) =>
+            !string.IsNullOrEmpty(id) && FreePoints > 0 && GetUpgradeLevel(id) < maxLevel;
+
+        public bool CanLower(string id) => GetUpgradeLevel(id) > 0;
+
+        public bool TryRaise(string id, int maxLevel)
+        {
+            if (!CanRaise(id, maxLevel)) return false;
+
+            globalUpgrades ??= new Dictionary<string, int>();
+            globalUpgrades[id] = GetUpgradeLevel(id) + 1;
+            return true;
+        }
+
+        public bool TryLower(string id)
+        {
+            if (!CanLower(id)) return false;
+
+            int level = GetUpgradeLevel(id) - 1;
+            if (level > 0) globalUpgrades[id] = level;
+            else globalUpgrades.Remove(id);   // 0 is "never bought"; keep the book free of empty rows
+            return true;
         }
     }
 }

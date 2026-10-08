@@ -62,11 +62,15 @@ namespace LittlePeeps
                 Set(groups[i].group, (groups[i].visibleIn & mode) != 0);
         }
 
-        // The show/hide triple, in one place and private: after the table took the job over, no panel
-        // sets its own visibility any more, so there is nothing to expose it to. blocksRaycasts matters
-        // as much as alpha — an invisible panel that still swallows clicks leaves a dead rectangle over
-        // the island.
-        private static void Set(CanvasGroup group, bool visible)
+        // The show/hide triple, in one place. blocksRaycasts matters as much as alpha — an invisible panel
+        // that still swallows clicks leaves a dead rectangle over the island.
+        //
+        // Public for the few groups that are NOT a mode's business and so have no row in the table: a
+        // question waiting for an answer (ConfirmDialog) can come up over any mode, and the prestige button
+        // shows by whether the run can be cashed in. Each of those sets only its OWN group. A group that
+        // has a row here is set by this table and nobody else — two owners would overwrite each other,
+        // and the last writer would win without a word.
+        public static void Set(CanvasGroup group, bool visible)
         {
             if (group == null) return;
 

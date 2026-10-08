@@ -2,9 +2,10 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Handles game-object taps: boosts units in an AoE radius around the cursor, triggers prestige on Pier
-    // click. A ring (TapRadiusVisual) follows the cursor every frame so the player sees the boost area; it
-    // only shows during normal gameplay (timeScale != 0 — build mode/pause freeze time and hide it).
+    // Handles game-object taps: boosts units in an AoE radius around the cursor. A ring (TapRadiusVisual)
+    // follows the cursor every frame so the player sees the boost area; it only shows during normal
+    // gameplay (timeScale != 0 — build mode/pause freeze time and hide it). The pier is not clickable any
+    // more: prestige starts from PrestigeButton, a UI button hanging over it.
     public class TapSystem : MonoBehaviour
     {
         [SerializeField] private InputHandler inputHandler;
@@ -63,16 +64,8 @@ namespace LittlePeeps
         private void OnWorldClick(Vector2 worldPos)
         {
             // Build mode pauses the game (timeScale 0) and the PlacementController owns clicks then —
-            // don't boost units or trigger the pier while placing structures.
+            // don't boost units while placing structures.
             if (Time.timeScale == 0f) return;
-
-            // Pier: exact point check — click anywhere on its collider triggers prestige
-            var exactHit = Physics2D.OverlapPoint(worldPos);
-            if (exactHit != null && exactHit.GetComponentInParent<Pier>() != null)
-            {
-                EventBus<PrestigeTriggeredEvent>.Publish(new PrestigeTriggeredEvent());
-                return;
-            }
 
             // Units: AoE boost — every unit whose collider overlaps the tap radius gets boosted.
             // The collider lives on a child ("Physics"), so resolve the Unit via GetComponentInParent.

@@ -85,11 +85,13 @@ namespace LittlePeeps
     [System.Flags]
     public enum UIMode
     {
-        Playing       = 1 << 0,
-        Build         = 1 << 1,
-        ZonePick      = 1 << 2,
-        PerkPick      = 1 << 3,
-        AgeTransition = 1 << 4,
+        Playing         = 1 << 0,
+        Build           = 1 << 1,
+        ZonePick        = 1 << 2,
+        PerkPick        = 1 << 3,
+        AgeTransition   = 1 << 4,
+        PrestigeConfirm = 1 << 5,
+        MetaUpgrades    = 1 << 6,
     }
 
     // Published by a gameplay state when its screen goes up. Deliberately at the point the screen is
@@ -143,9 +145,10 @@ namespace LittlePeeps
         public object Owner;
     }
 
-    // Published by TapSystem when the player clicks the pier; handled by PlayingState. Deliberately by
-    // the STATE rather than by PrestigeSystem: the subscription then lasts exactly as long as normal
-    // play, so a run can never be ended from build mode or mid-age-transition.
+    // Published by PrestigeButton when the player clicks it; handled by PlayingState, which asks before
+    // anything ends (PrestigeMenuState). Deliberately by the STATE rather than by PrestigeSystem: the
+    // subscription then lasts exactly as long as normal play, so a run can never be ended from build mode
+    // or mid-age-transition.
     public struct PrestigeTriggeredEvent { }
 
     // Published by PerkSelectionUI when the player confirms a card; handled by PerkSelectionState, which

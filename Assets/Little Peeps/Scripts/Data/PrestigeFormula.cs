@@ -76,7 +76,7 @@ namespace LittlePeeps
         }
 
         // The GROSS age term — what the run's age is worth before the profile's record is subtracted.
-        // Public because ExecutePrestige needs it to raise that record, and the B2 screen needs it to
+        // Public because CashIn needs it to raise that record, and a payout breakdown would need it to
         // show the payout as "earned, minus already paid" rather than as one unexplained number.
         public int AgePoints(RunContext run)
         {

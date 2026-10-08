@@ -2,10 +2,15 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Marker component on the pier; click detection handled by TapSystem via Physics2D raycast.
-    // Requires a Collider2D on this GameObject so the raycast can find it.
-    // Units should not collide with it (place on a separate physics layer or use isTrigger).
+    // Marker for the pier: the prestige button finds the run's pier by this component (anywhere in the
+    // prefab) and hangs over it on screen. The pier itself is not clickable any more — the button is the
+    // one way into a prestige, and it only appears once the run can be cashed in.
     public class Pier : MonoBehaviour
     {
+        [Tooltip("Where the prestige button stands: an empty child placed at the spot, usually just above " +
+                 "the deck. Empty = the pier's own position.")]
+        [SerializeField] private Transform buttonAnchor;
+
+        public Vector3 ButtonPoint => (buttonAnchor != null ? buttonAnchor : transform).position;
     }
 }

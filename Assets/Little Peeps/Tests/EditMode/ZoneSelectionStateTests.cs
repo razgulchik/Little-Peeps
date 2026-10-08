@@ -35,7 +35,7 @@ namespace LittlePeeps.Tests
         public void WithNothingWired_ItHandsControlBackToPlaying()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null);
+            var playing = new PlayingState(fsm, null, null, null, null);
             var zoneSelection = Build(fsm, playing);
 
             fsm.ChangeState(zoneSelection);
@@ -51,7 +51,7 @@ namespace LittlePeeps.Tests
         public void ItNeverLeavesFromInsideEnter()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null);
+            var playing = new PlayingState(fsm, null, null, null, null);
 
             fsm.ChangeState(Build(fsm, playing));
 
@@ -66,7 +66,7 @@ namespace LittlePeeps.Tests
             Time.timeScale = 1f;
 
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null);
+            var playing = new PlayingState(fsm, null, null, null, null);
 
             fsm.ChangeState(Build(fsm, playing));
             Assert.That(Time.timeScale, Is.EqualTo(1f), "Enter froze the game on a path it cannot finish.");
@@ -81,7 +81,7 @@ namespace LittlePeeps.Tests
         public void LeavingAlwaysUnfreezesTheGame()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null);
+            var playing = new PlayingState(fsm, null, null, null, null);
             var zoneSelection = Build(fsm, playing);
 
             fsm.ChangeState(zoneSelection);
@@ -118,7 +118,7 @@ namespace LittlePeeps.Tests
         public void WithoutASequencer_ItMovesOnToThePerkPick()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null);
+            var playing = new PlayingState(fsm, null, null, null, null);
             var perkSelection = new PerkSelectionState(fsm, null, null, null, playing);
             var transition = new AgeTransitionState(fsm, null, perkSelection, 1, null, null);
 
@@ -133,7 +133,7 @@ namespace LittlePeeps.Tests
         public void LeavingAlwaysUnfreezesTheGame()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null);
+            var playing = new PlayingState(fsm, null, null, null, null);
             var transition = new AgeTransitionState(fsm, null, null, 1, null, null);
 
             fsm.ChangeState(transition);

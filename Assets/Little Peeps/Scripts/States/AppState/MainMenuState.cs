@@ -14,7 +14,8 @@ namespace LittlePeeps
 
         public void Enter()
         {
-            // TODO: show main menu UI; subscribe to Play button → ChangeState(GameplayContainerState) and Meta button → ChangeState(MetaUpgradesState)
+            // TODO: show main menu UI; subscribe to Play button → ChangeState(GameplayContainerState). The meta
+            // screen is not reached from here: it is a gameplay state after a prestige (MetaUpgradesState).
         }
 
         public void Exit()

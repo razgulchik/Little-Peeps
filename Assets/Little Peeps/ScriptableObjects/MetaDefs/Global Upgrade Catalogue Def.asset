@@ -13,5 +13,9 @@ MonoBehaviour:
   m_Name: Global Upgrade Catalogue Def
   m_EditorClassIdentifier: 
   upgrades:
+  - {fileID: 11400000, guid: 668a41f5b82717241842434837389fc6, type: 2}
   - {fileID: 11400000, guid: fb55294a2c8872243a687938a9b93332, type: 2}
   - {fileID: 11400000, guid: 6815fc14618e4794198c2d0628084ac6, type: 2}
+  - {fileID: 11400000, guid: ade681103720b0342931110c8fb57772, type: 2}
+  - {fileID: 11400000, guid: 3afb67577a553c44286644d66feb9ad1, type: 2}
+  - {fileID: 11400000, guid: e6e836f729b609b45a2d945b6caeeca0, type: 2}

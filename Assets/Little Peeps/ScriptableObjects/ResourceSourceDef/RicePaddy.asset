@@ -16,20 +16,20 @@ MonoBehaviour:
   resource: 0
   workerYields:
   - worker: 0
-    amount: 1
+    amount: 10
   - worker: 1
-    amount: 1
+    amount: 10
   - worker: 2
-    amount: 1
+    amount: 10
   - worker: 3
-    amount: 1
+    amount: 10
   - worker: 4
-    amount: 1
+    amount: 10
   - worker: 5
-    amount: 1
+    amount: 10
   pickupFx: {fileID: 4737561740087932183, guid: 17dd9b64cda166c4fba8ff8ea6076dbf, type: 3}
   pickupFxCount: 1
   depletion: 0
   hitsToDeplete: 1
-  regrowTime: 20
+  regrowTime: 10
   keepBodyWhileDepleted: 1

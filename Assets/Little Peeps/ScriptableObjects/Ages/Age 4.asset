@@ -15,11 +15,13 @@ MonoBehaviour:
   title: Age 4
   resourceCost:
   - resourceType: 0
-    amount: 50
+    amount: 45
   - resourceType: 1
-    amount: 50
+    amount: 40
   - resourceType: 3
-    amount: 30
+    amount: 10
+  - resourceType: 4
+    amount: 10
   modifiers:
   - id: 0
     unitScope: 0

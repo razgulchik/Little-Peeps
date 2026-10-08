@@ -21,10 +21,8 @@ MonoBehaviour:
   footprintMask:
     cells: 
   cost:
-  - resourceType: 0
-    amount: 10
-  - resourceType: 1
-    amount: 10
+  - resourceType: 2
+    amount: 15
   requiredAge: 1
   lockedUntilPerk: 0
   allowedTerrain: 0000000001000000
@@ -36,3 +34,7 @@ MonoBehaviour:
   isWater: 0
   needsWaterSide: 1
   border: 0
+  maxCount: 0
+  costStepFlat: 3
+  costStepPercent: 0
+  exponentialCostGrowth: 0

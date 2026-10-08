@@ -15,15 +15,13 @@ MonoBehaviour:
   title: Age 8
   resourceCost:
   - resourceType: 0
-    amount: 0
+    amount: 160
   - resourceType: 1
-    amount: 0
-  - resourceType: 2
-    amount: 0
+    amount: 130
   - resourceType: 3
-    amount: 0
+    amount: 50
   - resourceType: 4
-    amount: 0
+    amount: 120
   modifiers:
   - id: 0
     unitScope: 0

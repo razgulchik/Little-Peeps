@@ -19,8 +19,8 @@ MonoBehaviour:
   placement: 1
   size: {x: 1, y: 1}
   cost:
-  - resourceType: 0
-    amount: 0
+  - resourceType: 1
+    amount: 1
   requiredAge: 0
   allowedTerrain: 00000000
   sellRefundPercent: 0.5
@@ -28,3 +28,7 @@ MonoBehaviour:
   canMove: 1
   impassable: 0
   border: 0
+  maxCount: 0
+  costStepFlat: 0
+  costStepPercent: 0.05
+  exponentialCostGrowth: 0

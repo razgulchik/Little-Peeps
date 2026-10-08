@@ -23,5 +23,5 @@ MonoBehaviour:
   pickupFxCount: 1
   depletion: 0
   hitsToDeplete: 1
-  regrowTime: 50
+  regrowTime: 30
   keepBodyWhileDepleted: 0

@@ -22,7 +22,7 @@ MonoBehaviour:
     cells: 010101010100010000
   cost:
   - resourceType: 1
-    amount: 0
+    amount: 25
   requiredAge: 1
   lockedUntilPerk: 0
   allowedTerrain: 00000000
@@ -34,3 +34,7 @@ MonoBehaviour:
   isWater: 0
   needsWaterSide: 0
   border: 0
+  maxCount: 0
+  costStepFlat: 5
+  costStepPercent: 0
+  exponentialCostGrowth: 0

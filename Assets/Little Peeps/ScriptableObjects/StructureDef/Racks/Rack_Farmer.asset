@@ -20,7 +20,9 @@ MonoBehaviour:
   size: {x: 1, y: 1}
   footprintMask:
     cells: 
-  cost: []
+  cost:
+  - resourceType: 1
+    amount: 3
   requiredAge: 0
   allowedTerrain: 
   sellRefundPercent: 0.5
@@ -29,3 +31,7 @@ MonoBehaviour:
   passable: 1
   animalsAvoid: 0
   border: 0
+  maxCount: 0
+  costStepFlat: 1
+  costStepPercent: 0
+  exponentialCostGrowth: 0

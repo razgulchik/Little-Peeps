@@ -22,7 +22,7 @@ MonoBehaviour:
     cells: 
   cost:
   - resourceType: 0
-    amount: 0
+    amount: 4
   requiredAge: 0
   allowedTerrain: 00000000
   sellRefundPercent: 0.5
@@ -31,3 +31,7 @@ MonoBehaviour:
   passable: 1
   animalsAvoid: 0
   border: 0
+  maxCount: 0
+  costStepFlat: 1
+  costStepPercent: 0
+  exponentialCostGrowth: 0

@@ -9,22 +9,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d42896010a8f2fa4382c366b1d870752, type: 3}
-  m_Name: Age 1
+  m_Script: {fileID: 11500000, guid: 36abef9ac78d010459ed24a44131b9e9, type: 3}
+  m_Name: 020 Stamina Boost
   m_EditorClassIdentifier: 
-  title: Age 1
-  resourceCost:
-  - resourceType: 0
-    amount: 10
-  - resourceType: 1
-    amount: 10
+  id: stamina_boost
+  title: Stamina Boost
+  description: 
+  maxLevel: 2
   modifiers:
-  - id: 0
+  - id: 4
     unitScope: 0
     anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
     flat: 0
-    percent: 0
-  bonusOverride: 
+    percent: 0.5

@@ -13,7 +13,9 @@ namespace LittlePeeps
     // at the moment it applies. Both of those are properties of a MODE, which is what the FSM is for.
     //
     // The state is entered by AgeTransitionState on success — and deliberately not on its abort path,
-    // where no age happened and so no perk is owed.
+    // where no age happened and so no perk is owed. Its second way in is the start of a run, when meta
+    // perks owe the run picks (RunContext.perkPicksOwed → GameplayContainerState): the same roll at the
+    // run's age, over the fresh island, as many times in a row as are owed.
     public class PerkSelectionState : IState
     {
         private readonly StateMachine gameplayFsm;
@@ -56,9 +58,11 @@ namespace LittlePeeps
             var offer = perkSystem.RollPerks(run.currentAge, run);
 
             // An empty roll means nothing is eligible — every perk taken, or none unlocked at this age.
-            // Skip the step rather than show a screen with no cards on it.
+            // Skip the step rather than show a screen with no cards on it. Picks still owed go with it: the
+            // roll would only come up empty again.
             if (offer == null || offer.Count == 0)
             {
+                run.perkPicksOwed = 0;
                 leaveImmediately = true;
                 return;
             }
@@ -70,6 +74,7 @@ namespace LittlePeeps
             {
                 Debug.LogError("PerkSelectionState has no PerkSelectionUI — skipping the perk pick. " +
                                "Assign it on GameBootstrap.");
+                run.perkPicksOwed = 0;
                 leaveImmediately = true;
                 return;
             }
@@ -116,7 +121,28 @@ namespace LittlePeeps
             }
 
             perkSystem.ApplyPerk(e.Perk, run);
+            if (ShowNextOwedPick(run)) return;
             gameplayFsm.ChangeState(playingState);
+        }
+
+        // The start of a run can owe several picks (RunContext.perkPicksOwed): they follow one another on
+        // the screen that is already up, without dropping back to play in between. Each is a fresh roll, so
+        // the perk just taken is already out of the pool. False when nothing is owed, or when the roll comes
+        // up empty — then the rest is dropped, as Enter does.
+        private bool ShowNextOwedPick(RunContext run)
+        {
+            if (run.perkPicksOwed <= 0) return false;
+            run.perkPicksOwed--;
+
+            var offer = perkSystem.RollPerks(run.currentAge, run);
+            if (offer == null || offer.Count == 0)
+            {
+                run.perkPicksOwed = 0;
+                return false;
+            }
+
+            ui.Show(offer);
+            return true;
         }
     }
 }

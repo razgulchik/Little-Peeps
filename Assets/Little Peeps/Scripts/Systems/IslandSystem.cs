@@ -150,6 +150,44 @@ namespace LittlePeeps
                       $"island now {Generator.Land.Count} cells.", this);
         }
 
+        // Grow the island by one zone of `biome` with nobody choosing: proposed, populated and committed in
+        // one go, shown at once (no rise). For the ages a run skips at its start (RunManager.SkipStartAges) —
+        // the same shape search and content an age's offer gets, minus the other biomes and the screen.
+        // False when nothing grew: no biome, a broken one, or no shape found — each reported here.
+        public bool GrowZone(BiomeDef biome)
+        {
+            if (Generator == null) return false;
+            if (biome == null)
+            {
+                Debug.LogWarning("IslandSystem: no biome given for a skipped age — the island does not grow.", this);
+                return false;
+            }
+
+            // A biome outside the Biomes list was never validated at run start; check it here, the same way.
+            if (!biomes.Contains(biome))
+            {
+                try { biome.profile.Validate(); }
+                catch (System.ArgumentException e)
+                {
+                    Debug.LogError($"IslandSystem: biome '{biome.name}' cannot grow a skipped age — {e.Message}", biome);
+                    return false;
+                }
+            }
+            else if (Usable(biome) == null) return false;   // already reported by ValidateBiomes
+
+            var proposals = ZoneOffers.Build(Generator, new List<IslandBiome> { biome.profile });
+            if (proposals.Count == 0)
+            {
+                Debug.LogError($"IslandSystem: no zone of '{biome.name}' fits for a skipped age (seed " +
+                               $"{Generator.Seed}, {Generator.Land.Count} cells) — island unchanged.", this);
+                return false;
+            }
+
+            var (_, candidate, content) = proposals[0];
+            CommitZone(new ZoneOffer(biome, candidate, content));
+            return true;
+        }
+
         // Published here, once, on any frame the island was painted: a rising zone lands dozens of tiles in
         // a couple of seconds, and every IslandRepaintedEvent has WaterSystem copy the whole coast again.
         private void LateUpdate()

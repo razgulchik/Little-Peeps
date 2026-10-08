@@ -21,8 +21,16 @@ namespace LittlePeeps
         public void Execute()
         {
             resourceSystem.Spend(ageDef.resourceCost);
-            runContext.currentAge++;
-            runContext.stats.Add(ageDef.modifiers);   // production/yield/speed/... — all data-driven
+            EnterAge(runContext, ageDef);
+        }
+
+        // What entering an age IS, without the price: the counter and the age's modifiers. Shared with the
+        // ages a run skips at its start (StartAgeUpgradeDef → RunManager), so a skipped age and a bought one
+        // can never grant different things.
+        public static void EnterAge(RunContext run, AgeDef def)
+        {
+            run.currentAge++;
+            run.stats.Add(def.modifiers);   // production/yield/speed/... — all data-driven
         }
     }
 }

@@ -61,11 +61,24 @@ namespace LittlePeeps
 
         private void Start() => RefreshBounds();
 
-        private void OnEnable()  => EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
-        private void OnDisable() => EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
+        private void OnEnable()
+        {
+            EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
+            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+        }
+
+        private void OnDisable()
+        {
+            EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
+            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+        }
 
         // The island grows on a new age → its bounds change, so re-cache them.
         private void OnAgeStarted(AgeStartedEvent _) => RefreshBounds();
+
+        // A new run stands on a new island — already grown by any ages a meta perk skipped — so the clamp
+        // must not keep the finished run's bounds. The first run is covered by Start.
+        private void OnRunStarted(RunStartedEvent _) => RefreshBounds();
 
         // Cache the island's world AABB; the camera center is clamped to it (+ margin). Called on Start
         // and whenever the island grows. Safe to call before the grid exists (clamp simply stays off).

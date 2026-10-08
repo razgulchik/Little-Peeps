@@ -80,7 +80,28 @@ namespace LittlePeeps
                 }
             }
 
+            TryOpenStartPerkPick();
             innerFsm.Tick();
+        }
+
+        // Meta perks can owe the run perk picks at its start (StartPerkPickUpgradeDef, StartAgeUpgradeDef).
+        // Opened HERE, from normal play, rather than wherever a run is started: runs start in three places —
+        // the first run in GameBootstrap, Play on the meta screen, the debug Restart Run — and this one check
+        // covers all of them, and any added later. Normal play only, by the rule build mode and age advance
+        // already follow: the pick freezes the game and must not cut into another mode.
+        private void TryOpenStartPerkPick()
+        {
+            if (inBuildMode || innerFsm.Current != playingState) return;
+
+            // Read the run HERE, not in the constructor — see the runManager field.
+            var run = runManager != null ? runManager.CurrentRun : null;
+            if (run == null || run.perkPicksOwed <= 0) return;
+
+            // One pick taken off BEFORE entering, as the one this entry shows; PerkSelectionState shows the
+            // rest in the same sitting, and clears them if it cannot — so a pick that skips itself (nothing
+            // to offer, no screen) lands back in playing with nothing left to reopen every frame.
+            run.perkPicksOwed--;
+            innerFsm.ChangeState(perkSelectionState);
         }
 
         private void OnToggleRequested(BuildModeToggleRequestedEvent _)

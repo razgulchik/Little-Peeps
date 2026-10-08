@@ -5,8 +5,8 @@ namespace LittlePeeps
     // A meta perk: bought with prestige points on the screen after a prestige, in levels, and in effect from
     // the start of every run after that. The prestige counterpart of PerkDef, with the same split: this base
     // holds what every meta perk has, and each KIND of effect is its own subclass — StatUpgradeDef for
-    // everything a stat modifier can say, which is most of them. A kind that is not a number (start with
-    // resources, a building open from the start) arrives as its own subclass, one file, touching nothing.
+    // everything a stat modifier can say, which is most of them. A kind that is not a number arrives as its
+    // own subclass, one file: StartResourcesUpgradeDef, StartPerkPickUpgradeDef, StartAgeUpgradeDef.
     //
     // One prestige point buys one level, and a level repeats the effect once more: the asset describes a
     // single STEP, like the levels of a perk chain (PerkDef.requires).

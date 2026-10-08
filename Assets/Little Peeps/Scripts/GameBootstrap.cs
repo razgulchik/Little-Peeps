@@ -66,8 +66,8 @@ namespace LittlePeeps
             prestigeSystem.Initialize(metaContext);
 
             //    Every run starts with the meta perks bought so far, so RunManager learns where they come
-            //    from before it builds the first one.
-            runManager.Initialize(prestigeSystem);
+            //    from before it builds the first one — and the age list, for the ages a perk skips.
+            runManager.Initialize(prestigeSystem, ageSystem);
 
             // 3. Start the first run: RunManager creates the RunContext, seeds resources
             //    (via ResourceSystem.Initialize) and asks IslandSystem to generate the island.

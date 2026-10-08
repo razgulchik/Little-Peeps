@@ -18,3 +18,4 @@ MonoBehaviour:
   profession: {fileID: 11400000, guid: 975d5ed362995a347b266105b7521b9a, type: 2}
   stamina: 10
   tiredSpeedMultiplier: 0.85
+  tapSound: {fileID: 11400000, guid: aed27eb254024d29b727e882c901fb01, type: 2}

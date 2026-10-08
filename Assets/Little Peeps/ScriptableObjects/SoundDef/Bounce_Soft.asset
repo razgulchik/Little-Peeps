@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47453c7ca1ec2544393021afc1f1bb58, type: 3}
+  m_Name: Bounce_Soft
+  m_EditorClassIdentifier: 
+  clips:
+  - {fileID: 8300000, guid: e6309730f7359b44f8c81be8a99ea595, type: 3}
+  - {fileID: 8300000, guid: be956dcb8d5b58748a427aac9d82b21e, type: 3}
+  - {fileID: 8300000, guid: 17aff0dd3619f7142b26d9a22a4356a3, type: 3}
+  - {fileID: 8300000, guid: a14ac55282879814cbd07cac3262b29a, type: 3}
+  - {fileID: 8300000, guid: 42e71a5bbc01fc44cbcbc2da7b877af6, type: 3}
+  volume: 0.3
+  volumeJitter: 0.1
+  pitch: 1.2
+  pitchJitter: 0.08
+  maxVoices: 3
+  minInterval: 0.05
+  followsCrowd: 1
+  output: {fileID: 0}

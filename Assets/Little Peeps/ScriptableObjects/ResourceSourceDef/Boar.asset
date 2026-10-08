@@ -21,6 +21,8 @@ MonoBehaviour:
     amount: 5
   pickupFx: {fileID: 4737561740087932183, guid: 17dd9b64cda166c4fba8ff8ea6076dbf, type: 3}
   pickupFxCount: 1
+  hitSound: {fileID: 11400000, guid: d8ac0391e8ea3eb4d87dc84ad591dec9, type: 2}
+  depleteSound: {fileID: 0}
   depletion: 1
   hitsToDeplete: 3
   regrowTime: 0

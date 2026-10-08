@@ -15,8 +15,9 @@ namespace LittlePeeps
     // It answers taps, because the player sits through it dozens of times a run: the first plays the rest
     // of the rise faster, the second jumps to its finale, and one on the banner closes it — though not in
     // the banner's first moments (bannerTapGrace), or the last tap of a quick double tap would take it away
-    // unread. Taps come from InputHandler, which reports clicks whatever the time scale; TapSystem, which
-    // ignores them at timeScale 0, never sees them as boosts or a pier click.
+    // unread. Taps come from InputHandler.OnAnyClick, which reports clicks whatever the time scale and
+    // wherever they land — over UI too, since the banner IS UI; TapSystem, which ignores its world clicks
+    // at timeScale 0, never sees them as boosts.
     //
     // Pure choreography, deliberately: every step here takes a KNOWN amount of time. The perk pick used
     // to hang off the end of this chain as an empty hook, and was moved out to PerkSelectionState — a
@@ -75,7 +76,7 @@ namespace LittlePeeps
         private IEnumerator AgeTransitionSequence(int newAge, AgeDef def, ZoneOffer zone, Action onComplete)
         {
             taps = 0;
-            if (inputHandler != null) inputHandler.OnWorldClick += OnTap;
+            if (inputHandler != null) inputHandler.OnAnyClick += OnTap;
             try
             {
                 yield return GrowIsland(zone);
@@ -83,12 +84,12 @@ namespace LittlePeeps
             }
             finally
             {
-                if (inputHandler != null) inputHandler.OnWorldClick -= OnTap;
+                if (inputHandler != null) inputHandler.OnAnyClick -= OnTap;
             }
             onComplete?.Invoke();
         }
 
-        private void OnTap(Vector2 _) => taps++;
+        private void OnTap() => taps++;
 
         // The zone is committed at once — from here on the game knows the island has grown — and then comes
         // up out of the sea. Without a rise player it simply appears.

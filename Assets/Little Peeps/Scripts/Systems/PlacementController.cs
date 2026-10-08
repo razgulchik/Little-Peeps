@@ -1,6 +1,5 @@
 using System;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace LittlePeeps
@@ -11,8 +10,8 @@ namespace LittlePeeps
     //  - nothing selected         → MoveTool (the default)
     // Right-click cancels: a tool with an action in progress consumes it (a Move drag returns to its
     // origin), otherwise the selection is cleared back to Move and ToolCleared tells the panel to drop
-    // its highlight. Active only between Begin()/End(), called by BuildModeState. Clicks over UI are
-    // ignored so panel buttons don't act on the world.
+    // its highlight. Active only between Begin()/End(), called by BuildModeState. Clicks over UI never
+    // get here — InputHandler keeps them out of OnWorldClick — so panel buttons don't act on the world.
     //
     // Everything that decides WHAT happens lives in the tools, and everything DRAWN lives in
     // PlacementVisuals — this class only owns the inspector-wired references, the active tool, and the
@@ -42,13 +41,13 @@ namespace LittlePeeps
         private void OnEnable()
         {
             inputHandler.OnWorldClick += OnWorldClick;
-            inputHandler.OnWorldRightClick += OnWorldRightClick;
+            inputHandler.OnRightClick += OnRightClick;
         }
 
         private void OnDisable()
         {
             inputHandler.OnWorldClick -= OnWorldClick;
-            inputHandler.OnWorldRightClick -= OnWorldRightClick;
+            inputHandler.OnRightClick -= OnRightClick;
         }
 
         // Called by BuildModeState.Enter. Show the overlay; the panel drives which structure is selected.
@@ -117,15 +116,13 @@ namespace LittlePeeps
         private void OnWorldClick(Vector2 worldPos)
         {
             if (!active) return;
-            // Ignore clicks over UI (panel cards / sell / build button) so they don't act on the world.
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-
             tool.Click(worldPos);
         }
 
         // Right-click = cancel the current action, like any strategy game. The tool gets first refusal:
         // if it had something in progress it consumes the click, otherwise the selection is cleared.
-        private void OnWorldRightClick(Vector2 worldPos)
+        // Over the panel too: cancel means the same wherever the cursor is.
+        private void OnRightClick(Vector2 worldPos)
         {
             if (!active) return;
 

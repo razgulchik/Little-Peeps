@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LittlePeeps
@@ -8,8 +9,11 @@ namespace LittlePeeps
     // more: prestige starts from PrestigeButton, a UI button hanging over it. A click on UI never gets here
     // (InputHandler keeps it out of OnWorldClick), so a button pressed over the island boosts no one.
     //
-    // Every live tap clicks (tapClip), whether it reaches anyone or not: the player hears that the tap
-    // landed even on empty ground. The AudioSource is made here, so the clip is the only thing to wire.
+    // Every live tap answers, through the SoundSystem. A tap that boosts anyone is answered by the boosted
+    // units themselves (UnitDef.tapSound): the nearest first, then each next one rippleStep later — a ripple
+    // spreading from the finger — and only voicesPerTap of them, so a crowd stays a little chord instead of
+    // a bang. A tap that reaches nobody plays the soft missSound, so the player hears it landed even on
+    // empty ground. The tap's sounds are not bounces: they claim no unit's hit.
     public class TapSystem : MonoBehaviour
     {
         [SerializeField] private InputHandler inputHandler;
@@ -28,23 +32,26 @@ namespace LittlePeeps
         [SerializeField] private bool refreshStamina = false;
 
         [Header("Sound")]
-        [Tooltip("Played on every tap in live gameplay. Empty = taps are silent.")]
-        [SerializeField] private AudioClip tapClip;
-        [SerializeField, Range(0f, 1f)] private float tapVolume = 0.6f;
+        [Tooltip("Empty = taps are silent.")]
+        [SerializeField] private SoundSystem soundSystem;
 
-        [Tooltip("Random pitch spread per tap, ± this much (0.05 = ±5%), so a run of taps doesn't sound " +
-                 "like one click repeated. 0 = always the same.")]
-        [SerializeField, Range(0f, 0.5f)] private float tapPitchJitter = 0.05f;
+        [Tooltip("A tap that reaches no unit. Empty = such a tap is silent.")]
+        [SerializeField] private SoundDef missSound;
+
+        [Tooltip("How many of the boosted units answer a tap: the nearest ones. The rest are boosted in silence.")]
+        [SerializeField, Min(1)] private int voicesPerTap = 3;
+
+        [Tooltip("Seconds between one answering unit's voice and the next: the ripple. 0 = all at once.")]
+        [SerializeField, Min(0f)] private float rippleStep = 0.05f;
+
+        private struct Tapped
+        {
+            public Unit unit;
+            public float distance;   // from the tap point — the ripple's order
+        }
 
         private RunContext runContext;
-        private AudioSource tapVoice;
-
-        private void Awake()
-        {
-            tapVoice = gameObject.AddComponent<AudioSource>();
-            tapVoice.playOnAwake = false;
-            tapVoice.spatialBlend = 0f;   // heard the same wherever the camera is
-        }
+        private readonly List<Tapped> tapped = new();   // reused per tap: the units it boosted, each once
 
         public void Initialize(RunContext context)
         {
@@ -88,28 +95,48 @@ namespace LittlePeeps
             // don't boost units while placing structures.
             if (Time.timeScale == 0f) return;
 
-            PlayTapSound();
-
-            // Units: AoE boost — every unit whose collider overlaps the tap radius gets boosted.
-            // The collider lives on a child ("Physics"), so resolve the Unit via GetComponentInParent.
+            // Units: AoE boost — every unit whose collider overlaps the tap radius gets boosted, once
+            // however many of its colliders overlap. The collider lives on a child ("Physics"), so resolve
+            // the Unit via GetComponentInParent.
             var (speedMult, radius, duration, refresh) = GetBoostParams();
             var hits = Physics2D.OverlapCircleAll(worldPos, radius);
+            tapped.Clear();
             foreach (var hit in hits)
             {
                 var unit = hit.GetComponentInParent<Unit>();
-                if (unit == null) continue;
+                if (unit == null || WasTapped(unit)) continue;
                 unit.Boost(speedMult, duration, refresh);
+                tapped.Add(new Tapped { unit = unit, distance = Vector2.Distance(worldPos, unit.transform.position) });
             }
+
+            PlayTapSounds();
         }
 
-        // PlayOneShot, so a quick run of taps overlaps instead of each cutting the last one off. Pitch
-        // belongs to the source, so a new tap bends the tail of the one before it too — a click is too
-        // short for that to be heard.
-        private void PlayTapSound()
+        private bool WasTapped(Unit unit)
         {
-            if (tapClip == null) return;
-            tapVoice.pitch = 1f + Random.Range(-tapPitchJitter, tapPitchJitter);
-            tapVoice.PlayOneShot(tapClip, tapVolume);
+            for (int i = 0; i < tapped.Count; i++)
+                if (tapped[i].unit == unit) return true;
+            return false;
+        }
+
+        // The tap's answer (see the class comment): the boosted units' voices nearest first, one
+        // rippleStep apart, or the miss sound when nobody was reached.
+        private void PlayTapSounds()
+        {
+            if (soundSystem == null) return;
+            if (tapped.Count == 0)
+            {
+                soundSystem.Play(missSound);
+                return;
+            }
+
+            tapped.Sort(static (a, b) => a.distance.CompareTo(b.distance));
+            int voices = Mathf.Min(voicesPerTap, tapped.Count);
+            for (int i = 0; i < voices; i++)
+            {
+                var def = tapped[i].unit.def;
+                if (def != null) soundSystem.Play(def.tapSound, i * rippleStep);
+            }
         }
 
         private (float speedMult, float radius, float duration, bool refresh) GetBoostParams()

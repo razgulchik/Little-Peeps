@@ -137,7 +137,11 @@ namespace LittlePeeps
 
         private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
         private RunStats stats;        // injected on spawn; applies the UnitSpeed modifier to def.speed
-        private SpawnSystem spawns;    // injected on spawn; the houses the autopilot looks for
+        private SpawnSystem spawns;    // injected on spawn; the houses the autopilot looks for, and the sound system
+
+        // Where this unit's sounds go: the scene wires the sound system once, on SpawnSystem. Null for a
+        // unit nobody spawned (scene-placed) — it is then silent.
+        private SoundSystem Sounds => spawns != null ? spawns.Sounds : null;
 
         // Decaying launch boost, ticked in FixedUpdate (physics-based acceleration).
         private float launchBoostTimer;
@@ -190,6 +194,14 @@ namespace LittlePeeps
 
         // Injected by SpawnSystem on spawn: where the autopilot finds the houses.
         public void SetSpawns(SpawnSystem spawnSystem) => spawns = spawnSystem;
+
+        // A sound this unit's action makes — an axe in a tree, a door. It stands for the unit's hit this
+        // frame, so the plain bounce of the same contact stays silent (SoundSystem.PlayHit). Null = nothing.
+        public void MakeSound(SoundDef sound)
+        {
+            var sounds = Sounds;
+            if (sounds != null) sounds.PlayHit(sound, this);
+        }
 
         // Base movement speed with the UnitSpeed modifier applied — keyed on the PROFESSION, so a
         // "lumberjacks walk faster" perk reaches a villager the moment it picks up an axe (Equip
@@ -449,6 +461,11 @@ namespace LittlePeeps
             if (speed < 0.0001f) return;   // wedged — FixedUpdate's kick handles it
 
             Vector2 dir = velocity / speed;
+
+            // Offered, not played: the sound system drops it if this contact turns out to have done
+            // something with a sound of its own — an axe in a tree, a door (SoundSystem.Bounce).
+            var sounds = Sounds;
+            if (sounds != null) sounds.Bounce(this, collision.collider);
 
             if (IsOnAutopilot && TryAutopilot(collision, dir, out Vector2 home))
             {

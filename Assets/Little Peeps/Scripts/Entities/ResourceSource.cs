@@ -117,9 +117,12 @@ namespace LittlePeeps
             // is the yield modifier's source scope, not just where the ResourceType came from.
             resourceSystem.AddHarvest(def, unit.Type, amount, FxOrigin);
             Paid?.Invoke();
+            unit.MakeSound(def.hitSound);
 
             if (def.depletion == Depletion.Never) return;
             if (--hitsLeft > 0) return;
+
+            unit.MakeSound(def.depleteSound);
 
             // Despawn: gone for good. The feedback above was already sent with the position, so it
             // outlives the node; the den hears about the loss from Animal.OnDestroy.

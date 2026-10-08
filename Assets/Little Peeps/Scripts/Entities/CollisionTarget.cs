@@ -17,6 +17,14 @@ namespace LittlePeeps
     // child brings its own Rigidbody2D and so keeps its trigger events to itself — see there.
     public class CollisionTarget : MonoBehaviour
     {
+        [Header("Sound")]
+        [Tooltip("What a unit bouncing off this sounds like: wood, stone, something soft. Empty = the " +
+                 "SoundSystem's default bounce. A hit that pays or takes the unit in plays its own sound " +
+                 "instead (SoundSystem.PlayHit).")]
+        [SerializeField] private SoundDef bounceSound;
+
+        public SoundDef BounceSound => bounceSound;
+
         private Collider2D[] colliders;
         private ICollisionEffect[] effects;
         private IHitGate[] gates;

@@ -18,7 +18,7 @@ MonoBehaviour:
   - worker: 0
     amount: 1
   - worker: 2
-    amount: 5
+    amount: 2
   pickupFx: {fileID: 4371847270752138857, guid: a285e262118a29846bc987227ea4bb18, type: 3}
   pickupFxCount: 1
   hitSound: {fileID: 11400000, guid: a4b7641a490df6a488ea05885f820347, type: 2}

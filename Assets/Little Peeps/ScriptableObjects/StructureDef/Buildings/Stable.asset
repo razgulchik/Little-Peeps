@@ -23,7 +23,7 @@ MonoBehaviour:
   cost:
   - resourceType: 0
     amount: 20
-  requiredAge: 2
+  requiredAge: 5
   lockedUntilPerk: 0
   allowedTerrain: 00000000
   sellRefundPercent: 0.5

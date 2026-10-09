@@ -23,7 +23,7 @@ MonoBehaviour:
   cost:
   - resourceType: 0
     amount: 4
-  requiredAge: 0
+  requiredAge: 1
   allowedTerrain: 00000000
   sellRefundPercent: 0.5
   canSell: 1

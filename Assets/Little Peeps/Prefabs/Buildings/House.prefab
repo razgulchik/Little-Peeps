@@ -240,6 +240,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58ec610a4c2e2bb4085258c454557616, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
 --- !u!114 &7576926083405738824
 MonoBehaviour:
@@ -261,6 +262,8 @@ MonoBehaviour:
   launchBoostDuration: 4
   launchGap: 0.1
   launchJitterDegrees: 0
+  enterSound: {fileID: 11400000, guid: c885379085a44904c8e399f4a36b6413, type: 2}
+  exitSound: {fileID: 11400000, guid: d5ba4c53436f6964d9b204026b1ef48e, type: 2}
 --- !u!1 &3660868618199599061
 GameObject:
   m_ObjectHideFlags: 0

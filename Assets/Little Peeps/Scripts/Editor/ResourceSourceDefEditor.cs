@@ -3,7 +3,8 @@ using UnityEditor;
 namespace LittlePeeps.EditorTools
 {
     // Inspector for ResourceSourceDef: the default drawing, minus the depletion fields the chosen mode
-    // never reads — Never hides all three, Despawn keeps only the hit count, Regrow shows everything.
+    // never reads — Never hides all four (the deplete sound too), Despawn keeps the hit count and the
+    // deplete sound, Regrow shows everything.
     // A hidden value is kept, not cleared, so switching the mode back finds it as it was.
     [CustomEditor(typeof(ResourceSourceDef))]
     [CanEditMultipleObjects]
@@ -40,7 +41,7 @@ namespace LittlePeeps.EditorTools
         // Whether a source in `mode` ever reads this field. Everything outside the depletion block is.
         private static bool IsRead(string field, Depletion mode)
         {
-            if (field == "hitsToDeplete") return mode != Depletion.Never;
+            if (field == "hitsToDeplete" || field == "depleteSound") return mode != Depletion.Never;
             if (field == "regrowTime" || field == "keepBodyWhileDepleted") return mode == Depletion.Regrow;
             return true;
         }

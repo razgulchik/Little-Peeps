@@ -307,15 +307,15 @@ MonoBehaviour:
   popCount: 5
   finaleFx: {fileID: 0}
   finaleCountPerCell: 1
-  breachClip: {fileID: 8300000, guid: cf08451be1b890e46b8d57b95df1b930, type: 3}
-  breachVolume: 0.111
+  breachClip: {fileID: 8300000, guid: 8fc8c8a00a2b4bcfa66da03407f2063f, type: 3}
+  breachVolume: 0.2
   basePitch: 0.5
   noteSteps: 10
   minNoteGap: 0.03
-  popClip: {fileID: 0}
-  popVolume: 0.5
-  finaleClip: {fileID: 0}
-  finaleVolume: 0.8
+  popClip: {fileID: 8300000, guid: fe5b6351efdb469cb1cd8b3a15a02a44, type: 3}
+  popVolume: 0.12
+  finaleClip: {fileID: 8300000, guid: 7a97033d6ed9417785c5d52b2fcb5461, type: 3}
+  finaleVolume: 0.3
   shakePerBreach: 0.0625
   shakeCap: 0.2
   shakeDuration: 0.2

@@ -35,6 +35,12 @@ namespace LittlePeeps
         [SerializeField] private float launchGap = 0.1f; // clearance between the structure collider edge and the unit collider edge at launch
         [SerializeField] private float launchJitterDegrees = 12f; // random spread applied to the chosen cell direction so launches don't all run on exact lines
 
+        [Header("Sound")]
+        [Tooltip("A unit goes in to rest. Empty = silent.")]
+        [SerializeField] private SoundDef enterSound;
+        [Tooltip("A unit leaves. Empty = silent.")]
+        [SerializeField] private SoundDef exitSound;
+
         private enum SlotState { Free, Occupied }
 
         // One slot = one independent place. Reference type so we mutate it in place inside foreach.
@@ -262,6 +268,7 @@ namespace LittlePeeps
             {
                 if (slot.state != SlotState.Free) continue;
                 OccupySlot(slot, unit);
+                unit.MakeSound(enterSound);
                 return true;
             }
             return false;
@@ -300,6 +307,7 @@ namespace LittlePeeps
 
             unit.transform.position = SpawnPosition(dir, unit);
             unit.Launch(dir, launchSpeedMultiplier, launchBoostDuration);
+            unit.MakeSound(exitSound);
 
             slot.unit = null;
             slot.state = SlotState.Free;

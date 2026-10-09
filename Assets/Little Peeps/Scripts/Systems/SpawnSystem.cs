@@ -18,6 +18,10 @@ namespace LittlePeeps
         [SerializeField] private UnitSystem unitSystem;
         [SerializeField] private IslandSystem islandSystem;   // injected into spawned units; kept for future island-aware behavior
 
+        [Tooltip("The one place the scene wires the sound system: units, houses and resources all reach it " +
+                 "through here. Empty = the island is silent.")]
+        [SerializeField] private SoundSystem soundSystem;
+
         [Header("Stuck units")]
         [Tooltip("How often the live units are swept for ones that report themselves stuck (Unit.IsStuck) " +
                  "and taken into the nearest house with a free slot. A unit that finds none stays where it " +
@@ -37,6 +41,10 @@ namespace LittlePeeps
         // and NEVER cached: Initialize rebinds this on every new run, and a cached copy would leave a
         // spawner applying the finished run's bonuses.
         public RunStats Stats => stats;
+
+        // Read by the units this system spawns: their bounces, and every sound their actions make
+        // (Unit.MakeSound) — a house's door, a tree's chop.
+        public SoundSystem Sounds => soundSystem;
 
         // True between build-mode enter (DespawnAllAndResetSpawners) and exit (WarmupAllSpawners).
         // Spawners read it so a structure PLACED during build mode registers itself but DEFERS
@@ -69,6 +77,8 @@ namespace LittlePeeps
         {
             if (islandSystem == null)
                 Debug.LogWarning("SpawnSystem has no IslandSystem — spawned units won't receive an island reference. Wire the Island System field.", this);
+            if (soundSystem == null)
+                Debug.LogWarning("SpawnSystem has no SoundSystem — bounces, harvests and doors will be silent. Wire the Sound System field.", this);
         }
 
         private void Update()

@@ -46,6 +46,15 @@ namespace LittlePeeps
         [Tooltip("Particles emitted per harvest hit.")]
         [Min(1)] public int pickupFxCount = 1;
 
+        [Header("Sound")]
+        [Tooltip("Played on every paying hit: the axe in the tree. It stands for the hit — the unit's plain " +
+                 "bounce off this source stays silent. Empty = a paying hit just knocks like a bounce.")]
+        public SoundDef hitSound;
+
+        [Tooltip("Played on the hit that uses the source up, over the hit sound: the tree falls. Regrow and " +
+                 "Despawn only. Empty = nothing extra.")]
+        public SoundDef depleteSound;
+
         [Header("Depletion / respawn")]
         [Tooltip("What happens once the source is used up. Regrow: it stays and comes back after " +
                  "Regrow Time (tree, field, a shorn alpaca). Despawn: it is removed and its den brings " +

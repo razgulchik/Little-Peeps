@@ -10,18 +10,26 @@ namespace LittlePeeps
     // smooth motion lives in Cinemachine, not here). This controller lives on its OWN GameObject and reaches
     // into the rig through references, so each rig object keeps a single responsibility.
     //
-    // Self-contained input: polls keyboard/mouse directly (no InputHandler dependency, since panning needs
+    // Self-contained input: polls keyboard/mouse directly (no InputHandler reference, since panning needs
     // only a screen delta, not world coords) and runs on UNSCALED time so panning/zoom still work while build
     // mode has frozen the game (Time.timeScale = 0). Movement sources:
     //   - WASD / arrow keys       → velocity pan
     //   - cursor at a screen edge  → pan toward that edge
     //   - middle-mouse drag        → grab-and-drag the world under the cursor
     //   - mouse wheel              → zoom (to screen center) by changing the vcam's ortho size
+    // The two that point AT something under the cursor — the wheel and the start of a drag — leave it alone
+    // while the cursor is over UI (InputHandler.IsPointerOverUI, the same rule the clicks follow): the
+    // wheel over a window scrolls the window, not the world behind it. Keys and edge-pan aim at nothing
+    // and stay as they are.
     // The target is clamped to the island's world bounds (from IslandSystem) expanded by a configurable
     // margin, so the player can't pan off into empty space; the vcam follows the clamped target so the
     // camera stays in range too. (A Cinemachine Confiner2D is a later iteration.) While zones are on
     // offer the clamp is widened to take them in (SetExtraBounds) and the camera can be sent to look at
     // one (FocusOn) — the pan itself stays the player's.
+    //
+    // Every run starts from the same view (ResetView): the island in the middle of the screen at the zoom
+    // the vcam is authored with, as a cut. A new run is a new island, and it should look like a fresh
+    // start — not inherit wherever the last run left the camera, or the wheel turned behind a window.
     //
     // Place on a dedicated CameraController GameObject (NOT on the CameraTarget and NOT on the Camera) and wire:
     //   - cameraTarget  → the CameraTarget transform this drives (pan)
@@ -44,6 +52,8 @@ namespace LittlePeeps
         [SerializeField] private float edgeThickness = 12f;   // px from the screen border that triggers edge-pan
 
         [Header("Zoom")]
+        [Tooltip("Ortho-size change per wheel notch. The zoom every run STARTS at is not here: it is the " +
+                 "vcam's Lens > Orthographic Size.")]
         [SerializeField] private float zoomSpeed = 2f;        // ortho-size units per mouse-wheel notch
         [SerializeField] private float minZoom = 3f;          // most zoomed-in ortho half-height
         [SerializeField] private float maxZoom = 12f;         // most zoomed-out ortho half-height
@@ -58,8 +68,15 @@ namespace LittlePeeps
         private Bounds extraBounds;   // added to the clamp while set: the zone offers, which are not island yet
         private bool hasExtraBounds;
         private bool pointerActive;   // latched true on the first real mouse movement (see EdgeDir)
+        private float startZoom;      // the vcam's ortho size as authored: every run starts at it
 
-        private void Start() => RefreshBounds();
+        // The authored zoom is caught before anything — the wheel included — can change it.
+        private void Awake()
+        {
+            if (vcam != null) startZoom = vcam.Lens.OrthographicSize;
+        }
+
+        private void Start() => ResetView();
 
         private void OnEnable()
         {
@@ -77,8 +94,19 @@ namespace LittlePeeps
         private void OnAgeStarted(AgeStartedEvent _) => RefreshBounds();
 
         // A new run stands on a new island — already grown by any ages a meta perk skipped — so the clamp
-        // must not keep the finished run's bounds. The first run is covered by Start.
-        private void OnRunStarted(RunStartedEvent _) => RefreshBounds();
+        // must not keep the finished run's bounds, and the view starts over. The first run is covered by Start.
+        private void OnRunStarted(RunStartedEvent _) => ResetView();
+
+        // The view a run starts from: the whole island centred on screen at the authored zoom. A cut, not
+        // a glide — PreviousStateIsValid = false makes the vcam skip its damping for one update.
+        private void ResetView()
+        {
+            RefreshBounds();
+            if (vcam != null) vcam.Lens.OrthographicSize = startZoom;
+            if (cameraTarget != null && hasBounds)
+                ApplyPosition(new Vector3(islandBounds.center.x, islandBounds.center.y, cameraTarget.position.z));
+            if (vcam != null) vcam.PreviousStateIsValid = false;
+        }
 
         // Cache the island's world AABB; the camera center is clamped to it (+ margin). Called on Start
         // and whenever the island grows. Safe to call before the grid exists (clamp simply stays off).
@@ -166,6 +194,7 @@ namespace LittlePeeps
 
             float scroll = mouse.scroll.ReadValue().y;
             if (Mathf.Approximately(scroll, 0f)) return;
+            if (InputHandler.IsPointerOverUI()) return;   // the wheel belongs to the window under the cursor
 
             // scroll > 0 (wheel up) → zoom in → smaller ortho size.
             float size = vcam.Lens.OrthographicSize - Mathf.Sign(scroll) * zoomSpeed;
@@ -179,10 +208,14 @@ namespace LittlePeeps
             var mouse = Mouse.current;
             if (mouse == null || viewCamera == null) return false;
 
+            // A drag can only START on the world; once it has hold, it may pass over UI without letting go.
             if (mouse.middleButton.wasPressedThisFrame)
             {
-                dragging = true;
-                lastDragScreenPos = mouse.position.ReadValue();
+                if (!InputHandler.IsPointerOverUI())
+                {
+                    dragging = true;
+                    lastDragScreenPos = mouse.position.ReadValue();
+                }
             }
             else if (!mouse.middleButton.isPressed)
             {

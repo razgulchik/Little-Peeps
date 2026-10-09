@@ -30,5 +30,9 @@ namespace LittlePeeps
         // moving and bouncing until a house takes it in, and must stay visibly distinct from one that
         // has stopped — that is why the range starts well above 0.
         [Range(0.1f, 1f)] public float tiredSpeedMultiplier = 0.5f;
+
+        // What a unit of this kind says when a tap reaches it: a tap that boosts anyone is answered by
+        // the voices of the units it boosted, nearest first (TapSystem). Empty = a boosted unit is silent.
+        public SoundDef tapSound;
     }
 }

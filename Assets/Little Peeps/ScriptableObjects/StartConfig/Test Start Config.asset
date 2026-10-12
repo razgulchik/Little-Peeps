@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e9493be5fc683e448c91e5c5552f192, type: 3}
+  m_Name: Test Start Config
+  m_EditorClassIdentifier: 
+  islandSeed: 0
+  islandRules:
+    startArea: 36
+    sectionArea: 48
+    minWidth: 3
+    minBay: 4
+    depthRatio: 0.75
+    attempts: 2000
+    targetAspect: {x: 16, y: 9}
+    aspectStrength: 3
+  startBiome: {fileID: 11400000, guid: 02e80794d88abbeb5f609fb04ce4fa27, type: 2}
+  house: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
+  pier: {fileID: 11400000, guid: bba560cbe974ff841a3d97f30603d8ac, type: 2}
+  startingResources:
+  - resourceType: 0
+    amount: 1000
+  - resourceType: 1
+    amount: 1000
+  - resourceType: 2
+    amount: 1000
+  - resourceType: 3
+    amount: 1000
+  - resourceType: 4
+    amount: 1000
+  startingModifiers: []

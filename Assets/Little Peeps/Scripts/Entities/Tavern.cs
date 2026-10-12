@@ -70,6 +70,12 @@ namespace LittlePeeps
         [FormerlySerializedAs("sendTiredHome")]
         [SerializeField] private bool autopilot;
 
+        [Header("Sound")]
+        [Tooltip("A worker comes in and pays for its drink. Empty = silent.")]
+        [SerializeField] private SoundDef enterSound;
+        [Tooltip("A worker leaves, drunk. Empty = silent.")]
+        [SerializeField] private SoundDef exitSound;
+
         // One seat taken: who, and how long until it is let out. A struct in a list — the list is the
         // only state, its count is the occupancy.
         private struct Guest
@@ -120,6 +126,7 @@ namespace LittlePeeps
             guests.Add(new Guest { unit = unit, timeLeft = stayDuration });
             unit.EnterHold(this);
             Pay(unit, price);
+            unit.MakeSound(enterSound);
             return true;
         }
 
@@ -169,6 +176,7 @@ namespace LittlePeeps
 
             unit.transform.position = StructureExits.ExitPoint(grid, instance.Cell, footprint, dir, unit.Radius + releaseGap);
             unit.Resume(dir);
+            unit.MakeSound(exitSound);
 
             if (autopilot && unit.IsTired)
             {

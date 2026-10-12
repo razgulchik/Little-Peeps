@@ -34,5 +34,9 @@ namespace LittlePeeps
         // What a unit of this kind says when a tap reaches it: a tap that boosts anyone is answered by
         // the voices of the units it boosted, nearest first (TapSystem). Empty = a boosted unit is silent.
         public SoundDef tapSound;
+
+        // What a unit of this kind mutters the moment it runs out of stamina, out on the field. Empty = it
+        // tires in silence.
+        public SoundDef tiredSound;
     }
 }

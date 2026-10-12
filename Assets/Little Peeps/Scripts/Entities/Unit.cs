@@ -535,10 +535,13 @@ namespace LittlePeeps
         // The one working → tired transition — from the clock today, and from any future stamina spend
         // (a building charging per paying hit) tomorrow. Nothing to do with the velocity here: the next
         // FixedUpdate reads the new TargetSpeed and eases or snaps to it. Direction is kept — the unit
-        // sags, it doesn't turn.
+        // sags, it doesn't turn. The grumble is a sound of its own, not a hit's: it claims no bounce.
         private void OnBecameTired()
         {
             stamina = 0f;
+
+            var sounds = Sounds;
+            if (sounds != null && def != null) sounds.Play(def.tiredSound);
         }
     }
 }

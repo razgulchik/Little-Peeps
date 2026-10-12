@@ -19,3 +19,4 @@ MonoBehaviour:
   stamina: 10
   tiredSpeedMultiplier: 0.85
   tapSound: {fileID: 11400000, guid: aed27eb254024d29b727e882c901fb01, type: 2}
+  tiredSound: {fileID: 11400000, guid: e2701ecb857e498ab506ed2ef8561932, type: 2}

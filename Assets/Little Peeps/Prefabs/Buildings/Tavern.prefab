@@ -304,6 +304,8 @@ MonoBehaviour:
   releaseGap: 0.1
   releaseJitterDegrees: 12
   autopilot: 1
+  enterSound: {fileID: 11400000, guid: 7fb97fd2e6a4482db78fc02ce9ca86e1, type: 2}
+  exitSound: {fileID: 11400000, guid: a577be8e35a041749d0365a60ec8ec70, type: 2}
 --- !u!1 &3660868618199599061
 GameObject:
   m_ObjectHideFlags: 0

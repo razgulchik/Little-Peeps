@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47453c7ca1ec2544393021afc1f1bb58, type: 3}
+  m_Name: Tavern_Cheers
+  m_EditorClassIdentifier: 
+  clips:
+  - {fileID: 8300000, guid: 44b94f3836fe490bb0e1f348c5963fc9, type: 3}
+  - {fileID: 8300000, guid: ab18a945640e4809b2e272b14eb2b11c, type: 3}
+  - {fileID: 8300000, guid: 63e352bda8724929a4900e77f4e05a61, type: 3}
+  volume: 0.2
+  volumeJitter: 0.1
+  pitch: 1
+  pitchJitter: 0.06
+  maxVoices: 2
+  stealOldest: 0
+  minInterval: 0.15
+  followsCrowd: 0
+  output: {fileID: 0}

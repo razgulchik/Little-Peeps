@@ -3432,7 +3432,7 @@ MonoBehaviour:
   islandSystem: {fileID: 738684714}
   structureSystem: {fileID: 42342360}
   spawnSystem: {fileID: 711440996}
-  startConfig: {fileID: 11400000, guid: f3c66f8d0ee42a442936f2bd654325d2, type: 2}
+  startConfig: {fileID: 11400000, guid: 627ada24423ec1e4ca22ff04184af04a, type: 2}
 --- !u!1 &1088972179
 GameObject:
   m_ObjectHideFlags: 0

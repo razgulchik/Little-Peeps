@@ -41,6 +41,9 @@ TagManager:
   - name: Water
     uniqueID: 1618019337
     locked: 0
+  - name: Island
+    uniqueID: 3633236413
+    locked: 0
   - name: Ground
     uniqueID: 1301804283
     locked: 0

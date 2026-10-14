@@ -371,6 +371,26 @@ Root                → Rigidbody2D (Static) + Structure + ResourceSource + Reso
 какая включится, решает чётность ряда, чтобы соседние леса вставали «кирпичиком». Каждое дерево внутри —
 вложенный префаб `BaseTree` со своими `ResourceSource` + `ResourceSourceView`.
 
+**Река** (`Prefabs/Nodes/River`) — одна клетка русла, ставит только генератор (у дефа `isWater` вкл,
+`canSell` / `canMove` выкл). Кусок и поворот выбирает код по соседним клеткам реки:
+```
+Root          → Rigidbody2D (Static) + Structure + RiverVisual
+├── Visual    (Y 0.5 — центр клетки: модель крутится вокруг своей позиции)
+│   └── Model → SpriteRenderer (Sorting Layer Default — над всеми тайлмапами земли, под всем, что стоит)
+│               + SpriteShadow с выключенным Cast Shadow
+└── Physics   → BoxCollider2D 1×1, Offset Y 0.5 (не триггер — юниты отскакивают)
+```
+| Поле `RiverVisual` | Что назначить |
+|---|---|
+| model | `Visual/Model` (его SpriteRenderer) |
+| end | `river_tile_end` — конец, нарисован **открытым на запад** (скругление смотрит на восток) |
+| straight | `river_tile_main` — середина, нарисована **запад–восток** |
+| corner | `river_tile_corner` — угол, нарисован **соединяющим восток и юг** |
+- Спрайты — 16×16, PPU 16, **пивот по центру**: поворот на 90° ложится пиксель в пиксель. Новый арт рисовать
+  в тех же ориентациях — иначе повороты перепутаются.
+- Спрайт в самом `Model` — любой из трёх, в игре его заменит `RiverVisual`.
+- Тень на реке не нужна: тень — ребёнок модели и крутилась бы вместе с куском.
+
 ### Звери (Boar, Fox, Alpaka — подвижные ресурсные ноды)
 Зверь — **не юнит и не Structure**: у него нет дефа постройки, клетки на гриде и здоровья.
 ```
@@ -503,7 +523,7 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
 | **StartConfig** | LittlePeeps/StartConfig | islandSeed (0 = случайный), islandRules (правила генерации), startBiome, house, pier, startingResources, startingModifiers. Один на игру — в `RunManager.startConfig` |
-| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, canMove, passable / animalsAvoid, isWater, needsWaterSide (мельница), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую) |
+| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, canMove, passable / animalsAvoid, isWater (река: по нему клетки реки стыкуются, а мельница ищет берег), needsWaterSide (мельница), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую) |
 | **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), **depletion** (Never / Despawn / Regrow), hitsToDeplete, regrowTime, keepBodyWhileDepleted, **pickupFx** (префаб FX_Pickup_*; пусто = только цифра) + **pickupFxCount**. `pickupFx` — единственный визуал в дефе, и намеренно: он отвечает на вопрос «что именно добыли», а на него нельзя ответить типом ресурса. Один тип дефа для статичных нод и зверей |
 | **UnitDef** | LittlePeeps/UnitDef | id, prefab (→ BaseUnit), speed, profession (с какой профессией рождается — `Unassigned`, настоящую даёт стойка) |
 | **ProfessionDef** | LittlePeeps/ProfessionDef | type (UnitType), frames[] — кадры ходьбы этой профессии |

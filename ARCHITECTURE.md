@@ -118,18 +118,19 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
   (`Never`) + ForgeHeat + `ForgeHeatView` · Tree/Wheat/Rock/Bush = Structure + ResourceSource
   (`Regrow`) + `ResourceSourceView` · Tool rack = Structure + ToolRack · Stable/Den = Structure +
   AnimalSpawner · Watermill = Structure + ResourceSource (`Never`) + Mill + WaterSideVisual · Rice
-  paddy = Structure + ResourceSource (`Regrow`, 1 hit) + RicePaddy + `RicePaddyView` · Mountain/River
-  = a bare Structure (a wall the generator places; `canSell`/`canMove` off; the river's def is
-  `isWater`).
+  paddy = Structure + ResourceSource (`Regrow`, 1 hit) + RicePaddy + `RicePaddyView` · Mountain =
+  a bare Structure (a wall the generator places; `canSell`/`canMove` off) · River = the same, one
+  cell each, + `RiverVisual` (its def is `isWater`).
 - Who may take a building's resource, and how much, is ALWAYS its `ResourceSourceDef.workerYields` —
   a node, the tavern, the mill and the paddy alike. "Anyone can" means the def lists every
   profession; no component skips the list, and an unlisted worker gets a plain bounce.
 - Looks are components too, and never gameplay: `SpriteShadow` (a drop shadow made from the sprite
   at Start, so the build-mode ghost — every behaviour disabled — never gets one), `WaterReflection`
   (the silhouette in the water), `DualVisual` (one of two roots: a fence by orientation, a forest by
-  grid-row parity — the caller decides), `WaterSideVisual` (one of three roots: a watermill by the
-  side its river runs along), `TiredView`, `ProfessionView`, `ResourceSourceView`, `ForgeHeatView`,
-  `RicePaddyView`.
+  grid-row parity — the caller decides), `WaterSideVisual` (one of three roots, plus the south one
+  mirrored: a watermill by the side its river runs along), `RiverVisual` (one of three pieces, turned
+  to join the river cells beside it), `TiredView`, `ProfessionView`, `ResourceSourceView`,
+  `ForgeHeatView`, `RicePaddyView`.
 
 **One payer, add-ons around it, a view per kind.** Everything a hit pays for pays through its
 `ResourceSource`: the def (who, how much, the pickup effect), the credit through `AddHarvest`, the
@@ -323,14 +324,31 @@ The look a structure takes from WHERE it stands is `StructureSystem.ApplyPlaceme
 origin, footprint)`: a forest's `DualVisual` by row parity, a watermill's `WaterSideVisual` by the side
 its river runs along (a root per side, each fully authored in the prefab — the wheel hangs over a
 different neighbour each time; no side → the south root, so a red ghost is always the plain front
-view). It runs wherever a structure lands or is shown landing — `Build`, the move drop, the build ghost
-and the carried structure — so the preview is exactly what lands. It is decided only then:
-surroundings that change later (a river a new zone brings next to an old building) do not re-dress a
-standing one. Extending: another "look by place" is one component + one line in
-`ApplyPlacementVisual`. A building tied to ANOTHER neighbour (a mine by the mountains) keeps the
-geometry, the one placement check and the visual hook, but needs the water-only parts made general:
-the neighbour flag (`isWater`), the requirement (`needsWaterSide`) and the side order (fixed to the
-mill's art).
+view; where the river stops or turns under the south wheel and runs on past the other end, the south
+art shows mirrored — `WaterSides.FlipSouth`), a river cell's `RiverVisual` by the river beside it
+(below). It runs wherever a structure lands or is shown landing — `Build`, the move drop, the build
+ghost and the carried structure — so the preview is exactly what lands. Water is the one neighbour
+that re-dresses what already stands: when an `isWater` structure lands or leaves (build, remove,
+pick-up, drop), `StructureSystem.RefreshBesideWater` runs `ApplyPlacementVisual` again on everything
+beside it — so a river laid cell by cell comes out joined whatever the order, and a watermill beside a
+river cell that comes or goes re-picks its art. Nothing else re-dresses a standing structure.
+Extending: another "look by place" is one component + one line in `ApplyPlacementVisual`. A building
+tied to ANOTHER neighbour (a mine by the mountains) keeps the geometry, the one placement check and the
+visual hook, but needs the water-only parts made general: the neighbour flag (`isWater`), the
+requirement (`needsWaterSide`) and the side order (fixed to the mill's art).
+
+**The river is drawn from three pieces.** A river is a chain of 1×1 `isWater` structures that the
+generator lays one cell wide, never touching itself or another zone's river, both ends inland — so
+every river cell has one river neighbour (an end) or two (opposite: a straight run; at a right angle: a
+bend). `RiverShapes.Pick` turns the four neighbours into a piece and a number of counter-clockwise
+quarter turns from the way the art draws it: the end open to the WEST, the straight run WEST–EAST, the
+corner joining EAST and SOUTH. A cell the generator never makes (no river neighbour, a junction) shows
+a straight run. `RiverVisual` sets the sprite and turns only the model, about the cell's centre — the
+collider stays put; the river has no drop shadow, which would turn with the piece. As in `WaterSides`,
+"what is river" is a predicate (`RiverShapes.Of`), so the tests run it on the generator's own paths:
+every cell of every generated river opens exactly towards the cells before and after it. The
+island-rise window places its pictures without the placement path, so its rivers stay the prefab's
+straight piece.
 
 Units are villagers: a unit leaves a house as its `UnitDef` was born (the Unassigned villager) and
 works as whatever profession it picks up (Farmer / Lumberjack / Hunter / Miner / Blacksmith — see
@@ -815,7 +833,8 @@ Mode tools that run the game's own code: `HarvestFeedbackWindow` (a reaped node 
 `SceneGridGizmo` is a runtime-assembly component whose drawing compiles out of a build.
 
 Tests cover the risk points, one file each: `RunStats`, `IslandGrid` (+ a grid smoke test),
-`EventBus`, `StateMachine`, structure exits, water sides, footprints, the stuck watch, the unit's
+`EventBus`, `StateMachine`, structure exits, water sides, river pieces (every generated river drawn
+joined), footprints, the stuck watch, the unit's
 bounce rule, run teardown, harvest ledger, prestige formula + payout, the prestige question and the
 meta screen (their refusal paths), the confirm dialog, meta perk spending and levels, perk roll, perk state + card,
 the modifier card text, placement target, house capacity, the island's shape rules (with a seed
@@ -856,7 +875,7 @@ belongs in a PlayMode assembly (none yet).
 | `SharedEmitter` | static | The one-shared-ParticleSystem-per-effect rule (World space, looping, no self-emission; `pausedPlay` also demands Use Unscaled Time): `Create` validates loudly and refuses, `EmitAt` moves + emits. Used by `HarvestVfxSystem` and the rise |
 | `WaterSystem` | MB | The sea: Modern 2D Water spawned from a prefab at run time (never a scene object — the package's edit-mode code would churn the scene); the coast copied into the water's obstruction layer after every `IslandRepaintedEvent`; the south foam sized in art pixels and pulsing on real time; side foam along the east and west edges; coast copies that bend with the land during a rise. `HasWater` for the rise |
 | `UnscaledShaderTimeFeature` | URP renderer feature | Shader time from unscaled time — always, since switching at a pause would jump every wave's phase — for every camera on the 2D renderer, so the sea keeps moving through build mode and the picks |
-| `StructureSystem` | MB | Place / Sell / Remove / PickUp / Drop for BOTH cell and edge structures; `PlaceStructure` validates + spends, `PlaceInitial` is the free path for generated content (zone content, the starting house) and the pier — still validated, it warns and skips a blocked cell; `ClearAll` sweeps the run's registries on `EndRun`. Returns the created instance (the island keeps a zone's content by it). `ApplyPlacementVisual` = the look a structure takes from where it lands (a forest's row, a watermill's river side), shared with the build ghost and the carried structure |
+| `StructureSystem` | MB | Place / Sell / Remove / PickUp / Drop for BOTH cell and edge structures; `PlaceStructure` validates + spends, `PlaceInitial` is the free path for generated content (zone content, the starting house) and the pier — still validated, it warns and skips a blocked cell; `ClearAll` sweeps the run's registries on `EndRun`. Returns the created instance (the island keeps a zone's content by it). `ApplyPlacementVisual` = the look a structure takes from where it lands (a forest's row, a watermill's river side, a river cell's piece), shared with the build ghost and the carried structure; water landing or leaving re-dresses everything beside it (`RefreshBesideWater`) |
 | `PlacementController` | MB | Build-mode input router, active between `Begin()` / `End()` (called by `BuildModeState`): the panel selection chooses the tool — card → `PlaceTool`, sell button → `SellTool`, nothing → `MoveTool` (default). Right-click cancels the tool's action or clears the selection (`ToolCleared` → panel) — over the panel too. Clicks over UI never reach it: `InputHandler` keeps them out of `OnWorldClick`. Owns the inspector-authored `PlacementVisuals` |
 | `IPlacementTool` / `PlaceTool` / `MoveTool` / `SellTool` | Plain C# | One tool active at a time. Contract: `Exit` leaves NOTHING behind (no ghost, no tint, no half-finished drag). `PlaceTool` is one instance per `StructureDef` (ghost, cell or edge); `MoveTool` is the only tool with state between clicks and the only one that holds a structure off the grid; `SellTool` refunds `sellRefundPercent`. Sell and Move ask the target's `CanSell` / `CanMove` |
 | `PlacementTarget` | struct | THE answer to "what is under the cursor" — fence on an edge, structure on a cell, or nothing — and whether its def may be sold or moved; shared by Sell, Move pick-up and the hover highlight, so the fence-wins rule exists once |
@@ -896,7 +915,8 @@ belongs in a PlayMode assembly (none yet).
 | `Unit` | MB | Bouncing villager: stamina clock (`UnitDef.stamina` × `UnitStamina`, ticks whenever on the field) → `IsTired`; Drunk (`MakeDrunk`, timed) → `IsDrunk`; `TargetSpeed` (`UnitSpeed` × tired factor × drunk factor) held every step; profession for the outing (`Equip` / `Unequip`, `Type`); `Launch` (house — refills), `Resume` (out of a hold — refills nothing), `Boost(mult, duration, refreshStamina)` (tap), `EnterRest` (house: stamina 0, sober, tool back), `EnterHold` / `LeaveHold` (tavern), `OnBecameTired` (the one transition); the bounce rule (`minBounceAngle` bend + `bounceJitterDegrees` turn, `BendAwayFromNormal`), or the autopilot's turn to a house (`EnterAutopilot`, `autopilotRadius`, `autopilotMaxTurnDegrees`); `StuckWatch` → `IsStuck`; wedged kick; injected with the island, `RunStats` and `SpawnSystem` on spawn |
 | `StuckWatch` | struct | Fixed windows: a window the unit never left a disc of `radius` = stuck; the verdict clears once it gets out. No dependency beyond `Vector2` — tested offline |
 | `StructureExits` | static | Where a unit or an animal may leave a structure on the grid (`CollectAllowedDirections`, `IsOpenExit`, `TryPickDirection` + jitter) and where it is put (`ExitPoint`: the ray from the box centre out of the footprint, plus a clearance). Parameterised by grid + origin + footprint + border, not components — tested on a bare `IslandGrid` |
-| `WaterSides` | static | Which side of a footprint runs along water: a WHOLE side (its outline, not its box), first of South → West → East, never North; water = a cell whose structure's def is `isWater` (the sea never counts). `Find(grid, …)` for the island, `Find(origin, footprint, isWater)` over any predicate — the geometry tested offline. Behind `IslandGrid.CanPlace(origin, def)` for `needsWaterSide` and behind `WaterSideVisual` |
+| `WaterSides` | static | Which side of a footprint runs along water: a WHOLE side (its outline, not its box), first of South → West → East, never North; water = a cell whose structure's def is `isWater` (the sea never counts). `Find(grid, …)` for the island, `Find(origin, footprint, isWater)` over any predicate — the geometry tested offline. `FlipSouth` — the river stops or turns under the south wheel and runs on past the other end, so the art shows mirrored. Behind `IslandGrid.CanPlace(origin, def)` for `needsWaterSide` and behind `WaterSideVisual` |
+| `RiverShapes` | static | A river cell's piece from its four neighbours: `Pick(n, e, s, w)` → `RiverShape` (End / Straight / Corner + counter-clockwise quarter turns from the drawn orientation: end open west, straight west–east, corner east+south); no neighbour or a junction = straight. `At(grid, cell)` on the island (river = `WaterSides.IsWater`), `Of(cell, isRiver)` over any predicate — tested offline, the generator's rivers included. Behind `RiverVisual` |
 | `BilliardAim` | static | The autopilot's eyes: `TrySteer` — the way to a house with a free slot in sight from a bounce (radius, turn limit, ≥15° off the wall, a body-circle `CircleCast` whose first hit must be that free house; animals ignored). Decides nothing; shared buffers, main thread only |
 | `AimProbe` | static | Autopilot diagnostics (cost per look, what blocks the view, where units end up, running TOTAL). Every method `[Conditional("AIM_PROBE")]` — compiled away without that scripting define |
 | `ToolRack` | MB, `ICollisionEffect` | One tool of one `ProfessionDef` on a walk-through trigger: an Unassigned worker crossing it takes the tool for the outing (`Unit.Equip`); Available / Taken visual roots. No system injection: the tool only ever comes back through the unit holding it |
@@ -911,7 +931,8 @@ belongs in a PlayMode assembly (none yet).
 | `SpriteShadow` | MB | A drop shadow built at Start from the `SpriteRenderer` beside it (black, translucent, one sorting step behind, a few pixels off) and re-synced every frame (sprite, flip, sorting). The ghost never Starts, so it never has one; a carried structure hides its own |
 | `WaterReflection` | MB | The object's silhouette in the water: adds the package's `Reflector` at Start in sprite-pivot mode and raises the package's update flag once, so the reflection is actually placed. No edit-mode code — put THIS on prefabs, never the package's `Reflector` |
 | `DualVisual` | MB | Shows one of two child roots — a fence by edge orientation, a forest by grid-row parity (neighbours interlock). The caller decides (`StructureSystem.ApplyPlacementVisual` for a forest); the build ghost uses it too |
-| `WaterSideVisual` | MB | Shows one of three child roots — the watermill's art for its river side (south / west / east, each authored in full in the prefab); no side = south. Set by `StructureSystem.ApplyPlacementVisual`, for the ghost too |
+| `WaterSideVisual` | MB | Shows one of three child roots — the watermill's art for its river side (south / west / east, each authored in full in the prefab); no side = south; `southFlippedRoot` (empty = the plain south root) where `WaterSides.FlipSouth` says so. Set by `StructureSystem.ApplyPlacementVisual`, for the ghost too |
+| `RiverVisual` | MB | A river cell's art, on the River root: `model` + the `end` / `straight` / `corner` sprites as drawn; `Show(RiverShape)` sets the sprite and turns only the model (so it must sit on the cell's centre — and carry no `SpriteShadow`, which would turn with it). Set by `StructureSystem.ApplyPlacementVisual` and re-set when a neighbouring river cell comes or goes |
 | `StatModifierText` | static | A modifier as card text ("+5% FOOD (FARMER)") — mechanical on purpose, durations named as durations so a sign never reads inverted. Behind `AgeDef.BonusText` and `StatPerkDef.GeneratedDescription`: an empty override keeps a card following the data |
 | `ResourceFormat` / `RomanNumeral` | static | The one abbreviation rule for amounts (wallet and prices must shorten alike: floored, ≤ 4 digits + a suffix); ages in roman numerals everywhere the player sees one |
 | `UIRoot` | MB (UI) | The UI's front door on the Canvas prefab: what a state drives (`ZoneScreen`, `PerkScreen`, `ConfirmDialog`, `MetaScreen`) and the panels that need the run (the three age panels and the prestige button, `Initialize`). `GameBootstrap` holds this one reference. Not a singleton, no logic; errors in `Start` on a missing screen, dialog or prestige button (no way to prestige without them), warns on a missing age panel. Its fields must point at objects IN the Canvas — a prefab asset dragged in from the Project window is not in any scene, reports itself inactive and can never show |

@@ -35,7 +35,7 @@ namespace LittlePeeps
         // tileSetFor answers with a set for every terrain (a default for unmapped ones); trimTilemap and
         // decorTilemap may be null — the ground still draws, just without its outline or decor. decorSeed
         // picks the decor: the run's, so a seed always comes back with the same island. borderLayers is
-        // the cascade, top first; null or empty draws no borders.
+        // the cascade, top first; null or empty draws no borders. Their tilemaps are sorted by it here.
         public IslandDrawing(IslandGrid grid, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap, Tilemap trimTilemap,
                              Tilemap decorTilemap = null, int decorSeed = 0, IReadOnlyList<IslandBorderLayer> borderLayers = null)
         {
@@ -48,6 +48,34 @@ namespace LittlePeeps
             BorderLayers = borderLayers ?? Array.Empty<IslandBorderLayer>();
             cascade = new IslandBorderPainter.Cascade(TerrainsOf(BorderLayers));
             land = new IslandTilePainter.Land(grid, hidden.Contains);
+            StackBorderLayers();
+        }
+
+        // How the border layers stack is the cascade's to say, so they are sorted by it rather than trusted
+        // to agree with it: on the ground's sorting layer, over the ground, its decor and its trim, the
+        // lowest covering terrain first and each one listed above it on top of it. The orders typed into
+        // the tilemaps are overwritten — the list is the one place the order lives.
+        private void StackBorderLayers()
+        {
+            var ground = GroundTilemap != null ? GroundTilemap.GetComponent<TilemapRenderer>() : null;
+            if (ground == null) return;
+
+            int order = ground.sortingOrder;
+            foreach (var tilemap in new[] { DecorTilemap, TrimTilemap })
+            {
+                var renderer = tilemap != null ? tilemap.GetComponent<TilemapRenderer>() : null;
+                if (renderer != null && renderer.sortingLayerID == ground.sortingLayerID)
+                    order = Mathf.Max(order, renderer.sortingOrder);
+            }
+
+            for (int i = BorderLayers.Count - 1; i >= 0; i--)
+            {
+                var tilemap = BorderLayers[i]?.tilemap;
+                var renderer = tilemap != null ? tilemap.GetComponent<TilemapRenderer>() : null;
+                if (renderer == null) continue;
+                renderer.sortingLayerID = ground.sortingLayerID;
+                renderer.sortingOrder = ++order;
+            }
         }
 
         private static IEnumerable<TerrainType> TerrainsOf(IReadOnlyList<IslandBorderLayer> layers)

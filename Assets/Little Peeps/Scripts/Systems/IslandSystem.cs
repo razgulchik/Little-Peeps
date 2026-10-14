@@ -28,8 +28,9 @@ namespace LittlePeeps
         [SerializeField] private IslandTileSet tileSet;
 
         [Tooltip("Soft borders between terrains, TOP FIRST: a terrain lies over every one listed after it (and " +
-                 "every one not listed) and draws the border where they meet, on its own tilemap. List a " +
-                 "terrain that covers others even before it has border art, or the ones below take it for lower.")]
+                 "every one not listed) and draws the border where they meet, on its own tilemap — sorted by " +
+                 "this order, whatever its renderer says. List a terrain that covers others even before it has " +
+                 "border art, or the ones below take it for lower.")]
         [SerializeField] private List<IslandBorderLayer> borders = new();
 
         [Tooltip("The biomes an age can grow into. Every age offers each of them once, each on its own " +
@@ -220,7 +221,13 @@ namespace LittlePeeps
             if (trimTilemap != null) UnityEditor.EditorUtility.SetDirty(trimTilemap);
             if (decorTilemap != null) UnityEditor.EditorUtility.SetDirty(decorTilemap);
             foreach (var layer in borders)
-                if (layer != null && layer.tilemap != null) UnityEditor.EditorUtility.SetDirty(layer.tilemap);
+                if (layer != null && layer.tilemap != null)
+                {
+                    UnityEditor.EditorUtility.SetDirty(layer.tilemap);
+                    // The drawing sorted it by the list: keep the scene showing the order actually used.
+                    var renderer = layer.tilemap.GetComponent<TilemapRenderer>();
+                    if (renderer != null) UnityEditor.EditorUtility.SetDirty(renderer);
+                }
     #endif
         }
 

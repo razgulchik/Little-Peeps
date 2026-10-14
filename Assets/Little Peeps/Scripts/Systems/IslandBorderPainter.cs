@@ -20,7 +20,9 @@ namespace LittlePeeps
         public TerrainBorderSet tiles;
 
         [Tooltip("The tilemap its border is drawn on: no collider, the ground's material (so it bends with " +
-                 "the land), sorted above the ground and below the border of every terrain listed above this one.")]
+                 "the land). Its sorting is set from this list when the island is drawn — on the ground's " +
+                 "layer, above the ground, and below the border of every terrain listed above this one — so " +
+                 "the order typed into its renderer does not matter.")]
         public Tilemap tilemap;
 
         public IslandBorderLayer() { }

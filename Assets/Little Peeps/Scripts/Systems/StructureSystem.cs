@@ -77,11 +77,13 @@ namespace LittlePeeps
             foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
             foreach (var tavern in go.GetComponentsInChildren<Tavern>(true)) tavern.Initialize(resourceSystem, grid, instance);
 
-            // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river.
+            // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river,
+            // a river cell its piece by the river beside it.
             ApplyPlacementVisual(go, grid, cell, def.Footprint);
 
             grid.Place(cell, def.Footprint, instance);
             run.structures[cell] = instance;
+            RefreshBesideWater(instance);
             Recount(def, +1);
             return instance;
         }
@@ -115,14 +117,41 @@ namespace LittlePeeps
         //   - a forest carries a DualVisual whose two roots interlock by grid row: even rows show the first
         //     layout, odd rows the second, so adjacent forests form a brick-laid pattern. (row & 1) is
         //     correct for negative rows too on the signed grid;
-        //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along.
-        // No-op for structures with neither. Shared by Build, the Move drop (a carried forest re-laps itself
+        //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along;
+        //   - a river cell carries a RiverVisual and shows the piece that joins it to the river cells beside it.
+        // No-op for structures with none. Shared by Build, the Move drop (a carried forest re-laps itself
         // on another row) and the build-mode ghost and carried structure (PlacementVisuals), so the preview
-        // shows exactly what lands.
+        // shows exactly what lands — and by RefreshBesideWater, since the last two depend on the neighbours.
         public static void ApplyPlacementVisual(GameObject go, IslandGrid grid, Vector2Int origin, Footprint footprint)
         {
             if (go.TryGetComponent<DualVisual>(out var rows)) rows.Show((origin.y & 1) == 0);
             if (go.TryGetComponent<WaterSideVisual>(out var sides)) sides.Show(WaterSides.Find(grid, origin, footprint));
+            if (go.TryGetComponent<RiverVisual>(out var river)) river.Show(RiverShapes.At(grid, origin));
+        }
+
+        // Water decides the look of what stands beside it — a river cell's piece, a watermill's side — so
+        // whenever a water structure lands on the grid or leaves it, everything around it takes its look
+        // again. A river laid cell by cell comes out joined whatever the order, and a cell taken out leaves
+        // ends behind. Reads the grid as it is now: call after the Place or Remove. No-op for anything
+        // that isn't water.
+        private void RefreshBesideWater(StructureInstance changed)
+        {
+            if (!changed.Def.isWater) return;
+
+            var grid = islandSystem.Grid;
+            var footprint = changed.Def.Footprint;
+            for (int x = 0; x < footprint.Size.x; x++)
+                for (int y = 0; y < footprint.Size.y; y++)
+                {
+                    if (!footprint.Contains(x, y)) continue;
+                    var cell = changed.Cell + new Vector2Int(x, y);
+                    foreach (var d in IslandShape.Dirs)
+                    {
+                        var neighbour = grid.GetCell(cell + d)?.occupant;
+                        if (neighbour == null || neighbour == changed || neighbour.RuntimeObject == null) continue;
+                        ApplyPlacementVisual(neighbour.RuntimeObject.gameObject, grid, neighbour.Cell, neighbour.Def.Footprint);
+                    }
+                }
         }
 
         // Sell the structure occupying `cell` (any footprint cell): refund a fraction of its build
@@ -146,6 +175,7 @@ namespace LittlePeeps
 
             grid.Remove(instance.Cell, instance.Def.Footprint);
             run.structures.Remove(instance.Cell);
+            RefreshBesideWater(instance);
             Recount(instance.Def, -1);
             Destroy(instance.RuntimeObject.gameObject);
             return true;
@@ -172,6 +202,7 @@ namespace LittlePeeps
         {
             islandSystem.Grid.Remove(instance.Cell, instance.Def.Footprint);
             run.structures.Remove(instance.Cell);
+            RefreshBesideWater(instance);
         }
 
         // Build-mode MOVE, step 2: place a lifted structure at origin (caller has checked CanPlace, or
@@ -186,6 +217,7 @@ namespace LittlePeeps
 
             AnchorOnFootprint(instance.RuntimeObject.transform, origin, instance.Def.size);
             ApplyPlacementVisual(instance.RuntimeObject.gameObject, grid, origin, instance.Def.Footprint);   // new row, new river side
+            RefreshBesideWater(instance);
         }
 
         // --- Edge-placed structures (fences) ------------------------------------------------------

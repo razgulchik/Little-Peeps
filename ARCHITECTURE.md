@@ -74,7 +74,8 @@
 │  GlobalUpgradeDef / StatUpgradeDef / Start*UpgradeDef ·            │
 │  GlobalUpgradeCatalogueDef ·                                       │
 │  BuildPaletteDef · PrestigeFormula · StatModifier · StatId ·       │
-│  IslandRiseProfile · IslandTileSet · ResourceIconSet · …           │
+│  IslandRiseProfile · IslandTileSet · TerrainBorderSet ·            │
+│  ResourceIconSet · …                                               │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -281,7 +282,8 @@ that missed one would hold the field still forever. `RicePaddyView` draws it wit
 growing sprites split the growth time equally (dry, the water coming in, sprouts), then ripe, then
 harvested; every change of look plays a stretch-and-squash (a Y curve on its own clock, the sprite
 swapping at `swapAt`), none on first show or a move. The field sits on the Ground sorting layer above
-the land (Order 2 — the ground tilemap is 0, its trim 1), so units always walk over it. Units parting
+the Island layer every island tilemap is on, so it lies over the land whatever the orders, and units
+(on Entities) always walk over it. Units parting
 the crop as they cross waits for art.
 
 **Stuck rescue.** A unit that cannot get anywhere cannot free itself (a tired one can't chop, a
@@ -406,13 +408,40 @@ colour) and the camera goes to it (`CameraController.SetExtraBounds` lets the cl
 `FocusOn`). A plain click publishes `ZoneSelectedEvent`. There is no cancel — the age is paid on entry.
 
 **Drawing.** The grid is the truth; `IslandDrawing` (plain C#) only decides which of its cells the
-ground and trim tilemaps SHOW, which is what lets a committed zone stay hidden and then rise.
-`IslandTilePainter` (static) picks each cell's piece from its neighbours, each terrain in its biome's
-`IslandTileSet`; the coastline outline is drawn on WATER cells, on its own collider-less tilemap, so
-the grid stays exactly the playable cells. During a rise `IslandBend` bends the land as one sheet: a
-height per grid corner in a small texture that the "Little Peeps/Sprite Lit Bend" shader reads per
-vertex, so neighbouring tiles never come apart; the old island is pinned, and what stands on the land
-rides up by the height under its root.
+island's tilemaps SHOW — ground, decor, trim and the borders — which is what lets a committed zone stay
+hidden and then rise. `IslandTilePainter` (static) picks each cell's piece from its neighbours, each
+terrain in its biome's `IslandTileSet`; the coastline outline is drawn on WATER cells, on its own
+collider-less tilemap, so the grid stays exactly the playable cells. Decor (the tile set's light/dark
+lists) lands on a share of the land cells, on its own tilemap; whether a cell has one and which are two
+per-cell hashes of the island seed, so a cell keeps its decor through a rise and a new run gets new decor.
+Every island tilemap sits on the `Island` sorting layer; what lies ON the land — a field, a stump,
+stubble, rubble — is on `Ground` right above it (the zone preview and the build territory too, at
+1001; the build grid draws on `Mesh`, over everything), so no Order on one side can ever compete with
+the other. During a rise `IslandBend` bends the land as one sheet: a height per grid corner in a small texture
+that the "Little Peeps/Sprite Lit Bend" shader reads per vertex, so neighbouring tiles never come
+apart; the old island is pinned, and what stands on the land rides up by the height under its root.
+
+**Borders between biomes.** Terrains CASCADE: `IslandSystem.borders` lists them top first (meadow
+over forest over desert; a terrain left out lies under all of them), and where two meet the upper one
+draws the border with its own `TerrainBorderSet` on its own tilemap — a fringe (`Over…`) on the lower
+cell, an edge (`Edge…`) on its own. So a covering terrain needs one set of art whatever lies under it,
+and a cell where three terrains meet just carries a piece on each of two layers. The art may only use
+its own terrain's colours (and neutral in-betweens) — a pixel of the neighbour's colour would tie it to
+that one neighbour. `IslandBorderPainter` (static) decides from the 4 side neighbours on the drawn land,
+so a cell turning land or water changes only the 3×3 around it and `RepaintAround` stays exact. A set
+can reach further than the cascade: `edgeAllRound` edges its terrain toward everything else and the
+sea, `overSea` spills its fringe onto the sea's cells along the shore (the sea lies under every
+terrain) — but a fringe never goes onto a terrain ABOVE its own: that border is the upper terrain's,
+and that is what keeps the cascade. A row without art still holds its terrain's place (the meadow,
+until it has a set, so the forest does not take it for lower). 16 pieces per set are enough because
+the generator never squeezes a cell between one other terrain — or the sea — on two opposite sides
+(zones are ≥ 2 thick, the island ≥ `minWidth`, sea gaps narrower than `minBay` are filled). The order
+lives in ONE place: `IslandDrawing` sorts the border tilemaps by the list (on the ground's sorting
+layer — `Island` — over ground, decor and trim, the lowest covering terrain first), whatever their
+renderers say.
+The model is per-terrain layering flattened: with opaque ground tiles, a lower terrain's fringe under
+an upper terrain's ground would never be seen, so it is simply not drawn — one ground tilemap keeps
+the coast collider, the water copies and the rise as they are.
 
 **Water.** `WaterSystem` spawns Modern 2D Water from a prefab at run time (the package runs in edit
 mode and would churn `SampleScene.unity` on every save), copies the drawn coast into the water's
@@ -736,7 +765,7 @@ before the spending.
 | Structure (obstacle) | BoxCollider2D `isTrigger=false` | none (Static) | Unit bounces — `OnCollisionEnter2D` fires on the `CollisionTarget` |
 | Structure (interactable) | BoxCollider2D `isTrigger=true` | none (Static) | Unit passes through — `OnTriggerEnter2D` fires; `SetColliderEnabled(false)` during drag / on source depletion (unless the def says `keepBodyWhileDepleted`) |
 | Animal (alpaca/boar/fox) | Collider2D `isTrigger=false` (child) | Rigidbody2D (**Kinematic**, root) | Units (Dynamic) bounce off it — that bounce IS the harvest hit. The kinematic body itself passes through everything, so `AnimalWander` steers by polling: destinations from the den's territory, a look-ahead probe that stops at the island's edge and at `animalsAvoid` structures, a comfort distance to other animals |
-| Island boundary | TilemapCollider2D on the ground tilemap (Composite Operation: Merge) + CompositeCollider2D (Outlines) | Rigidbody2D (Static) | Follows the tiles as they are painted — a rising zone joins the outline as its tiles land (the sim is frozen meanwhile). The coastline trim sits on its own tilemap WITHOUT a collider, or the coast would grow a cell outward |
+| Island boundary | TilemapCollider2D on the ground tilemap (Composite Operation: Merge) + CompositeCollider2D (Outlines) | Rigidbody2D (Static) | Follows the tiles as they are painted — a rising zone joins the outline as its tiles land (the sim is frozen meanwhile). The coastline trim sits on its own tilemap WITHOUT a collider, or the coast would grow a cell outward; the decor and border tilemaps have none either |
 | Pier | BoxCollider2D `isTrigger=false` (on a `Physics` child) | Rigidbody2D (Static, root) | An ordinary structure that units bounce off. NOT clickable — prestige starts from `PrestigeButton`, a UI button hanging over it at `Pier.buttonAnchor`; the `Pier` marker may sit anywhere in the prefab |
 | Market passage (`VisitZone`) | BoxCollider2D `isTrigger=true` on a `Passage` child (the two walls are ordinary obstacle boxes on the `Physics` child) | Rigidbody2D (Static) on that **same child** | The zone's own body is not optional: Unity delivers a trigger callback to the collider's GameObject AND to the GameObject of the Rigidbody2D it belongs to, so hung off the root body the passage's `OnTriggerEnter2D` would also reach `CollisionTarget`, which treats a trigger entry as a hit — walking in would pay a coin by itself. Sizing: across the passage the trigger overlaps the walls by 1–2 px (a unit can't be inside a wall, so this only guards a seam); along it, it stops one unit radius short of each mouth, so a unit sliding along the outside never counts as inside |
 
@@ -791,7 +820,9 @@ bounce rule, run teardown, harvest ledger, prestige formula + payout, the presti
 meta screen (their refusal paths), the confirm dialog, meta perk spending and levels, perk roll, perk state + card,
 the modifier card text, placement target, house capacity, the island's shape rules (with a seed
 sweep, so tuned rules can never fail in play), island content, zone offers, the zone pick state, the
-island rise's schedule and notes, and the coast painter (tile-by-tile repaint must equal a full repaint at every step).
+island rise's schedule and notes, the coast painter (tile-by-tile repaint must equal a full repaint at every step), the
+border painter (the same promise, plus the cascade itself and the generator never needing a two-sided piece) and the
+drawing's border sorting (`IslandDrawingTests` — real tilemaps, so Unity's Test Runner only).
 Two shared fixtures keep them free of assets: `TestIsland` (a rectangle of cells, for the grid and
 exit geometry) and `TestBiomes` (the prototype's biome profiles, built in code). Physics casts (the
 autopilot's `BilliardAim`) have no Edit Mode test: they need a live physics scene. **Edit Mode runs
@@ -807,15 +838,16 @@ belongs in a PlayMode assembly (none yet).
 |-----------|------|---------------|
 | `RunManager` | MB | The one way a run starts and ends. `StartNewRun` = `EndRun` + fresh `RunContext` seeded from `StartConfigDef` (resources, baseline modifiers) → the meta perks (`PrestigeSystem.ApplyUpgrades`, injected through `Initialize`; outside the config check, so a missing config never costs the player what they paid for) → init resource/structure/spawn systems → `IslandSystem.GenerateForRun(seed, rules, start biome, house, pier)` — the start zone brings its own content, house and pier included → `SkipStartAges` (the Start Age perk's intent: per skipped age `AgeSystem.DefOf(age + 1)` → `TriggerAgeCmd.EnterAge` → `IslandSystem.GrowZone(biome)` → one more owed perk pick; stops at the final age; `AgeSystem` injected through `Initialize` with the meta perks) → `RunStartedEvent`. `EndRun` tears down structures → spawn system (order load-bearing: spawners despawn their resting units, then SpawnSystem collects the roamers). `[ContextMenu("Restart Run")]` debug trigger, refused from build mode; it moves no points, but the meta perks apply as on any start |
 | `IslandGrid` | Plain C# | Grid data: sparse cells (`terrain` + `occupant`), placement validation (`CanPlace/Place/Remove` with footprint, allowed terrain, border; `CanPlace(origin, def)` adds the def's extras — a side along water — and is the one every placement path asks), edge registry (`CanPlaceEdge/PlaceEdge/RemoveEdge`), world↔grid and world↔edge conversion; `CellBounds` / `WorldBounds` for the camera |
-| `IslandSystem` | MB | Owns Grid + Generator + `Drawing` and the `biomes` list (validated at run start — a bad biome is reported and skipped). `GenerateForRun(seed, rules, startBiome, house, pier)`; `ProposeZones()` (one populated offer per biome) and `CommitZone(offer, forRise)` — driven explicitly by `AgeSequencer`, not an event. `GrowZone(biome)` — one offer of one biome, committed at once with nobody choosing, for the ages a run skips at its start (validates a biome outside the list on the spot). Places every zone's content through `StructureSystem.PlaceInitial` (house first, then mountains and river, then objects). `forRise` commits the zone whole (grid, run, structures) but hides its land and switches its structures off in the same frame, so their `Start` waits for the rise to switch them on. Remembers `LastSection` / `LastContent` (what the rise brings up); publishes `IslandRepaintedEvent` once a frame. `[ContextMenu] Generate Island` previews one in the editor |
+| `IslandSystem` | MB | Owns Grid + Generator + `Drawing`, the `biomes` list (validated at run start — a bad biome is reported and skipped) and the `borders` cascade (a repeated terrain, or a tilemap another row, the ground or the trim already uses, is reported and dropped; a row keeps its rank even without a tilemap) and the decor tilemap (refused, with an error, if another layer draws on it). `GenerateForRun(seed, rules, startBiome, house, pier)`; `ProposeZones()` (one populated offer per biome) and `CommitZone(offer, forRise)` — driven explicitly by `AgeSequencer`, not an event. `GrowZone(biome)` — one offer of one biome, committed at once with nobody choosing, for the ages a run skips at its start (validates a biome outside the list on the spot). Places every zone's content through `StructureSystem.PlaceInitial` (house first, then mountains and river, then objects). `forRise` commits the zone whole (grid, run, structures) but hides its land and switches its structures off in the same frame, so their `Start` waits for the rise to switch them on. Remembers `LastSection` / `LastContent` (what the rise brings up); publishes `IslandRepaintedEvent` once a frame. `[ContextMenu] Generate Island` previews one in the editor |
 | `IslandGenerator` | Plain C# | Decides which cells exist, section by section (the prototype's `island_shapes.py`): `GenerateStart` / `Propose(n)` sample valid shapes grouped by family, `Populate` fills one with a biome's content, `Commit` makes it a section; a stale candidate throws. Knows nothing of tiles, terrain or structures. `Seed` / `Land` / `LastAttempts` for the logs |
 | `IslandShape` / `IslandContent` | static | The generator's two halves: shape checks and operations on sets of signed cells (width, holes, bays, joins, connectivity; every set sorted before sampling, so a seed reproduces); a zone's content (the prototype's `island_resources.py`: reservations, mountains grown in 2×2 blocks, a river, the biome's objects — each only where the island stays reachable, planned bridges counted) |
 | `IslandRng` | Plain C# | PCG32, the generator's only random source; `Derive(seed, parts…)` makes the independent streams content draws from |
 | `IslandSection` / `IslandCandidate` / `IslandSectionContent` | Plain C# | A committed piece of the island (permanent cells, content or bare); a proposal, valid against the island version it was proposed on; what a zone holds — biome, features, and the generator-only reservations the game never sees |
 | `ZoneOffer` / `ZoneOffers` | Plain C# | One zone on offer: biome + shape + content already generated + counts per `StructureDef` (the card's text). `ZoneOffers.Build` pairs biomes with shapes — pure, tested offline |
 | `BiomeDef` / `IslandBiome` / `IslandRules` | SO / data | A biome asset (profile + tile set + the card's name, icon and preview colour); the profile the generator reads (terrain, budgets, `IslandObjectRule`s); the shape rules on `StartConfigDef` |
-| `IslandDrawing` | Plain C# | The island as DRAWN: the ground + trim tilemaps painted from the grid, minus the cells held back (`HideLand` / `HideOnly` / `RevealLand` — the last repaints only the 3×3 — / `RevealAllLand`); per-cell tint (`TintLand`); `GroundTileAt` (the tile a rising cell will have when it lands). Plain so the rise's tuning window can draw an island of its own |
-| `IslandTilePainter` | static | The autotiler: `PaintOf(land, cell)` decides a cell's ground or outline piece from its neighbours, each terrain in its biome's `IslandTileSet` (an outline takes the terrain of the land cell that defines it); `Repaint` (all) and `RepaintAround` (the 3×3 one cell can change) both go through it — tested to agree at every step |
+| `IslandDrawing` | Plain C# | The island as DRAWN: the ground, decor, trim and border tilemaps painted from the grid, minus the cells held back (`HideLand` / `HideOnly` / `RevealLand` — the last repaints only the 3×3 — / `RevealAllLand`); per-cell tint (`TintLand` — the cell's decor and border pieces get wet with it); `GroundTileAt` (the tile a rising cell will have when it lands). Sorts the border tilemaps by the cascade on construction (`StackBorderLayers`). Plain so the rise's tuning window can draw an island of its own |
+| `IslandTilePainter` | static | The autotiler: `PaintOf(land, cell)` decides a cell's ground or outline piece from its neighbours, each terrain in its biome's `IslandTileSet` (an outline takes the terrain of the land cell that defines it), plus the decor; `Repaint` (all) and `RepaintAround` (the 3×3 one cell can change) both go through it — tested to agree at every step |
+| `IslandBorderPainter` / `TerrainBorderSet` | static / SO | The soft borders between terrains: `Cascade` (the order, top first), `PieceOf(land, cell, covering, …)` from the 4 side neighbours, `Plan` / `Repaint` / `RepaintAround` per `IslandBorderLayer` (terrain + set + tilemap, a row of `IslandSystem.borders`). The set: 8 `Over` + 8 `Edge` tiles, `edgeAllRound`, `overSea`. Tested offline like the coast painter |
 | `IslandBend` | Plain C# | The land bent as one sheet during a rise: a height per grid corner in a small half-float texture, read per vertex through shader globals by "Little Peeps/Sprite Lit Bend" (and "Sprite Flat Color"). A material bends when its weight is above 0; `HeightAt` lifts what stands on the land. One bend at a time — whoever begins it ends it |
 | `IslandRiseSchedule` | Plain C# | The rise as a function of time, worked out once: each cell's start (wave order modes, noise, jitter, crescendo; normalised so any zone takes the cascade's length), its phases (under water → hop → squash → settled), note rank, the structures' pops (after their land; the river runs in from its source), the breath from the join, the finale and the banner time. No engine calls — fully unit-tested |
 | `IslandRise` | Plain C# | Plays a schedule on an `IslandDrawing`: pooled stand-in sprites for tiles in flight (swapped for the real tile as each settles), drying via tile colour, standing neighbours bounce, the new zone breathes — the land bending as one sheet (`IslandBend`), the old island pinned, what stands on it riding up by the height under its root and a den's animals by the height under their feet — structures pop by root scale (a den's animals with it), effects / notes / camera kick on forward play only. `Tick` (forward) / `Seek` (any time, both ways) / `SpeedUp` / `SkipToFinale` / `Finish`. The SAME code runs in the game and in the tuning window |

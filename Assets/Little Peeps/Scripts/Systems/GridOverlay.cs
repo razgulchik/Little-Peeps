@@ -17,8 +17,8 @@ namespace LittlePeeps
         [SerializeField] private Color lineColor = new Color(1f, 1f, 1f, 0.6f);
         [SerializeField] private Color occupiedColor = new Color(1f, 1f, 1f, 0.12f);   // faint fill over cells a structure occupies (its territory)
         [SerializeField] private float lineWidth = 0.04f;              // world units
-        [SerializeField] private string sortingLayerName = "Ground";  // MUST be in front of grass (+ structures); the default matches the grass layer
-        [SerializeField] private int sortingOrder = 1000;             // and order within that layer (above the tilemap's 0)
+        [SerializeField] private string sortingLayerName = "Ground";  // MUST be in front of the island's tiles (the Island layer, below Ground) and what lies on the land
+        [SerializeField] private int sortingOrder = 1000;             // and order within that layer (above the fields and stumps lying on it)
 
         private MeshFilter meshFilter;
         private MeshRenderer meshRenderer;

@@ -50,10 +50,13 @@ SampleScene
 │   ├── UnitSystem              → UnitSystem
 │   └── WaterSystem             → WaterSystem        (море инстанцирует в рантайме из префаба — в сцену воду НЕ класть)
 ├── Island                      → IslandSystem
-│   ├── Grid                    → Grid (компонент)
+│   ├── Grid                    → Grid (компонент)   ← все тайлмапы под ним — на слое сортировки Island
 │   │   ├── Ground              → Tilemap + TilemapRenderer + Rigidbody2D (Static) + TilemapCollider2D
 │   │   │                          + CompositeCollider2D   ← суша и граница острова
 │   │   ├── GroundTrim          → Tilemap + TilemapRenderer   ← кайма берега: лежит на клетках ВОДЫ, поэтому без коллайдера
+│   │   ├── Decor               → Tilemap + TilemapRenderer   ← декор поверх земли (Order 1), без коллайдера
+│   │   ├── BordersForest       → Tilemap + TilemapRenderer   ← мягкая граница леса, без коллайдера
+│   │   ├── BordersMeadow       → Tilemap + TilemapRenderer   ← мягкая граница луга (арта пока нет), без коллайдера
 │   │   └── Water (выключен)    → Tilemap + TilemapRenderer
 │   └── GridOverlay             → MeshFilter + MeshRenderer + GridOverlay   (Transform строго 0,0,0, без поворота/масштаба)
 ├── SceneGridGizmo (выключен)   → SceneGridGizmo     (сетка только для Scene view, в игре не участвует)
@@ -180,7 +183,7 @@ SampleScene
 | | | viewCamera, offscreenMargin | как выше |
 | | | maxConcurrent | 60 (дефолт) — потолок живых цифр; сверх него перерабатывается ближайшая к смерти |
 | Systems/WaterSystem | **WaterSystem** | **waterPrefab** | `Prefabs/DontTouch/Water` (Modern 2D Water — весь вид моря в префабе) |
-| | | coastTilemaps | `Ground`, `GroundTrim` — их контур становится берегом, о который бьётся вода |
+| | | coastTilemaps | `Ground`, `GroundTrim` — их контур становится берегом, о который бьётся вода. `Decor` и `Borders*` сюда НЕ добавлять: форму берега они не меняют |
 | | | foamMinPixels, foamMaxPixels, foamPeriod, foamWholePixels | пена под южным берегом: толщина в арт-пикселях от/до, период пульса (сек), шаг целыми пикселями. В сцене 1 / 2 / 5 / выкл |
 | | | sideFoamShader, sideFoamPixels | шейдер `Little Peeps/Sprite Flat Color` и ширина пены по восточному/западному краю (1 px). Пустой шейдер = без боковой пены |
 | Input | **InputHandler** | **mainCamera** | Main Camera |
@@ -194,16 +197,18 @@ SampleScene
 | CinemachineCamera | **CinemachineCamera** (vcam) | Follow = CameraTarget; Body = CinemachineFollow (damping ~0.1–0.2) | плавно следует за целью |
 | | CinemachineImpulseListener | Channel Mask 1 (дефолт) | без него толчки подъёма острова никто не почувствует; сам источник толчков IslandRise добавляет себе кодом |
 | Island | **IslandSystem** | **tilemap, trimTilemap** | `Grid/Ground` (суша с коллайдером), `Grid/GroundTrim` (кайма берега, без коллайдера) |
+| | | decorTilemap | `Grid/Decor` — декор из списков Decor в тайлсетах; пусто = без декора. Тайлмап должен быть свой (не Ground / GroundTrim / тайлмап границы) — иначе ошибка в консоли и декора нет. Слой сортировки Island, Order 1, материал `Materials/BendMaterial`, без коллайдера |
 | | | **tileSet, biomes** | `TileSet/Base Tile Set` — тайлы для биома без своего тайлсета; биомы, из которых эпоха предлагает зоны (Meadow, Forest, Desert) |
+| | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → набор пуст → `Grid/BordersMeadow`; `Forest` → `TileSet/Forest Border Set` → `Grid/BordersForest`. Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / GroundTrim), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / каймы — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
 | | | **structureSystem** | StructureSystem — через неё зона получает природное содержимое (деревья, реки, стартовый дом) |
 | | | cellSize, previewSeed | 1; сид для редакторского превью «Generate Island» (контекстное меню). Забег берёт сид из StartConfig |
 | Island/GridOverlay | **GridOverlay** | **islandSystem** | Island |
 | | | lineColor, lineWidth | белый α0.6, 0.04 (дефолты) |
 | | | occupiedColor | заливка занятых клеток (территория структур), белый α0.12 (дефолт) |
-| | | sortingLayerName, sortingOrder | **Ground**, 1000 (чтобы линии были поверх травы) |
+| | | sortingLayerName, sortingOrder | в сцене **Mesh**, 1000 — сетка поверх всего, юнитов и построек тоже (дефолт в коде — Ground, 1000: поверх тайлов и лежащего на земле, но под юнитами) |
 | ZonePreviewOverlay | ZonePreviewOverlay | **islandSystem** | Island |
 | | | fillAlpha, outlineAlpha, outlineWidth | 0.55, 1, 0.08 (дефолты); цвет заливки — `previewColor` биома |
-| | | sortingLayerName, sortingOrder | Ground, 1001 — поверх тайлов и сетки |
+| | | sortingLayerName, sortingOrder | Ground, 1001 — поверх тайлов и всего, что лежит на земле |
 
 ### UI
 
@@ -503,7 +508,8 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 | **UnitDef** | LittlePeeps/UnitDef | id, prefab (→ BaseUnit), speed, profession (с какой профессией рождается — `Unassigned`, настоящую даёт стойка) |
 | **ProfessionDef** | LittlePeeps/ProfessionDef | type (UnitType), frames[] — кадры ходьбы этой профессии |
 | **BiomeDef** | LittlePeeps/BiomeDef | profile (параметры генерации зоны), tileSet, displayName, icon, previewColor (заливка зоны при выборе) |
-| **IslandTileSet** | LittlePeeps/IslandTileSet | тайлы земли (светлые/тёмные клетки), углы, края, внутренние углы |
+| **IslandTileSet** | LittlePeeps/IslandTileSet | тайлы земли (светлые/тёмные клетки), углы, края, внутренние углы; **decorLight / decorDark** (декор для светлых / тёмных клеток) и decorChance (доля клеток с декором, 0.3) |
+| **TerrainBorderSet** | LittlePeeps/TerrainBorderSet | граница одного биома, кладётся тайлмапом из строки `IslandSystem.borders`. **edgeAllRound** — край по всему краю биома (и к биомам выше, и к воде), а не только к тем, что он накрывает; **overSea** — кайма и на клетки воды вдоль берега. На биом выше кайма не ложится никогда — это его граница. 8 слотов **Over** — кайма на клетке нижнего биома (4 стороны + 4 вогнутых угла); 8 слотов **Edge** — край на своей клетке. В подсказке слота — имя файла художника. Спрайты: **Pivot = Center**, иначе граница съезжает (с Bottom Center — на полклетки вверх). В проекте: `TileSet/Forest Border Set` (обе галочки включены), тайлы в `Tiles/BordersForest` |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | tabs: вкладки нижней панели, у каждой name, icon, structures (список StructureDef). Порядок вкладок = порядок кнопок и цифр 1–9, порядок structures = порядок карточек; пустая вкладка кнопку не получает. Группировка живёт здесь, на StructureDef категории нет |
 | **AgeDef** | LittlePeeps/AgeDef | title (только в лог — на баннере номер римскими цифрами), resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), bonusOverride (текст вместо сгенерированного описания). Порядок задаётся списком `AgeSystem.ages`, начиная с Age II |
 | **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, weight (шанс выпасть), requires (предыдущий уровень — цепочки уровней). Stat Perk — modifiers[]; Unlock Structure Perk — structure (снимает `lockedUntilPerk`) |
@@ -582,7 +588,8 @@ Script Execution Order настраивать **не нужно** (это кос
 - **Physics 2D → Layer Collision Matrix:** Unit×Unit **OFF** (юниты проходят сквозь друг друга), Unit×Default **ON**.
 - **Physics 2D → Bounce Threshold = 0.1** (иначе скольжение на малых скоростях).
 - **Y-сортировка:** на URP 2D Renderer-ассете (`Assets/Settings/Renderer2D.asset`) — Transparency Sort Mode = Custom Axis, Axis (0,1,0). Юниты и постройки — на одном Sorting Layer (`Entities`) с равным Order, сортируются по Y динамически.
-- **Sorting Layers** снизу вверх: Water, Ground, Default, Entities, Overlay, Mesh.
+- **Sorting Layers** снизу вверх: Water, Island, Ground, Default, Entities, Overlay, Mesh. **Island** — все тайлмапы острова (земля, кайма, декор, границы); **Ground** — то, что лежит на земле (рисовое поле, пни, стерня, щебень, пустые кусты), а ещё превью зоны и подсветка территории в стройке (Order 1001). Сетка стройки — на Mesh, поверх всего. Так лежащее на земле всегда над тайлами, какой бы Order ни стоял у тех и других.
+- **Global Light 2D → Target Sorting Layers:** должны быть отмечены все слои, на которых что-то рисуется, Island в том числе. Новый слой сортировки сам туда может не попасть — тогда всё на нём чёрное.
 
 ## Бонусы (RunStats) — коротко
 

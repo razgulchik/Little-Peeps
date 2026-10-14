@@ -358,7 +358,7 @@ namespace LittlePeeps.EditorTools
             }
             else
             {
-                renderer.sortingLayerName = "Ground";
+                renderer.sortingLayerName = "Island";   // where the game's island tilemaps sit
                 renderer.sortingOrder = fallbackOrder;
             }
             return tilemap;

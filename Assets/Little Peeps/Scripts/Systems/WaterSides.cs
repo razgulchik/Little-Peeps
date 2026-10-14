@@ -22,6 +22,9 @@ namespace LittlePeeps
     // row, the east side the one right of the rightmost — the outline facing that way. For a rectangle
     // that is simply the row or column along the edge.
     //
+    // The south art hangs its wheel over the RIGHT end of the side. Where the river stops or turns away
+    // right there, the wheel would stick out over the ground, so the art is shown mirrored (FlipSouth).
+    //
     // What counts as water is a predicate, so the one rule serves the placed island (the grid overload: a
     // cell holding an isWater structure) and a generator's own cell sets alike.
     public static class WaterSides
@@ -39,6 +42,26 @@ namespace LittlePeeps
             return WaterSide.None;
         }
 
+        // Show the south art mirrored, wheel over the LEFT end: the river runs along the south side but
+        // doesn't go on past its right end (an end or a corner piece there — the wheel would hang over the
+        // ground) and does go on past its left end. A river stopping at both ends, a short reach between two
+        // bends, keeps the drawn art: no mirror helps. False for every other side — the west and east wheels
+        // hang along a column, where a horizontal mirror changes nothing.
+        public static bool FlipSouth(IslandGrid grid, Vector2Int origin, Footprint footprint)
+            => FlipSouth(origin, footprint, cell => IsWater(grid, cell));
+
+        public static bool FlipSouth(Vector2Int origin, Footprint footprint, Func<Vector2Int, bool> isWater)
+        {
+            if (!SouthAlongWater(origin, footprint, isWater)) return false;
+
+            Vector2Int? left = null, right = null;
+            for (int x = 0; x < footprint.Size.x && left == null; x++) left = BelowColumn(origin, footprint, x);
+            for (int x = footprint.Size.x - 1; x >= 0 && right == null; x--) right = BelowColumn(origin, footprint, x);
+            if (left == null) return false;   // an empty footprint
+
+            return !isWater(right.Value + Vector2Int.right) && isWater(left.Value + Vector2Int.left);
+        }
+
         // A cell of the placed island is water when the structure standing on it is (the river). The sea
         // is no cell at all, so it never counts — a watermill wants a river.
         public static bool IsWater(IslandGrid grid, Vector2Int cell)
@@ -51,13 +74,19 @@ namespace LittlePeeps
         private static bool SouthAlongWater(Vector2Int origin, Footprint footprint, Func<Vector2Int, bool> isWater)
         {
             for (int x = 0; x < footprint.Size.x; x++)
-                for (int y = 0; y < footprint.Size.y; y++)
-                    if (footprint.Contains(x, y))
-                    {
-                        if (!isWater(new Vector2Int(origin.x + x, origin.y + y - 1))) return false;
-                        break;
-                    }
+            {
+                var below = BelowColumn(origin, footprint, x);
+                if (below != null && !isWater(below.Value)) return false;
+            }
             return true;
+        }
+
+        // The cell just below the lowest footprint cell of column x — null for a column with no cells.
+        private static Vector2Int? BelowColumn(Vector2Int origin, Footprint footprint, int x)
+        {
+            for (int y = 0; y < footprint.Size.y; y++)
+                if (footprint.Contains(x, y)) return new Vector2Int(origin.x + x, origin.y + y - 1);
+            return null;
         }
 
         // Left of the leftmost footprint cell of every row.

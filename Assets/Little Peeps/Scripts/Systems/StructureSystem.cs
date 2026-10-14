@@ -117,7 +117,8 @@ namespace LittlePeeps
         //   - a forest carries a DualVisual whose two roots interlock by grid row: even rows show the first
         //     layout, odd rows the second, so adjacent forests form a brick-laid pattern. (row & 1) is
         //     correct for negative rows too on the signed grid;
-        //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along;
+        //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along —
+        //     the south art mirrored where the river stops under its wheel;
         //   - a river cell carries a RiverVisual and shows the piece that joins it to the river cells beside it.
         // No-op for structures with none. Shared by Build, the Move drop (a carried forest re-laps itself
         // on another row) and the build-mode ghost and carried structure (PlacementVisuals), so the preview
@@ -125,7 +126,8 @@ namespace LittlePeeps
         public static void ApplyPlacementVisual(GameObject go, IslandGrid grid, Vector2Int origin, Footprint footprint)
         {
             if (go.TryGetComponent<DualVisual>(out var rows)) rows.Show((origin.y & 1) == 0);
-            if (go.TryGetComponent<WaterSideVisual>(out var sides)) sides.Show(WaterSides.Find(grid, origin, footprint));
+            if (go.TryGetComponent<WaterSideVisual>(out var sides))
+                sides.Show(WaterSides.Find(grid, origin, footprint), WaterSides.FlipSouth(grid, origin, footprint));
             if (go.TryGetComponent<RiverVisual>(out var river)) river.Show(RiverShapes.At(grid, origin));
         }
 

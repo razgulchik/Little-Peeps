@@ -9,6 +9,8 @@ namespace LittlePeeps.Tests
     // side refused, every corner the river can bend around (the order decides), a shaped footprint's side
     // following its outline rather than its box, and on the grid — what counts as water (a structure whose
     // def is isWater; not the sea, not any other occupant) and CanPlace(def) holding a water building to it.
+    // And FlipSouth: the south art mirrored only where the river stops under the wheel's (right) end and
+    // runs on past the left one.
     //
     // The geometry runs on a plain set of river cells (the predicate overload), so it needs no
     // ScriptableObject; only the grid tests at the bottom create defs.
@@ -35,6 +37,8 @@ namespace LittlePeeps.Tests
         }
 
         private static WaterSide Find(HashSet<Vector2Int> river) => WaterSides.Find(Origin, Mill, river.Contains);
+
+        private static bool Flip(HashSet<Vector2Int> river) => WaterSides.FlipSouth(Origin, Mill, river.Contains);
 
         // --- one side -------------------------------------------------------------------------------
 
@@ -128,6 +132,50 @@ namespace LittlePeeps.Tests
 
             Assert.AreEqual(WaterSide.None, WaterSides.Find(Origin, shape, alongTheBox.Contains), "the box edge");
             Assert.AreEqual(WaterSide.South, WaterSides.Find(Origin, shape, alongTheOutline.Contains), "the outline");
+        }
+
+        // --- the south art mirrored ----------------------------------------------------------------
+        // The wheel hangs over the right cell of the south row, (-2,-3); past it is (-1,-3), past the
+        // left cell (-4,-3).
+
+        [Test]
+        public void RiverRunningOnPastBothEnds_NotFlipped()
+            => Assert.IsFalse(Flip(River(new[] { C(-5, -3), C(-4, -3) }, SouthRow, new[] { C(-1, -3), C(0, -3) })));
+
+        [Test]
+        public void RiverEndingUnderTheWheel_Flipped()
+            => Assert.IsTrue(Flip(River(new[] { C(-5, -3), C(-4, -3) }, SouthRow)));
+
+        [Test]
+        public void RiverTurningDownUnderTheWheel_Flipped()
+            => Assert.IsTrue(Flip(River(new[] { C(-4, -3) }, SouthRow, new[] { C(-2, -4), C(-2, -5) })));
+
+        [Test]
+        public void RiverComingDownTheWestSide_AndEndingUnderTheWheel_Flipped()
+        {
+            // South still wins the corner; the river runs on past the left end — up the west side.
+            var river = River(WestColumn, new[] { C(-4, -3) }, SouthRow);
+
+            Assert.AreEqual(WaterSide.South, Find(river));
+            Assert.IsTrue(Flip(river));
+        }
+
+        [Test]
+        public void RiverEndingUnderTheLeftCell_NotFlipped_TheWheelIsOverWaterAlready()
+            => Assert.IsFalse(Flip(River(SouthRow, new[] { C(-1, -3), C(0, -3) })));
+
+        [Test]
+        public void RiverEndingAtBothEnds_NotFlipped_NoMirrorHelps()
+            => Assert.IsFalse(Flip(River(SouthRow)));
+
+        [Test]
+        public void AnotherSide_NeverFlipped()
+        {
+            // West along the river, and water past the left end of the (dry) south row.
+            var river = River(WestColumn, new[] { C(-4, -3), C(-5, -3) });
+
+            Assert.AreEqual(WaterSide.West, Find(river));
+            Assert.IsFalse(Flip(river));
         }
 
         // --- on the grid ----------------------------------------------------------------------------

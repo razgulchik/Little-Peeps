@@ -33,4 +33,15 @@ MonoBehaviour:
   bottomEdgeRight: {fileID: 11400000, guid: d58ba90beb4eae142aff6d5453999dce, type: 2}
   innerCornerLeft: {fileID: 11400000, guid: 67a3ac467441755499c90c44d57dce06, type: 2}
   innerCornerRight: {fileID: 11400000, guid: 19ebec875d011994e87b7c1612664e7e, type: 2}
+  decorLight:
+  - {fileID: 11400000, guid: b3dab555968fb2d4f955e7dcdc4b5943, type: 2}
+  - {fileID: 11400000, guid: ac3a4206da1d08d44908022e0137d2bb, type: 2}
+  - {fileID: 11400000, guid: da5074c4c53bd3445881e6d1be559669, type: 2}
+  - {fileID: 11400000, guid: ce1816c2fbdc8b546bd7ae8e75b2ebff, type: 2}
+  decorDark:
+  - {fileID: 11400000, guid: d2faf63ef5c2d574f807959427a10157, type: 2}
+  - {fileID: 11400000, guid: fc8932cd4d9da5f43890357038909cd4, type: 2}
+  - {fileID: 11400000, guid: b3315042c3b80b44fa52af637c24b662, type: 2}
+  - {fileID: 11400000, guid: e40b851f15811634a9b0d8b49fe64ae4, type: 2}
+  - {fileID: 11400000, guid: 57d3e66c48c1c8c44aec0d8583b85710, type: 2}
   invertCheckerboard: 1

@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dbb8c1fec873164280b26e25c517c73, type: 3}
   m_Name: Forest Tile Set
   m_EditorClassIdentifier: 
-  groundLight: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  groundDark: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
+  groundLight: {fileID: 11400000, guid: b2ba768f0e0c80847af966b6817afbf6, type: 2}
+  groundDark: {fileID: 11400000, guid: 8878ee67529d2d6449c64ba2ba0d0313, type: 2}
   cornerTopLeftLight: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
   cornerTopLeftDark: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
   cornerTopRightLight: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
@@ -33,4 +33,15 @@ MonoBehaviour:
   bottomEdgeRight: {fileID: 11400000, guid: d58ba90beb4eae142aff6d5453999dce, type: 2}
   innerCornerLeft: {fileID: 11400000, guid: 67a3ac467441755499c90c44d57dce06, type: 2}
   innerCornerRight: {fileID: 11400000, guid: 19ebec875d011994e87b7c1612664e7e, type: 2}
+  decorLight:
+  - {fileID: 11400000, guid: 8f5a807a54bc09f4abb3f5c1d9af17b3, type: 2}
+  - {fileID: 11400000, guid: 88fd15be9eac98a42b7a995572a27e58, type: 2}
+  - {fileID: 11400000, guid: c31c560a67f0d3e438b7656131d0d24e, type: 2}
+  - {fileID: 11400000, guid: 1bb65a19aad943a4cb467dd9bf413ca3, type: 2}
+  decorDark:
+  - {fileID: 11400000, guid: 480ea5fd218342b4a833b63a2bd7fcdd, type: 2}
+  - {fileID: 11400000, guid: e0837fd1c8fd34c489136fd18b394022, type: 2}
+  - {fileID: 11400000, guid: ef488d4ad0043ad4e9bd23e964075dcc, type: 2}
+  - {fileID: 11400000, guid: a12eafdfb39a9ab4ea78352525c1079a, type: 2}
+  - {fileID: 11400000, guid: de6cc646b4e9c1646a7abb7d66652033, type: 2}
   invertCheckerboard: 1

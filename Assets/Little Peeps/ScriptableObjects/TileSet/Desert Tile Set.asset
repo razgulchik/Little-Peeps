@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dbb8c1fec873164280b26e25c517c73, type: 3}
   m_Name: Desert Tile Set
   m_EditorClassIdentifier: 
-  groundLight: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
-  groundDark: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
+  groundLight: {fileID: 11400000, guid: c4c38239887ca5f41b51cf498e295ffc, type: 2}
+  groundDark: {fileID: 11400000, guid: b50d6e65b244c7847ba58f128f678bb4, type: 2}
   cornerTopLeftLight: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
   cornerTopLeftDark: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
   cornerTopRightLight: {fileID: 11400000, guid: f7273c032143baa47a9645cfd62816d3, type: 2}
@@ -33,4 +33,15 @@ MonoBehaviour:
   bottomEdgeRight: {fileID: 11400000, guid: d58ba90beb4eae142aff6d5453999dce, type: 2}
   innerCornerLeft: {fileID: 11400000, guid: 67a3ac467441755499c90c44d57dce06, type: 2}
   innerCornerRight: {fileID: 11400000, guid: 19ebec875d011994e87b7c1612664e7e, type: 2}
+  decorLight:
+  - {fileID: 11400000, guid: c0dfc58e134f72642a8fb2881179ea80, type: 2}
+  - {fileID: 11400000, guid: b49b20c494fb65f43ad00b33e38372f1, type: 2}
+  - {fileID: 11400000, guid: 9b186b717d4f8e84fb9187e7e0bd46fc, type: 2}
+  - {fileID: 11400000, guid: 7add49fa8be5b8a4f983dfe61b703e53, type: 2}
+  decorDark:
+  - {fileID: 11400000, guid: 316a872129bc02543be992dca69fa12e, type: 2}
+  - {fileID: 11400000, guid: d4c27e7b5ab8a904fae491ff37719e82, type: 2}
+  - {fileID: 11400000, guid: 8261887ac55c41240aad2d4d70e8d06c, type: 2}
+  - {fileID: 11400000, guid: 9c9c7bb17ada4a84b8604a90a36b0d33, type: 2}
+  - {fileID: 11400000, guid: ec2daf0a90a93184eb2689edbfe27cb8, type: 2}
   invertCheckerboard: 1

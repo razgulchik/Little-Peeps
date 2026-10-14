@@ -19,8 +19,18 @@ namespace LittlePeeps
         // grow a cell past the coast in every direction.
         [SerializeField] private Tilemap trimTilemap;
 
+        [Tooltip("Decor specks over the ground (each tile set's Decor lists): no collider, the ground's " +
+                 "material (so it bends with the land), sorted above the ground and below the borders. " +
+                 "Empty: no decor.")]
+        [SerializeField] private Tilemap decorTilemap;
+
         [Tooltip("Tiles for any terrain whose biome has no tile set of its own (and for the editor preview).")]
         [SerializeField] private IslandTileSet tileSet;
+
+        [Tooltip("Soft borders between terrains, TOP FIRST: a terrain lies over every one listed after it (and " +
+                 "every one not listed) and draws the border where they meet, on its own tilemap. List a " +
+                 "terrain that covers others even before it has border art, or the ones below take it for lower.")]
+        [SerializeField] private List<IslandBorderLayer> borders = new();
 
         [Tooltip("The biomes an age can grow into. Every age offers each of them once, each on its own " +
                  "zone shape, and the player picks one.")]
@@ -47,11 +57,13 @@ namespace LittlePeeps
         // age's zone while it rises out of the sea). Made with the grid, so replaced every run.
         public IslandDrawing Drawing { get; private set; }
 
-        // The island's two tile layers as set up in the scene, for what copies their look — the rise's
-        // tuning window draws its sample island with the same sorting and material. Painted only through
-        // Drawing.
+        // The island's tile layers as set up in the scene, for what copies their look — the rise's tuning
+        // window draws its sample island with the same sorting, material and border art. Painted only
+        // through Drawing.
         public Tilemap GroundTilemap => tilemap;
         public Tilemap TrimTilemap => trimTilemap;
+        public Tilemap DecorTilemap => decorTilemap;
+        public IReadOnlyList<IslandBorderLayer> BorderLayers => borders;
 
         // The run's starting house and pier defs, attached to the footprints the start zone keeps for them.
         private StructureDef house;
@@ -206,6 +218,9 @@ namespace LittlePeeps
     #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(tilemap);
             if (trimTilemap != null) UnityEditor.EditorUtility.SetDirty(trimTilemap);
+            if (decorTilemap != null) UnityEditor.EditorUtility.SetDirty(decorTilemap);
+            foreach (var layer in borders)
+                if (layer != null && layer.tilemap != null) UnityEditor.EditorUtility.SetDirty(layer.tilemap);
     #endif
         }
 
@@ -216,7 +231,8 @@ namespace LittlePeeps
 
             var clock = Stopwatch.StartNew();
             Grid = new IslandGrid(cellSize);
-            Drawing = new IslandDrawing(Grid, TileSetFor(), tilemap, trimTilemap);
+            var usableBorders = UsableBorders();
+            Drawing = new IslandDrawing(Grid, TileSetFor(), tilemap, trimTilemap, UsableDecor(usableBorders), seed, usableBorders);
             Generator = new IslandGenerator(rules, seed);
             var start = Generator.GenerateStart();
 
@@ -331,6 +347,59 @@ namespace LittlePeeps
                     sets[biome.profile.terrain] = biome.tileSet;
 
             return terrain => sets.TryGetValue(terrain, out var set) ? set : tileSet;
+        }
+
+        // The border list as the drawing takes it, checked once per run. A terrain listed twice keeps only
+        // its first row (that is the place it ranks at anyway). Each layer's repaint clears its whole
+        // tilemap, so a row may not draw on the ground or the trim, and a tilemap shared by two rows stays
+        // with the first. A row that loses its tilemap still ranks in the order — it just draws nothing.
+        private List<IslandBorderLayer> UsableBorders()
+        {
+            var usable = new List<IslandBorderLayer>();
+            var terrains = new HashSet<TerrainType>();
+            var tilemaps = new HashSet<Tilemap>();
+            foreach (var layer in borders)
+            {
+                if (layer == null) continue;
+                if (!terrains.Add(layer.terrain))
+                {
+                    Debug.LogError($"IslandSystem: {layer.terrain} is in the border list twice — only its first row is used.", this);
+                    continue;
+                }
+
+                var layerTilemap = layer.tilemap;
+                if (layerTilemap != null && (layerTilemap == tilemap || layerTilemap == trimTilemap))
+                {
+                    Debug.LogError($"IslandSystem: the {layer.terrain} border is set to draw on the island's own " +
+                                   $"'{layerTilemap.name}' tilemap — give it one of its own; this one is not drawn.", this);
+                    layerTilemap = null;
+                }
+                else if (layerTilemap != null && !tilemaps.Add(layerTilemap))
+                {
+                    Debug.LogError($"IslandSystem: the {layer.terrain} border shares its tilemap '{layerTilemap.name}' with a " +
+                                   "row above it — give each terrain its own; this one is not drawn.", this);
+                    layerTilemap = null;
+                }
+                else if (layerTilemap == null && layer.tiles != null)
+                {
+                    Debug.LogWarning($"IslandSystem: the {layer.terrain} border has art but no tilemap — it is not drawn.", this);
+                }
+                usable.Add(new IslandBorderLayer(layer.terrain, layer.tiles, layerTilemap));
+            }
+            return usable;
+        }
+
+        // The decor's repaint clears its whole tilemap too, so it may not draw on one another layer uses.
+        private Tilemap UsableDecor(IReadOnlyList<IslandBorderLayer> usableBorders)
+        {
+            if (decorTilemap == null) return null;
+            bool shared = decorTilemap == tilemap || decorTilemap == trimTilemap;
+            foreach (var layer in usableBorders) shared |= layer.tilemap == decorTilemap;
+            if (!shared) return decorTilemap;
+
+            Debug.LogError($"IslandSystem: the decor is set to draw on '{decorTilemap.name}', which another island " +
+                           "layer draws on — give it a tilemap of its own; no decor is drawn.", this);
+            return null;
         }
     }
 }

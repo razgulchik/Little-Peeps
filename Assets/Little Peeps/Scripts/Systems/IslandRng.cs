@@ -43,6 +43,18 @@ namespace LittlePeeps
             return new IslandRng(Mix(h), Mix(h ^ 0x9E3779B97F4A7C15UL));
         }
 
+        // A number belonging to one cell under a seed: asked again, in any order, it is the same. For picks
+        // that are the cell's own rather than a step in a sequence — the decor a cell draws, which it is
+        // redrawn with many times over as a zone rises around it. Each salt is an independent roll for the
+        // same cell, for when one cell makes two choices.
+        public static uint CellHash(int seed, int x, int y, uint salt = 0)
+        {
+            ulong h = Mix(unchecked((ulong)seed) ^ ((ulong)salt << 32));
+            h = Mix(h ^ unchecked((uint)x));
+            h = Mix(h ^ unchecked((uint)y));
+            return (uint)(h >> 32);
+        }
+
         // FNV-1a of a string, for naming a stream after a biome id.
         public static ulong Hash(string text)
         {

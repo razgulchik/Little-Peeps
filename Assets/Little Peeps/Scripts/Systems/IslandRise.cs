@@ -726,6 +726,17 @@ namespace LittlePeeps
                 lowest = Mathf.Min(lowest, trim.sortingOrder);
                 highest = Mathf.Max(highest, trim.sortingOrder);
             }
+            // A tile in flight passes over landed neighbours, decor and borders and all. Both lie on the land,
+            // not along the coast, so they do not move the foam and the underwater order below.
+            var decor = drawing.DecorTilemap != null ? drawing.DecorTilemap.GetComponent<TilemapRenderer>() : null;
+            if (decor != null && decor.sortingLayerID == ground.sortingLayerID)
+                highest = Mathf.Max(highest, decor.sortingOrder);
+            foreach (var layer in drawing.BorderLayers)
+            {
+                var border = layer != null && layer.tilemap != null ? layer.tilemap.GetComponent<TilemapRenderer>() : null;
+                if (border != null && border.sortingLayerID == ground.sortingLayerID)
+                    highest = Mathf.Max(highest, border.sortingOrder);
+            }
             aboveOrder = highest + 1;
             underOrder = lowest - 2;   // under the side foam, which WaterSystem sorts one below the lowest coast layer
 

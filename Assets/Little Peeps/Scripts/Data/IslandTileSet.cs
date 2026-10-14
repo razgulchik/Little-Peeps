@@ -34,8 +34,8 @@ namespace LittlePeeps
         InnerCornerRight,
     }
 
-    // The tiles one island terrain is drawn with: the ground fill in its two checkerboard shades, and the
-    // single-colour coastline outline.
+    // The tiles one island terrain is drawn with: the ground fill in its two checkerboard shades, the decor
+    // scattered over it, and the single-colour coastline outline.
     //
     // The outline art is drawn OUTSIDE the land cell — a 1px column in the neighbour to the side, a 4px
     // band in the neighbour below — so trim tiles land on water cells and must go on their own
@@ -81,9 +81,23 @@ namespace LittlePeeps
         public TileBase innerCornerLeft;  // land to the N and W: band plus a column down the cell's left side
         public TileBase innerCornerRight; // land to the N and E: band plus a column down the cell's right side
 
+        [Header("Decor — scattered over the ground")]
+        [Tooltip("Specks on transparency, drawn over the light ground, corners included (keep the pixels the " +
+                 "corners cut away bare). A light cell that rolls decor takes one of these at random.")]
+        public TileBase[] decorLight;
+        [Tooltip("Specks on transparency, drawn over the dark ground, corners included (keep the pixels the " +
+                 "corners cut away bare). A dark cell that rolls decor takes one of these at random.")]
+        public TileBase[] decorDark;
+        [Tooltip("The share of this terrain's cells that get decor: 0 = none, 1 = every cell. Each cell rolls " +
+                 "on its own, so decor now and then bunches up or leaves a gap.")]
+        [Range(0f, 1f)] public float decorChance = 0.3f;
+
         [Header("Checkerboard")]
         [Tooltip("Flip which cell parity gets the light shade.")]
         public bool invertCheckerboard;
+
+        // The decor tiles a cell of this shade picks from; empty when the shade has none.
+        public TileBase[] GetDecor(bool light) => (light ? decorLight : decorDark) ?? System.Array.Empty<TileBase>();
 
         // Ground tile for a cell. An unassigned corner slot falls back to the plain fill so a half-filled
         // asset shows a slightly square corner rather than a hole in the island.

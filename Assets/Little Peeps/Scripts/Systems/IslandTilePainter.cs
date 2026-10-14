@@ -5,9 +5,10 @@ using UnityEngine.Tilemaps;
 
 namespace LittlePeeps
 {
-    // Pure C# autotiler: turns the sparse IslandGrid into two tilemap layers.
+    // Pure C# autotiler: turns the sparse IslandGrid into three tilemap layers.
     //  - ground: one tile per land cell — checkerboard shade from cell parity, rounded variant at the
     //            island's outer corners;
+    //  - decor:  specks scattered over the ground, on a random share of the land cells (see HasDecor);
     //  - trim:   the coastline outline, painted on the NON-land cells that touch land.
     //
     // Every choice is made from the 8 neighbours ("a cell exists in the grid" == land), never from an
@@ -121,14 +122,17 @@ namespace LittlePeeps
                     yield return new Vector2Int(cell.x + dx, cell.y + dy);
         }
 
-        // Repaint both layers from scratch. tileSetFor answers with a set for every terrain (a default
-        // for unmapped ones); trimTilemap may be null — the ground still draws, just bare.
-        public static void Repaint(Land land, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap, Tilemap trimTilemap)
+        // Repaint every layer from scratch. tileSetFor answers with a set for every terrain (a default
+        // for unmapped ones); trimTilemap and decorTilemap may be null — the ground still draws, just
+        // bare. decorSeed is the run's: the same seed draws the same decor.
+        public static void Repaint(Land land, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap, Tilemap trimTilemap,
+                                   Tilemap decorTilemap, int decorSeed)
         {
             if (!CanPaint(tileSetFor, groundTilemap)) return;
 
             groundTilemap.ClearAllTiles();
             if (trimTilemap != null) trimTilemap.ClearAllTiles();
+            if (decorTilemap != null) decorTilemap.ClearAllTiles();
             if (land == null) return;
 
             bool warnedMissing = false;
@@ -145,6 +149,8 @@ namespace LittlePeeps
                         warnedMissing = true;
                     }
                     groundTilemap.SetTile(ToTilemapCell(coord), GroundTile(land, coord, paint, tileSetFor));
+                    var decor = decorTilemap != null ? DecorTile(land, coord, paint, tileSetFor, decorSeed) : null;
+                    if (decor != null) decorTilemap.SetTile(ToTilemapCell(coord), decor);
                 }
                 else if (trimTilemap != null)
                 {
@@ -153,11 +159,11 @@ namespace LittlePeeps
             }
         }
 
-        // Redraw the 3×3 around `cell` after it turned land or water. Every cell in it is set on both
-        // layers, cleared where it now draws nothing, so the result is exactly what Repaint would draw.
+        // Redraw the 3×3 around `cell` after it turned land or water. Every cell in it is set on every
+        // layer, cleared where it now draws nothing, so the result is exactly what Repaint would draw.
         // A missing tile set stays silent here: the full repaint that drew the island already said so.
         public static void RepaintAround(Land land, Vector2Int cell, Func<TerrainType, IslandTileSet> tileSetFor,
-                                         Tilemap groundTilemap, Tilemap trimTilemap)
+                                         Tilemap groundTilemap, Tilemap trimTilemap, Tilemap decorTilemap, int decorSeed)
         {
             if (!CanPaint(tileSetFor, groundTilemap) || land == null) return;
 
@@ -168,6 +174,8 @@ namespace LittlePeeps
                 groundTilemap.SetTile(tilemapCell, paint.land ? GroundTile(land, coord, paint, tileSetFor) : null);
                 if (trimTilemap != null)
                     trimTilemap.SetTile(tilemapCell, paint.land ? null : TrimTile(land, paint, tileSetFor));
+                if (decorTilemap != null)
+                    decorTilemap.SetTile(tilemapCell, DecorTile(land, coord, paint, tileSetFor, decorSeed));
             }
         }
 
@@ -192,6 +200,31 @@ namespace LittlePeeps
         {
             var tileSet = tileSetFor(land.TerrainOf(coord));
             return tileSet != null ? tileSet.GetGround(IsLight(coord, tileSet.invertCheckerboard), paint.ground) : null;
+        }
+
+        // Decor may go on any land cell, the island's rounded corners too — so decor art must leave bare the
+        // pixels a corner tile cuts away for the rounding, or a speck there hangs over the water.
+        public static bool DrawsDecor(CellPaint paint) => paint.land;
+
+        // Whether a cell gets decor, and which of `count` tiles: the cell's own rolls under the run's seed,
+        // not draws from a sequence. A zone rising redraws the cells around each landing tile over and over,
+        // in whatever order the tiles land, and a cell must come back with the decor it had. The two are
+        // separate rolls — read off one, the cells that pass a low chance would all pick the first tiles.
+        public static bool HasDecor(Vector2Int coord, int seed, float chance) =>
+            IslandRng.CellHash(seed, coord.x, coord.y, DecorChanceSalt) * (1.0 / 4294967296.0) < chance;
+
+        public static int DecorSlot(Vector2Int coord, int seed, int count) =>
+            (int)(((ulong)IslandRng.CellHash(seed, coord.x, coord.y) * (ulong)count) >> 32);
+
+        private const uint DecorChanceSalt = 1;
+
+        private static TileBase DecorTile(Land land, Vector2Int coord, CellPaint paint, Func<TerrainType, IslandTileSet> tileSetFor, int seed)
+        {
+            if (!DrawsDecor(paint)) return null;
+            var tileSet = tileSetFor(land.TerrainOf(coord));
+            if (tileSet == null || !HasDecor(coord, seed, tileSet.decorChance)) return null;
+            var options = tileSet.GetDecor(IsLight(coord, tileSet.invertCheckerboard));
+            return options.Length > 0 ? options[DecorSlot(coord, seed, options.Length)] : null;
         }
 
         private static TileBase TrimTile(Land land, CellPaint paint, Func<TerrainType, IslandTileSet> tileSetFor)

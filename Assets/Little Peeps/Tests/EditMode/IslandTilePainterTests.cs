@@ -169,5 +169,104 @@ namespace LittlePeeps.Tests
                 Assert.That(plan.ContainsKey(new Vector2Int(x, 2)), Is.False, $"nothing along the top at x = {x}");
             Assert.That(plan.Count, Is.EqualTo(9 + 3 + 2 * 4), "9 land, 3 along the bottom, 4 down each side");
         }
+
+        // The decor is the cell's paint plus its own roll, so the step-by-step tests above already hold for
+        // it: a cell whose paint comes back the same comes back with the same decor. These pin the rest.
+
+        [Test]
+        public void Decor_MayGoOnEveryLandCell_CornersToo_AndNeverOnTheWater()
+        {
+            // A 3×3 square: four rounded corners, four sides, a middle — and the outline ring around it.
+            var square = new List<Vector2Int>();
+            for (int x = -1; x <= 1; x++)
+                for (int y = -1; y <= 1; y++)
+                    square.Add(new Vector2Int(x, y));
+            var plan = IslandTilePainter.Plan(new IslandTilePainter.Land(GridOf(square)));
+
+            var decorated = plan.Where(kv => IslandTilePainter.DrawsDecor(kv.Value)).Select(kv => kv.Key);
+            Assert.That(decorated, Is.EquivalentTo(square));
+        }
+
+        [Test]
+        public void DecorSlot_IsTheCellsOwn_AndSpreadsOverEveryTile()
+        {
+            foreach (int count in new[] { 4, 5 })
+            {
+                var hits = new int[count];
+                for (int x = -20; x < 20; x++)
+                    for (int y = -20; y < 20; y++)
+                    {
+                        var cell = new Vector2Int(x, y);
+                        int slot = IslandTilePainter.DecorSlot(cell, 7, count);
+                        Assert.That(slot, Is.InRange(0, count - 1));
+                        Assert.That(IslandTilePainter.DecorSlot(cell, 7, count), Is.EqualTo(slot), $"{cell} asked again");
+                        hits[slot]++;
+                    }
+
+                // 1600 cells: an even split, give or take a quarter — five standard deviations either way.
+                int even = 1600 / count;
+                for (int i = 0; i < count; i++)
+                    Assert.That(hits[i], Is.InRange(even * 3 / 4, even * 5 / 4), $"tile {i} of {count}");
+            }
+        }
+
+        [Test]
+        public void DecorSlot_ChangesWithTheSeed()
+        {
+            int cells = 0, same = 0;
+            for (int x = -10; x < 10; x++)
+                for (int y = -10; y < 10; y++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    cells++;
+                    if (IslandTilePainter.DecorSlot(cell, 1, 5) == IslandTilePainter.DecorSlot(cell, 2, 5)) same++;
+                }
+            // Chance alone matches one cell in five.
+            Assert.That(same, Is.LessThan(cells / 3), "another run draws the same decor");
+        }
+
+        [Test]
+        public void HasDecor_TakesTheChancesShareOfTheCells_EachTheCellsOwn()
+        {
+            foreach (float chance in new[] { 0f, 0.3f, 1f })
+            {
+                int hits = 0;
+                for (int x = -20; x < 20; x++)
+                    for (int y = -20; y < 20; y++)
+                    {
+                        var cell = new Vector2Int(x, y);
+                        bool has = IslandTilePainter.HasDecor(cell, 7, chance);
+                        Assert.That(IslandTilePainter.HasDecor(cell, 7, chance), Is.EqualTo(has), $"{cell} asked again");
+                        if (has) hits++;
+                    }
+
+                // 1600 cells at 0.3: 480, give or take a sixth — over four standard deviations either way.
+                int expected = Mathf.RoundToInt(1600 * chance);
+                Assert.That(hits, Is.InRange(expected - expected / 6, expected + expected / 6), $"chance {chance}");
+            }
+        }
+
+        [Test]
+        public void TheCellsThatGetDecor_StillSpreadOverEveryTile()
+        {
+            // Whether and which are separate rolls: read off one, a low chance would only ever pass the cells
+            // whose roll also picks the first tiles.
+            const int count = 5;
+            var hits = new int[count];
+            int decorated = 0;
+            for (int x = -30; x < 30; x++)
+                for (int y = -30; y < 30; y++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    if (!IslandTilePainter.HasDecor(cell, 7, 0.3f)) continue;
+                    hits[IslandTilePainter.DecorSlot(cell, 7, count)]++;
+                    decorated++;
+                }
+
+            // About 1080 cells: 216 a tile, give or take a third — over five standard deviations either way.
+            int even = decorated / count;
+            for (int i = 0; i < count; i++)
+                Assert.That(hits[i], Is.InRange(even * 2 / 3, even * 4 / 3), $"tile {i} of {count}");
+        }
     }
 }

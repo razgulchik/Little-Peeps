@@ -31,6 +31,7 @@ namespace LittlePeeps.EditorTools
         private IslandRiseProfile profile;
         private BiomeDef biome;
         private IslandTileSet oldIslandTiles;
+        private TerrainType oldIslandTerrain = TerrainType.Grass;
         private int seed = 1;
         private int agesBefore = 1;
         private Color seaColour = new(0.051f, 0.529f, 0.804f, 1f);   // tile_water_base
@@ -108,6 +109,10 @@ namespace LittlePeeps.EditorTools
             oldIslandTiles = (IslandTileSet)EditorGUILayout.ObjectField(
                 new GUIContent("Old island tiles", "The tiles the island the zone grows from is drawn with."),
                 oldIslandTiles, typeof(IslandTileSet), false);
+            oldIslandTerrain = (TerrainType)EditorGUILayout.EnumPopup(
+                new GUIContent("Old island terrain", "The ground of the island the zone grows from. Where it is not " +
+                                                     "the zone's, the border between them is drawn as the scene's island draws it."),
+                oldIslandTerrain);
             using (new EditorGUILayout.HorizontalScope())
             {
                 seed = EditorGUILayout.IntField(new GUIContent("Seed", "Which island and zone the generator grows."), seed);
@@ -283,7 +288,7 @@ namespace LittlePeeps.EditorTools
 
             var zoneTerrain = biome.profile.terrain;
             var grid = new IslandGrid(1f);
-            foreach (var cell in generator.Land) grid.SetCell(cell, zone.Contains(cell) ? zoneTerrain : TerrainType.Grass);
+            foreach (var cell in generator.Land) grid.SetCell(cell, zone.Contains(cell) ? zoneTerrain : oldIslandTerrain);
             var zoneTiles = biome.tileSet != null ? biome.tileSet : oldIslandTiles;
             var otherTiles = oldIslandTiles != null ? oldIslandTiles : biome.tileSet;
 
@@ -296,8 +301,25 @@ namespace LittlePeeps.EditorTools
             gridObject.AddComponent<Grid>();
             var ground = NewTilemap(gridObject, "Ground", sceneIsland != null ? sceneIsland.GroundTilemap : null, 0);
             var trim = NewTilemap(gridObject, "GroundTrim", sceneIsland != null ? sceneIsland.TrimTilemap : null, 1);
+            // Decor only where the scene's island draws it, made like the scene's.
+            var decor = sceneIsland != null && sceneIsland.DecorTilemap != null
+                ? NewTilemap(gridObject, "Decor", sceneIsland.DecorTilemap, 1)
+                : null;
 
-            drawing = new IslandDrawing(grid, terrain => terrain == zoneTerrain ? zoneTiles : otherTiles, ground, trim);
+            // The scene island's border list, each layer on a tilemap of the preview's own made like the
+            // scene's. A row without a tilemap there keeps its place in the order without one here too.
+            var borders = new List<IslandBorderLayer>();
+            if (sceneIsland != null)
+                foreach (var layer in sceneIsland.BorderLayers)
+                {
+                    if (layer == null) continue;
+                    var tilemap = layer.tilemap != null
+                        ? NewTilemap(gridObject, layer.tilemap.name, layer.tilemap, 2 + borders.Count)
+                        : null;
+                    borders.Add(new IslandBorderLayer(layer.terrain, layer.tiles, tilemap));
+                }
+
+            drawing = new IslandDrawing(grid, terrain => terrain == zoneTerrain ? zoneTiles : otherTiles, ground, trim, decor, seed, borders);
             drawing.HideLand(zone.Cells);
 
             grid.CellBounds(out var min, out var max);
@@ -440,6 +462,7 @@ namespace LittlePeeps.EditorTools
 
             seed = EditorPrefs.GetInt(PrefPrefix + "seed", 1);
             agesBefore = EditorPrefs.GetInt(PrefPrefix + "agesBefore", 1);
+            oldIslandTerrain = (TerrainType)EditorPrefs.GetInt(PrefPrefix + "oldTerrain", (int)TerrainType.Grass);
             origin = new Vector3(EditorPrefs.GetFloat(PrefPrefix + "posX", 80f), EditorPrefs.GetFloat(PrefPrefix + "posY", 0f), 0f);
             if (ColorUtility.TryParseHtmlString(EditorPrefs.GetString(PrefPrefix + "sea", string.Empty), out var sea)) seaColour = sea;
             loop = EditorPrefs.GetBool(PrefPrefix + "loop", true);
@@ -454,6 +477,7 @@ namespace LittlePeeps.EditorTools
 
             EditorPrefs.SetInt(PrefPrefix + "seed", seed);
             EditorPrefs.SetInt(PrefPrefix + "agesBefore", agesBefore);
+            EditorPrefs.SetInt(PrefPrefix + "oldTerrain", (int)oldIslandTerrain);
             EditorPrefs.SetFloat(PrefPrefix + "posX", origin.x);
             EditorPrefs.SetFloat(PrefPrefix + "posY", origin.y);
             EditorPrefs.SetString(PrefPrefix + "sea", "#" + ColorUtility.ToHtmlStringRGBA(seaColour));

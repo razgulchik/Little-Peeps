@@ -89,6 +89,7 @@ GameObject:
   - component: {fileID: 3867302214612423989}
   - component: {fileID: 3442869824636118119}
   - component: {fileID: 3357912009212520022}
+  - component: {fileID: 6184937205518426310}
   m_Layer: 0
   m_Name: River
   m_TagString: Untagged
@@ -153,6 +154,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: 2cdbe31ff286476458be07a23231e5e0, type: 2}
+--- !u!114 &6184937205518426310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2603376487552531715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e72b0e3e8ed04463bce383c1eed025fa, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  model: {fileID: 4778801655023900281}
+  end: {fileID: 21300000, guid: c23d31b5203af1649975983a99f4dde3, type: 3}
+  straight: {fileID: 21300000, guid: 3c96544fa0e132948bfd5557108cdf56, type: 3}
+  corner: {fileID: 21300000, guid: ea3a8f13bccc2cc408c38a6fdd1c71f6, type: 3}
 --- !u!1 &3660868618199599061
 GameObject:
   m_ObjectHideFlags: 0
@@ -230,7 +247,7 @@ SpriteRenderer:
   m_SortingLayerID: 1266997631
   m_SortingLayer: 1
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 8ed55f9214d8ef64f95170edf1071697, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 3c96544fa0e132948bfd5557108cdf56, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -253,7 +270,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b76a3ae4c25760e4eb7e2b1f8efb66f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  castShadow: 1
+  castShadow: 0
   offsetPixels: {x: 0, y: 2}
   alpha: 0.13725491
 --- !u!1 &8785312853424561509

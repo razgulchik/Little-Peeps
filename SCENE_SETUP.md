@@ -3,8 +3,9 @@
 Как устроен старт и как разложены объекты в `SampleScene`, чтобы сцена была «по полочкам».
 Документ держим синхронным с кодом — обновляем при добавлении/переименовании систем и полей.
 
-> Полная сверка с кодом, сценой и префабами: **2026-10-08**. Не вошёл звук ударов и сборов
-> (`SoundSystem` / `SoundDef`) — он ещё в работе.
+> Полная сверка с кодом, сценой и префабами: **2026-10-08**. Стройка в реальном времени (режима
+> стройки больше нет): **2026-10-15**, сверено со сценой и `Canvas.prefab`. Не описана проводка звука
+> (`SoundSystem` / `SoundDef`): система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
 
@@ -44,6 +45,7 @@ SampleScene
 │   ├── ResourceSystem          → ResourceSystem
 │   ├── StructureSystem         → StructureSystem
 │   ├── SpawnSystem             → SpawnSystem
+│   ├── SoundSystem             → SoundSystem        (звуки ударов, сборов, дверей; проводка не описана — см. выше)
 │   ├── TapSystem               → TapSystem + TapRadiusVisual + LineRenderer   (кольцо радиуса тапа у курсора;
 │   │                              AudioSource для щелчка тапа TapSystem добавляет себе сам в рантайме)
 │   ├── UnitPool                → UnitPool           (юниты из пула становятся его детьми)
@@ -85,10 +87,11 @@ SampleScene
     │   ├── ResourceBar
     │   │   └── Slots           → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
     │   └── BuildBar
-    │       ├── ModeButton      → Image + Button + BuildModeButton      (правый-нижний угол: Play↔Build)
-    │       ├── Palette         → CanvasGroup + Image + BuildPanelUI
+    │       ├── ModeButton      → Image + Button + BuildPanelButton     (правый-нижний угол: прячет / показывает
+    │       │                                                    палитру и Sell — не режим, игра идёт и так и так)
+    │       ├── Palette         → CanvasGroup + Image + BuildPanelUI    (открыта всю живую игру)
     │       │   ├── TabConteiner → Vertical Layout Group        (кнопки вкладок в рантайме; ВНУТРИ Palette —
-    │       │   │                                                видны только в стройке, своя строка UIVisibility не нужна)
+    │       │   │                                                видны вместе с палитрой, своя строка UIVisibility не нужна)
     │       │   └── Viewport    → Image + RectMask2D + BuildPanelScroller
     │       │       └── CardRow → Horizontal Layout Group       (карточки построек в рантайме)
     │       └── Sell            → CanvasGroup
@@ -111,6 +114,8 @@ SampleScene
     │   ├── TitleText, BodyText → TMP_Text
     │   ├── CostContainer       → Vertical Layout Group         (строки цены в рантайме)
     │   └── FooterText          → TMP_Text
+    ├── ConfirmDialog           → вложенный префаб `Prefabs/Elements/ConfirmDialog`: CanvasGroup + ConfirmDialog
+    │                             (Backdrop, Panel с текстом и кнопками Yes / No)
     ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← экран после престижа
     │   ├── TitleText, PointsText → TMP_Text
     │   ├── Scroll View         → Image + ScrollRect
@@ -118,16 +123,17 @@ SampleScene
     │   │   │   └── Content     → Vertical Layout Group + Content Size Fitter   (строки мета-перков в рантайме)
     │   │   └── Scrollbar Vertical
     │   └── PlayButton          → Image + Button
-    └── ConfirmDialog           → вложенный префаб `Prefabs/Elements/ConfirmDialog`: CanvasGroup + ConfirmDialog
-                                  (Backdrop, Panel с текстом и кнопками Yes / No)
+    └── FPSmeter
+        └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
 ```
 
-> `HintView` по замыслу кода — **последний** ребёнок Canvas, чтобы рисоваться поверх всего. Сейчас после
-> него стоят `MetaScreen` и `ConfirmDialog`: подсказки поверх них не нужны, но если появятся — перенести вниз.
+> `HintView` и `ConfirmDialog` по замыслу кода — **последние** дети Canvas, чтобы рисоваться поверх всего.
+> Сейчас после них стоят `MetaScreen` и `FPSmeter`. На деле не мешает: вопрос «End this run?» задаётся
+> до мета-экрана, а сам мета-экран подсказок не показывает. Если это изменится — перенести оба вниз.
 
 ## Checklist проводки (критично)
 
-Прокинь все ссылки. **Жирным** — то, без чего старт падает с `NullReferenceException` или ломается build mode.
+Прокинь все ссылки. **Жирным** — то, без чего старт падает с `NullReferenceException` или ломается стройка.
 
 ### Bootstrap и системы
 
@@ -138,17 +144,22 @@ SampleScene
 | | | **tapSystem, runManager, prestigeSystem, saveSystem** | соответствующие компоненты |
 | | | **ageSystem** | AgeSystem (нужен для эпох) |
 | | | ageSequencer, perkSystem | AgeSequencer, PerkSystem |
-| | | **placementController** | PlacementController (нужен build mode) |
+| | | **placementController** | PlacementController — стройка; его же бутстрап отдаёт `TapSystem` кодом, чтобы клик с инструментом в руке не был тапом |
 | | | **uiRoot** | **UIRoot на Canvas** — единственная UI-ссылка бутстрапа; панели разведены внутри префаба |
-| | | buildModeCooldown | 5 (сек, дефолт) |
 | Bootstrap | SaveSystem | — | (полей нет; запись на диск пока заглушка) |
 | Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem, spawnSystem** | ResourceSystem, Island, StructureSystem, SpawnSystem (spawnSystem обязателен — иначе NPE в StartNewRun) |
 | | | **startConfig** | `ScriptableObjects/StartConfig/Start Config` — сид и правила острова, стартовый биом, дом, пирс, стартовые ресурсы и модификаторы. Пусто = случайный остров без дома и пирса, ноль ресурсов |
 | Systems/ResourceSystem | ResourceSystem | logChanges | вкл/выкл лог ресурсов в консоль (дебаг) |
-| Systems/StructureSystem | **StructureSystem** | **islandSystem, resourceSystem, spawnSystem** | Island, ResourceSystem, SpawnSystem |
+| Systems/StructureSystem | **StructureSystem** | **islandSystem, resourceSystem, spawnSystem** | Island, ResourceSystem, SpawnSystem (без SpawnSystem стройплощадка не видит юнитов на месте и ставит здание сразу) |
+| | | siteLook → blueprintColor, groundColor | вид стройплощадки, пока у неё нет своего арта: множитель спрайтов чертежа (белый α0.45 — альфа = насколько прозрачен) и подложка по клеткам (песочный α0.25) — дефолты |
+| | | siteLook → groundSortingLayer, groundSortingOrder | Ground, 1000 — подложка под ореолом госта (1001), чтобы гост над площадкой читался |
+| | | siteLook → fenceThickness | 0.25 клетки — ширина полосы площадки забора вдоль ребра |
 | Systems/SpawnSystem | **SpawnSystem** | **unitPool, unitSystem** | UnitPool, UnitSystem |
 | | | islandSystem | Island (впрыскивается в юнитов — задел на будущее island-aware поведение) |
+| | | soundSystem | SoundSystem (юниты берут его отсюда для своих звуков; пуф тоже звучит через него) |
 | | | stuckSweepInterval | 0.5 с (дефолт): как часто ищутся застрявшие юниты — их отправляют в ближайший дом |
+| | | puffFx, puffParticles | «пуф», с которым исчезают лишние жители проданного дома и звери проданной норы: префаб ParticleSystem как общий эмиттер (World space, Looping, без своей эмиссии) и частиц на пуф (8). **В сцене пусто** — исчезают без эффекта |
+| | | puffSound | SoundDef пуфа. **В сцене пусто** — беззвучно |
 | Systems/UnitSystem | UnitSystem | — | (полей нет) |
 | Systems/UnitPool | UnitPool | — | (полей нет; юниты инстанцируются его детьми) |
 | Systems/PerkSystem | PerkSystem | catalogue | `ScriptableObjects/Perks/Perk Catalogue Def` (PerkCatalogueDef — список перков) |
@@ -168,13 +179,13 @@ SampleScene
 | | | **islandSystem** | Island |
 | | | waterSystem | WaterSystem (опц.; без него тайлы в прыжке не давят на воду) |
 | Systems/TapSystem | **TapSystem** | **inputHandler** | InputHandler |
-| | | radiusVisual | TapRadiusVisual на этом же объекте (ширина, материал и цвет кольца — на его LineRenderer) |
+| | | radiusVisual | TapRadiusVisual на этом же объекте (ширина, материал и цвет кольца — на его LineRenderer). Кольцо видно, пока игра идёт и рука пуста: с карточкой или Sell в руке клик — стройки, и кольцо прячется |
 | | | tapRadius, boostSpeedMultiplier, boostDuration | 0.5, ×2, 5 с (дефолты). Радиус и множитель — БАЗА: перки растят их статами `TapRadius` / `TapBoostMultiplier` |
 | | | refreshStamina | выкл (дефолт): тап только ускоряет; вкл — ещё и восполняет выносливость |
 | | | tapClip | звук тапа (`Sound/click`); пусто = тапы без звука. AudioSource не нужен — TapSystem создаёт его сам |
 | | | tapVolume, tapPitchJitter | 0.6 и ±0.05 (дефолты): громкость щелчка и случайный разброс высоты на каждый тап, 0 = всегда одинаково |
 | Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, mainCamera, gridOverlay** | соответствующие компоненты (gridOverlay — на `Island/GridOverlay`) |
-| | | visuals → validColor, invalidColor, sellHoverColor, moveHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже, зелёный «можно схватить» в Move (есть дефолты) |
+| | | visuals → validColor, invalidColor, sellHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже (есть дефолты) |
 | | | visuals → territoryValidColor, territoryInvalidColor, territorySortingLayer, territorySortingOrder | ореол занимаемой территории госта: зелёный/красный α0.18, слой Ground/1001 (дефолты) |
 | Systems/HarvestVfxSystem | HarvestVfxSystem | viewCamera | Main Camera (опц. — пусто = `Camera.main` в `Awake`; нужна только чтобы не играть эффекты за экраном) |
 | | | offscreenMargin | 0.1 (дефолт) — запас вокруг экрана в долях вьюпорта |
@@ -187,7 +198,7 @@ SampleScene
 | | | foamMinPixels, foamMaxPixels, foamPeriod, foamWholePixels | пена под южным берегом: толщина в арт-пикселях от/до, период пульса (сек), шаг целыми пикселями. В сцене 1 / 2 / 5 / выкл |
 | | | sideFoamShader, sideFoamPixels | шейдер `Little Peeps/Sprite Flat Color` и ширина пены по восточному/западному краю (1 px). Пустой шейдер = без боковой пены |
 | Input | **InputHandler** | **mainCamera** | Main Camera |
-| Input | GameHotkeys | buildModeKey, sellKey, exitToMenuKey | клавиши команд: B / X / Esc (дефолты, правятся в инспекторе); цифры 1–9 — вкладки стройки (зашиты в коде) |
+| Input | GameHotkeys | buildPanelKey, sellKey, exitToMenuKey | клавиши команд: B — спрятать / показать панель стройки, X — Sell, Esc (дефолты, правятся в инспекторе); цифры 1–9 — вкладки стройки (зашиты в коде) |
 | CameraController | **CameraController** | **cameraTarget, vcam** | пустой `CameraTarget` (его и двигаем); CinemachineCamera — зум = её `Lens > Orthographic Size`, а значение, сохранённое в сцене, = **стартовый зум каждого забега** |
 | | | **islandSystem, viewCamera** | Island (кламп по острову); viewCamera = Main Camera (только для перевода drag-пикселей в мир) |
 | | | zoomSpeed, minZoom, maxZoom | шаг колеса (2) и пределы ortho size (3…12) — дефолты |
@@ -202,9 +213,10 @@ SampleScene
 | | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → набор пуст → `Grid/BordersMeadow`; `Forest` → `TileSet/Forest Border Set` → `Grid/BordersForest`. Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / GroundTrim), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / каймы — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
 | | | **structureSystem** | StructureSystem — через неё зона получает природное содержимое (деревья, реки, стартовый дом) |
 | | | cellSize, previewSeed | 1; сид для редакторского превью «Generate Island» (контекстное меню). Забег берёт сид из StartConfig |
-| Island/GridOverlay | **GridOverlay** | **islandSystem** | Island |
-| | | lineColor, lineWidth | белый α0.6, 0.04 (дефолты) |
+| Island/GridOverlay | **GridOverlay** | **islandSystem** | Island. Сетка — **пятно у курсора**, и только пока в руке карточка или Sell; весь остров она не покрывает |
+| | | lineColor, lineWidth | в сцене синий (0.08, 0.41, 0.80) α0.64; 0.04 (дефолт — белый α0.6) |
 | | | occupiedColor | заливка занятых клеток (территория структур), белый α0.12 (дефолт) |
+| | | spotRadius, spotSolid, segmentsPerSide | радиус пятна в клетках (3), доля радиуса в полную силу — дальше тает к краю (0.35), отрезков на сторону клетки — круглее затухание (4) — дефолты |
 | | | sortingLayerName, sortingOrder | в сцене **Mesh**, 1000 — сетка поверх всего, юнитов и построек тоже (дефолт в коде — Ground, 1000: поверх тайлов и лежащего на земле, но под юнитами) |
 | ZonePreviewOverlay | ZonePreviewOverlay | **islandSystem** | Island |
 | | | fillAlpha, outlineAlpha, outlineWidth | 0.55, 1, 0.08 (дефолты); цвет заливки — `previewColor` биома |
@@ -233,7 +245,7 @@ SampleScene
 | | | labelFormat | `Prestige +{0}` — `{0}` = выплата |
 | | | zeroPayoutAlpha | 0.6 — прозрачность, пока забег не бьёт рекорд (кнопка всё равно нажимается) |
 | | | worldCamera | камера мира, чтобы найти пирс на экране (пусто = `Camera.main`) |
-| Canvas/Hud/BuildBar/ModeButton | BuildModeButton | button, modeText, buildLabel, playLabel | Button, TMP_Text, «B», «>» |
+| Canvas/Hud/BuildBar/ModeButton | BuildPanelButton | button, label, hideLabel, showLabel | Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Клик только просит (`BuildPanelToggleRequestedEvent`), видна ли панель — решает `BuildPanelUI` |
 | Canvas/Hud/BuildBar/Palette | **BuildPanelUI** | palette | `ScriptableObjects/BuildMode/Build Palette Def` |
 | | | placementController, resourceSystem | PlacementController, ResourceSystem (в сцене!) |
 | | | cardPrefab, cardContainer | префаб `Prefabs/Elements/BuildCard`, дочерний `Viewport/CardRow` |
@@ -264,20 +276,26 @@ SampleScene
 взаимодействию родитель гасит детей. Поэтому строка нужна только там, где группа отличается от
 родительской.
 
-| # | Group | Playing | Build | ZonePick | PerkPick | AgeTransition | PrestigeConfirm | MetaUpgrades |
-|---|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 0 | `Hud` | ✓ | ✓ | — | ✓ | ✓ | ✓ | — |
-| 1 | `Hud/AgePanel` | ✓ | — | — | ✓ | ✓ | ✓ | — |
-| 2 | `Hud/BuildBar/Palette` | — | ✓ | — | — | — | — | — |
-| 3 | `Hud/BuildBar/Sell` | — | ✓ | — | — | — | — | — |
-| 4 | `Screens/PerkScreen` | — | — | — | ✓ | — | — | — |
-| 5 | `Screens/ZoneScreen` | — | — | ✓ | — | — | — | — |
-| 6 | `Prestige` | ✓ | — | — | — | — | — | — |
-| 7 | `MetaScreen` | — | — | — | — | — | — | ✓ |
+Кроме режима у строки есть одна галочка — **Follows Build Panel**: такая группа видна, только если её
+режим говорит «да» **и** игрок не спрятал панель стройки (кнопка `ModeButton` или B). Это всё ещё строка
+таблицы, так что у группы один хозяин — кнопка ничего не пишет поверх того, что выставил режим.
 
-Строка 0 читается как «всё, кроме выбора зоны и мета-экрана» (оба забирают себе весь экран), строка 1 —
-ещё и «кроме Build» (в стройке кнопка эпохи и лестница эр не загораживают остров), строка 6 — кнопка
-престижа только в живой игре.
+| # | Group | Playing | ZonePick | PerkPick | AgeTransition | PrestigeConfirm | MetaUpgrades | За панелью |
+|---|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 0 | `Hud` | ✓ | — | ✓ | ✓ | ✓ | — | — |
+| 1 | `Hud/AgePanel` | ✓ | — | ✓ | ✓ | ✓ | — | — |
+| 2 | `Hud/BuildBar/Palette` | ✓ | — | — | — | — | — | ✓ |
+| 3 | `Hud/BuildBar/Sell` | ✓ | — | — | — | — | — | ✓ |
+| 4 | `Screens/PerkScreen` | — | — | ✓ | — | — | — | — |
+| 5 | `Screens/ZoneScreen` | — | ✓ | — | — | — | — | — |
+| 6 | `Prestige` | ✓ | — | — | — | — | — | — |
+| 7 | `MetaScreen` | — | — | — | — | — | ✓ | — |
+
+Строка 0 читается как «всё, кроме выбора зоны и мета-экрана» (оба забирают себе весь экран), строки 2–3 —
+палитра и Sell всю живую игру, пока игрок их не спрятал, строка 6 — кнопка престижа только в живой игре.
+Строка 1 когда-то прятала панель эпохи в режиме стройки; без него она совпадает со строкой 0 и ничего не
+меняет — её можно удалить. Бит бывшего режима `Build` (`1 << 1`) в коде оставлен пустым, поэтому старые маски
+читаются как раньше: у `Hud` он до сих пор отмечен в сериализации, но ни на что не влияет.
 
 > Панели **не прячут сами себя** и не лезут в чужие корни. Если экран не появился — смотри сюда, а не
 > в код панели. Пустое поле `group` в строке ловится предупреждением в консоли на старте.
@@ -372,7 +390,7 @@ Root                → Rigidbody2D (Static) + Structure + ResourceSource + Reso
 вложенный префаб `BaseTree` со своими `ResourceSource` + `ResourceSourceView`.
 
 **Река** (`Prefabs/Nodes/River`) — одна клетка русла, ставит только генератор (у дефа `isWater` вкл,
-`canSell` / `canMove` выкл). Кусок и поворот выбирает код по соседним клеткам реки:
+`canSell` выкл). Кусок и поворот выбирает код по соседним клеткам реки:
 ```
 Root          → Rigidbody2D (Static) + Structure + RiverVisual
 ├── Visual    (Y 0.5 — центр клетки: модель крутится вокруг своей позиции)
@@ -399,15 +417,17 @@ Root          → Rigidbody2D (KINEMATIC, Gravity Scale 0) + CollisionTarget + R
 │   └── Model → SpriteRenderer (Sort Point = Pivot, пивот у ног) + SpriteShadow
 └── Physics   → Collider2D (Is Trigger = выкл — юнит отскакивает, и этот отскок = «удар»-сбор)
 ```
-- **Body Type строго Kinematic:** юнит (Dynamic) отскакивает от зверя, а сам зверь при движении проходит сквозь
-  постройки и рельеф — валидируются только точки назначения (их выдаёт `AnimalSpawner`: клетки суши в радиусе территории).
+- **Body Type строго Kinematic:** юнит (Dynamic) отскакивает от зверя, а сам зверь физикой не останавливается ничем.
+  Куда ему можно, решает код: точки назначения (их выдаёт `AnimalSpawner`: клетки суши в радиусе территории) и
+  щуп на шаг вперёд — край острова, постройки с `animalsAvoid` и стройплощадки.
 - **Сбор — обычный `ResourceSource`**, как у дерева: деф зверя задаёт, кто собирает (workerYields), сколько ударов
   (hitsToDeplete) и что потом — `Despawn` (зверь исчезает, нора выпустит замену через spawnCooldown) или `Regrow`
   (альпака стоит стриженая, пока не отрастёт шерсть). `Animal` полей не имеет — это только связь с норой.
 - Поля `AnimalWander`: moveSpeed (1), pauseMin/pauseMax (0.5 / 2 с — шаг→пауза→шаг), fallbackRadius (2 — радиус
   блуждания без норы), visual (что отражать по направлению), personalSpace (0.6), encounterImmunity (1.5 с), lookAhead (0.3).
-- Нора / конюшня = обычная Structure + `AnimalSpawner` (см. таблицу выше). Звери уничтожаются на входе в build mode и
-  пересоздаются на выходе — как юниты; переезд норы перевозит и территорию (спавнер читает `instance.Cell`).
+- Нора / конюшня = обычная Structure + `AnimalSpawner` (см. таблицу выше). Звери выходят при постройке норы и живут
+  до конца забега; продали нору — её звери исчезают с «пуфом». На клетки стройплощадки зверь не заходит, а
+  стоящий на них уходит сам; площадка в клетках ждёт, пока зверей на ней не останется (площадка забора не ждёт).
 
 ### FX_Pickup_* (эффект сбора — по одному на источник)
 Префаб с одной `ParticleSystem`: колосок из поля, бревно из дерева, монета с рынка. Кладётся в
@@ -466,7 +486,7 @@ Root              → Rigidbody2D (Static) + Structure + DualVisual (firstRoot =
 - В `StructureDef` забора выставить **placement = Edge** (`size`/`border` для рёбер не используются).
 - Тот же префаб служит превью: ghost = его инстанс с выключенными коллайдерами и поведением, тинт
   green/red на обоих рендерерах.
-- **Move/Sell:** клик «выигрывает» забор, когда курсор ближе 0.3 клетки к линии ребра (иначе берётся
+- **Sell:** клик «выигрывает» забор, когда курсор ближе 0.3 клетки к линии ребра (иначе берётся
   структура в клетке под курсором).
 
 ### BuildCard (префаб карточки, инстанцируется BuildPanelUI в рантайме)
@@ -512,7 +532,7 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 - **Префаб** (`Prefabs/Buildings/Pier`) = Rigidbody2D (Static) + `Structure` + `Pier` + Visual/Model + Physics (BoxCollider2D)
   + пустышка `ButtonAnchor`. `Pier` — маркер: по нему кнопка престижа находит пирс забега и висит над `buttonAnchor`.
 - **StructureDef Пирса:** `placement = Cell`, `border = 0` (иначе потребует клетки за краем острова), `size` 1×3,
-  `cost` пустой, `canSell` и `canMove` выкл. В палитру стройки не кладётся.
+  `cost` пустой, `canSell` выкл. В палитру стройки не кладётся.
 - **Престиж — кнопка, а не клик по пирсу:** `Canvas/Prestige/PrestigeButton` появляется с эпохи
   `PrestigeSystem.pierUnlockAge` и висит над пирсом.
 
@@ -523,7 +543,7 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
 | **StartConfig** | LittlePeeps/StartConfig | islandSeed (0 = случайный), islandRules (правила генерации), startBiome, house, pier, startingResources, startingModifiers. Один на игру — в `RunManager.startConfig` |
-| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, canMove, passable / animalsAvoid, isWater (река: по нему клетки реки стыкуются, а мельница ищет берег), needsWaterSide (мельница), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую) |
+| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, passable / animalsAvoid, isWater (река: по нему клетки реки стыкуются, а мельница ищет берег), needsWaterSide (мельница), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую) |
 | **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), **depletion** (Never / Despawn / Regrow), hitsToDeplete, regrowTime, keepBodyWhileDepleted, **pickupFx** (префаб FX_Pickup_*; пусто = только цифра) + **pickupFxCount**. `pickupFx` — единственный визуал в дефе, и намеренно: он отвечает на вопрос «что именно добыли», а на него нельзя ответить типом ресурса. Один тип дефа для статичных нод и зверей |
 | **UnitDef** | LittlePeeps/UnitDef | id, prefab (→ BaseUnit), speed, profession (с какой профессией рождается — `Unassigned`, настоящую даёт стойка) |
 | **ProfessionDef** | LittlePeeps/ProfessionDef | type (UnitType), frames[] — кадры ходьбы этой профессии |
@@ -549,17 +569,17 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 Три слоя ввода, расцеплённые между собой:
 
 - **`InputHandler`** — низкоуровневый роутер мыши: ЛКМ/ПКМ → мировые координаты → три события:
-  - `OnWorldClick` — ЛКМ, **только если курсор НЕ над UI**. Слушают `TapSystem` (буст юнитов + щелчок) и `PlacementController` (build mode);
+  - `OnWorldClick` — ЛКМ, **только если курсор НЕ над UI**. Слушают оба, а забирает один: с карточкой или Sell в руке — `PlacementController` (ставит / продаёт), с пустой рукой — `TapSystem` (буст юнитов + щелчок; он сам спрашивает `PlacementController.HoldsTool`);
   - `OnAnyClick` — любая ЛКМ, и над UI тоже. Слушает `AgeSequencer`: тап ускоряет подъём острова и закрывает баннер эпохи, а баннер сам UI;
-  - `OnRightClick` — любая ПКМ: отмена в build mode, над панелью тоже.
+  - `OnRightClick` — любая ПКМ: положить инструмент из руки, над панелью тоже.
 
   Камеру он не трогает.
-- **`CameraController`** (на своём GO, НЕ на CameraTarget и НЕ на камере) — двигает transform пустого **CameraTarget** = логическую цель камеры; поллит ввод сам, считает на `unscaledDeltaTime` → работает и в build mode (`timeScale=0`). Источники: WASD + стрелки, курсор у края экрана, **drag средней кнопкой мыши** (мир тащится под курсором), **колесо — зум** (ortho size vcam в пределах `minZoom…maxZoom`). Цель клампится по `IslandGrid.WorldBounds()` + `boundsMargin`; границы перечитываются на `AgeStartedEvent` (рост острова) и `RunStartedEvent`. Плавность даёт не он, а **Cinemachine vcam**, которая следует за целью с damping; `Main Camera` несёт `CinemachineBrain` и рендерит. `viewCamera` (= Main Camera) нужен скрипту только чтобы перевести drag-пиксели в мир (его `orthographicSize` крутит brain → отражает живой зум). `Confiner2D` — отдельной итерацией позже.
+- **`CameraController`** (на своём GO, НЕ на CameraTarget и НЕ на камере) — двигает transform пустого **CameraTarget** = логическую цель камеры; поллит ввод сам, считает на `unscaledDeltaTime` → работает и на паузах (`timeScale=0`: выбор зоны и перка, подъём острова). Источники: WASD + стрелки, курсор у края экрана, **drag средней кнопкой мыши** (мир тащится под курсором), **колесо — зум** (ortho size vcam в пределах `minZoom…maxZoom`). Цель клампится по `IslandGrid.WorldBounds()` + `boundsMargin`; границы перечитываются на `AgeStartedEvent` (рост острова) и `RunStartedEvent`. Плавность даёт не он, а **Cinemachine vcam**, которая следует за целью с damping; `Main Camera` несёт `CinemachineBrain` и рендерит. `viewCamera` (= Main Camera) нужен скрипту только чтобы перевести drag-пиксели в мир (его `orthographicSize` крутит brain → отражает живой зум). `Confiner2D` — отдельной итерацией позже.
   - **Старт забега** (`Start` и каждый `RunStartedEvent`): камера мгновенно, без damping, встаёт в центр острова с зумом из сцены (`Lens > Orthographic Size` у vcam) — новый забег всегда начинается с одного вида, что бы ни крутили до этого.
 - **`GameHotkeys`** (на `Input`) — дискретные команды по нажатию, публикует события в `EventBus`, ни во что не лезет напрямую. UI его не фильтрует: клавиатура не целится в то, что под курсором, поэтому подписчики сами проверяют состояние:
-  - **B** → `BuildModeToggleRequestedEvent` (тот же путь, что кнопка build mode → `GameplayContainerState`, с 5-сек кулдауном);
-  - **X** → `SellModeRequestedEvent` → `BuildPanelUI` тогглит инструмент Sell тем же путём, что кнопка (подсветка + контроллер синхронны); вне build mode — no-op;
-  - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildPanelUI` открывает N-ю вкладку; вне build mode — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
+  - **B** → `BuildPanelToggleRequestedEvent` (тот же путь, что кнопка `ModeButton`) → `BuildPanelUI` прячет или показывает палитру и Sell. Не режим: игра идёт и так и так; спрятанная панель кладёт инструмент из руки;
+  - **X** → `SellModeRequestedEvent` → `BuildPanelUI` тогглит инструмент Sell тем же путём, что кнопка (подсветка + контроллер синхронны); спрятанную панель показывает; поверх другого экрана (выбор перка, подъём острова…) — no-op;
+  - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildPanelUI` открывает N-ю вкладку и показывает спрятанную панель; поверх другого экрана — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
   - **Esc** → `ExitToMenuRequestedEvent` → `GameBootstrap` пока **отклоняет** переход (warning в консоли): у `MainMenuState` нет экрана, и выход в него оставил бы игрока без пути назад. Вернуть — одна строка, когда меню появится.
 
 **Мышь над UI принадлежит UI.** Колесо и начало drag средней кнопкой, как и `OnWorldClick`, ничего не делают, пока курсор над UI (`InputHandler.IsPointerOverUI()` — ответ EventSystem). Начатый на острове drag может пройти и над UI. WASD и край экрана не фильтруются: они ни во что под курсором не целятся.
@@ -568,16 +588,39 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 
 > ⚠️ `CameraController` использует `viewCamera.orthographicSize` (drag) — **камера должна быть Orthographic** (2D-проект, так и есть). линзу vcam тоже держать Orthographic.
 
-## Build mode — как связано
+## Стройка — как связано
 
-- **Вход/выход** по `BuildModeButton` (правый-нижний угол) **или клавише B** → событие `BuildModeToggleRequestedEvent` → `GameplayContainerState` переключает внутренний FSM `Playing↔BuildMode` и держит 5-сек кулдаун на повторный вход.
-- **`BuildModeState.Enter`**: `Time.timeScale=0` + `SpawnSystem.DespawnAllAndResetSpawners` (юниты в пул, зверей их норы уничтожают сами). **`Exit`**: `SpawnSystem.WarmupAllSpawners` (юниты и звери пересоздаются из зданий) + `Time.timeScale=1`. Оба вида спавнеров идут через один реестр `IStructureSpawner`.
+**Режима стройки нет** (с 2026-10-15): игра не встаёт на паузу, юниты не исчезают, переноса построек нет.
+Панель стройки открыта всю живую игру, остров работает под ней.
+
+- **Когда работает:** `PlayingState.Enter` → `PlacementController.Begin`, `Exit` → `End`. Любой другой экран (выбор
+  зоны или перка, подъём острова, вопрос о престиже, мета-экран) начинается с того, что инструмент из руки кладётся.
 - **Инструмент = что выбрано в панели** (`PlacementController`):
-  - карточка → **PLACE** (гост под курсором, клик ставит),
+  - карточка → **PLACE** (гост под курсором, клик ставит; инструмент остаётся в руке, можно ставить дальше),
   - кнопка Sell → **SELL** (наведение красит постройку, клик продаёт с возвратом `sellRefundPercent` от цены предыдущей копии — при росте цены возвращается то, что за эту копию заплатили),
-  - ничего не выбрано → **MOVE** (клик берёт постройку, она тащится за курсором; клик ставит, ПКМ — отмена на исходное место).
-- `GridOverlay` показывает/прячет сетку на вход/выход.
-- **`EventSystem` обязателен** — клики над UI до `PlacementController` не доходят (`InputHandler` не пускает их в `OnWorldClick`, спрашивая EventSystem), а uGUI-кнопки без него не нажимаются. ПКМ-отмена работает и над панелью.
+  - ничего не выбрано → **пустая рука**: клик — это тап (`TapSystem`).
+  - ПКМ, повторный клик по выбранной карточке / Sell или спрятанная панель — назад к пустой руке.
+- **Сетка** (`GridOverlay`) — пятно вокруг курсора, только пока в руке карточка или Sell.
+- **Постановка = стройплощадка.** Оплаченная постройка не встаёт на голову тем, кто там стоит: сначала появляется
+  площадка. Префаба у неё **нет** — `ConstructionSite` собирает её кодом (объект `Site (<имя дефа>)`):
+  - стена по клеткам футпринта (Rigidbody2D Static + BoxCollider2D на клетку → один CompositeCollider2D), у забора —
+    полоса вдоль ребра шириной `siteLook.fenceThickness`;
+  - **выпускает, но не впускает:** юниты, стоявшие на месте в момент постановки, проходят сквозь стену, пока каждый не
+    выйдет целиком; остальные отскакивают, как от здания. Удар о площадку ничего не платит;
+  - звери на клетки площадки не заходят, стоящие уходят сами; площадка в клетках ждёт и их (забора это не касается);
+  - вид: полупрозрачный чертёж здания (его спрайты, умноженные на `siteLook.blueprintColor`) над подложкой
+    `siteLook.groundColor` — настраивается на `StructureSystem` (см. checklist);
+  - как только внутри никого — на том же месте встаёт настоящий префаб.
+
+  Площадка уже занимает клетки, считается в лимите и цене, а продаётся как готовое здание. Генерируемое
+  (содержимое зон, стартовый дом, пирс) встаёт сразу, без площадки. **Отложено:** стройка ударами юнитов снаружи,
+  арт лесов, звук стука.
+- **Продажа идёт в живой игре:** таверна выпускает гостей пьяными там, где стояла; звери проданной норы исчезают с
+  пуфом; лишние жители проданного дома (сколько не помещается в оставшиеся дома) исчезают с пуфом, ближайшие к нему
+  первыми. Эффект и звук пуфа — поля `SpawnSystem` (`puffFx`, `puffSound`), в сцене пока пусто.
+- **Кнопка `ModeButton` / клавиша B** только прячут и показывают палитру и Sell (`BuildPanelUI` хранит это между
+  экранами и забегами); клавиши X и 1–9 спрятанную панель показывают.
+- **`EventSystem` обязателен** — клики над UI до `PlacementController` и `TapSystem` не доходят (`InputHandler` не пускает их в `OnWorldClick`, спрашивая EventSystem), а uGUI-кнопки без него не нажимаются. ПКМ работает и над панелью.
 
 ## Порядок выполнения скриптов — НЕ трогаем
 
@@ -597,7 +640,9 @@ Script Execution Order настраивать **не нужно** (это кос
    удар по ноде платит по её `workerYields`; вокруг нор гуляют звери; уставшие возвращаются в дом. Тап — буст юнитов в
    радиусе со щелчком.
 3. Если мета-перк дал стартовый выбор перка — он открывается сразу.
-4. Build mode (кнопка или B) → пауза + сетка + панель: ставим / продаём / двигаем постройки; выход → юниты респавнятся.
+4. Панель стройки внизу открыта всё время, игра под ней идёт: карточка в руке → сетка пятном у курсора и гост,
+   клик ставит стройплощадку, которая становится зданием, когда с места все уйдут; Sell продаёт; ПКМ — пустая рука,
+   клик снова тап. B прячет / показывает панель.
 5. **Next Age** (`AgeAdvancePanel`) активна, когда хватает ресурсов: клик → выбор зоны → зона поднимается из моря →
    баннер «Age N» → выбор перка. Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
 6. С эпохи `pierUnlockAge` над пирсом — кнопка престижа → «End this run?» → Yes → очки престижа → мета-экран
@@ -608,7 +653,7 @@ Script Execution Order настраивать **не нужно** (это кос
 - **Physics 2D → Layer Collision Matrix:** Unit×Unit **OFF** (юниты проходят сквозь друг друга), Unit×Default **ON**.
 - **Physics 2D → Bounce Threshold = 0.1** (иначе скольжение на малых скоростях).
 - **Y-сортировка:** на URP 2D Renderer-ассете (`Assets/Settings/Renderer2D.asset`) — Transparency Sort Mode = Custom Axis, Axis (0,1,0). Юниты и постройки — на одном Sorting Layer (`Entities`) с равным Order, сортируются по Y динамически.
-- **Sorting Layers** снизу вверх: Water, Island, Ground, Default, Entities, Overlay, Mesh. **Island** — все тайлмапы острова (земля, кайма, декор, границы); **Ground** — то, что лежит на земле (рисовое поле, пни, стерня, щебень, пустые кусты), а ещё превью зоны и подсветка территории в стройке (Order 1001). Сетка стройки — на Mesh, поверх всего. Так лежащее на земле всегда над тайлами, какой бы Order ни стоял у тех и других.
+- **Sorting Layers** снизу вверх: Water, Island, Ground, Default, Entities, Overlay, Mesh. **Island** — все тайлмапы острова (земля, кайма, декор, границы); **Ground** — то, что лежит на земле (рисовое поле, пни, стерня, щебень, пустые кусты), а ещё превью зоны, подсветка территории госта (Order 1001) и подложка стройплощадки (Order 1000). Сетка стройки — на Mesh, поверх всего. Так лежащее на земле всегда над тайлами, какой бы Order ни стоял у тех и других.
 - **Global Light 2D → Target Sorting Layers:** должны быть отмечены все слои, на которых что-то рисуется, Island в том числе. Новый слой сортировки сам туда может не попасть — тогда всё на нём чёрное.
 
 ## Бонусы (RunStats) — коротко

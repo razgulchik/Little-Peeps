@@ -1,9 +1,12 @@
 # Little Peeps — Architecture
 
 > Status note (the whole document re-synced with the code on 2026-09-29; prestige, the meta screen,
-> the pier and the non-stat meta perks on 2026-10-08): the run loop is closed end
-> to end in code. **Build mode** is complete — Place / Sell / Move tools, fences on grid edges, hover
-> tints, ghost, grid overlay, shaped footprints. **The island is generated** from a seed, zone by
+> the pier and the non-stat meta perks on 2026-10-08; real-time building on 2026-10-15): the run loop
+> is closed end to end in code. **Building happens in the running game** — there is no build mode:
+> the palette is up for the whole of normal play, Place / Sell tools, a paid placement goes up as a
+> **construction site** that becomes the building once nobody stands on its spot, a sale settles
+> whoever the building held (homeless residents leave in a puff), fences on grid edges, ghost, the
+> grid as a spot around the cursor, shaped footprints. **The island is generated** from a seed, zone by
 > zone, out of biomes. **Ages + the RunStats bonus system** are in (buy age → spend + apply stat
 > modifiers → pick one of the zones on offer → the zone **rises out of the sea** → banner → perk pick;
 > no fade). **Perks** are authored as assets, rolled per age and picked on their own screen
@@ -25,7 +28,7 @@
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │  UI  (UIRoot · UIVisibility · ResourcePanel · AgeAdvancePanel ·    │
-│       AgeCostPanel · AgeTimelinePanel · BuildModeButton ·          │
+│       AgeCostPanel · AgeTimelinePanel · BuildPanelButton ·         │
 │       BuildPanelUI · ZoneSelectionUI · PerkSelectionUI ·           │
 │       PrestigeButton · ConfirmDialog · MetaUpgradesUI)             │
 │  Reads ReactiveValue<T>.OnChanged and EventBus<T>; what is on      │
@@ -56,7 +59,8 @@
 │  Animal · AnimalSpawner         │    │  VisitZone · ForgeHeat ·    │
 │  AnimalWander                   │    │  Mill · RicePaddy           │
 │  IStructureSpawner (contract)   │    │  Yield (IYieldScale impls): │
-│  + their views on the root      │    │  ForgeHeat · Mill           │
+│  ConstructionSite               │    │  ForgeHeat · Mill           │
+│  + their views on the root      │    │                             │
 │    (ResourceSourceView, …)      │    │                             │
 └──────┬──────────────────────────┘    └─────────────────────────────┘
        │ uses
@@ -119,13 +123,13 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
   (`Regrow`) + `ResourceSourceView` · Tool rack = Structure + ToolRack · Stable/Den = Structure +
   AnimalSpawner · Watermill = Structure + ResourceSource (`Never`) + Mill + WaterSideVisual · Rice
   paddy = Structure + ResourceSource (`Regrow`, 1 hit) + RicePaddy + `RicePaddyView` · Mountain =
-  a bare Structure (a wall the generator places; `canSell`/`canMove` off) · River = the same, one
+  a bare Structure (a wall the generator places; `canSell` off) · River = the same, one
   cell each, + `RiverVisual` (its def is `isWater`).
 - Who may take a building's resource, and how much, is ALWAYS its `ResourceSourceDef.workerYields` —
   a node, the tavern, the mill and the paddy alike. "Anyone can" means the def lists every
   profession; no component skips the list, and an unlisted worker gets a plain bounce.
 - Looks are components too, and never gameplay: `SpriteShadow` (a drop shadow made from the sprite
-  at Start, so the build-mode ghost — every behaviour disabled — never gets one), `WaterReflection`
+  at Start, so the placement ghost — every behaviour disabled — never gets one), `WaterReflection`
   (the silhouette in the water), `DualVisual` (one of two roots: a fence by orientation, a forest by
   grid-row parity — the caller decides), `WaterSideVisual` (one of three roots, plus the south one
   mirrored: a watermill by the side its river runs along), `RiverVisual` (one of three pieces, turned
@@ -261,7 +265,7 @@ someone who may take it. While the store is full the clock stands at zero — no
 which is the doc's tradeoff: enough visits that it never sits full, and past that, more traffic adds
 nothing. Whole sacks rather than a running amount, so a double bounce never pays "+0.03" and a sack on
 screen is a sack in the store. The clock and the cap live on the component. The store belongs to the
-object, so it rides a move and is gone with the run. `Stored` / `Capacity` / `IsFull` are there for the
+object and goes with it (a sale, the run's end). `Stored` / `Capacity` / `IsFull` are there for the
 view (sacks around the mill, the wheel's frames when full), which waits for art. Where a mill may
 stand: *One placement rule* below.
 
@@ -282,7 +286,7 @@ leaves the field from inside it (a house, the tavern, the pool) has its BODY swi
 that missed one would hold the field still forever. `RicePaddyView` draws it with one renderer: the
 growing sprites split the growth time equally (dry, the water coming in, sprouts), then ripe, then
 harvested; every change of look plays a stretch-and-squash (a Y curve on its own clock, the sprite
-swapping at `swapAt`), none on first show or a move. The field sits on the Ground sorting layer above
+swapping at `swapAt`), none on first show. The field sits on the Ground sorting layer above
 the Island layer every island tilemap is on, so it lies over the land whatever the orders, and units
 (on Entities) always walk over it. Units parting
 the crop as they cross waits for art.
@@ -300,15 +304,62 @@ by `Vector2Int` in `RunContext.structures`; `Edge` — sits on the boundary line
 (fences), keyed by `Edge` in `RunContext.fences`. Cells and edges share one integer lattice
 (`Edge.cs`), so there is no offset between the two coordinate spaces. `StructureDef.requiredAge`
 gates a card in the build palette until the run reaches that age (the player's number, compared to
-`currentAge` as it stands). `canSell` / `canMove` say whether
-build mode may sell or pick a structure up — off for the generated mountains and rivers, which are
-part of the island rather than something the player owns; generated trees and the starting house
-stay sellable (there is no "player-placed" distinction, only what a def allows). `PlacementTarget`
-answers both, so the hover tint and the click agree.
+`currentAge` as it stands). `canSell` says whether the Sell tool may take a structure — off for the
+generated mountains and rivers, which are part of the island rather than something the player owns;
+generated trees and the starting house stay sellable (there is no "player-placed" distinction, only
+what a def allows). `PlacementTarget` answers it, so the hover tint and the click agree. There is no
+moving: a structure stays where it was built until it is sold.
+
+**Building in the running game** (since 2026-10-15). There is no build mode: the old one paused the
+game, despawned every unit and re-spawned them all on exit, which made a build-mode toggle a reset
+the player could abuse; it went together with its 5 s re-entry cooldown and the Move tool. The palette
+is up for the whole of normal play and the island keeps working under it. A paid placement
+(`StructureSystem.PlaceStructure` / `PlaceEdgeStructure`) never drops the building on whoever stands
+there — it puts up a **construction site** (`ConstructionSite`), which already holds everything the
+building will: its cells (or edge) on the grid, its entry in `run.structures` / `run.fences`, its slot
+in the count (the next one already costs more, the limit already counts it), and a sale refunds it like
+a finished one. Only the object differs:
+- **A wall that lets out, never lets in.** Static body, one box per cell of the footprint's MASK merged
+  into one `CompositeCollider2D` (a fence: a strip along its edge, `fenceThickness`), so units bounce
+  off a site as cleanly as off a building. Every unit standing on the spot at placement gets
+  `Physics2D.IgnoreCollision` against the wall and gets it back the moment its body has fully left —
+  exceptions named, not directions guessed. Who is inside is plain geometry (`ConstructionArea`:
+  circle against the cell rects, over `SpawnSystem.ActiveUnits`), never a physics query.
+- **Animals are kinematic** — no wall stops them, only cells they refuse to step onto. A site's cells
+  refuse animals (`StructureInstance.UnderConstruction`, read by `AnimalSpawner.IsBlocked`), an animal
+  already on refused ground may always walk off it, and a CELL site also waits until no animal stands
+  on it (`AnimalWander.Alive`). A fence's site does not wait: animals pass fences, finished or not.
+- **The look** is built in code, no prefab: the building's visible sprites copied as plain tinted
+  renderers from a copy of the prefab under an INACTIVE holder (it never wakes — nothing of the
+  building's behaviour can answer for the site), posed by the same `PoseOnCell` / `PoseOnEdge` as the
+  real one, over a faint ground patch. Colours, sorting and the fence strip are `ConstructionSiteLook`
+  on `StructureSystem`.
+
+When nobody is inside (`FixedUpdate`, so a frozen screen holds a site as it is; re-checked for anyone
+who got onto the spot past the wall — a neighbour launching through a side the site leaves open),
+`CompleteSite` / `CompleteEdgeSite` swaps the site for the real prefab ON THE SAME INSTANCE: grid, run
+and count already hold it, so only `RuntimeObject` changes — and `PlacementTarget` snapshots the
+object it saw, so a hovered site turning into its building counts as a new target. Generated content
+(`PlaceInitial`: a zone's content, the starting house, the pier) is built at once — it lands before
+anyone walks there. Planned, not built: the building is put up by HITS from outside (`buildHits`,
+scaffold art, a knock); that progress then belongs on the instance, not on the site object, so a save
+can carry it.
+
+**Removal in the running game.** A sale (`SellStructure` → `RemoveStructure`) frees the grid, drops the
+instance, recounts, and settles whoever the building held BEFORE destroying it (`ReleaseOccupants`): a
+tavern lets its guests out where it stood, drunk (`Tavern.EvictAll`); a den's animals go in a puff;
+every spawner gives its books back NOW (`IStructureSpawner.Teardown` — resting units to the pool,
+capacity off the cap, unregistered — not in the deferred `OnDestroy`), so that
+`SpawnSystem.TrimSurplus` sees the room that is left and takes the residents a sold house leaves
+without a home: units of that kind on the field or in a tavern (a resting one fills a slot another
+house still has), nearest to the sold house first, each in a puff (`SpawnSystem.Puff`: a shared
+emitter and a sound, both optional). A rack sold with its tool out is simply gone; the tool goes with
+it when the worker's outing ends. A building with occupants of a new kind adds its case to
+`ReleaseOccupants`.
 
 **One placement rule, and a look taken from the place.** Every path that puts a structure on cells —
-build, move, generated content, the pier — asks `IslandGrid.CanPlace(origin, def)`: the cell rule
-(land, free, allowed terrain, border) plus whatever the def adds on top, so the build ghost can never
+the player's build, generated content, the pier — asks `IslandGrid.CanPlace(origin, def)`: the cell rule
+(land, free, allowed terrain, border) plus whatever the def adds on top, so the placement ghost can never
 promise a spot the builder then refuses. What a def adds today is `needsWaterSide` (the watermill):
 one WHOLE side along water (`WaterSides.Find`). Water is a cell holding a structure whose def is
 `isWater` — the river; the sea is no cell at all and never counts. Only a whole side counts (every
@@ -326,11 +377,11 @@ its river runs along (a root per side, each fully authored in the prefab — the
 different neighbour each time; no side → the south root, so a red ghost is always the plain front
 view; where the river stops or turns under the south wheel and runs on past the other end, the south
 art shows mirrored — `WaterSides.FlipSouth`), a river cell's `RiverVisual` by the river beside it
-(below). It runs wherever a structure lands or is shown landing — `Build`, the move drop, the build
-ghost and the carried structure — so the preview is exactly what lands. Water is the one neighbour
-that re-dresses what already stands: when an `isWater` structure lands or leaves (build, remove,
-pick-up, drop), `StructureSystem.RefreshBesideWater` runs `ApplyPlacementVisual` again on everything
-beside it — so a river laid cell by cell comes out joined whatever the order, and a watermill beside a
+(below). It runs wherever a structure lands or is shown landing — the building (`CreateStructure`),
+its site's blueprint and the placement ghost — so the preview is exactly what lands. Water is the one
+neighbour that re-dresses what already stands: when an `isWater` structure lands or leaves (placed —
+as a site already —, completed, removed), `StructureSystem.RefreshBesideWater` runs
+`ApplyPlacementVisual` again on everything beside it — so a river laid cell by cell comes out joined whatever the order, and a watermill beside a
 river cell that comes or goes re-picks its art. Nothing else re-dresses a standing structure.
 Extending: another "look by place" is one component + one line in `ApplyPlacementVisual`. A building
 tied to ANOTHER neighbour (a mine by the mountains) keeps the geometry, the one placement check and the
@@ -360,8 +411,10 @@ works as whatever profession it picks up (Farmer / Lumberjack / Hunter / Miner /
 wandering). An animal is identified by its `ResourceSourceDef` asset, like a tree. It comes out of
 its stable or den through a free side (`StructureExits`, see *Footprints and exits*) and wanders the
 den's territory; a kinematic body gets no callbacks against terrain or other kinematic bodies, so
-`AnimalWander` polls instead — a look-ahead probe stops it at the island's edge and at structures
-flagged `animalsAvoid`, and a comfort distance parts two animals that come too close.
+`AnimalWander` polls instead — a look-ahead probe stops it at the island's edge, at structures
+flagged `animalsAvoid` and at construction sites (a refused cell stops a step INTO it, never one off
+refused ground — a building that went up around an animal must not trap it), and a comfort distance
+parts two animals that come too close.
 
 **Depletion** is one axis on `ResourceSourceDef.depletion`, and every source is one of three:
 `Regrow` (after `hitsToDeplete` paying hits it stays in place and comes back after `regrowTime` ×
@@ -370,10 +423,12 @@ unless `keepBodyWhileDepleted`, as the shorn alpaca keeps walking), `Despawn` (u
 the den brings a new one — boar, fox; never a structure, which would leave its cells taken) and
 `Never` (pays on every hit its gates let through — market, smithy, mill).
 
-Both spawner kinds implement **`IStructureSpawner`** (`ResetForBuildMode` / `Warmup`) —
-`SpawnSystem`'s registry drives build-mode transitions through the interface. Internals are
-deliberately NOT shared: the unit launch→return→rest slot cycle and the animal
-die→cooldown→replace cycle have nothing in common beyond that contract.
+Both spawner kinds implement **`IStructureSpawner`** — `Warmup` (once, on placement: register, a
+resting unit per slot / the den's animals let out), `RefreshFromStats` (the sheet changed) and
+`Teardown` (give everything back synchronously, for a run teardown and a sale; `OnDestroy` is too
+late for both) — and `SpawnSystem`'s registry reaches every live one through it. Nothing empties a
+spawner mid-run. Internals are deliberately NOT shared: the unit launch→return→rest slot cycle and
+the animal die→cooldown→replace cycle have nothing in common beyond that contract.
 
 ---
 
@@ -493,8 +548,10 @@ shipped once (see `GameplayContainerState`).
 | `harvested` | `Dictionary<ResourceType, float>` | Everything PRODUCED this run, credited by `AddHarvest` only — the prestige ledger; spends/refunds never land here |
 | `stats` | `RunStats` | Accumulated bonus layer; see below |
 
-`StructureInstance` = `Def` + `RuntimeObject` (`Structure`) + `Cell`; `EdgeInstance` is the same with
-an `Edge`. `RuntimeObject` is never saved — it is rebuilt from the def. **Rule:** do not introduce
+`StructureInstance` = `Def` + `RuntimeObject` (`Structure`) + `Cell` + `UnderConstruction` (still a
+site: `RuntimeObject` is the `ConstructionSite`, not the building); `EdgeInstance` is the same with an
+`Edge` and no flag (nothing reads a fence's). `RuntimeObject` is never saved — it is rebuilt from the
+def. **Rule:** do not introduce
 run state that cannot be rebuilt from a def + an id; that is what keeps a run save small. The island
 keeps to it too: its seed plus the zones picked rebuild it cell for cell (`IslandRng`).
 
@@ -574,7 +631,7 @@ scope fields the stat actually uses.
 | `UnitStamina` | none | `Unit.ResolveMaxStamina` — seconds of field work per outing (resolved on each launch) |
 | `SourceRespawn` | source | `ResourceSource` — seconds a depleted source takes to regrow |
 | `ForgeHeatPerHit` / `ForgeMaxHeat` / `ForgeCoolingTime` / `ForgeHotYield` | none | `ForgeHeat` — heat per paying hit, overheat cap, full cool-down seconds, yield multiplier at full heat (×1 until a perk adds to it) |
-| `HouseCapacity` | none | `Spawner.ResolveCapacity` via `ApplyCount` — the one **materialised** stat: turned into slots + the global cap at `Warmup`, so a mid-run change is PUSHED (`RunStats.Changed` → `SpawnSystem` → `Spawner.RefreshFromStats`, growth only) |
+| `HouseCapacity` | none | `Spawner.ResolveCapacity` via `ApplyCount` — the one **materialised** stat: turned into slots + the global cap at `Warmup`, so a mid-run change is PUSHED (`RunStats.Changed` → `SpawnSystem` → `Spawner.RefreshFromStats`, growth only — `DecreaseCapacity` is a stub; a sold house's surplus is `SpawnSystem.TrimSurplus`) |
 | `MarketVisitHits` | none | `VisitZone.ResolveHitsPerVisit` via `ApplyCount` — counted hits per visit, resolved on entry |
 
 **The unit axis is the PROFESSION** (`Unit.Type`, what the worker does now — not what it was born
@@ -625,20 +682,20 @@ group can be authored as "visible in THESE modes"; an event always carries exact
 | Struct | Published by | Consumed by |
 |--------|-------------|-------------|
 | `RunStartedEvent` (`Run`) | `RunManager.StartNewRun`, as its LAST step | `AgeSystem`, `TapSystem`, `AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `BuildPanelUI`, `PrestigeButton` (also finds the new run's pier), `CameraController` (re-reads the new island's bounds and cuts to the start view) — every MonoBehaviour that caches the run re-binds here. On the very first run it reaches nobody (their `OnEnable` has not run yet), which is why `GameBootstrap` still injects by hand (the age panels and the prestige button through `UIRoot.Initialize`) |
-| `ResourceChangedEvent` (`ResourceType`, `NewValue`) | `ResourceSystem.AddResource` | `AgeAdvancePanel`, `AgeCostPanel` (affordability). The resource bar does NOT use it — `ResourcePanel` binds each row to the type's `ReactiveValue`, which is why `ResourceSystem.Initialize` must REUSE those objects across runs rather than replace them |
+| `ResourceChangedEvent` (`ResourceType`, `NewValue`) | `ResourceSystem.AddResource` | `AgeAdvancePanel`, `AgeCostPanel`, `BuildPanelUI` (affordability — the game harvests under the open palette; the panel folds a burst into one refresh per frame). The resource bar does NOT use it — `ResourcePanel` binds each row to the type's `ReactiveValue`, which is why `ResourceSystem.Initialize` must REUSE those objects across runs rather than replace them |
 | `HarvestedEvent` (`Source`, `Type`, `Amount`, `Position`) | `ResourceSystem.AddHarvest` — the production gateway itself, NOT its callers | `HarvestVfxSystem` (pickup particles), `HarvestNumbers` (the "+1.2k"). Published from inside the gateway on purpose: any future production path gets its feedback for free. Carries the whole `ResourceSourceDef` because Wheat/Boar/Fox are all Food and Alpaka/Market are both Coins. `Amount` is the CREDITED figure, after both multipliers |
 | `AgeStartedEvent` (`Age`) | `AgeSequencer` (banner step, after the rise) | `CameraController` (re-clamp bounds), `AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `BuildPanelUI` (unlock cards by `requiredAge`) |
 | `AgeAdvanceRequestedEvent` | `AgeAdvancePanel` (Next Age button) | `GameplayContainerState` — enters `ZoneSelectionState` only from `PlayingState` and only if affordable |
 | `ZoneSelectedEvent` (`Offer`) | `ZoneSelectionUI` (a zone card clicked; every card locks at once) | `ZoneSelectionState` — records the pick; its next `Tick` hands the offer to a new `AgeTransitionState`. Same split as the perk pick: the UI shows and reports, the state acts |
 | `IslandRepaintedEvent` | `IslandSystem.LateUpdate`, **at most once a frame**, on any frame its `IslandDrawing` painted (run start, zone commit, every tile a rise lands) | `WaterSystem` — rebuilds the coast twins (obstruction + side foam). Once a frame, not once a paint, because a rise lands dozens of tiles in a couple of seconds |
-| `BuildModeToggleRequestedEvent` | `BuildModeButton` (click), `GameHotkeys` (B) | `GameplayContainerState`. The key path runs in `Update` past every UI raycast and regardless of timeScale, so the container guards on the CURRENT inner state — any new inner state needs the same guard |
-| `SellModeRequestedEvent` | `GameHotkeys` (X) | `BuildPanelUI` (toggles the sell button) |
-| `BuildTabRequestedEvent` (`Index`, 0 = key 1) | `GameHotkeys` (1–9, top row or numpad) | `BuildPanelUI` — opens that tab while in build mode; an index past the last tab is ignored |
+| `BuildPanelToggleRequestedEvent` | `BuildPanelButton` (click), `GameHotkeys` (B) | `BuildPanelUI` — shows the palette and the sell button if hidden, hides them if shown. Not a mode: the game runs the same either way |
+| `BuildPanelShownEvent` (`Shown`) | `BuildPanelUI`, whenever the player shows or hides the panel (hiding also puts down the tool in hand) | `UIVisibility` (the rows marked `followsBuildPanel`), `BuildPanelButton` (label swap) |
+| `SellModeRequestedEvent` | `GameHotkeys` (X) | `BuildPanelUI` (toggles the sell button; normal play only; brings a hidden panel back) |
+| `BuildTabRequestedEvent` (`Index`, 0 = key 1) | `GameHotkeys` (1–9, top row or numpad) | `BuildPanelUI` — opens that tab during normal play and brings a hidden panel back; an index past the last tab is ignored |
 | `ExitToMenuRequestedEvent` | `GameHotkeys` (Esc) | `GameBootstrap` — DECLINED with a warning while `MainMenuState` is a stub, because entering it stranded the player (B3 restores the transition) |
-| `UIModeChangedEvent` (`Mode`: `Playing` / `Build` / `ZonePick` / `PerkPick` / `AgeTransition` / `PrestigeConfirm` / `MetaUpgrades`) | Each gameplay state, at the moment its screen actually goes up — never at the top of `Enter`, so a state that bails out (an age whose cost moved, an empty perk roll) never makes the mode blink | `UIVisibility` (the one table of what is on screen per mode), `BuildPanelUI` (opens / closes its cards on the crossing into or out of `Build` only). `PlayingState` announces it on every way back — that is the whole "put the HUD back" story |
-| `BuildModeButtonStateEvent` (`InBuildMode`, `Interactable`) | `GameplayContainerState` | `BuildModeButton` alone (label swap + interactable). What is VISIBLE in build mode is the UI mode's business; the button is the one thing a mode cannot express, because the cooldown outlives the mode change |
+| `UIModeChangedEvent` (`Mode`: `Playing` / `ZonePick` / `PerkPick` / `AgeTransition` / `PrestigeConfirm` / `MetaUpgrades`; bit `1 << 1`, the old `Build`, is left unused so masks authored before keep their meaning) | Each gameplay state, at the moment its screen actually goes up — never at the top of `Enter`, so a state that bails out (an age whose cost moved, an empty perk roll) never makes the mode blink | `UIVisibility` (the one table of what is on screen per mode), `BuildPanelUI` (wakes / puts its cards to sleep on the crossing into or out of `Playing` only). `PlayingState` announces it on every way back — that is the whole "put the HUD back" story |
 | `BuildDeniedEvent` (`Def`) | `PlaceTool` — a valid spot the player cannot afford (a blocked spot publishes nothing: the ghost is already red) | `BuildPanelUI` → the selected card plays its denied cue |
-| `PrestigeTriggeredEvent` | `PrestigeButton` (the button over the pier; the pier itself is not clickable) | `PlayingState` → `PrestigeMenuState` (the question). Deliberately the STATE, not `PrestigeSystem`: the subscription lasts exactly as long as normal play, so a run can never end from build mode or mid-transition |
+| `PrestigeTriggeredEvent` | `PrestigeButton` (the button over the pier; the pier itself is not clickable) | `PlayingState` → `PrestigeMenuState` (the question). Deliberately the STATE, not `PrestigeSystem`: the subscription lasts exactly as long as normal play, so a run can never end over another screen or mid-transition |
 | `PerkSelectedEvent` (`Perk`) | `PerkSelectionUI` (a card's hold completed) | `PerkSelectionState` — applies via `PerkSystem`, then shows the next pick the run still owes, or hides the screen and returns to `PlayingState` |
 
 > **No events for:** unit spawn/despawn (`SpawnSystem` calls `UnitSystem.Add/Remove` directly — single
@@ -682,8 +739,6 @@ asks by mode, a panel that wants another's data asks the EventBus.
 ### Gameplay FSM  (`innerFsm` inside `GameplayContainerState`)
 
 ```
-Playing ──BuildModeToggleRequestedEvent──▶ BuildMode
-BuildMode ──BuildModeToggleRequestedEvent──▶ Playing      (then 5s re-entry cooldown)
 Playing ──AgeAdvanceRequestedEvent (affordable)──▶ ZoneSelection
 ZoneSelection ──zone picked / nothing to offer──▶ AgeTransition
 ZoneSelection ──aborted (cost changed)──▶ Playing         (no age, no perk owed)
@@ -694,12 +749,9 @@ PrestigeMenu ──No / nothing to ask with──▶ Playing
 PrestigeMenu ──Yes: CashIn──▶ MetaUpgrades ──Play──▶ Playing, then StartNewRun
 ```
 
-**`GameplayContainerState` is the gameplay coordinator:** it subscribes to
-`BuildModeToggleRequestedEvent` and `AgeAdvanceRequestedEvent`, owns the **5s re-entry cooldown**
-(unscaled time, anti-respawn-abuse), switches the inner FSM, and pushes `BuildModeButtonStateEvent`
-so the button reflects mode + cooldown. **Both** entry points check the current inner state — build
-mode and an age advance start only from `PlayingState`, which is also what keeps them out of the
-prestige question and the meta screen. It builds a fresh `ZoneSelectionState` per
+**`GameplayContainerState` is the gameplay coordinator:** it subscribes to `AgeAdvanceRequestedEvent`
+and switches the inner FSM. An age advance starts only from `PlayingState` — which is also what keeps
+it out of the prestige question and the meta screen. It builds a fresh `ZoneSelectionState` per
 request, which builds the `AgeTransitionState` (the states allowed to hold a `RunContext`: they die
 with the transition). Its `Tick` also opens the perk picks a run is owed at its start
 (`TryOpenStartPerkPick`, from `PlayingState` only, one owed pick taken off before entering): one check
@@ -741,18 +793,15 @@ start of a run (`RunContext.perkPicksOwed`, see `GameplayContainerState`): after
 and re-shows the screen in place while picks are still owed, never dropping to play in between; an
 empty roll or a missing screen drops the rest of the debt.
 
-**`BuildModeState`:** on `Enter` sets `Time.timeScale = 0` and calls
-`SpawnSystem.DespawnAllAndResetSpawners()` (all units returned to the pool); on `Exit` calls
-`SpawnSystem.WarmupAllSpawners()` and restores `timeScale = 1`. `PlacementController` drives the
-tools between its `Begin()` and `End()`, which this state calls. **Invariant:** a run is never ended
-or saved from build mode — `MoveTool` can hold a structure OFF the grid mid-drag, and that invariant
-is what makes `EndRun`'s sweep over `run.structures` complete. The debug "Restart Run" refuses from
-build mode for the same reason.
-
-**`PlayingState`:** subscribes to `PrestigeTriggeredEvent` for exactly its own lifetime and, if the
-run can prestige, changes to `PrestigeMenuState`. It builds the whole prestige chain in its
-constructor — `PrestigeMenuState` and `MetaUpgradesState` both return to it, so neither can exist
-before it.
+**`PlayingState`:** normal play, building included. `Enter` calls `PlacementController.Begin` and
+`Exit` calls `End`, so every other screen (a perk pick, an age transition, the prestige question)
+starts by putting down whatever tool was in hand. It subscribes to `PrestigeTriggeredEvent` for
+exactly its own lifetime and, if the run can prestige, changes to `PrestigeMenuState` — the rule "a
+run ends only from normal play", held by construction. That rule no longer guards a sweep: nothing is
+ever held off the grid (moving is gone), so `run.structures` + `run.fences` are complete at every
+moment — a site included — and the debug "Restart Run" works with the panel up. It builds the whole
+prestige chain in its constructor — `PrestigeMenuState` and `MetaUpgradesState` both return to it, so
+neither can exist before it.
 
 **`PrestigeMenuState`** — "End this run?": ending a run is the one thing the player cannot take back,
 so nothing ends it unasked. `Enter` asks through the `ConfirmDialog` FIRST (the question carries the
@@ -781,8 +830,9 @@ before the spending.
 |--------|----------|-----------|-------|
 | Unit | CircleCollider2D | Rigidbody2D (Dynamic) | Bounces off obstacles; passes through interactables |
 | Structure (obstacle) | BoxCollider2D `isTrigger=false` | none (Static) | Unit bounces — `OnCollisionEnter2D` fires on the `CollisionTarget` |
-| Structure (interactable) | BoxCollider2D `isTrigger=true` | none (Static) | Unit passes through — `OnTriggerEnter2D` fires; `SetColliderEnabled(false)` during drag / on source depletion (unless the def says `keepBodyWhileDepleted`) |
-| Animal (alpaca/boar/fox) | Collider2D `isTrigger=false` (child) | Rigidbody2D (**Kinematic**, root) | Units (Dynamic) bounce off it — that bounce IS the harvest hit. The kinematic body itself passes through everything, so `AnimalWander` steers by polling: destinations from the den's territory, a look-ahead probe that stops at the island's edge and at `animalsAvoid` structures, a comfort distance to other animals |
+| Structure (interactable) | BoxCollider2D `isTrigger=true` | none (Static) | Unit passes through — `OnTriggerEnter2D` fires; `SetColliderEnabled(false)` on source depletion (unless the def says `keepBodyWhileDepleted`) |
+| Construction site | one BoxCollider2D per footprint cell (`Merge`) → one CompositeCollider2D (Polygons), built in code | Rigidbody2D (Static, root) | A wall for every unit except the ones it was placed on, which pass through it (`Physics2D.IgnoreCollision`) until each is fully out. Not a trigger, no hit dispatch of its own: a bounce off a site pays nothing. Animals are kept off by the grid (`UnderConstruction`), not by the collider |
+| Animal (alpaca/boar/fox) | Collider2D `isTrigger=false` (child) | Rigidbody2D (**Kinematic**, root) | Units (Dynamic) bounce off it — that bounce IS the harvest hit. The kinematic body itself passes through everything, so `AnimalWander` steers by polling: destinations from the den's territory, a look-ahead probe that stops at the island's edge, at `animalsAvoid` structures and at construction sites, a comfort distance to other animals |
 | Island boundary | TilemapCollider2D on the ground tilemap (Composite Operation: Merge) + CompositeCollider2D (Outlines) | Rigidbody2D (Static) | Follows the tiles as they are painted — a rising zone joins the outline as its tiles land (the sim is frozen meanwhile). The coastline trim sits on its own tilemap WITHOUT a collider, or the coast would grow a cell outward; the decor and border tilemaps have none either |
 | Pier | BoxCollider2D `isTrigger=false` (on a `Physics` child) | Rigidbody2D (Static, root) | An ordinary structure that units bounce off. NOT clickable — prestige starts from `PrestigeButton`, a UI button hanging over it at `Pier.buttonAnchor`; the `Pier` marker may sit anywhere in the prefab |
 | Market passage (`VisitZone`) | BoxCollider2D `isTrigger=true` on a `Passage` child (the two walls are ordinary obstacle boxes on the `Physics` child) | Rigidbody2D (Static) on that **same child** | The zone's own body is not optional: Unity delivers a trigger callback to the collider's GameObject AND to the GameObject of the Rigidbody2D it belongs to, so hung off the root body the passage's `OnTriggerEnter2D` would also reach `CollisionTarget`, which treats a trigger entry as a hit — walking in would pay a coin by itself. Sizing: across the passage the trigger overlaps the walls by 1–2 px (a unit can't be inside a wall, so this only guards a seam); along it, it stops one unit radius short of each mouth, so a unit sliding along the outside never counts as inside |
@@ -801,14 +851,15 @@ brings its own body precisely so its events do NOT reach the root (see the table
 for both. No separate CollisionSystem.
 
 **Per-structure colliders (no CompositeCollider2D on structures)** — each has its own BoxCollider2D
-so it can be enabled/disabled individually during drag and on resource-source depletion.
+so it can be enabled/disabled individually on resource-source depletion. The one composite is a
+construction site's wall, which is never switched and only has to bounce cleanly.
 `SetColliderEnabled` toggles every collider under the target, a `VisitZone` trigger included; with
 `Physics2D.callbacksOnDisable` on (it is, in Physics2DSettings) that exits every unit inside, and a
 despawning unit exits the same way — a visit can't leak past the unit that started it.
 
-**Pauses** (build mode, zone pick, age transition, perk pick, the prestige question, the meta
-screen) all use `Time.timeScale = 0` (not
-`Physics2D.simulationMode`); build mode despawns the units first, so there is nothing to simulate.
+**Pauses** (zone pick, age transition, perk pick, the prestige question, the meta screen) all use
+`Time.timeScale = 0` (not `Physics2D.simulationMode`). Building is NOT a pause: the game runs under
+the palette, and a site waits on physics time like the units it waits for.
 What must move during a pause runs on unscaled time: the camera, the UI, the water's shaders
 (`UnscaledShaderTimeFeature`) and its foam pulse, and the island rise — whose particle effects
 therefore need **Use Unscaled Time**, and whose camera kick switches
@@ -837,7 +888,9 @@ Tests cover the risk points, one file each: `RunStats`, `IslandGrid` (+ a grid s
 joined), footprints, the stuck watch, the unit's
 bounce rule, run teardown, harvest ledger, prestige formula + payout, the prestige question and the
 meta screen (their refusal paths), the confirm dialog, meta perk spending and levels, perk roll, perk state + card,
-the modifier card text, placement target, house capacity, the island's shape rules (with a seed
+the modifier card text, placement target (a site turning into its building is a new target), house
+capacity, a construction site's area (`ConstructionArea`), the animals' blocking rule (a site refuses
+newcomers, never one already on it), the island's shape rules (with a seed
 sweep, so tuned rules can never fail in play), island content, zone offers, the zone pick state, the
 island rise's schedule and notes, the coast painter (tile-by-tile repaint must equal a full repaint at every step), the
 border painter (the same promise, plus the cascade itself and the generator never needing a two-sided piece) and the
@@ -855,7 +908,7 @@ belongs in a PlayMode assembly (none yet).
 
 | Component | Type | Responsibility |
 |-----------|------|---------------|
-| `RunManager` | MB | The one way a run starts and ends. `StartNewRun` = `EndRun` + fresh `RunContext` seeded from `StartConfigDef` (resources, baseline modifiers) → the meta perks (`PrestigeSystem.ApplyUpgrades`, injected through `Initialize`; outside the config check, so a missing config never costs the player what they paid for) → init resource/structure/spawn systems → `IslandSystem.GenerateForRun(seed, rules, start biome, house, pier)` — the start zone brings its own content, house and pier included → `SkipStartAges` (the Start Age perk's intent: per skipped age `AgeSystem.DefOf(age + 1)` → `TriggerAgeCmd.EnterAge` → `IslandSystem.GrowZone(biome)` → one more owed perk pick; stops at the final age; `AgeSystem` injected through `Initialize` with the meta perks) → `RunStartedEvent`. `EndRun` tears down structures → spawn system (order load-bearing: spawners despawn their resting units, then SpawnSystem collects the roamers). `[ContextMenu("Restart Run")]` debug trigger, refused from build mode; it moves no points, but the meta perks apply as on any start |
+| `RunManager` | MB | The one way a run starts and ends. `StartNewRun` = `EndRun` + fresh `RunContext` seeded from `StartConfigDef` (resources, baseline modifiers) → the meta perks (`PrestigeSystem.ApplyUpgrades`, injected through `Initialize`; outside the config check, so a missing config never costs the player what they paid for) → init resource/structure/spawn systems → `IslandSystem.GenerateForRun(seed, rules, start biome, house, pier)` — the start zone brings its own content, house and pier included → `SkipStartAges` (the Start Age perk's intent: per skipped age `AgeSystem.DefOf(age + 1)` → `TriggerAgeCmd.EnterAge` → `IslandSystem.GrowZone(biome)` → one more owed perk pick; stops at the final age; `AgeSystem` injected through `Initialize` with the meta perks) → `RunStartedEvent`. `EndRun` tears down structures → spawn system (order load-bearing: spawners despawn their resting units, then SpawnSystem collects the roamers). `[ContextMenu("Restart Run")]` debug trigger (fine with the build panel up — nothing is ever held off the grid); it moves no points, but the meta perks apply as on any start |
 | `IslandGrid` | Plain C# | Grid data: sparse cells (`terrain` + `occupant`), placement validation (`CanPlace/Place/Remove` with footprint, allowed terrain, border; `CanPlace(origin, def)` adds the def's extras — a side along water — and is the one every placement path asks), edge registry (`CanPlaceEdge/PlaceEdge/RemoveEdge`), world↔grid and world↔edge conversion; `CellBounds` / `WorldBounds` for the camera |
 | `IslandSystem` | MB | Owns Grid + Generator + `Drawing`, the `biomes` list (validated at run start — a bad biome is reported and skipped) and the `borders` cascade (a repeated terrain, or a tilemap another row, the ground or the trim already uses, is reported and dropped; a row keeps its rank even without a tilemap) and the decor tilemap (refused, with an error, if another layer draws on it). `GenerateForRun(seed, rules, startBiome, house, pier)`; `ProposeZones()` (one populated offer per biome) and `CommitZone(offer, forRise)` — driven explicitly by `AgeSequencer`, not an event. `GrowZone(biome)` — one offer of one biome, committed at once with nobody choosing, for the ages a run skips at its start (validates a biome outside the list on the spot). Places every zone's content through `StructureSystem.PlaceInitial` (house first, then mountains and river, then objects). `forRise` commits the zone whole (grid, run, structures) but hides its land and switches its structures off in the same frame, so their `Start` waits for the rise to switch them on. Remembers `LastSection` / `LastContent` (what the rise brings up); publishes `IslandRepaintedEvent` once a frame. `[ContextMenu] Generate Island` previews one in the editor |
 | `IslandGenerator` | Plain C# | Decides which cells exist, section by section (the prototype's `island_shapes.py`): `GenerateStart` / `Propose(n)` sample valid shapes grouped by family, `Populate` fills one with a biome's content, `Commit` makes it a section; a stale candidate throws. Knows nothing of tiles, terrain or structures. `Seed` / `Land` / `LastAttempts` for the logs |
@@ -874,24 +927,26 @@ belongs in a PlayMode assembly (none yet).
 | `IslandRiseProfile` | SO | Every knob of the rise: `timing` (plain `IslandRiseTiming`: wave, tile phases, act 2, river, finale + breath) and the looks (depth scale/tint, hop, squash, wetness, pops + per-`StructureDef` overrides, bounce, breath, pixel snap, water, effect/sound slots, shake, tap speed-up, slow frames). Read live — game and window alike |
 | `SharedEmitter` | static | The one-shared-ParticleSystem-per-effect rule (World space, looping, no self-emission; `pausedPlay` also demands Use Unscaled Time): `Create` validates loudly and refuses, `EmitAt` moves + emits. Used by `HarvestVfxSystem` and the rise |
 | `WaterSystem` | MB | The sea: Modern 2D Water spawned from a prefab at run time (never a scene object — the package's edit-mode code would churn the scene); the coast copied into the water's obstruction layer after every `IslandRepaintedEvent`; the south foam sized in art pixels and pulsing on real time; side foam along the east and west edges; coast copies that bend with the land during a rise. `HasWater` for the rise |
-| `UnscaledShaderTimeFeature` | URP renderer feature | Shader time from unscaled time — always, since switching at a pause would jump every wave's phase — for every camera on the 2D renderer, so the sea keeps moving through build mode and the picks |
-| `StructureSystem` | MB | Place / Sell / Remove / PickUp / Drop for BOTH cell and edge structures; `PlaceStructure` validates + spends, `PlaceInitial` is the free path for generated content (zone content, the starting house) and the pier — still validated, it warns and skips a blocked cell; `ClearAll` sweeps the run's registries on `EndRun`. Returns the created instance (the island keeps a zone's content by it). `ApplyPlacementVisual` = the look a structure takes from where it lands (a forest's row, a watermill's river side, a river cell's piece), shared with the build ghost and the carried structure; water landing or leaving re-dresses everything beside it (`RefreshBesideWater`) |
-| `PlacementController` | MB | Build-mode input router, active between `Begin()` / `End()` (called by `BuildModeState`): the panel selection chooses the tool — card → `PlaceTool`, sell button → `SellTool`, nothing → `MoveTool` (default). Right-click cancels the tool's action or clears the selection (`ToolCleared` → panel) — over the panel too. Clicks over UI never reach it: `InputHandler` keeps them out of `OnWorldClick`. Owns the inspector-authored `PlacementVisuals` |
-| `IPlacementTool` / `PlaceTool` / `MoveTool` / `SellTool` | Plain C# | One tool active at a time. Contract: `Exit` leaves NOTHING behind (no ghost, no tint, no half-finished drag). `PlaceTool` is one instance per `StructureDef` (ghost, cell or edge); `MoveTool` is the only tool with state between clicks and the only one that holds a structure off the grid; `SellTool` refunds `sellRefundPercent`. Sell and Move ask the target's `CanSell` / `CanMove` |
-| `PlacementTarget` | struct | THE answer to "what is under the cursor" — fence on an edge, structure on a cell, or nothing — and whether its def may be sold or moved; shared by Sell, Move pick-up and the hover highlight, so the fence-wins rule exists once |
-| `PlacementVisuals` / `HoverHighlight` / `GridOverlay` | Plain (serialized on the controller) / Plain / MB | Everything build mode DRAWS that is not a real structure: ghost + territory halo (a quad per claimed cell — the footprint's shape plus its border) + hover/drag tints (visuals; a shadow is never tinted, the ghost has none and a carried structure hides its own); cursor-target tint with meaning chosen by the tool (highlight); one procedural quad mesh outlining every cell (overlay — thin quads, not `MeshTopology.Lines`, which URP 2D draws unreliably) |
+| `UnscaledShaderTimeFeature` | URP renderer feature | Shader time from unscaled time — always, since switching at a pause would jump every wave's phase — for every camera on the 2D renderer, so the sea keeps moving through the picks and the age transition |
+| `StructureSystem` | MB | Place / Sell / Remove for BOTH cell and edge structures (two parallel paths, addressed by cell or by `Edge`). `PlaceStructure` / `PlaceEdgeStructure` validate (spot, limit, price), spend and put up a construction site that is registered at once (grid, run, count); `CompleteSite` / `CompleteEdgeSite` swap it for the building on the same instance. `PlaceInitial` is the free, instant path for generated content (zone content, the starting house) and the pier — still validated, it warns and skips a blocked cell; returns the created instance (the island keeps a zone's content by it). `RemoveStructure` settles the occupants first (`ReleaseOccupants`: tavern guests out, den animals puffed, spawners torn down, `SpawnSystem.TrimSurplus`); `ClearAll` sweeps the run's registries on `EndRun`. `Recount` is the one writer of `run.standing`. `ApplyPlacementVisual` = the look a structure takes from where it lands (a forest's row, a watermill's river side, a river cell's piece), shared with the placement ghost and a site's blueprint; water landing or leaving re-dresses everything beside it (`RefreshBesideWater`). Holds the sites' look (`ConstructionSiteLook`) |
+| `ConstructionSite` / `ConstructionSiteLook` | MB / serializable | A paid structure that does not stand yet, built entirely in code by `Create` (no prefab): `Structure` + static body + composite wall over the footprint's mask (a strip for a fence), a tinted blueprint of the building's visible sprites (read from a never-woken copy), a ground patch. The units on the spot at placement pass through the wall (`IgnoreCollision`) until each is out; nobody else gets in; a cell site also waits for the animals on it. Calls back once when empty (`FixedUpdate`, physics time) |
+| `ConstructionArea` | static | A site's ground as world rects — one per footprint cell (`CellRects`, the mask's cells only) or a strip along an edge (`EdgeRect`) — and the one question asked of it, `Overlaps(rects, centre, radius)`; touching counts. Pure, tested offline |
+| `PlacementController` | MB | Building input router, active between `Begin()` / `End()` (called by `PlayingState` — the whole of normal play): the panel selection chooses the tool — card → `PlaceTool`, sell button → `SellTool`, nothing → the EMPTY HAND (a private null-object tool, so no path checks for null). `HoldsTool` = a card or the sell tool in hand: then the next left click is placement's, otherwise it is a tap (`TapSystem` asks this). The grid shows as a spot around the cursor only while `HoldsTool`. The tool stays in hand after a placement; right-click puts it down (`ToolCleared` → panel) — over the panel too. Clicks over UI never reach it: `InputHandler` keeps them out of `OnWorldClick`. Owns the inspector-authored `PlacementVisuals` |
+| `IPlacementTool` / `PlaceTool` / `SellTool` | Plain C# | One tool active at a time. Contract: `Exit` leaves NOTHING behind (no ghost, no tint). `PlaceTool` is one instance per `StructureDef` (ghost, cell or edge); `SellTool` refunds `sellRefundPercent` and asks the target's `CanSell`. `Cancel` (right-click) is kept for a future multi-click tool — none has one since moving went away |
+| `PlacementTarget` | struct | THE answer to "what is under the cursor" — fence on an edge, structure on a cell, or nothing — and whether its def may be sold; shared by Sell and the hover highlight, so the fence-wins rule exists once. Snapshots the `RuntimeObject` it saw and compares it by reference, so a site turning into its building under the cursor is a new target |
+| `PlacementVisuals` / `HoverHighlight` / `GridOverlay` | Plain (serialized on the controller) / Plain / MB | Everything placement DRAWS that is not a real structure: ghost + territory halo (a quad per claimed cell — the footprint's shape plus its border) + the sell tint (visuals; a shadow is never tinted, the ghost has none); the sellable structure under the cursor tinted (highlight); the grid as a SPOT around the cursor — the cells' lines and the occupied cells' fill within `spotRadius`, fading to the rim, rebuilt every frame it shows from the grid as it is (overlay — `Track` / `Hide`; thin quads, not `MeshTopology.Lines`, which URP 2D draws unreliably) |
 | `UnitPool` | MB | Pool per UnitDef; `Get` / `Release` |
 | `UnitSystem` | MB | Live-unit registry (`ActiveUnits`); fed by **direct `SpawnSystem` Add/Remove** (no events); home for future bulk ops |
-| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; the population cap per `UnitDef` (houses register their slots — never per profession); syncs UnitSystem; owns the **spawner registry** (`IStructureSpawner`: unit Spawners + AnimalSpawners); `DespawnAllAndResetSpawners` / `WarmupAllSpawners` (build mode, `IsBuildMode`); `ResetForNewRun`; injects the island, `RunStats` and itself into each spawned unit; `Despawn` hands a tool back and frees a tavern seat (`LeaveHold`). Sweeps for STUCK units every `stuckSweepInterval` and shelters each in the nearest house with a free slot; `CollectHousesWithFreeSlot(from, radius, buffer)` for the autopilot |
+| `SpawnSystem` | MB | Bridges Spawner ↔ UnitPool; the population cap per `UnitDef` (houses register their slots — never per profession); syncs UnitSystem; owns the **spawner registry** (`IStructureSpawner`: unit Spawners + AnimalSpawners); nothing empties the field mid-run — a unit leaves the island only through a house, the run's end or a PUFF: `TrimSurplus(near)` takes the residents a sold house leaves without a home (units of an over-cap kind on the field or in a tavern, nearest first) and `Puff(pos)` is the effect + sound (`puffFx` shared emitter, `puffParticles`, `puffSound` — all optional); `ActiveUnits` for the construction sites; `ResetForNewRun`; injects the island, `RunStats` and itself into each spawned unit; `Despawn` hands a tool back and frees a tavern seat (`LeaveHold`). Sweeps for STUCK units every `stuckSweepInterval` and shelters each in the nearest house with a free slot; `CollectHousesWithFreeSlot(from, radius, buffer)` for the autopilot |
 | `ResourceSystem` | MB | One `ReactiveValue<float>` per resource type, REUSED across runs (`Initialize` assigns into the existing slot — replacing it froze the bar after a prestige). `AddHarvest(source, worker, base, position)` is the single production gateway (applies `ResourceYield` + `ProductionGlobal`, books `harvested`, publishes `HarvestedEvent`); `AddResource` / `Spend` / `CanAfford` stay raw for spends and refunds |
-| `TapSystem` | MB | Click on the world: boosts units in an AoE radius around the cursor — speed only by default, `refreshStamina` (off) also refills stamina (radius and multiplier through `TapRadius` / `TapBoostMultiplier`); a `TapRadiusVisual` ring follows the cursor in live play. The pier is not clickable — prestige starts from `PrestigeButton`. Early-returns at `timeScale 0`, which is what makes every pause also an input block; a click on UI never arrives at all (`OnWorldClick`). Every live tap clicks (`tapClip`, `PlayOneShot` with a small pitch jitter), whether it reaches anyone or not, on an `AudioSource` it adds to itself. Re-binds on `RunStartedEvent` |
+| `TapSystem` | MB | Click on the world: boosts units in an AoE radius around the cursor — speed only by default, `refreshStamina` (off) also refills stamina (radius and multiplier through `TapRadius` / `TapBoostMultiplier`); a `TapRadiusVisual` ring follows the cursor while a tap is possible. The pier is not clickable — prestige starts from `PrestigeButton`. Taps only with time running AND an empty hand (`CanTap`: `timeScale ≠ 0` and not `PlacementController.HoldsTool`, the controller injected through `Initialize`) — every pause is an input block, and a card or the sell tool in hand makes the click placement's (the ring hides then too); a click on UI never arrives at all (`OnWorldClick`). Every live tap clicks (`tapClip`, `PlayOneShot` with a small pitch jitter), whether it reaches anyone or not, on an `AudioSource` it adds to itself. Re-binds on `RunStartedEvent` |
 | `AgeSystem` | MB | Owns the ordered `List<AgeDef>` of the ages that are BOUGHT — the first entry is the Age II. The Age I is where every run starts, never bought, so it has no `AgeDef` (what a run starts with lives on `StartConfigDef`; age bonuses never expire, so an "Age I bonus" would be the same thing). `DefOf(age)` is the one lookup — the price of entering that age and the bonus it grants, null for the Age I and past the end; never index the list directly. `NextAge` (= `DefOf(currentAge + 1)`) / `LastAge` / `CanAdvance`. Current age lives on `RunContext`, so the system is stateless between runs; re-binds on `RunStartedEvent` |
 | `AgeSequencer` | MB | Coroutine chain for an age transition, unscaled time, no fade: commit the zone for the rise → camera to it (`RefreshBounds` + `FocusOn` — the bounds would otherwise catch up only at the banner) → `IslandRisePlayer.Play` → "Age N" banner (its `CanvasGroup` faded in and out; N in Roman from the age number — `AgeDef.title` is never shown, only logged next to it, so the console shows a list out of step with its asset names). Taps from `InputHandler.OnAnyClick` (over UI too — the banner is UI): ×3, then skip, then close the banner after `bannerTapGrace`. Without a rise player the zone simply appears. Signals completion via callback. Pure choreography: every step takes a KNOWN time — the zone and perk picks, which wait on a human, are states instead |
 | `PerkSystem` | MB | `RollPerks(age, run)`: weighted draw WITHOUT replacement from `PerkCatalogueDef`, filtered by `minAge` (player's age number; the roll comes after the age is bought, so `minAge 3` = first offered on the transition into the Age III) and `perksChosen`, fewer than `choicesOffered` when fewer are eligible (never filler). `ApplyPerk` calls `perk.ApplyPerk(run)` and records it. Validates ids at startup (empty / duplicate = a future lost-perk bug). Never casts to `StatPerkDef` — a perk with behaviour is its own `PerkDef` subclass |
 | `PrestigeSystem` | MB | The prestige economy, both halves; starts no run itself. EARN: `Calculate` = `PrestigeFormula.Points(run, meta)` — an age term (`pointsPerAge ×` transitions bought, `currentAge − FirstAge`) and a harvest term (`coefficient × weightedHarvest^exponent`), each paid only for what it BEATS of the profile's record; `CashIn` reads the payout and both gross terms BEFORE banking, banks, logs, saves (no-op today). `CanPrestige` = `currentAge ≥ pierUnlockAge` (player's number: 3 = from the Age III) — the one gate the button, the states and `CashIn` all ask. SPEND: the `upgrades` catalogue (`Upgrades`, in screen order; ids validated in `Start`), `FreePoints` / `LevelOf` / `CanRaise` / `CanLower` / `TryRaise` / `TryLower` over `MetaContext`. APPLY: `ApplyUpgrades(run)` — every bought level, clamped to `maxLevel`, called by `RunManager.StartNewRun`. `SaveProfile` |
 | `GlobalUpgradeDef` / `StatUpgradeDef` / `Start*UpgradeDef` / `GlobalUpgradeCatalogueDef` | SO | A meta perk: abstract base (`id` — the save key, `title`, `description` override over the generated text, `maxLevel`; `ApplyToRun(run, level)`), one subclass per KIND of effect like `PerkDef`. `StatUpgradeDef` (LittlePeeps/Meta/Stat Upgrade) = the modifiers of ONE level, added `level` times. `StartResourcesUpgradeDef` (…/Start Resources) = resources of one level, ADDED to the config's into `run.resources` (not harvest — it can never pay prestige). `StartPerkPickUpgradeDef` (…/Start Perk Pick) = one owed pick at the start, bought once (`OnValidate` holds `maxLevel` at 1). `StartAgeUpgradeDef` (…/Start Age) = level N starts N ages in, every skipped zone in its `zoneBiome` (no pick, by decision — the zone ritual would reuse `ZoneSelectionState` if wanted later); it only writes intent, `RunManager` carries it out. The catalogue (LittlePeeps/Meta/Upgrade Catalogue) is the meta screen's list, in its order; registration is explicit |
 | `SaveSystem` | MB | JSON persistence of `MetaContext` (**stub**: `Load` returns a fresh context, `Save` does nothing) |
-| `GameHotkeys` | MB | Discrete hotkeys → events (B build mode, X sell, Esc exit-to-menu), bindings editable in the inspector; digits 1–9 (top row or numpad) open build tabs and are fixed — the key IS the tab's position. Runs in `Update`, past UI raycasts and timeScale — consumers guard |
+| `GameHotkeys` | MB | Discrete hotkeys → events (B shows / hides the build panel, X sell, Esc exit-to-menu), bindings editable in the inspector; digits 1–9 (top row or numpad) open build tabs and are fixed — the key IS the tab's position. Runs in `Update`, past UI raycasts and timeScale — consumers guard |
 | `InputHandler` | MB | Raw input router (screen → world), and the one place that splits the mouse between the game and the UI: `OnWorldClick` fires only while the cursor is NOT over UI (`PlacementController`, `TapSystem`); `OnAnyClick` (`AgeSequencer` — the rise's taps, whose banner is UI) and `OnRightClick` (cancel) are unfiltered on purpose. All report at any time scale. `IsPointerOverUI()` (static) is the rule itself — the EventSystem's last raycast — so any graphic with Raycast Target on counts, transparent or not: a screen that should leave the world usable needs its backdrop off (ZoneScreen's is, or the zone pick loses the wheel). `CameraController` polls the devices itself and asks the same rule |
 | `CameraController` | MB | The camera's brain, on its own object: pans a `CameraTarget` that the Cinemachine camera follows (WASD / arrows, the screen edge, middle-drag) and zooms its ortho size (wheel), polling the devices itself on unscaled time. The wheel and the START of a drag do nothing over UI (`InputHandler.IsPointerOverUI`); keys and edge-pan aim at nothing and stay. `ResetView` on `Start` and `RunStartedEvent`: the island centred at the zoom authored on the vcam's lens, as a cut (`PreviousStateIsValid = false`) — every run starts from one view. Clamped to `IslandGrid.WorldBounds` + a margin: `RefreshBounds` on `AgeStartedEvent` and `RunStartedEvent` (a new run's island, maybe grown by skipped ages; the first run is covered by `Start`), and when `AgeSequencer` asks, at the start of a rise; `SetExtraBounds` / `ClearExtraBounds` widen the clamp to the zone offers; `FocusOn(point, offsetY)` sends the target to a point |
 | `HarvestVfxSystem` | MB | Pickup particles for every harvest. **One shared emitter per `ResourceSourceDef`** (the `SharedEmitter` rule), made from `def.pickupFx` on first harvest and reused (one system emitting many particles = one draw call). Moves the emitter and `Emit`s — deliberately not `EmitParams`, so the authored Shape module keeps working. **Validates instead of silently fixing** a prefab that isn't World-space/looping. Skips off-screen harvests |
@@ -906,13 +961,13 @@ belongs in a PlayMode assembly (none yet).
 | `VisitZone` | MB, `IHitGate` | Per-visit hit ration (`hitsPerVisit` on the component, not in a def): `Dictionary<Unit,int>` filled on trigger enter, debited per hit, dropped on exit. Sits on its own child with the trigger AND a Static Rigidbody2D so its trigger events stay off the root; `Reset()` sets both up, `Awake` errors if the collider isn't a trigger |
 | `ForgeHeat` | MB, `IHitGate`, `IYieldScale` | The smithy's heat: every paying hit adds heat (only hits the source actually pays for); reaching the cap OVERHEATS it — plain bounces until it has cooled all the way to zero; cooling never stops. Hot yield = `ForgeHotYield` (×1 until a perk) shaped by the `hotness` curve, sampled after the hit's own heat. All four numbers are stats, resolved at use; `HitPaid` for presentation |
 | `ForgeHeatView` | MB | On the smithy's root, next to `ForgeHeat`. The heat bar in the smithy's window: a flat cover shrinks over a fixed gradient (the fill never moves or stretches); overheat darkens the fill and lights overlays that fade with the HEAT, not a clock. Authored cold, so the build ghost shows a cold forge. Presentation only |
-| `IStructureSpawner` | interface | Build-mode contract shared by both spawner kinds: `ResetForBuildMode` (enter) / `Warmup` (placement + exit) |
+| `IStructureSpawner` | interface | The contract `SpawnSystem` reaches both spawner kinds through: `Warmup` (once, on placement), `RefreshFromStats` (sheet changed), `Teardown` (give everything back NOW — run teardown and a sale; safe twice, leaves `OnDestroy` a no-op) |
 | `Spawner` | MB, `IEntrance`, `IStructureSpawner` | The house. Per-slot spawn → travel → rest cycle, slot = `Free ↔ Occupied` (no lockout); the door (`TryEnter`) takes a tired or drunk unit into any free slot, whichever house launched it and whatever it works as; `TryShelter` is the same without the door rule (stuck rescue); launches through an open side (`StructureExits`); self-registers with SpawnSystem; base `capacity` × `HouseCapacity` materialised into slots at `Warmup`, grown on `RefreshFromStats`; rest duration through `SpawnerRecharge`; launch boost (`launchSpeedMultiplier` / `launchBoostDuration`) |
-| `Tavern` | MB, `IEntrance` | Lets in a sober unit its `coinSource` serves (`workerYields`: who, and the price), with a seat free (`capacity`), and charges that price once on entry; holds it `stayDuration` (`Unit.EnterHold`), lets it out Drunk through an open side; with `autopilot` on, a tired guest leaves on autopilot. Sealed in → keeps its guests and tries again after another stay. Injected by StructureSystem (resources, grid, instance); `Forget(unit)` frees a seat on despawn; `Occupied` / `Capacity` for a future occupancy view |
+| `Tavern` | MB, `IEntrance` | Lets in a sober unit its `coinSource` serves (`workerYields`: who, and the price), with a seat free (`capacity`), and charges that price once on entry; holds it `stayDuration` (`Unit.EnterHold`), lets it out Drunk through an open side; with `autopilot` on, a tired guest leaves on autopilot. Sealed in → keeps its guests and tries again after another stay. Injected by StructureSystem (resources, grid, instance); `Forget(unit)` frees a seat on despawn; `EvictAll` (a sale) lets every guest out at once from where it stood, drunk, in any direction; `Occupied` / `Capacity` for a future occupancy view |
 | `Mill` | MB, `IHitGate`, `IYieldScale` | The watermill's store, an add-on over its `ResourceSource` (def `Never`): grinds whole sacks of Food on game time (`secondsPerSack`, up to `capacity`; the clock stands at zero while full); the gate refuses on an empty store, the scale is the number of sacks (the def's amount is per sack), `Paid` empties the store — an unlisted worker isn't paid, so the store stays. `Stored` / `Capacity` / `IsFull` for the future view |
 | `RicePaddy` | MB, `IHitGate` | The rice paddy's crop, an add-on over its `ResourceSource` (def `Regrow`, 1 hit): grows `growTime` seconds of empty field — any unit on it (a `Collider2D.Overlap` each frame, not an enter/exit list) holds it; the gate lets a hit through only while ripe, the source pays and uses the crop up; `Regrown` starts it again from zero. `Current` (Growing / Ripe / Harvested, derived) and `GrowthProgress` for the view |
 | `RicePaddyView` | MB | The paddy's look on one renderer: growing sprites over the growth time in equal parts, ripe, harvested; a stretch-and-squash on every change of look (Y curve on its own clock, sprite swapped at `swapAt`), none on first show. Polls `RicePaddy`, presentation only |
-| `Unit` | MB | Bouncing villager: stamina clock (`UnitDef.stamina` × `UnitStamina`, ticks whenever on the field) → `IsTired`; Drunk (`MakeDrunk`, timed) → `IsDrunk`; `TargetSpeed` (`UnitSpeed` × tired factor × drunk factor) held every step; profession for the outing (`Equip` / `Unequip`, `Type`); `Launch` (house — refills), `Resume` (out of a hold — refills nothing), `Boost(mult, duration, refreshStamina)` (tap), `EnterRest` (house: stamina 0, sober, tool back), `EnterHold` / `LeaveHold` (tavern), `OnBecameTired` (the one transition); the bounce rule (`minBounceAngle` bend + `bounceJitterDegrees` turn, `BendAwayFromNormal`), or the autopilot's turn to a house (`EnterAutopilot`, `autopilotRadius`, `autopilotMaxTurnDegrees`); `StuckWatch` → `IsStuck`; wedged kick; injected with the island, `RunStats` and `SpawnSystem` on spawn |
+| `Unit` | MB | Bouncing villager: stamina clock (`UnitDef.stamina` × `UnitStamina`, ticks whenever on the field) → `IsTired`; Drunk (`MakeDrunk`, timed) → `IsDrunk`; `TargetSpeed` (`UnitSpeed` × tired factor × drunk factor) held every step; profession for the outing (`Equip` / `Unequip`, `Type`); `Launch` (house — refills), `Resume` (out of a hold — refills nothing), `Boost(mult, duration, refreshStamina)` (tap), `EnterRest` (house: stamina 0, sober, tool back), `EnterHold` / `LeaveHold` (tavern), `OnBecameTired` (the one transition); the bounce rule (`minBounceAngle` bend + `bounceJitterDegrees` turn, `BendAwayFromNormal`), or the autopilot's turn to a house (`EnterAutopilot`, `autopilotRadius`, `autopilotMaxTurnDegrees`); `StuckWatch` → `IsStuck`; wedged kick; `IsOnField` (body simulated — not resting in a house, not held in a tavern), `IsHeld`, `Body` / `BodyCenter` (for a construction site's wall and area); injected with the island, `RunStats` and `SpawnSystem` on spawn |
 | `StuckWatch` | struct | Fixed windows: a window the unit never left a disc of `radius` = stuck; the verdict clears once it gets out. No dependency beyond `Vector2` — tested offline |
 | `StructureExits` | static | Where a unit or an animal may leave a structure on the grid (`CollectAllowedDirections`, `IsOpenExit`, `TryPickDirection` + jitter) and where it is put (`ExitPoint`: the ray from the box centre out of the footprint, plus a clearance). Parameterised by grid + origin + footprint + border, not components — tested on a bare `IslandGrid` |
 | `WaterSides` | static | Which side of a footprint runs along water: a WHOLE side (its outline, not its box), first of South → West → East, never North; water = a cell whose structure's def is `isWater` (the sea never counts). `Find(grid, …)` for the island, `Find(origin, footprint, isWater)` over any predicate — the geometry tested offline. `FlipSouth` — the river stops or turns under the south wheel and runs on past the other end, so the art shows mirrored. Behind `IslandGrid.CanPlace(origin, def)` for `needsWaterSide` and behind `WaterSideVisual` |
@@ -925,24 +980,24 @@ belongs in a PlayMode assembly (none yet).
 | `ResourceSource` | MB, `ICollisionEffect` | The one payer for every hit that pays, static, a building or an animal: grants `def.resource` per allowed-worker hit (yield via `ResourceSourceDef.TryGetYield` × any `IYieldScale` on the object, e.g. `ForgeHeat`, `Mill`) through `AddHarvest`, from `fxAnchor`; after `hitsToDeplete` does what `def.depletion` says — `Regrow` in place after `regrowTime` × `SourceRespawn` (colliders off unless `keepBodyWhileDepleted`), `Despawn` (destroyed — animals only), `Never`. No look of its own: `IsReady` / `Def` / `Accepts` / `Stats` and the events `Paid`, `Depleted`, `Regrown` are what add-ons and views read |
 | `ResourceSourceView` | MB | The nodes' look (tree, field, bush, rock, alpaca), next to their `ResourceSource` on the root: Ready / Harvested visual roots (`swapStateVisuals`: swap, or harvested as an always-on base); on `Depleted` the ready root **fades and squashes** (`fadeOutTime`; `fadeCurve` on alpha via `SpriteRenderer.color`, `fadeScaleY` on the root — per prefab, through `HarvestFade`), dropped on `Regrown`. Regrow sources only; gameplay ends at the hit, so the fade can never hand out a free harvest |
 | `Animal` | MB | A den's animal: only the link back to its `AnimalSpawner`, so the den can refill the slot when it despawns. The harvest is the `ResourceSource` beside it; movement is `AnimalWander` |
-| `AnimalWander` | MB | Kinematic wander: point in the owner's territory → walk straight → pause → repeat. A look-ahead probe (`AnimalSpawner.IsBlocked`: off-island, or an `animalsAvoid` structure) and a comfort distance to other animals stop it and send it off the other way — polled, since kinematic pairs get no callbacks. Without an owner it wanders a plain circle around its start |
-| `AnimalSpawner` | MB, `IStructureSpawner` | Keeps ≤ `maxAnimals` animals in the structure's territory (land cells within `territoryRadiusCells`); each comes OUT through a free side (`StructureExits`, `releaseGap` + jitter) — sealed in, nobody leaves until a side opens; one replacement per `spawnCooldown`; an animal that regrows (a shorn alpaca) keeps its slot. Territory follows the building via `instance.Cell`. `Animals` (read-only) lets the island rise pop a new den's animals up with it |
+| `AnimalWander` | MB | Kinematic wander: point in the owner's territory → walk straight → pause → repeat. A look-ahead probe (`AnimalSpawner.IsBlocked(from, to)`: off-island, an `animalsAvoid` structure or a construction site — a refused cell stops a step into it, never one off refused ground) and a comfort distance to other animals stop it and send it off the other way — polled, since kinematic pairs get no callbacks. Without an owner it wanders a plain circle around its start. `Alive` (static) lists every wandering animal, for the crowding check and the sites |
+| `AnimalSpawner` | MB, `IStructureSpawner` | Keeps ≤ `maxAnimals` animals in the structure's territory (land cells within `territoryRadiusCells`); each comes OUT through a free side (`StructureExits`, `releaseGap` + jitter) — sealed in, nobody leaves until a side opens; one replacement per `spawnCooldown`; an animal that regrows (a shorn alpaca) keeps its slot. Territory around `instance.Cell`. `IsBlocked` has a pure static overload over any grid (tested without a scene). `Animals` (read-only) lets the island rise pop a new den's animals up with it |
 | `Pier` | MB (marker) | Marks the run's pier (anywhere in the prefab): `PrestigeButton` finds it among the run's structures and hangs over `ButtonPoint` — the `buttonAnchor` child, or the pier's own position |
-| `SpriteShadow` | MB | A drop shadow built at Start from the `SpriteRenderer` beside it (black, translucent, one sorting step behind, a few pixels off) and re-synced every frame (sprite, flip, sorting). The ghost never Starts, so it never has one; a carried structure hides its own |
+| `SpriteShadow` | MB | A drop shadow built at Start from the `SpriteRenderer` beside it (black, translucent, one sorting step behind, a few pixels off) and re-synced every frame (sprite, flip, sorting). The ghost never Starts, so it never has one, and a site's blueprint copies plain renderers only |
 | `WaterReflection` | MB | The object's silhouette in the water: adds the package's `Reflector` at Start in sprite-pivot mode and raises the package's update flag once, so the reflection is actually placed. No edit-mode code — put THIS on prefabs, never the package's `Reflector` |
-| `DualVisual` | MB | Shows one of two child roots — a fence by edge orientation, a forest by grid-row parity (neighbours interlock). The caller decides (`StructureSystem.ApplyPlacementVisual` for a forest); the build ghost uses it too |
+| `DualVisual` | MB | Shows one of two child roots — a fence by edge orientation, a forest by grid-row parity (neighbours interlock). The caller decides (`StructureSystem.ApplyPlacementVisual` for a forest); the placement ghost and a site's blueprint use it too |
 | `WaterSideVisual` | MB | Shows one of three child roots — the watermill's art for its river side (south / west / east, each authored in full in the prefab); no side = south; `southFlippedRoot` (empty = the plain south root) where `WaterSides.FlipSouth` says so. Set by `StructureSystem.ApplyPlacementVisual`, for the ghost too |
 | `RiverVisual` | MB | A river cell's art, on the River root: `model` + the `end` / `straight` / `corner` sprites as drawn; `Show(RiverShape)` sets the sprite and turns only the model (so it must sit on the cell's centre — and carry no `SpriteShadow`, which would turn with it). Set by `StructureSystem.ApplyPlacementVisual` and re-set when a neighbouring river cell comes or goes |
 | `StatModifierText` | static | A modifier as card text ("+5% FOOD (FARMER)") — mechanical on purpose, durations named as durations so a sign never reads inverted. Behind `AgeDef.BonusText` and `StatPerkDef.GeneratedDescription`: an empty override keeps a card following the data |
 | `ResourceFormat` / `RomanNumeral` | static | The one abbreviation rule for amounts (wallet and prices must shorten alike: floored, ≤ 4 digits + a suffix); ages in roman numerals everywhere the player sees one |
 | `UIRoot` | MB (UI) | The UI's front door on the Canvas prefab: what a state drives (`ZoneScreen`, `PerkScreen`, `ConfirmDialog`, `MetaScreen`) and the panels that need the run (the three age panels and the prestige button, `Initialize`). `GameBootstrap` holds this one reference. Not a singleton, no logic; errors in `Start` on a missing screen, dialog or prestige button (no way to prestige without them), warns on a missing age panel. Its fields must point at objects IN the Canvas — a prefab asset dragged in from the Project window is not in any scene, reports itself inactive and can never show |
-| `UIVisibility` | MB (UI) | The one table of what is on screen: a row per `CanvasGroup` with the `UIMode`s it is visible in, every row applied on each `UIModeChangedEvent` (alpha, interactable and blocksRaycasts together). Boots into `Playing` in its own `Awake`, so its order against `GameBootstrap` cannot matter. `Set` (the triple) is public for the few groups that are NOT a mode's business and set only their OWN group — the confirm dialog and the prestige button's availability; a group with a row is set by the table and nobody else |
+| `UIVisibility` | MB (UI) | The one table of what is on screen: a row per `CanvasGroup` with the `UIMode`s it is visible in, every row applied on each `UIModeChangedEvent` (alpha, interactable and blocksRaycasts together). One switch besides the mode: a row ticked `followsBuildPanel` is visible only while its mode says so AND the player has the build panel shown (`BuildPanelShownEvent`) — still the table's row, so the group keeps one owner. Boots into `Playing` in its own `Awake`, so its order against `GameBootstrap` cannot matter. `Set` (the triple) is public for the few groups that are NOT a mode's business and set only their OWN group — the confirm dialog and the prestige button's availability; a group with a row is set by the table and nobody else |
 | `PrestigeButton` | MB (UI) | The way into a prestige: a screen-space button that hangs over the pier while `CanPrestige`, labelled with the payout right now (`labelFormat`, "Prestige +{0}"); at +0 it dims (`zeroPayoutAlpha`) but stays clickable — ending a stalled run is the player's call. A click publishes `PrestigeTriggeredEvent`. TWO groups: its parent `Prestige` (first child of Canvas) is the `UIVisibility` row, Playing only — that keeps it out of every other mode; its own group is availability, set by code. Follows the pier in `Canvas.preWillRenderCanvases` (after every `LateUpdate`, Cinemachine's included — no lag, no execution order); whole canvas units, pivot (0.5, 0). Finds the pier once per run (`Initialize` / `RunStartedEvent`) |
 | `ConfirmDialog` | MB (UI) | ONE reusable yes/no question, the LAST child of Canvas (draws over everything, its backdrop swallows clicks): `Show(message, onYes, onNo, yesText?, noText?)` returns whether it is on screen; labels left null keep the prefab's. Does not pause and does not know what it asks — the caller does both. Closes BEFORE calling back: one answer per question (a double click counts once), and the callback may ask again or leave its state. `Hide` drops the callbacks — a state's `Exit` calls it. Its own visibility, not a `UIVisibility` row: a pending question is not a mode. Stays active |
 | `MetaUpgradesUI` / `MetaUpgradeRowUI` | MB (UI) | The meta screen (`Screens/MetaScreen`, `UIVisibility` row `MetaUpgrades`, stays active): "Prestige points: N" (free points), a row per catalogue entry instantiated per `Show` from the row PREFAB (title, one-level description, `[-] 1/3 [+]`), Play. `[+]` / `[-]` go straight to `PrestigeSystem.TryRaise` / `TryLower`, then every row is redrawn (one point moving changes every `[+]`). Play is one-shot (button locked, callback dropped before the call) and hands back to `MetaUpgradesState` |
 | `ResourcePanel` / `ResourceUnit` | MB (UI) | Top resource bar: one `ResourceUnit` per `ResourceIconSet` entry, bound to its `ReactiveValue`; the icon set's order IS the display order |
 | `AgeAdvancePanel` / `AgeCostPanel` / `AgeTimelinePanel` | MB (UI) | The age label and the Next Age button — the one panel that BUYS an age, interactable while affordable; the price tag of the NEXT age (one `ResourceUnit` per cost entry, same prefab as the bar; hidden on the last age); the ladder: the age we are IN highlighted at the bottom (its bonus already in effect; the Age I's card has no bonus line), every age still ahead stacked above it, the next one to buy right above — the present and what is coming, not a log (buying drops the bottom card, the rest slide down and the bought age is now the highlighted one: layout only, a bottom-aligned Vertical Layout Group + RectMask2D; one `AgeTimelineCard` prefab for both states, current / upcoming). The age comes from event payloads, never read back off `AgeSystem`, so subscriber order cannot matter |
-| `BuildModeButton` / `BuildPanelUI` / `BuildTabUI` / `BuildCardUI` | MB (UI) | Toggle button (publishes the toggle, reflects `BuildModeButtonStateEvent`); the build palette (a tab button per non-empty `BuildPaletteDef` tab and a card per structure in it, locked below `requiredAge`, sell button, drives the controller's tool selection; opens and closes its cards on the UI mode, on screen per `UIVisibility`). Tabs: the grouping lives in the palette, not on `StructureDef`; every card is spawned once and a tab switch only shows / hides them — the tool in hand survives it, the strip jumps to its start, and the last tab survives leaving build mode. The tab container sits inside `Palette`, so the palette's `UIVisibility` row covers it; one tab (fixed root = layout / click slot, `Visual` child slides right while hovered or open, LitMotion on unscaled time, pixel-snapped); one card (fixed root = slot, `AnimatedVisual` child moves, LitMotion; every size and lift from the shared `BuildCardMotionProfile` asset). `BuildPanelScroller` is the pixel-snapped drag / wheel strip — a drag swallows the click it started with |
+| `BuildPanelButton` / `BuildPanelUI` / `BuildTabUI` / `BuildCardUI` | MB (UI) | The build button: ONE function, show / hide the palette and the sell button — a click publishes `BuildPanelToggleRequestedEvent`, `BuildPanelShownEvent` swaps its label (`hideLabel` / `showLabel`); not a mode. The build palette, up for the whole of normal play (a tab button per non-empty `BuildPaletteDef` tab and a card per structure in it, locked below `requiredAge`, sell button, drives the controller's tool selection; live in `UIMode.Playing`, asleep over any other screen; on screen per `UIVisibility`). It OWNS shown / hidden (starts shown, kept across screens and runs): hiding puts down the tool in hand — a tool held by an invisible panel would turn the next tap into a building — and a tab or sell key brings the panel back. Cards refresh on a count change and on `ResourceChangedEvent` (the game harvests under it), at most once a frame. Tabs: the grouping lives in the palette, not on `StructureDef`; every card is spawned once and a tab switch only shows / hides them — the tool in hand survives it, the strip jumps to its start, and the last tab survives another screen. The tab container sits inside `Palette`, so the palette's `UIVisibility` row covers it; one tab (fixed root = layout / click slot, `Visual` child slides right while hovered or open, LitMotion on unscaled time, pixel-snapped); one card (fixed root = slot, `AnimatedVisual` child moves, LitMotion; every size and lift from the shared `BuildCardMotionProfile` asset). `BuildPanelScroller` is the pixel-snapped drag / wheel strip — a drag swallows the click it started with |
 | `ZoneSelectionUI` / `ZoneCardUI` | MB (UI) | The zone screen: a card per offer (biome name and icon, exact counts — "Forest ×14"); owns the preview and the camera focus (sticky, from hover; `focusOffsetY` keeps the zone clear of the cards); a plain click publishes `ZoneSelectedEvent` and locks every card; holds no run. Written apart from the perk card on purpose |
 | `ZonePreviewOverlay` | MB | Draws the focused offer on the water: one quad mesh (fill in the biome's `previewColor` + an inset outline), built like `GridOverlay` in world space, so the object stays at the origin. `WorldBounds` / `WorldCentre` for the camera |
 | `PerkSelectionUI` / `PerkCardUI` | MB (UI) | The perk screen: owns the cards and nothing else — publishes `PerkSelectedEvent`, holds no run. On screen per `UIVisibility` (`PerkPick`); stays ACTIVE and is hidden by its `CanvasGroup` (an inactive panel's `Awake` would run inside the reveal). A card confirms on HOLD (release, never press, even at `holdDuration 0`), unscaled time; frame = hover, scale = press (LitMotion), fill = hold — three independent visuals |

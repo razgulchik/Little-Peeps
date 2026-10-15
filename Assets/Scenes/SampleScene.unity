@@ -1407,7 +1407,8 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 6920525363350829895, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -1475,6 +1476,12 @@ MonoBehaviour:
   islandSystem: {fileID: 738684714}
   resourceSystem: {fileID: 1656171579}
   spawnSystem: {fileID: 711440996}
+  siteLook:
+    blueprintColor: {r: 1, g: 1, b: 1, a: 0.45}
+    groundColor: {r: 1, g: 0.85, b: 0.55, a: 0.25}
+    groundSortingLayer: Ground
+    groundSortingOrder: 1000
+    fenceThickness: 0.25
 --- !u!1 &55594375
 GameObject:
   m_ObjectHideFlags: 0
@@ -1512,6 +1519,9 @@ MonoBehaviour:
   lineWidth: 0.04
   sortingLayerName: Mesh
   sortingOrder: 1000
+  spotRadius: 3
+  spotSolid: 0.35
+  segmentsPerSide: 4
 --- !u!23 &55594377
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -3456,7 +3466,6 @@ MonoBehaviour:
   saveSystem: {fileID: 644132713}
   uiRoot: {fileID: 2003217277}
   placementController: {fileID: 669469167}
-  buildModeCooldown: 2
 --- !u!4 &644132715
 Transform:
   m_ObjectHideFlags: 0
@@ -3914,7 +3923,6 @@ MonoBehaviour:
     validColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
     invalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
     sellHoverColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
-    moveHoverColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
     territoryValidColor: {r: 0.4, g: 1, b: 0.4, a: 0.18}
     territoryInvalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.18}
     territorySortingLayer: Ground
@@ -3968,6 +3976,9 @@ MonoBehaviour:
   islandSystem: {fileID: 738684714}
   soundSystem: {fileID: 950349391}
   stuckSweepInterval: 0.5
+  puffFx: {fileID: 0}
+  puffParticles: 8
+  puffSound: {fileID: 0}
 --- !u!4 &711440997
 Transform:
   m_ObjectHideFlags: 0
@@ -4989,7 +5000,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff563dd4b6ff5f247b05b3a68ba5a6cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  buildModeKey: 16
   sellKey: 38
   exitToMenuKey: 60
 --- !u!1 &1639104833

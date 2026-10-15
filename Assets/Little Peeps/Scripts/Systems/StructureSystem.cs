@@ -158,7 +158,7 @@ namespace LittlePeeps
         // that base. Any visual offset baked into the prefab (a child's local position) is preserved — we
         // move the root only — so per-prefab art can be nudged by hand without the placement code
         // fighting it. Moving the root (not the sprite child) also keeps the sprite and collider in sync,
-        // critical for the physics/bounce gameplay. Shared by Build and the build-mode ghost
+        // critical for the physics/bounce gameplay. Shared by Build and the placement ghost
         // (PlacementVisuals) so the preview matches exactly. Grid occupancy is logical (by cell),
         // unaffected by this.
         public void AnchorOnFootprint(Transform root, Vector2Int origin, Vector2Int size)
@@ -174,7 +174,7 @@ namespace LittlePeeps
         //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along —
         //     the south art mirrored where the river stops under its wheel;
         //   - a river cell carries a RiverVisual and shows the piece that joins it to the river cells beside it.
-        // No-op for structures with none. Shared by Build and the build-mode ghost (PlacementVisuals), so
+        // No-op for structures with none. Shared by Build and the placement ghost (PlacementVisuals), so
         // the preview shows exactly what lands — and by RefreshBesideWater, since the last two depend on
         // the neighbours.
         public static void ApplyPlacementVisual(GameObject go, IslandGrid grid, Vector2Int origin, Footprint footprint)

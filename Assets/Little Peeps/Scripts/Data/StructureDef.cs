@@ -72,7 +72,7 @@ namespace LittlePeeps
         // cost to build again, so a build → sell cycle always loses (StructureSystem.RefundCost).
         [Range(0f, 1f)] public float sellRefundPercent = 0.5f;
 
-        // Whether build mode may sell this structure. Off for generated terrain-like content (mountains,
+        // Whether the Sell tool may take this structure. Off for generated terrain-like content (mountains,
         // river) that is part of the island rather than something the player owns; on for everything
         // else, generated trees and the starting house included — there is no "player-placed"
         // distinction, only what a def allows.

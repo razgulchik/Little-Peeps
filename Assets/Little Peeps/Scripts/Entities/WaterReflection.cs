@@ -19,7 +19,7 @@ namespace LittlePeeps
     //    The flag is lowered around AddComponent: the new Reflector registers itself inside AddComponent,
     //    still in auto mode, and would take that path if another object had raised the flag this frame.
     //
-    // Created at Start like SpriteShadow, so the build-mode ghost (every behaviour disabled) never gets one.
+    // Created at Start like SpriteShadow, so the placement ghost (every behaviour disabled) never gets one.
     // Without a water that has top-down reflections on, it does nothing.
     [RequireComponent(typeof(SpriteRenderer))]
     public class WaterReflection : MonoBehaviour

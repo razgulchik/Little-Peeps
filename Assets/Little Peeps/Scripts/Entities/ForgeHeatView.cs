@@ -15,7 +15,7 @@ namespace LittlePeeps
     // same black, which is why a cold forge needs no hiding: the cover simply spans the whole bar.
     //
     // Every renderer the view drives is authored in the COLD state: cover on at full length, fill and
-    // overlays off. The build-mode ghost is this same prefab with every behaviour disabled, drawn at
+    // overlays off. The placement ghost is this same prefab with every behaviour disabled, drawn at
     // 60% alpha, so whatever is authored on is what it shows, and what it shows must be a cold forge —
     // an enabled fill would bleed through the translucent cover. The view flips the switches from there.
     //
@@ -48,7 +48,7 @@ namespace LittlePeeps
         [SerializeField] private SpriteRenderer cover;
 
         [Tooltip("The gradient bar under the cover. Author its renderer DISABLED — the view turns it on " +
-                 "once any of it is uncovered, so the build-mode ghost shows only the cover.")]
+                 "once any of it is uncovered, so the placement ghost shows only the cover.")]
         [SerializeField] private SpriteRenderer fill;
 
         [Tooltip("Multiplied into the fill's colour while overheated. White = no change.")]
@@ -152,7 +152,7 @@ namespace LittlePeeps
         }
 
         // The smoke is part of the cold-state rule like every renderer here: authored silent, started by
-        // the view. A system left playing in the prefab would also play on the build-mode ghost — a
+        // the view. A system left playing in the prefab would also play on the placement ghost — a
         // ParticleSystem is not a MonoBehaviour, so the ghost does not switch it off — so it is both
         // reported and silenced here rather than left to the first overheat to sort out. Non-looping
         // would stop itself after its Duration, long before a 20-second cool-down is over.
@@ -205,7 +205,7 @@ namespace LittlePeeps
             coveredPixels = pixels;
 
             // The fill is authored OFF and the cover ON at full length — the cold state — so the
-            // build-mode ghost, which runs none of this, shows a black window and nothing under it.
+            // placement ghost, which runs none of this, shows a black window and nothing under it.
             // The ghost is drawn at 60% alpha, so anything enabled under the cover would bleed through.
             // The view owns both switches from here: the fill exists as soon as a pixel of it shows.
             if (fill != null) fill.enabled = pixels < fullPixels;
@@ -222,7 +222,7 @@ namespace LittlePeeps
         }
 
         // Written every frame, unlike the cover: PlacementVisuals captures and restores every renderer's
-        // colour around a build-mode hover, and a restore landing mid-overheat would otherwise put the
+        // colour around a sell hover, and a restore landing mid-overheat would otherwise put the
         // untinted colour back and leave it there. The fill simply ignores the hover tint instead.
         private void ApplyTint(bool overheated)
         {

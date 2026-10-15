@@ -4,15 +4,17 @@ using UnityEngine.InputSystem;
 
 namespace LittlePeeps
 {
-    // Routes build-mode input to whichever tool the BuildPanelUI selection has chosen:
+    // Routes building input to whichever tool the BuildPanelUI selection has chosen:
     //  - a build card selected    → PlaceTool
     //  - the sell button selected → SellTool
     //  - nothing selected         → the empty hand: no tool, and the click is a tap (TapSystem)
-    // The game runs underneath the whole time, so "something in hand" (HoldsTool) is what decides
-    // whether a left click builds or taps. Right-click puts the tool down: the selection is cleared back
-    // to the empty hand and ToolCleared tells the panel to drop its highlight. Active only between
-    // Begin()/End(), called by BuildModeState. Clicks over UI never get here — InputHandler keeps them
-    // out of OnWorldClick — so panel buttons don't act on the world.
+    // There is no build mode: the panel is always up during normal play and the game runs underneath,
+    // so "something in hand" (HoldsTool) is what decides whether a left click builds or taps — and
+    // whether the grid shows, as a spot around the cursor (GridOverlay). Right-click puts the tool down:
+    // the selection is cleared back to the empty hand and ToolCleared tells the panel to drop its
+    // highlight. Active only between Begin()/End(), called by PlayingState — any other screen (a perk
+    // pick, an age transition, the prestige question) drops the tool. Clicks over UI never get here —
+    // InputHandler keeps them out of OnWorldClick — so panel buttons don't act on the world.
     //
     // Everything that decides WHAT happens lives in the tools, and everything DRAWN lives in
     // PlacementVisuals — this class only owns the inspector-wired references, the active tool, and the
@@ -40,7 +42,7 @@ namespace LittlePeeps
         private bool active;
 
         // A build card or the sell tool is in hand: the next left click in the world is placement's.
-        // False outside build mode and with nothing selected — the click is a tap then.
+        // False outside normal play and with nothing selected — the click is a tap then.
         public bool HoldsTool => active && tool != null && tool != emptyHand;
 
         private void OnEnable()
@@ -55,15 +57,14 @@ namespace LittlePeeps
             inputHandler.OnRightClick -= OnRightClick;
         }
 
-        // Called by BuildModeState.Enter. Show the overlay; the panel drives which structure is selected.
+        // Called by PlayingState.Enter. The panel drives which structure is selected.
         public void Begin()
         {
             EnsureTools();
             active = true;
-            gridOverlay.Show();
         }
 
-        // Called by BuildModeState.Exit. The active tool tears down whatever it owns (a ghost, a tint).
+        // Called by PlayingState.Exit. The active tool tears down whatever it owns (a ghost, a tint).
         public void End()
         {
             EnsureTools();
@@ -103,7 +104,7 @@ namespace LittlePeeps
             if (context != null) return;
 
             visuals.Init(structureSystem);
-            context = new PlacementContext(islandSystem, structureSystem, resourceSystem, gridOverlay, visuals);
+            context = new PlacementContext(islandSystem, structureSystem, resourceSystem, visuals);
             sellTool = new SellTool(context);
             tool = emptyHand;
         }
@@ -111,7 +112,21 @@ namespace LittlePeeps
         private void Update()
         {
             if (!active) return;
-            tool.Tick(ScreenToWorld());
+
+            // Runs for the whole of normal play now, not just inside a build mode — so no pointer (none
+            // attached) has to be a quiet frame, not an exception every frame.
+            if (Mouse.current == null)
+            {
+                gridOverlay.Hide();
+                return;
+            }
+
+            Vector2 cursor = ScreenToWorld();
+            tool.Tick(cursor);
+
+            // The grid only while it means something: with a tool in hand, around where it would act.
+            if (HoldsTool) gridOverlay.Track(cursor);
+            else gridOverlay.Hide();
         }
 
         private void OnWorldClick(Vector2 worldPos)

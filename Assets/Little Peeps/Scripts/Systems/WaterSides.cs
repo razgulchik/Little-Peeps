@@ -30,7 +30,7 @@ namespace LittlePeeps
     public static class WaterSides
     {
         // The side along water on the placed island. The closure allocates per call — fine on the
-        // placement paths (a click, one ghost per frame in build mode), not for anything per hit.
+        // placement paths (a click, one ghost per frame while a card is in hand), not for anything per hit.
         public static WaterSide Find(IslandGrid grid, Vector2Int origin, Footprint footprint)
             => Find(origin, footprint, cell => IsWater(grid, cell));
 

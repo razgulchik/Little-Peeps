@@ -13,11 +13,10 @@ namespace LittlePeeps
     //   Available — the tool is on the stand; shows availableRoot.
     //   Taken     — a worker is carrying it; shows takenRoot (the empty stand reads as "in use").
     //
-    // Nothing else touches this: the rack has no system injection and no build-mode contract of its
-    // own, because the one way a tool returns is through the unit that holds it — build mode
-    // despawns every unit, and Despawn unequips. A rack sold with its tool out is simply gone; the
-    // worker finishes the outing and the tool vanishes with the rack. Moving keeps the instance and
-    // therefore the link.
+    // Nothing else touches this: the rack has no system injection and no teardown contract of its own,
+    // because the one way a tool returns is through the unit that holds it — a house rest or a Despawn
+    // unequips. A rack sold with its tool out is simply gone; the worker finishes the outing and the
+    // tool vanishes with the rack.
     [RequireComponent(typeof(CollisionTarget))]
     public class ToolRack : MonoBehaviour, ICollisionEffect
     {

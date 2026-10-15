@@ -35,7 +35,7 @@ namespace LittlePeeps
         // the FSM — and so publishes the first mode — and Unity gives no order between that Awake and
         // this one. Establishing the boot mode here makes the order irrelevant instead of depending on
         // it: either the event arrives and is applied, or it was missed and this already said the same
-        // thing. Same rule BuildModeButton and BuildPanelUI follow.
+        // thing. Same rule BuildPanelUI follows.
         private void Awake() => Apply(UIMode.Playing);
 
         private void OnEnable() => EventBus<UIModeChangedEvent>.Subscribe(OnModeChanged);

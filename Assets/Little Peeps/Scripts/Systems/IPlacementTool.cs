@@ -2,19 +2,19 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // One build-mode tool: Place or Sell (or PlacementController's empty hand). Exactly one is active at a
+    // One building tool: Place or Sell (or PlacementController's empty hand). Exactly one is active at a
     // time; PlacementController routes input to it and swaps it when the panel selection changes.
     //
     // The contract that matters is Exit: a tool may leave NOTHING behind — no ghost, no tinted structure.
-    // Every switch and the end of build mode go through it, so if a tool forgets to undo something, the
-    // leftover outlives the tool that made it.
+    // Every switch and every end of normal play go through it, so if a tool forgets to undo something,
+    // the leftover outlives the tool that made it.
     public interface IPlacementTool
     {
         // Becoming the active tool.
         void Enter();
 
-        // Ceasing to be active (tool switch, or build mode ending). Must undo everything Enter/Tick/Click
-        // put on screen.
+        // Ceasing to be active (tool switch, or normal play giving way to another screen). Must undo
+        // everything Enter/Tick/Click put on screen.
         void Exit();
 
         // Per-frame preview at the cursor.
@@ -36,16 +36,14 @@ namespace LittlePeeps
         public readonly IslandSystem Island;
         public readonly StructureSystem Structures;
         public readonly ResourceSystem Resources;
-        public readonly GridOverlay Overlay;
         public readonly PlacementVisuals Visuals;
 
         public PlacementContext(IslandSystem island, StructureSystem structures, ResourceSystem resources,
-                                GridOverlay overlay, PlacementVisuals visuals)
+                                PlacementVisuals visuals)
         {
             Island = island;
             Structures = structures;
             Resources = resources;
-            Overlay = overlay;
             Visuals = visuals;
         }
 

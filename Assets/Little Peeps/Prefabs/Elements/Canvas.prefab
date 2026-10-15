@@ -962,9 +962,9 @@ MonoBehaviour:
   - group: {fileID: 3706059102129453132}
     visibleIn: 57
   - group: {fileID: 8361800881523370260}
-    visibleIn: 2
+    visibleIn: 1
   - group: {fileID: 1749776260698554320}
-    visibleIn: 2
+    visibleIn: 1
   - group: {fileID: 6398945780874908185}
     visibleIn: 8
   - group: {fileID: 2805012886633077657}
@@ -1399,14 +1399,13 @@ GameObject:
   - component: {fileID: 9036447286054979182}
   - component: {fileID: 6222285629066364438}
   - component: {fileID: 4748595056572920495}
-  - component: {fileID: 6920525363350829895}
   m_Layer: 5
   m_Name: ModeButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &7496599337612676022
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1508,22 +1507,6 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &6920525363350829895
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2126743764944068217}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 550e7b5e4237c384085aa7d6786140ba, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  button: {fileID: 4748595056572920495}
-  modeText: {fileID: 0}
-  buildLabel: B
-  playLabel: '>'
 --- !u!1 &2289026927527295770
 GameObject:
   m_ObjectHideFlags: 0
@@ -2411,7 +2394,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -262.81274, y: 148.5418}
+  m_AnchoredPosition: {x: 264.93726, y: 148.5418}
   m_SizeDelta: {x: 100, y: 135.8542}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &6194981013904233471

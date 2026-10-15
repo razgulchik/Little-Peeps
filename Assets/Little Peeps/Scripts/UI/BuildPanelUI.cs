@@ -4,12 +4,14 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // Bottom build palette. Its CARDS follow the UI mode (UIModeChangedEvent); whether the panel is on
+    // Bottom build palette, up for the whole of normal play — there is no build mode to open it. It is
+    // LIVE in UIMode.Playing (UIModeChangedEvent) and asleep over any other screen; whether it is on
     // screen is UIVisibility's table, not this class. Spawns a tab button per non-empty BuildPaletteDef
     // tab and a card per structure in it, showing one tab's cards at a time (click a tab or press its
     // digit). Drives the PlacementController's tool: click a card to place a structure, click the
     // separate sell button to sell, click the selected card/button again (or right-click in the world,
-    // or leave build mode) to clear — which drops back to the empty hand, where a click taps again. A
+    // or let another screen come up) to clear — which drops back to the empty hand, where a click taps
+    // again. A
     // right-click clear comes from the controller via its ToolCleared event.
     public class BuildPanelUI : MonoBehaviour
     {
@@ -39,10 +41,10 @@ namespace LittlePeeps
 
         private readonly List<Tab> tabs = new();
         private readonly List<BuildCardUI> cards = new();
-        private int currentTab = -1;   // survives Close(): build mode reopens on the last tab
+        private int currentTab = -1;   // survives Close(): back in normal play, the last tab is still open
         private BuildCardUI selectedCard;
         private bool sellSelected;
-        private bool isOpen;   // true while in build mode (panel visible) — gates the sell and tab hotkeys
+        private bool isOpen;   // true during normal play (panel live) — gates the sell and tab hotkeys
         private int currentAge = RunContext.FirstAge;
         private RunContext run;   // for the structures a perk opened and how many stand (StructureDef.LockState)
         private bool cardsDirty;  // a structure count changed — refresh in LateUpdate (OnStructureCountChanged)
@@ -147,7 +149,7 @@ namespace LittlePeeps
         }
 
         // The palette's CONTENT follows the mode; its visibility is UIVisibility's row for this group.
-        // Open/Close are about the cards and the selected tool, which is why leaving build mode still has
+        // Open/Close are about the cards and the selected tool, which is why leaving normal play still has
         // to run through here and cannot just be a CanvasGroup going to zero.
         //
         // Only the CROSSING is acted on. Every mode now reports itself, so without this an age
@@ -155,10 +157,10 @@ namespace LittlePeeps
         // PlacementController back to the empty hand it is already on, once per screen the player sees.
         private void OnUIMode(UIModeChangedEvent e)
         {
-            bool build = e.Mode == UIMode.Build;
-            if (build == isOpen) return;
+            bool live = e.Mode == UIMode.Playing;
+            if (live == isOpen) return;
 
-            if (build) Open();
+            if (live) Open();
             else Close();
         }
 
@@ -179,7 +181,7 @@ namespace LittlePeeps
         }
 
         // Sell hotkey: route through the same toggle path as the sell button so the highlight and the
-        // PlacementController stay in sync. Ignored when the panel is closed (not in build mode).
+        // PlacementController stay in sync. Ignored over any other screen.
         private void OnSellHotkey(SellModeRequestedEvent _)
         {
             if (isOpen) OnSellClicked();
@@ -210,7 +212,7 @@ namespace LittlePeeps
             placementController.SetSellMode();
         }
 
-        // UI-initiated deselect (clicking the selected card/sell again, or leaving build mode): clear
+        // UI-initiated deselect (clicking the selected card/sell again, or leaving normal play): clear
         // the highlights AND drive the controller back to the empty hand.
         private void Deselect()
         {

@@ -1,15 +1,12 @@
-using UnityEngine;
-
 namespace LittlePeeps
 {
-    // Outer app state owning the inner gameplay FSM (Playing, BuildMode). Bridges the UI toggle
-    // button (BuildModeToggleRequestedEvent) to the inner FSM. Build mode is only the build panel up —
-    // the game keeps running under it — so toggling it costs nothing and needs no cooldown.
+    // Outer app state owning the inner gameplay FSM: normal play (PlayingState — building included, the
+    // build panel is always up there) and the screens opened over it, the age advance and the perk picks
+    // owed at a run's start.
     public class GameplayContainerState : IState
     {
         private readonly StateMachine innerFsm;
         private readonly PlayingState playingState;
-        private readonly BuildModeState buildModeState;
         private readonly PerkSelectionState perkSelectionState;
 
         // Deps for building a ZoneSelectionState on demand (it builds the AgeTransitionState after it).
@@ -26,17 +23,14 @@ namespace LittlePeeps
         // the first age's expansion and the cost never rose. Ask for CurrentRun at the moment it is used.
         private readonly RunManager runManager;
 
-        private bool inBuildMode;
-
         public GameplayContainerState(StateMachine innerFsm, PlayingState playingState,
-                                      BuildModeState buildModeState, PerkSelectionState perkSelectionState,
+                                      PerkSelectionState perkSelectionState,
                                       AgeSystem ageSystem, AgeSequencer ageSequencer,
                                       ResourceSystem resourceSystem, IslandSystem islandSystem,
                                       ZoneSelectionUI zoneSelectionUI, RunManager runManager)
         {
             this.innerFsm = innerFsm;
             this.playingState = playingState;
-            this.buildModeState = buildModeState;
             this.perkSelectionState = perkSelectionState;
             this.ageSystem = ageSystem;
             this.ageSequencer = ageSequencer;
@@ -48,15 +42,12 @@ namespace LittlePeeps
 
         public void Enter()
         {
-            inBuildMode = false;
             innerFsm.ChangeState(playingState);
-            EventBus<BuildModeToggleRequestedEvent>.Subscribe(OnToggleRequested);
             EventBus<AgeAdvanceRequestedEvent>.Subscribe(OnAgeAdvanceRequested);
         }
 
         public void Exit()
         {
-            EventBus<BuildModeToggleRequestedEvent>.Unsubscribe(OnToggleRequested);
             EventBus<AgeAdvanceRequestedEvent>.Unsubscribe(OnAgeAdvanceRequested);
         }
 
@@ -69,12 +60,12 @@ namespace LittlePeeps
         // Meta perks can owe the run perk picks at its start (StartPerkPickUpgradeDef, StartAgeUpgradeDef).
         // Opened HERE, from normal play, rather than wherever a run is started: runs start in three places —
         // the first run in GameBootstrap, Play on the meta screen, the debug Restart Run — and this one check
-        // covers all of them, and any added later. Normal play only, by the rule build mode and age advance
-        // already follow: the pick freezes the game and must not cut into another mode — so a pick owed
-        // while the build panel is up waits for it to close.
+        // covers all of them, and any added later. Normal play only, by the rule the age advance follows
+        // too: the pick freezes the game and must not cut into another screen. Leaving normal play drops
+        // whatever build tool was in hand (PlayingState.Exit).
         private void TryOpenStartPerkPick()
         {
-            if (inBuildMode || innerFsm.Current != playingState) return;
+            if (innerFsm.Current != playingState) return;
 
             // Read the run HERE, not in the constructor — see the runManager field.
             var run = runManager != null ? runManager.CurrentRun : null;
@@ -87,18 +78,12 @@ namespace LittlePeeps
             innerFsm.ChangeState(perkSelectionState);
         }
 
-        private void OnToggleRequested(BuildModeToggleRequestedEvent _)
-        {
-            if (inBuildMode) ExitBuildMode();
-            else EnterBuildMode();
-        }
-
-        // Start an age only from normal play (not build mode / not mid-transition) and only when the
-        // next age is actually affordable. ZoneSelectionState owns the spend and the zone pick, then hands
-        // over to AgeTransitionState for the animation and the return.
+        // Start an age only from normal play (not mid-transition, not over another screen) and only when
+        // the next age is actually affordable. ZoneSelectionState owns the spend and the zone pick, then
+        // hands over to AgeTransitionState for the animation and the return.
         private void OnAgeAdvanceRequested(AgeAdvanceRequestedEvent _)
         {
-            if (inBuildMode || innerFsm.Current != playingState) return;
+            if (innerFsm.Current != playingState) return;
             if (ageSystem == null || !ageSystem.CanAdvance) return;
 
             // Read the run HERE, not in the constructor — see the runManager field.
@@ -108,27 +93,6 @@ namespace LittlePeeps
             innerFsm.ChangeState(new ZoneSelectionState(
                 innerFsm, playingState, perkSelectionState, ageSequencer, resourceSystem, islandSystem,
                 zoneSelectionUI, run, ageSystem.NextAge));
-        }
-
-        private void EnterBuildMode()
-        {
-            // Build mode is reachable only from normal play, the same rule OnAgeAdvanceRequested already
-            // enforces. It needs saying twice because the toggle has a SECOND publisher: GameHotkeys sends
-            // the same event from a key press, and a key press runs in Update — past every UI raycast and
-            // unaffected by timeScale. Without this, pressing the build key during an age transition or a
-            // perk pick dropped that state mid-flight: its Exit restored timeScale and the sequencer
-            // coroutine finished onto a state no longer on the stack, so the run never returned to
-            // playing on its own.
-            if (innerFsm.Current != playingState) return;
-
-            inBuildMode = true;
-            innerFsm.ChangeState(buildModeState);
-        }
-
-        private void ExitBuildMode()
-        {
-            inBuildMode = false;
-            innerFsm.ChangeState(playingState);
         }
     }
 }

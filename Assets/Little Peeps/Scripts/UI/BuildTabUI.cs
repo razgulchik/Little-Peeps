@@ -75,7 +75,7 @@ namespace LittlePeeps
             Slide();
         }
 
-        // Leaving build mode with the pointer resting on a tab: the hidden panel may never be told the
+        // Leaving normal play with the pointer resting on a tab: the hidden panel may never be told the
         // pointer left, so the panel drops the hover itself and the tab snaps to where it belongs.
         public void ResetHover()
         {

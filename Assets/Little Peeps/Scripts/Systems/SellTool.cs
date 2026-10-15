@@ -33,12 +33,10 @@ namespace LittlePeeps
             if (target.IsFence)
             {
                 if (!ctx.Structures.SellEdgeStructure(target.Edge)) return;
-                // No Overlay.Refresh(): fences occupy no cells, so the territory fill is unchanged.
             }
             else
             {
                 if (!ctx.Structures.SellStructure(target.Instance.Cell)) return;
-                ctx.Overlay.Refresh();   // cells freed → update the territory fill
             }
 
             hover.Forget();   // the highlighted object has just been destroyed

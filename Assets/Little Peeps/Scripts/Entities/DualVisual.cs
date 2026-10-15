@@ -11,7 +11,7 @@ namespace LittlePeeps
     // The deciding condition lives in the CALLER (StructureSystem / PlacementController), not here — this
     // component only knows "show one of two". Each root is fully configured in the prefab (its own
     // sprites/children), so per-pose art lives in the prefab, not in code. Used by both the placed
-    // structure and the build-mode ghost, so the preview matches the real structure 1:1.
+    // structure and the placement ghost, so the preview matches the real structure 1:1.
     public class DualVisual : MonoBehaviour
     {
         [SerializeField] private GameObject firstRoot;

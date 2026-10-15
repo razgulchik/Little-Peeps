@@ -14,17 +14,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: hole_boar
   displayName: Boar Hole
+  description: 
   icon: {fileID: 21300000, guid: 0b36a4b7ce6ca3146a25bd03a6873ff5, type: 3}
   prefab: {fileID: 4378097158176845433, guid: 7ce4e164521e66540a38f4fdf1771f28, type: 3}
   placement: 0
   size: {x: 1, y: 1}
+  footprintMask:
+    cells: 
   cost:
   - resourceType: 1
     amount: 10
   requiredAge: 0
+  lockedUntilPerk: 0
   allowedTerrain: 01000000
   sellRefundPercent: 0.5
-  canSell: 1
-  canMove: 1
-  impassable: 0
+  canSell: 0
+  passable: 0
+  animalsAvoid: 0
+  isWater: 0
+  needsWaterSide: 0
   border: 0
+  maxCount: 0
+  costStepFlat: 0
+  costStepPercent: 0
+  exponentialCostGrowth: 0

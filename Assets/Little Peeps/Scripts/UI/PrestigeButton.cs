@@ -9,7 +9,7 @@ namespace LittlePeeps
     // publishes PrestigeTriggeredEvent — PlayingState takes it from there and asks the player first.
     //
     // Two CanvasGroups, two owners. The PARENT's group is a row in UIVisibility, visible in Playing only:
-    // that is what keeps the button out of build mode and every other mode, and with it the rule that a
+    // that is what keeps the button out of every other mode, and with it the rule that a
     // run never ends from there. The button's OWN group is set here, by whether the run can prestige — a
     // game condition, not a mode — so no row in the table may name it, or the two would overwrite each
     // other. Groups nest, so the button is on screen only when both say so.

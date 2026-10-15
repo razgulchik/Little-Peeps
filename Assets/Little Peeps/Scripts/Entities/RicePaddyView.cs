@@ -9,7 +9,7 @@ namespace LittlePeeps
     // One renderer, one sprite at a time: the growing sprites split the growth time between them equally
     // (dry, then the water coming in, then the sprouts), then ripe, then harvested until the ground
     // regrows and it starts over at the first growing sprite. Author the renderer with that first one —
-    // the build-mode ghost is this same prefab with every behaviour disabled, so it shows what is authored.
+    // the placement ghost is this same prefab with every behaviour disabled, so it shows what is authored.
     //
     // Every change of look plays a stretch and squash on the renderer's transform, Y only: the field
     // shoots up, drops into a squash, the new sprite takes over at swapAt, and it settles back. The sprite

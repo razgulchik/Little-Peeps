@@ -2,7 +2,9 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Normal gameplay: units bounce, resources accumulate; player can open BuildMode or trigger prestige
+    // Normal gameplay: units bounce, resources accumulate, and the player builds and sells from the
+    // always-open build panel (PlacementController is active exactly while this state is) or triggers
+    // prestige.
     public class PlayingState : IState
     {
         private readonly StateMachine gameplayFsm;
@@ -17,12 +19,18 @@ namespace LittlePeeps
         // GameBootstrap because both steps return to THIS state, so neither can exist before it.
         private readonly PrestigeMenuState prestigeMenu;
 
+        // Building is part of normal play: placement runs while this state does, and every other screen
+        // (a perk pick, an age transition, the prestige question) starts by dropping the tool in hand.
+        private readonly PlacementController placement;
+
         public PlayingState(StateMachine gameplayFsm, RunManager runManager, PrestigeSystem prestigeSystem,
-                            ConfirmDialog confirmDialog, MetaUpgradesUI metaScreen)
+                            ConfirmDialog confirmDialog, MetaUpgradesUI metaScreen,
+                            PlacementController placement = null)
         {
             this.gameplayFsm = gameplayFsm;
             this.runManager = runManager;
             this.prestigeSystem = prestigeSystem;
+            this.placement = placement;
 
             var metaUpgrades = new MetaUpgradesState(gameplayFsm, prestigeSystem, runManager, metaScreen, this);
             prestigeMenu = new PrestigeMenuState(gameplayFsm, prestigeSystem, runManager, confirmDialog, this,
@@ -30,27 +38,28 @@ namespace LittlePeeps
         }
 
         // The prestige subscription lives HERE, and not on PrestigeSystem itself, because its lifetime IS
-        // the rule "a run ends only from normal play". This state is current only then: opening the build
-        // panel or an age transition replaces it in the inner FSM, and Exit() takes the subscription down
-        // with it — held by construction rather than by a guard someone can forget to copy. (The panel
-        // hides the prestige button as well; this is what holds even if a layout forgets to.)
+        // the rule "a run ends only from normal play". This state is current only then: a perk pick or an
+        // age transition replaces it in the inner FSM, and Exit() takes the subscription down with it —
+        // held by construction rather than by a guard someone can forget to copy.
         public void Enter()
         {
             // Normal play is the mode every other one falls back to, and the FSM re-Enters this state on
             // every way back — so announcing it here is the whole "put the HUD back" story.
             EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.Playing });
             EventBus<PrestigeTriggeredEvent>.Subscribe(OnPrestigeTriggered);
+            if (placement != null) placement.Begin();
         }
 
         public void Exit()
         {
             EventBus<PrestigeTriggeredEvent>.Unsubscribe(OnPrestigeTriggered);
+            if (placement != null) placement.End();   // whatever was in hand goes back before the next screen
         }
 
         public void Tick()
         {
-            // Nothing per-frame yet. Age advancement is NOT here — GameplayContainerState owns it, since
-            // it also owns the build-mode toggle that must not run at the same time.
+            // Nothing per-frame yet. Age advancement is NOT here — GameplayContainerState owns it, with
+            // the start-of-run perk picks: both open a screen of their own over normal play.
         }
 
         // The player clicked the prestige button. The run is read HERE rather than held: this state

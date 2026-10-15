@@ -4,7 +4,7 @@ using Unity.Cinemachine;
 
 namespace LittlePeeps
 {
-    // The strategy-camera "brain": drives the rig during gameplay AND build mode without being part of the
+    // The strategy-camera "brain": drives the rig during gameplay AND the frozen screens without being part of the
     // rig itself. The rig is three dumb objects — a CameraTarget transform (the logical center), a rendering
     // Camera + CinemachineBrain, and a CinemachineCamera (vcam) that follows the target with damping (the
     // smooth motion lives in Cinemachine, not here). This controller lives on its OWN GameObject and reaches

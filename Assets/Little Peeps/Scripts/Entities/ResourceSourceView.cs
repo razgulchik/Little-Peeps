@@ -27,7 +27,7 @@ namespace LittlePeeps
     //                        on top that switches off once harvested. Not mutually exclusive.
     //   on                 — mutually exclusive swap: exactly one root is shown for the current state.
     //
-    // The build-mode ghost is the prefab with every behaviour disabled, so it shows the roots exactly as
+    // The placement ghost is the prefab with every behaviour disabled, so it shows the roots exactly as
     // authored — author them in the Ready look.
     public class ResourceSourceView : MonoBehaviour
     {

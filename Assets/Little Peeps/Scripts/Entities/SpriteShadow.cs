@@ -8,7 +8,7 @@ namespace LittlePeeps
     // truth: swap the art and the shadow follows. Every frame it re-copies what shapes the silhouette
     // (sprite, flip, sorting), so an animated unit or a y-sorted sprite keeps a matching shadow for free.
     //
-    // Created at Start, on purpose: the build-mode ghost is the same prefab with every behaviour disabled
+    // Created at Start, on purpose: the placement ghost is the same prefab with every behaviour disabled
     // (PlacementVisuals), and a disabled behaviour never Starts — so a ghost has no shadow by construction
     // and the placement code never has to strip one. The rule the player sees is "a shadow belongs to
     // what stands on the ground": PlacementVisuals leaves the shadow's renderer out of its hover tint,

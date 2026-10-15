@@ -5,7 +5,7 @@ namespace LittlePeeps
     // A river cell's art: one of three pieces, turned to join the river cells beside it. The piece is
     // decided by the placement code from the grid (RiverShapes, via StructureSystem.ApplyPlacementVisual,
     // which also re-picks the neighbours' pieces whenever water lands or leaves); this component only
-    // knows how to show one. Show works on a disabled component, as on the build-mode ghost.
+    // knows how to show one. Show works on a disabled component, as on the placement ghost.
     //
     // Only the model turns, about its own position — the root, its collider and the rest of the prefab
     // stay put. So the sprites must be pivoted at their centre and the model sit on the cell's centre.

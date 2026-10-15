@@ -97,7 +97,7 @@ namespace LittlePeeps
             EventBus<PerkSelectedEvent>.Unsubscribe(OnPerkSelected);
             if (ui != null) ui.Hide();
 
-            // Unconditional, like BuildModeState and AgeTransitionState: whichever way we leave, the game
+            // Unconditional, like AgeTransitionState: whichever way we leave, the game
             // must not stay frozen. Harmless when we never froze — the value is already 1.
             Time.timeScale = 1f;
         }
@@ -108,7 +108,7 @@ namespace LittlePeeps
         }
 
         // The player confirmed a card. Changing state from inside an event handler is the pattern
-        // GameplayContainerState already uses for the build-mode toggle; it is safe here because the
+        // GameplayContainerState already uses for the age advance; it is safe here because the
         // Exit it triggers unsubscribes this very handler mid-dispatch, which EventBus pins as legal —
         // it iterates a snapshot, so the change only takes effect on the next Publish.
         private void OnPerkSelected(PerkSelectedEvent e)

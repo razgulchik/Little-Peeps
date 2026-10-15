@@ -77,7 +77,6 @@ namespace LittlePeeps
                 return;
             }
             ctx.Structures.PlaceStructure(def, origin);
-            ctx.Overlay.Refresh();   // new structure occupies cells → update the territory fill
         }
 
         private void ClickEdge(Vector2 world)

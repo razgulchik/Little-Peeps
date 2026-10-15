@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // What a build-mode tool is pointing AT: the fence on a grid edge, the structure on a cell, or
+    // What a building tool is pointing AT: the fence on a grid edge, the structure on a cell, or
     // nothing. The Sell click and the hover highlight both ask exactly this question, and each used to
     // answer it with its own copy of the same lines — including the fence-wins rule, which is a UX
     // decision that MUST stay identical between them: if highlighting and clicking disagreed about what

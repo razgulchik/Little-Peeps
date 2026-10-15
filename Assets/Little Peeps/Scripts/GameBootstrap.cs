@@ -43,7 +43,7 @@ namespace LittlePeeps
         [Header("UI")]
         [SerializeField] private UIRoot uiRoot;
 
-        [Header("Build mode")]
+        [Header("Building")]
         [SerializeField] private PlacementController placementController;
 
         private MetaContext metaContext;
@@ -104,10 +104,10 @@ namespace LittlePeeps
             //    The states are handed runManager, NOT the RunContext: they are built once here and live
             //    through every prestige, so a captured context would be the finished run's.
             var gameplayFsm = new StateMachine();
-            var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem, confirmDialog, metaScreen);
-            var buildModeState = new BuildModeState(placementController);
+            var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem, confirmDialog, metaScreen,
+                                                placementController);
             var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkScreen, runManager, playingState);
-            appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState,
+            appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState,
                                                                    perkSelectionState, ageSystem, ageSequencer, resourceSystem,
                                                                    islandSystem, zoneScreen, runManager));
 
@@ -117,8 +117,8 @@ namespace LittlePeeps
         }
 
         // The hotkey and the event stay wired, but the transition is DECLINED while MainMenuState is
-        // still a stub. Entering it used to strand the player: the container's Exit() drops the build-mode
-        // and age-advance subscriptions, the menu draws nothing and listens for nothing, and gameplay
+        // still a stub. Entering it used to strand the player: the container's Exit() drops the age-advance
+        // subscription, the menu draws nothing and listens for nothing, and gameplay
         // keeps running underneath with no way back. Restoring this is one line once the menu screen
         // exists — see the ChangeState call this replaced in git history.
         private void OnExitToMenu(ExitToMenuRequestedEvent _)

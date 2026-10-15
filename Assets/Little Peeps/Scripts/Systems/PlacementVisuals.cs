@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Everything the build mode DRAWS that is not a real placed structure: the ghost preview, the faint
+    // Everything placement DRAWS that is not a real placed structure: the ghost preview, the faint
     // territory halo, and the recolouring of a real structure about to be sold.
     //
     // Split out of PlacementController so the tools decide WHAT is targeted and this class decides how it

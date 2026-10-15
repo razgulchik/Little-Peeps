@@ -59,11 +59,8 @@ namespace LittlePeeps
         public ZoneOffer Offer;
     }
 
-    // Published by the build-mode toggle button OR the build hotkey; handled by GameplayContainerState.
-    public struct BuildModeToggleRequestedEvent { }
-
-    // Published by the sell hotkey (GameHotkeys). BuildPanelUI toggles its Sell tool when open, so the
-    // button highlight and the PlacementController stay in sync; a no-op outside build mode (panel hidden).
+    // Published by the sell hotkey (GameHotkeys). BuildPanelUI toggles its Sell tool during normal play, so
+    // the button highlight and the PlacementController stay in sync; a no-op over any other screen.
     public struct SellModeRequestedEvent { }
 
     // Published by the digit hotkeys (GameHotkeys): open the build panel's tab at this index (0 = key 1).
@@ -86,7 +83,8 @@ namespace LittlePeeps
     public enum UIMode
     {
         Playing         = 1 << 0,
-        Build           = 1 << 1,
+        // 1 << 1 was Build — building is part of Playing now. Left unused so masks authored before keep
+        // their meaning bit for bit.
         ZonePick        = 1 << 2,
         PerkPick        = 1 << 3,
         AgeTransition   = 1 << 4,
@@ -138,8 +136,8 @@ namespace LittlePeeps
 
     // Published by PrestigeButton when the player clicks it; handled by PlayingState, which asks before
     // anything ends (PrestigeMenuState). Deliberately by the STATE rather than by PrestigeSystem: the
-    // subscription then lasts exactly as long as normal play, so a run can never be ended from build mode
-    // or mid-age-transition.
+    // subscription then lasts exactly as long as normal play, so a run can never be ended over another
+    // screen or mid-age-transition.
     public struct PrestigeTriggeredEvent { }
 
     // Published by PerkSelectionUI when the player confirms a card; handled by PerkSelectionState, which

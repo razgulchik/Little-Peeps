@@ -6,8 +6,12 @@ namespace LittlePeeps
     // Coordinates unit spawning: bridges Spawner components with UnitPool, enforces a global
     // active-unit cap per KIND of unit (cap = sum of all registered spawner capacities), and keeps
     // UnitSystem's live registry in sync via direct calls (no events). Also owns the registry of
-    // ALL structure spawners (unit Spawners and AnimalSpawners, via IStructureSpawner) so build
-    // mode can despawn-all + re-warm everything on enter/exit.
+    // ALL structure spawners (unit Spawners and AnimalSpawners, via IStructureSpawner), for the sheet
+    // refresh and the houses a unit can be sent to.
+    //
+    // Nothing ever empties the field mid-run any more: building happens in the running game. A unit
+    // leaves the island only through a house (rest), the run's end, or a PUFF — the visible way out for
+    // the residents a sold house leaves without a home (TrimSurplus) and a sold den's animals.
     //
     // Population is counted per UnitDef — the kind of unit a house spawns — never per profession:
     // a rack changes what a unit does mid-outing, not what it is. Spawn and despawn must count
@@ -29,11 +33,27 @@ namespace LittlePeeps
         [SerializeField, Min(0.05f)] private float stuckSweepInterval = 0.5f;
         private float stuckSweepTimer;
 
+        [Header("Puff")]
+        [Tooltip("Played where a unit or an animal is taken off the island in the open: the residents a sold " +
+                 "house leaves without a home, the animals of a sold den. A ParticleSystem prefab built as a " +
+                 "shared emitter (World space, no emission of its own). Empty = they just vanish.")]
+        [SerializeField] private ParticleSystem puffFx;
+
+        [Tooltip("Particles per puff.")]
+        [SerializeField, Min(1)] private int puffParticles = 8;
+
+        [Tooltip("Played with every puff. Empty = silent.")]
+        [SerializeField] private SoundDef puffSound;
+
+        private ParticleSystem puffEmitter;
+
         private readonly Dictionary<UnitDef, int> capByDef = new();
         private readonly Dictionary<UnitDef, int> activeByDef = new();
 
-        private readonly List<IStructureSpawner> spawners = new();   // live spawners (units + animals), for build-mode reset/warmup
+        private readonly List<IStructureSpawner> spawners = new();   // live spawners (units + animals)
         private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll
+        private readonly List<UnitDef> overCap = new();     // reused by TrimSurplus: defs with more units than room
+        private readonly List<Unit> homeless = new();       // reused by TrimSurplus: the candidates of one def
 
         private RunStats stats;   // injected into spawned units so their speed reflects run modifiers
 
@@ -46,11 +66,9 @@ namespace LittlePeeps
         // (Unit.MakeSound) — a house's door, a tree's chop.
         public SoundSystem Sounds => soundSystem;
 
-        // True between build-mode enter (DespawnAllAndResetSpawners) and exit (WarmupAllSpawners).
-        // Spawners read it so a structure PLACED during build mode registers itself but DEFERS
-        // spawning its entities to the exit warmup — nothing materializes while the player is still
-        // building; it all appears together the moment build mode ends.
-        public bool IsBuildMode { get; private set; }
+        // Every unit in play — on the field, resting in a house or sitting in a tavern (Unit.IsOnField tells
+        // them apart). For a construction site looking for the units standing on its spot.
+        public IReadOnlyList<Unit> ActiveUnits => unitSystem != null ? unitSystem.ActiveUnits : System.Array.Empty<Unit>();
 
         // Injected by RunManager.StartNewRun so units spawned this run carry the run's stat sheet.
         //
@@ -79,11 +97,16 @@ namespace LittlePeeps
                 Debug.LogWarning("SpawnSystem has no IslandSystem — spawned units won't receive an island reference. Wire the Island System field.", this);
             if (soundSystem == null)
                 Debug.LogWarning("SpawnSystem has no SoundSystem — bounces, harvests and doors will be silent. Wire the Sound System field.", this);
+
+            if (puffFx != null)
+                puffEmitter = SharedEmitter.Create(puffFx, transform, "PuffFx",
+                                                   $"SpawnSystem: '{puffFx.name}' (puff of a unit taken off the island)",
+                                                   "SpawnSystem.puffParticles");
         }
 
         private void Update()
         {
-            if (IsBuildMode || unitSystem == null) return;   // build mode: nobody is on the field
+            if (unitSystem == null) return;
 
             stuckSweepTimer -= Time.deltaTime;
             if (stuckSweepTimer > 0f) return;
@@ -95,8 +118,8 @@ namespace LittlePeeps
         // decides, see StuckWatch — cannot free itself, so it goes home: into the nearest house with a
         // free slot — the same slot a tired unit walks into, but past the door rule, since a stuck unit
         // may still have stamina — so it rests and comes back out launched with full stamina. Houses hold no units of their own, so any house will do, and the
-        // nearest reads as the unit having walked into it. No house free (a sold house's roaming units
-        // outnumber the slots left): the unit stays put and the next sweep tries again. Sheltering
+        // nearest reads as the unit having walked into it. No house free (every slot taken): the unit
+        // stays put and the next sweep tries again. Sheltering
         // keeps the unit active, so the list is safe to walk in place.
         private void RescueStuckUnits()
         {
@@ -178,9 +201,11 @@ namespace LittlePeeps
         }
 
         // Create a unit at position if the global cap for its kind allows it. The caller launches it.
+        // No pool, nobody: the house keeps its slot free, as it does when the cap is full (and the
+        // capacity tests run SpawnSystem exactly like that, with no unit prefab to pool).
         public Unit TrySpawn(UnitDef def, Vector2 position)
         {
-            if (!CanSpawn(def)) return null;
+            if (!CanSpawn(def) || unitPool == null) return null;
 
             var unit = unitPool.Get(def);
             if (unit == null) return null;
@@ -196,7 +221,7 @@ namespace LittlePeeps
             return unit;
         }
 
-        // Every exit from the field goes through here (house teardown, build mode, run teardown), so
+        // Every exit from the field goes through here (house teardown, a puff, run teardown), so
         // this is where a mid-outing profession ends: Unequip before the pool takes the unit — the
         // tool goes back on its rack — and the count comes off the def TrySpawn put it on. A unit
         // sitting in a tavern gives its seat back the same way (LeaveHold).
@@ -217,24 +242,57 @@ namespace LittlePeeps
             unitPool.Release(unit);
         }
 
-        // Build-mode enter: return every live unit to the pool, then let each spawner clear its
-        // per-entity bookkeeping (unit Spawners drop stale slot refs; AnimalSpawners destroy
-        // their animals themselves — animals aren't pooled units).
-        public void DespawnAllAndResetSpawners()
+        // A house has just been sold (StructureSystem's live removal), so the island may hold more units
+        // of a kind than the houses left have room for. The surplus goes, the ones nearest `near` — the
+        // sold house — first, each in a puff, so the residents read as leaving with their home. Only units
+        // OUTSIDE a house are candidates (on the field, or sitting in a tavern): a resting one fills a slot
+        // another house still has, so it is not surplus, and taking it would leave that slot pointing at a
+        // pooled unit. There are always enough outside: the sold house's own resting units are gone by
+        // now, and the units still resting elsewhere fit in the slots that are left, so whatever exceeds
+        // the cap is outside.
+        public void TrimSurplus(Vector2 near)
         {
-            IsBuildMode = true;
-            DespawnAll();
-            for (int i = 0; i < spawners.Count; i++)
-                spawners[i].ResetForBuildMode();
+            if (unitSystem == null) return;
+
+            // Collected first: Despawn writes activeByDef, which must not change under its own iteration.
+            overCap.Clear();
+            foreach (var pair in activeByDef)
+            {
+                capByDef.TryGetValue(pair.Key, out int cap);
+                if (pair.Value > cap) overCap.Add(pair.Key);
+            }
+
+            for (int d = 0; d < overCap.Count; d++)
+            {
+                var def = overCap[d];
+                capByDef.TryGetValue(def, out int cap);
+                activeByDef.TryGetValue(def, out int active);
+
+                homeless.Clear();
+                var units = unitSystem.ActiveUnits;
+                for (int i = 0; i < units.Count; i++)
+                    if (units[i].def == def && (units[i].IsOnField || units[i].IsHeld)) homeless.Add(units[i]);
+                homeless.Sort((a, b) => ((Vector2)a.transform.position - near).sqrMagnitude
+                                        .CompareTo(((Vector2)b.transform.position - near).sqrMagnitude));
+
+                int surplus = Mathf.Min(active - cap, homeless.Count);
+                for (int i = 0; i < surplus; i++)
+                {
+                    Puff(homeless[i].transform.position);
+                    Despawn(homeless[i]);
+                }
+            }
+
+            overCap.Clear();
+            homeless.Clear();
         }
 
-        // Build-mode exit: each spawner re-warms (fresh resting unit per slot / fresh animals in
-        // the territory) — this is "everything respawns from its building".
-        public void WarmupAllSpawners()
+        // The puff effect and sound at `position`. Public for the sold den's animals, which are not units
+        // and leave through their spawner's own teardown.
+        public void Puff(Vector2 position)
         {
-            IsBuildMode = false;
-            for (int i = 0; i < spawners.Count; i++)
-                spawners[i].Warmup();
+            SharedEmitter.EmitAt(puffEmitter, position, puffParticles);
+            if (soundSystem != null) soundSystem.Play(puffSound);
         }
 
         // Run teardown: every unit back to the pool and every scrap of per-run bookkeeping dropped, so
@@ -242,12 +300,9 @@ namespace LittlePeeps
         //
         // Call this AFTER StructureSystem.ClearAll, which tears the spawners down synchronously — by the
         // time we get here the registries should already be empty and the Clear calls are the backstop
-        // that guarantees it. IsBuildMode is forced off because a run can end from inside build mode:
-        // left true, every spawner of the NEW run would register and then wait for a build-mode exit
-        // that is never coming, and the fresh village would stand empty.
+        // that guarantees it.
         public void ResetForNewRun()
         {
-            IsBuildMode = false;
             DespawnAll();
             capByDef.Clear();
             activeByDef.Clear();

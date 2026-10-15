@@ -6,7 +6,7 @@ namespace LittlePeeps
     // prefab (its own sprite, offset and sorting — the wheel hangs over a different neighbour each time),
     // exactly one shown. The side is decided by the placement code when the structure lands
     // (StructureSystem.ApplyPlacementVisual); this component only knows "show the root for this side".
-    // Used by the placed building, the carried one and the build-mode ghost alike, so the preview matches
+    // Used by the placed building and the build-mode ghost alike, so the preview matches
     // 1:1 — and Show works on a disabled component, as the ghost's are.
     //
     // None shows the south root, the default: a ghost over a spot with no water side (tinted red) is the

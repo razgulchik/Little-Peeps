@@ -9,8 +9,8 @@ namespace LittlePeeps
     // tab and a card per structure in it, showing one tab's cards at a time (click a tab or press its
     // digit). Drives the PlacementController's tool: click a card to place a structure, click the
     // separate sell button to sell, click the selected card/button again (or right-click in the world,
-    // or leave build mode) to clear — which drops back to the Move tool. A right-click clear comes from
-    // the controller via its ToolCleared event.
+    // or leave build mode) to clear — which drops back to the empty hand, where a click taps again. A
+    // right-click clear comes from the controller via its ToolCleared event.
     public class BuildPanelUI : MonoBehaviour
     {
         [SerializeField] private BuildPaletteDef palette;
@@ -62,6 +62,7 @@ namespace LittlePeeps
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
             EventBus<StructureCountChangedEvent>.Subscribe(OnStructureCountChanged);
+            EventBus<ResourceChangedEvent>.Subscribe(OnResourceChanged);
             if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared += OnToolCleared;
         }
@@ -75,6 +76,7 @@ namespace LittlePeeps
             EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
             EventBus<StructureCountChangedEvent>.Unsubscribe(OnStructureCountChanged);
+            EventBus<ResourceChangedEvent>.Unsubscribe(OnResourceChanged);
             if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared -= OnToolCleared;
         }
@@ -150,7 +152,7 @@ namespace LittlePeeps
         //
         // Only the CROSSING is acted on. Every mode now reports itself, so without this an age
         // transition or a perk pick would re-run Close() — and with it Deselect(), driving the
-        // PlacementController back to the Move tool it is already on, once per screen the player sees.
+        // PlacementController back to the empty hand it is already on, once per screen the player sees.
         private void OnUIMode(UIModeChangedEvent e)
         {
             bool build = e.Mode == UIMode.Build;
@@ -196,7 +198,7 @@ namespace LittlePeeps
         }
 
         // Separate sell button: toggles the Sell tool. Selecting it clears any card selection;
-        // clicking it again deselects back to the Move tool.
+        // clicking it again deselects back to the empty hand.
         private void OnSellClicked()
         {
             if (sellSelected) { Deselect(); return; }
@@ -209,14 +211,14 @@ namespace LittlePeeps
         }
 
         // UI-initiated deselect (clicking the selected card/sell again, or leaving build mode): clear
-        // the highlights AND drive the controller back to the Move tool.
+        // the highlights AND drive the controller back to the empty hand.
         private void Deselect()
         {
             ClearSelectionUI();
-            placementController.Select(null);   // null selection = Move tool
+            placementController.Select(null);   // null selection = empty hand
         }
 
-        // The controller cleared the tool itself (right-click) — it's already on Move, so only sync the
+        // The controller cleared the tool itself (right-click) — its hand is already empty, so only sync the
         // UI highlights; don't drive Select() again.
         private void OnToolCleared()
         {
@@ -242,9 +244,10 @@ namespace LittlePeeps
             if (sellHighlight != null) sellHighlight.SetActive(on);
         }
 
-        // On open, and after every build or sale (OnStructureCountChanged). Nothing is harvested inside
-        // build mode (game paused), so outside those two only the age, the run and a perk's unlock change
-        // a card — and the perk pick is its own screen, never taken with this panel open.
+        // On open, after every build or sale (OnStructureCountChanged), and whenever the resources move
+        // (OnResourceChanged) — the game keeps harvesting with the panel up, so a card can become
+        // affordable while the player looks at it. Beyond those, only the age, the run and a perk's unlock
+        // change a card — and the perk pick is its own screen, never taken with this panel open.
         private void RefreshCards()
         {
             foreach (var card in cards)
@@ -256,7 +259,7 @@ namespace LittlePeeps
                 card.SetAffordable(resourceSystem == null
                                    || resourceSystem.CanAfford(def, run != null ? run.CountOf(def) : 0));
 
-                // Filling the limit puts the card down, which drops the tool back to Move.
+                // Filling the limit puts the card down, which empties the hand.
                 if (state != StructureLock.None && card == selectedCard) Deselect();
             }
         }
@@ -267,6 +270,10 @@ namespace LittlePeeps
         // that click is still running. Deferred, the tool finishes its click first; one refresh per frame
         // also absorbs a burst (an island's worth of generated trees).
         private void OnStructureCountChanged(StructureCountChangedEvent e) => cardsDirty = true;
+
+        // Harvests land every few frames while the island works; the same deferred refresh folds them into
+        // at most one per frame, and only while the panel is up (LateUpdate checks isOpen).
+        private void OnResourceChanged(ResourceChangedEvent e) => cardsDirty = true;
 
         private void LateUpdate()
         {

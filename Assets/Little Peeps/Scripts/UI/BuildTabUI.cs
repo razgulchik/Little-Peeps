@@ -96,7 +96,7 @@ namespace LittlePeeps
             Slide();
         }
 
-        // Build mode pauses the game, so the slide runs on unscaled time like the cards' motion.
+        // Unscaled time, like the cards' motion: UI motion must not slow down or stop with the game's clock.
         private void Slide()
         {
             if (visual == null) return;

@@ -1,15 +1,25 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Handles placing, removing, and moving structures; validates against IslandGrid
+    // Handles placing and removing structures; validates against IslandGrid. Both happen in the running
+    // game — building does not stop it — so the player's placements go up as CONSTRUCTION SITES that turn
+    // into the building once nobody stands on the spot (ConstructionSite), and a removal also settles
+    // whoever the structure was holding (see RemoveStructure). Generated content (a zone's trees, the
+    // starting house, the pier) is built at once: it lands before anyone walks there.
     public class StructureSystem : MonoBehaviour
     {
         [SerializeField] private IslandSystem islandSystem;
         [SerializeField] private ResourceSystem resourceSystem;
         [SerializeField] private SpawnSystem spawnSystem;
 
+        [Header("Construction site")]
+        [Tooltip("How a site looks until it has art of its own.")]
+        [SerializeField] private ConstructionSiteLook siteLook = new();
+
         private RunContext run;
+        private readonly List<Rect> siteArea = new();   // reused per placement: the rects a new site covers
 
         // Injected by RunManager.StartNewRun so placement targets the current run's structure set.
         public void Initialize(RunContext run)
@@ -18,15 +28,39 @@ namespace LittlePeeps
         }
 
         // Player-driven placement. Validates the cell, the build limit and affordability, charges the
-        // price, then builds. Returns false (no-op) if the cell is blocked, the limit is reached or the
-        // price can't be paid.
+        // price, then puts up a construction site. Returns false (no-op) if the cell is blocked, the limit
+        // is reached or the price can't be paid.
+        //
+        // The site holds everything the building will from this moment: its cells, its slot in the count
+        // (so the next one already costs more and the limit already counts it), and a sale refunds it like
+        // a finished one. Only the object differs, until CompleteSite swaps it for the real prefab.
         public bool PlaceStructure(StructureDef def, Vector2Int cell)
         {
             if (!islandSystem.Grid.CanPlace(cell, def)) return false;
             if (AtLimit(def) || !CanAfford(def)) return false;
             resourceSystem.Spend(def, run.CountOf(def));
-            Build(def, cell);
+
+            var grid = islandSystem.Grid;
+            var instance = new StructureInstance { Def = def, Cell = cell, UnderConstruction = true };
+            ConstructionArea.CellRects(grid, cell, def.Footprint, siteArea);
+            instance.RuntimeObject = ConstructionSite.Create(
+                def, grid.OriginToWorldAnchor(cell, def.size), siteArea,
+                copy => PoseOnCell(copy, cell, def), siteLook, spawnSystem, clearOfAnimals: true,
+                () => CompleteSite(instance));
+            Register(instance);
             return true;
+        }
+
+        // Nobody stands on the site any more: the real building replaces it, on the same instance — the
+        // grid, the run and the count already hold it, so only the object changes. Never called for a
+        // site that was sold or swept with its run: the site object is gone, and with it the callback.
+        private void CompleteSite(StructureInstance instance)
+        {
+            var site = instance.RuntimeObject;
+            instance.RuntimeObject = CreateStructure(instance);
+            instance.UnderConstruction = false;
+            RefreshBesideWater(instance);
+            if (site != null) Destroy(site.gameObject);
         }
 
         // The run-dependent half of "can I build another": as many stand as the run allows. Placement asks
@@ -50,12 +84,24 @@ namespace LittlePeeps
             return Build(def, cell);
         }
 
-        // Instantiate the prefab, register it in the grid + run, and announce it. Shared by every
-        // placement path (starting layout now; interactive placement in 2.3). Returns the created
-        // instance so callers that need to track/move it later (e.g. the pier) can hold on to it.
+        // Build at once: create the object and register it. Generated content only (PlaceInitial) — the
+        // player's placements go through a site. Returns the created instance so callers that need to
+        // track it later (e.g. the pier) can hold on to it.
         private StructureInstance Build(StructureDef def, Vector2Int cell)
         {
+            var instance = new StructureInstance { Def = def, Cell = cell };
+            instance.RuntimeObject = CreateStructure(instance);
+            Register(instance);
+            return instance;
+        }
+
+        // Instantiate the instance's prefab on its spot and wire it up — the object half of a structure,
+        // shared by Build and CompleteSite. Grid, run and count are Register's.
+        private Structure CreateStructure(StructureInstance instance)
+        {
             var grid = islandSystem.Grid;
+            var def = instance.Def;
+            var cell = instance.Cell;
 
             // Born at its footprint anchor (shared rule — the placement ghost uses the same point), so
             // anything reading its position in Awake already sees the final spot.
@@ -64,14 +110,11 @@ namespace LittlePeeps
             var structure = go.GetComponent<Structure>();
             structure.def = def;
 
-            // The instance is the authoritative record of this structure's grid origin; build it now so a
-            // spawner can hold it and read its (move-updated) Cell when choosing a launch direction.
-            var instance = new StructureInstance { Def = def, RuntimeObject = structure, Cell = cell };
-
-            // A prefab can't serialize scene-system references, so inject them before the new
-            // components' Start runs (Build runs in GameBootstrap.Awake → injection happens first).
-            // GetComponentsInChildren (not TryGetComponent) so composite prefabs work too: a forest is a
-            // root Structure whose child trees each carry a ResourceSource — inject every one, at any depth.
+            // A prefab can't serialize scene-system references, so inject them before the new components'
+            // Start runs. The instance is the authoritative record of the structure's grid origin; a spawner
+            // holds it to read its Cell when choosing a launch direction. GetComponentsInChildren (not
+            // TryGetComponent) so composite prefabs work too: a forest is a root Structure whose child trees
+            // each carry a ResourceSource — inject every one, at any depth.
             foreach (var spawner in go.GetComponentsInChildren<Spawner>(true)) spawner.Initialize(spawnSystem, grid, instance);
             foreach (var source in go.GetComponentsInChildren<ResourceSource>(true)) source.Initialize(resourceSystem);
             foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
@@ -80,17 +123,28 @@ namespace LittlePeeps
             // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river,
             // a river cell its piece by the river beside it.
             ApplyPlacementVisual(go, grid, cell, def.Footprint);
-
-            grid.Place(cell, def.Footprint, instance);
-            run.structures[cell] = instance;
-            RefreshBesideWater(instance);
-            Recount(def, +1);
-            return instance;
+            return structure;
         }
 
-        // The one writer of RunContext.standing. Paired with Build/BuildEdge and Remove*, never with
-        // PickUp/Drop: a carried structure still stands, or a move would make the next one cheaper and
-        // free a slot under the limit. Announced so the build palette can show the new price and count.
+        // A site's blueprint is read from a copy of the prefab posed exactly as CreateStructure poses the
+        // real one, so what is sketched on the ground is what will stand there.
+        private void PoseOnCell(GameObject copy, Vector2Int cell, StructureDef def)
+        {
+            AnchorOnFootprint(copy.transform, cell, def.size);
+            ApplyPlacementVisual(copy, islandSystem.Grid, cell, def.Footprint);
+        }
+
+        // Claim the instance's cells and count it — from the site's first moment, not the building's.
+        private void Register(StructureInstance instance)
+        {
+            islandSystem.Grid.Place(instance.Cell, instance.Def.Footprint, instance);
+            run.structures[instance.Cell] = instance;
+            RefreshBesideWater(instance);
+            Recount(instance.Def, +1);
+        }
+
+        // The one writer of RunContext.standing. Paired with Register/RegisterEdge and Remove*. Announced so the
+        // build palette can show the new price and count.
         private void Recount(StructureDef def, int delta)
         {
             int count = Mathf.Max(0, run.CountOf(def) + delta);
@@ -104,9 +158,9 @@ namespace LittlePeeps
         // that base. Any visual offset baked into the prefab (a child's local position) is preserved — we
         // move the root only — so per-prefab art can be nudged by hand without the placement code
         // fighting it. Moving the root (not the sprite child) also keeps the sprite and collider in sync,
-        // critical for the physics/bounce gameplay. Shared by Build, Move (DropStructure) and the
-        // build-mode ghost (PlacementVisuals) so the preview matches exactly. Grid occupancy is logical
-        // (by cell), unaffected by this.
+        // critical for the physics/bounce gameplay. Shared by Build and the build-mode ghost
+        // (PlacementVisuals) so the preview matches exactly. Grid occupancy is logical (by cell),
+        // unaffected by this.
         public void AnchorOnFootprint(Transform root, Vector2Int origin, Vector2Int size)
         {
             Vector2 anchor = islandSystem.Grid.OriginToWorldAnchor(origin, size);
@@ -120,9 +174,9 @@ namespace LittlePeeps
         //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along —
         //     the south art mirrored where the river stops under its wheel;
         //   - a river cell carries a RiverVisual and shows the piece that joins it to the river cells beside it.
-        // No-op for structures with none. Shared by Build, the Move drop (a carried forest re-laps itself
-        // on another row) and the build-mode ghost and carried structure (PlacementVisuals), so the preview
-        // shows exactly what lands — and by RefreshBesideWater, since the last two depend on the neighbours.
+        // No-op for structures with none. Shared by Build and the build-mode ghost (PlacementVisuals), so
+        // the preview shows exactly what lands — and by RefreshBesideWater, since the last two depend on
+        // the neighbours.
         public static void ApplyPlacementVisual(GameObject go, IslandGrid grid, Vector2Int origin, Footprint footprint)
         {
             if (go.TryGetComponent<DualVisual>(out var rows)) rows.Show((origin.y & 1) == 0);
@@ -168,7 +222,8 @@ namespace LittlePeeps
         }
 
         // Remove the structure occupying `cell` (any footprint cell): free its grid cells, drop it
-        // from the run, announce it, and destroy the GameObject. Returns false if nothing is there.
+        // from the run, announce it, settle whoever it was holding, and destroy the GameObject. Returns
+        // false if nothing is there.
         public bool RemoveStructure(Vector2Int cell)
         {
             var grid = islandSystem.Grid;
@@ -179,8 +234,37 @@ namespace LittlePeeps
             run.structures.Remove(instance.Cell);
             RefreshBesideWater(instance);
             Recount(instance.Def, -1);
+            ReleaseOccupants(instance.RuntimeObject);
             Destroy(instance.RuntimeObject.gameObject);
             return true;
+        }
+
+        // A structure leaving a LIVE run — the units and animals around it keep going, so nothing it held
+        // may be left pointing at a building that is gone. (A run teardown is the other way out, see
+        // ClearAll: everything goes at once there, so none of this applies.)
+        //   - a tavern lets its guests out where it stood (Tavern.EvictAll);
+        //   - a den's animals go in a puff — they belong to the den, and only it lets them out;
+        //   - every spawner hands its books back NOW rather than in the deferred OnDestroy (resting units
+        //     back to the pool, capacity given back, unregistered), so that
+        //   - SpawnSystem.TrimSurplus sees the room that is left and takes the residents a sold house
+        //     leaves without a home, nearest first, in a puff.
+        // Composite prefabs carry these at any depth, like everything Build injects.
+        private void ReleaseOccupants(Structure structure)
+        {
+            if (structure == null) return;
+
+            foreach (var tavern in structure.GetComponentsInChildren<Tavern>(true))
+                tavern.EvictAll();
+
+            if (spawnSystem != null)
+                foreach (var den in structure.GetComponentsInChildren<AnimalSpawner>(true))
+                    for (int i = 0; i < den.Animals.Count; i++)
+                        if (den.Animals[i] != null) spawnSystem.Puff(den.Animals[i].transform.position);
+
+            foreach (var spawner in structure.GetComponentsInChildren<IStructureSpawner>(true))
+                spawner.Teardown();
+
+            if (spawnSystem != null) spawnSystem.TrimSurplus(structure.transform.position);
         }
 
         // Refund sellRefundPercent of each cost entry to the player. Free structures (no cost) refund 0.
@@ -196,67 +280,64 @@ namespace LittlePeeps
                 resourceSystem.AddResource(def.cost[i].resourceType, def.CostAt(i, rebuiltAt) * def.sellRefundPercent);
         }
 
-        // Build-mode MOVE, step 1: lift a structure off the grid so it can be dragged. Frees its cells
-        // and drops it from the run, but keeps the GameObject alive + active and its Cell unchanged (so
-        // a cancel can put it back). Freeing the cells lets it be re-placed overlapping its own old
-        // footprint. PlacementController drives the drag; DropStructure commits the destination.
-        public void PickUpStructure(StructureInstance instance)
-        {
-            islandSystem.Grid.Remove(instance.Cell, instance.Def.Footprint);
-            run.structures.Remove(instance.Cell);
-            RefreshBesideWater(instance);
-        }
-
-        // Build-mode MOVE, step 2: place a lifted structure at origin (caller has checked CanPlace, or
-        // is returning it to its original Cell on cancel). Re-registers grid + run, updates the
-        // instance's Cell, and snaps the GameObject onto the footprint.
-        public void DropStructure(StructureInstance instance, Vector2Int origin)
-        {
-            var grid = islandSystem.Grid;
-            grid.Place(origin, instance.Def.Footprint, instance);
-            run.structures[origin] = instance;
-            instance.Cell = origin;
-
-            AnchorOnFootprint(instance.RuntimeObject.transform, origin, instance.Def.size);
-            ApplyPlacementVisual(instance.RuntimeObject.gameObject, grid, origin, instance.Def.Footprint);   // new row, new river side
-            RefreshBesideWater(instance);
-        }
-
         // --- Edge-placed structures (fences) ------------------------------------------------------
         // Parallel to the cell placement path above, but addressed by Edge. Shares the same validation +
-        // cost + event flow; only the grid addressing and the H/V pose differ.
+        // cost + event flow, and the same site stage; only the grid addressing and the H/V pose differ.
 
         // Player-driven fence placement. Validates the edge, the build limit and affordability, charges the
-        // price, builds. Returns false (no-op) if the edge is blocked, the limit is reached or the price
-        // can't be paid.
+        // price, then puts up a construction site: a strip along the edge that the units standing on the
+        // line walk out of before the fence goes up. Returns false (no-op) if the edge is blocked, the
+        // limit is reached or the price can't be paid.
         public bool PlaceEdgeStructure(StructureDef def, Edge edge)
         {
             if (!islandSystem.Grid.CanPlaceEdge(edge)) return false;
             if (AtLimit(def) || !CanAfford(def)) return false;
             resourceSystem.Spend(def, run.CountOf(def));
-            BuildEdge(def, edge);
+
+            var grid = islandSystem.Grid;
+            var instance = new EdgeInstance { Def = def, Edge = edge };
+            siteArea.Clear();
+            siteArea.Add(ConstructionArea.EdgeRect(grid, edge, siteLook.fenceThickness * grid.CellSize));
+            instance.RuntimeObject = ConstructionSite.Create(
+                def, grid.EdgeToWorld(edge), siteArea, copy => PoseOnEdge(copy, edge), siteLook, spawnSystem,
+                clearOfAnimals: false,   // animals pass fences, finished or not — nothing to wait for
+                () => CompleteEdgeSite(instance));
+            RegisterEdge(instance);
             return true;
         }
 
-        // Instantiate the fence prefab on the edge, set its orientation pose, register it in the grid +
-        // run, and announce it. Mirror of Build for the cell path.
-        private Structure BuildEdge(StructureDef def, Edge edge)
+        // Mirror of CompleteSite for a fence.
+        private void CompleteEdgeSite(EdgeInstance instance)
         {
-            var grid = islandSystem.Grid;
-            var worldPos = grid.EdgeToWorld(edge);
+            var site = instance.RuntimeObject;
+            instance.RuntimeObject = CreateEdgeStructure(instance);
+            if (site != null) Destroy(site.gameObject);
+        }
 
-            var go = Instantiate(def.prefab, worldPos, Quaternion.identity);
+        // Instantiate the fence prefab on the edge and give it the pose (horizontal / vertical child)
+        // matching the edge it sits on. The object half; mirror of CreateStructure.
+        private Structure CreateEdgeStructure(EdgeInstance instance)
+        {
+            var go = Instantiate(instance.Def.prefab, islandSystem.Grid.EdgeToWorld(instance.Edge), Quaternion.identity);
             var structure = go.GetComponent<Structure>();
-            structure.def = def;
-
-            // Show the pose (horizontal / vertical child) matching the edge the fence sits on.
-            if (go.TryGetComponent<DualVisual>(out var visual)) visual.Show(edge.horizontal);
-
-            var instance = new EdgeInstance { Def = def, RuntimeObject = structure, Edge = edge };
-            grid.PlaceEdge(edge, instance);
-            run.fences[edge] = instance;
-            Recount(def, +1);
+            structure.def = instance.Def;
+            if (go.TryGetComponent<DualVisual>(out var visual)) visual.Show(instance.Edge.horizontal);
             return structure;
+        }
+
+        // The fence blueprint's copy, posed like CreateEdgeStructure poses the real one.
+        private void PoseOnEdge(GameObject copy, Edge edge)
+        {
+            copy.transform.position = islandSystem.Grid.EdgeToWorld(edge);
+            if (copy.TryGetComponent<DualVisual>(out var visual)) visual.Show(edge.horizontal);
+        }
+
+        // Claim the edge and count the fence — from the site's first moment. Mirror of Register.
+        private void RegisterEdge(EdgeInstance instance)
+        {
+            islandSystem.Grid.PlaceEdge(instance.Edge, instance);
+            run.fences[instance.Edge] = instance;
+            Recount(instance.Def, +1);
         }
 
         // Sell the fence on `edge`: refund a fraction of its cost, then remove it. False if none there.
@@ -283,15 +364,6 @@ namespace LittlePeeps
             return true;
         }
 
-        // Build-mode MOVE for fences, step 1: lift a fence off its edge so it can be dragged. Frees the
-        // grid edge + run entry but keeps the GameObject alive and its Edge unchanged (so a cancel can put
-        // it back). Mirror of PickUpStructure.
-        public void PickUpEdgeStructure(EdgeInstance instance)
-        {
-            islandSystem.Grid.RemoveEdge(instance.Edge);
-            run.fences.Remove(instance.Edge);
-        }
-
         // --- Run teardown ---------------------------------------------------------------------------
 
         // Remove EVERYTHING this run built: free the grid, tear the spawners down synchronously, destroy
@@ -308,10 +380,8 @@ namespace LittlePeeps
         // Grid cells are freed even though IslandSystem is about to throw the whole grid away: EndRun has
         // to be correct on its own, not only when a StartNewRun happens to follow it.
         //
-        // run.structures is the complete picture here only because a run never ends from build mode —
-        // neither prestige nor saving is reachable from there (design rule). A structure carried by
-        // MoveTool is deliberately absent from this dictionary while in hand, so that rule is what makes
-        // the sweep total; RunManager.DebugRestartRun enforces it for the one non-gameplay trigger.
+        // run.structures + run.fences are the complete picture: every structure that exists is in one of
+        // them from the moment it is built until it is removed — nothing is ever held off the grid.
         public void ClearAll()
         {
             if (run == null) return;
@@ -344,21 +414,6 @@ namespace LittlePeeps
                 spawner.Teardown();
 
             Destroy(structure.gameObject);
-        }
-
-        // Build-mode MOVE for fences, step 2: place a lifted fence on `edge` (caller has checked
-        // CanPlaceEdge, or is returning it to its original Edge on cancel). Re-registers grid + run,
-        // updates the instance's Edge, snaps the object onto the edge and sets the matching pose.
-        // Mirror of DropStructure.
-        public void DropEdgeStructure(EdgeInstance instance, Edge edge)
-        {
-            var grid = islandSystem.Grid;
-            grid.PlaceEdge(edge, instance);
-            run.fences[edge] = instance;
-            instance.Edge = edge;
-
-            instance.RuntimeObject.transform.position = grid.EdgeToWorld(edge);
-            if (instance.RuntimeObject.TryGetComponent<DualVisual>(out var visual)) visual.Show(edge.horizontal);
         }
     }
 }

@@ -81,24 +81,14 @@ namespace LittlePeeps
 
         // Debug: restart the run from the Inspector while playing (right-click the component header).
         // A way to reach a fresh island without leaving play mode — and without a prestige, so no points
-        // move; the meta perks already bought still apply, since StartNewRun is the same path.
-        //
-        // Refused from build mode ON PURPOSE, matching the design rule that a run can be neither
-        // prestiged nor saved while building. That rule is what makes ClearAll's sweep over
-        // run.structures complete: a structure carried by MoveTool is off the grid and out of that
-        // dictionary, so a run ending mid-drag would miss it — and no legitimate path can end one there.
-        // This guard keeps the debug trigger from being the exception that breaks the rule.
+        // move; the meta perks already bought still apply, since StartNewRun is the same path. Fine with
+        // the build panel up too: nothing is ever held off the grid, so ClearAll's sweep is complete.
         [ContextMenu("Restart Run")]
         private void DebugRestartRun()
         {
             if (!Application.isPlaying)
             {
                 Debug.LogWarning("Restart Run only works in play mode.", this);
-                return;
-            }
-            if (spawnSystem != null && spawnSystem.IsBuildMode)
-            {
-                Debug.LogWarning("Leave build mode before restarting — a run never ends from there.", this);
                 return;
             }
             StartNewRun();

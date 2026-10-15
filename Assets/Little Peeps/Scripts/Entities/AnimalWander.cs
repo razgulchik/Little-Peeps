@@ -39,6 +39,10 @@ namespace LittlePeeps
         // produces collision callbacks, so proximity is polled instead of physics-driven.
         private static readonly List<AnimalWander> alive = new();
 
+        // Every wandering animal: the crowding check reads it, and so does a construction site waiting for
+        // the animals on its spot to walk off (ConstructionSite).
+        public static IReadOnlyList<AnimalWander> Alive => alive;
+
         private Rigidbody2D rb;
         private AnimalSpawner owner;   // destination provider; null for scene-placed animals
         private Vector2 fallbackAnchor;
@@ -105,7 +109,7 @@ namespace LittlePeeps
             // is already validated by the spawner, probing past it would give false positives).
             Vector2 toTarget = target - rb.position;
             if (owner != null && toTarget.sqrMagnitude > lookAhead * lookAhead
-                && owner.IsBlocked(rb.position + toTarget.normalized * lookAhead))
+                && owner.IsBlocked(rb.position, rb.position + toTarget.normalized * lookAhead))
             {
                 StopAndTurnAway(-toTarget);
                 return;

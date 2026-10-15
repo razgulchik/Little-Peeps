@@ -2,19 +2,19 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // One build-mode tool: Place, Sell or Move. Exactly one is active at a time; PlacementController
-    // routes input to it and swaps it when the panel selection changes.
+    // One build-mode tool: Place or Sell (or PlacementController's empty hand). Exactly one is active at a
+    // time; PlacementController routes input to it and swaps it when the panel selection changes.
     //
-    // The contract that matters is Exit: a tool may leave NOTHING behind — no ghost, no tinted structure,
-    // no half-finished drag. Every switch and the end of build mode go through it, so if a tool forgets
-    // to undo something, the leftover outlives the tool that made it.
+    // The contract that matters is Exit: a tool may leave NOTHING behind — no ghost, no tinted structure.
+    // Every switch and the end of build mode go through it, so if a tool forgets to undo something, the
+    // leftover outlives the tool that made it.
     public interface IPlacementTool
     {
         // Becoming the active tool.
         void Enter();
 
         // Ceasing to be active (tool switch, or build mode ending). Must undo everything Enter/Tick/Click
-        // put on screen or lifted off the grid.
+        // put on screen.
         void Exit();
 
         // Per-frame preview at the cursor.
@@ -23,8 +23,9 @@ namespace LittlePeeps
         // Left click in the world (already filtered: never fires over UI).
         void Click(Vector2 world);
 
-        // Right click. True = the tool had an action in progress and consumed the click (a drag returned
-        // to its origin). False = nothing to cancel, so the controller clears back to the Move tool.
+        // Right click. True = the tool had an action in progress and consumed the click. False = nothing
+        // to cancel, so the controller clears back to the empty hand. (No tool has a multi-click action
+        // since moving went away; the hook stays for the next one that does.)
         bool Cancel();
     }
 

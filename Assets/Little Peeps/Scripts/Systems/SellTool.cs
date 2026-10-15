@@ -12,7 +12,7 @@ namespace LittlePeeps
         public SellTool(PlacementContext ctx)
         {
             this.ctx = ctx;
-            hover = new HoverHighlight(ctx, HoverStyle.Sell);
+            hover = new HoverHighlight(ctx);
         }
 
         public void Enter() { }

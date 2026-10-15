@@ -30,12 +30,10 @@ namespace LittlePeeps
         }
 
         // The prestige subscription lives HERE, and not on PrestigeSystem itself, because its lifetime IS
-        // the rule "a run never ends from build mode". This state is current only during normal play:
-        // entering build mode or an age transition replaces it in the inner FSM, and Exit() takes the
-        // subscription down with it. TapSystem's timeScale check happens to cover the same ground today,
-        // but only because both of those freeze time — a coincidence of implementation, not a rule. That
-        // rule is what makes RunManager.EndRun's sweep over run.structures complete, so it is worth
-        // holding by construction rather than by a guard someone can forget to copy.
+        // the rule "a run ends only from normal play". This state is current only then: opening the build
+        // panel or an age transition replaces it in the inner FSM, and Exit() takes the subscription down
+        // with it — held by construction rather than by a guard someone can forget to copy. (The panel
+        // hides the prestige button as well; this is what holds even if a layout forgets to.)
         public void Enter()
         {
             // Normal play is the mode every other one falls back to, and the FSM re-Enters this state on

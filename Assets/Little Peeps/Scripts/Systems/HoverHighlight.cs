@@ -2,40 +2,33 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Tints whatever the cursor is over, so the player can see what a click would act on. Sell uses it to
-    // mean "will be sold" and idle Move to mean "can be grabbed" — same behaviour, different colour, so
-    // it lives here once instead of in both tools.
+    // Tints whatever sellable structure the cursor is over, so the player can see what a Sell click would
+    // remove.
     //
     // Cheap in steady state: it resolves the target every frame but only touches renderers when the
     // target actually CHANGES, so the usual frame costs one dictionary lookup and one compare.
     public sealed class HoverHighlight
     {
         private readonly PlacementContext ctx;
-        private readonly HoverStyle style;
 
         private PlacementTarget hovered;
 
-        public HoverHighlight(PlacementContext ctx, HoverStyle style)
+        public HoverHighlight(PlacementContext ctx)
         {
             this.ctx = ctx;
-            this.style = style;
         }
 
         public void Tick(Vector2 cursor)
         {
             // Same targeting the click uses, so what is highlighted and what is acted on can never differ.
             var target = PlacementTarget.Resolve(ctx.Grid, cursor);
-            if (!Allowed(target)) target = default;   // a mountain under the cursor is "nothing" to this tool
-            if (target.Equals(hovered)) return;       // same target (or still none) — nothing to do
+            if (!target.CanSell) target = default;   // a mountain under the cursor is "nothing" to this tool
+            if (target.Equals(hovered)) return;      // same target (or still none) — nothing to do
 
-            Clear();                                  // restore the previous target's color (cell or fence)
+            Clear();                                 // restore the previous target's color (cell or fence)
             hovered = target;
-            if (!target.IsNone) ctx.Visuals.SetHover(target.RuntimeObject, style);
+            if (!target.IsNone) ctx.Visuals.SetHover(target.RuntimeObject);
         }
-
-        // The def's say on whether this tool may act on the target; the tools' click paths ask the same.
-        private bool Allowed(PlacementTarget target) =>
-            style == HoverStyle.Sell ? target.CanSell : target.CanMove;
 
         // Restore the tinted structure / fence (if any) to its original color and forget it.
         public void Clear()
@@ -44,8 +37,8 @@ namespace LittlePeeps
             hovered = default;
         }
 
-        // Drop the target WITHOUT restoring it — for when it has just been destroyed (Sell) or lifted off
-        // the grid, so there is nothing left to colour back.
+        // Drop the target WITHOUT restoring it — for when it has just been destroyed (Sell), so there is
+        // nothing left to colour back.
         public void Forget()
         {
             ctx.Visuals.ForgetHover();

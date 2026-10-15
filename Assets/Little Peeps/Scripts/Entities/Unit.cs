@@ -63,7 +63,7 @@ namespace LittlePeeps
 
         // The tavern holding the unit right now (EnterHold), so a despawn from inside can give its seat
         // back (LeaveHold) — the same two-way link as the rack's. Null on the field and in a house: a
-        // house clears its own slots on build mode. Cleared when the tavern lets the unit out (Resume).
+        // house keeps its own slots. Cleared when the tavern lets the unit out (Resume).
         private Tavern holder;
 
         // Autopilot: how a drunk finds its way home without knowing how. A building switches it on
@@ -131,9 +131,19 @@ namespace LittlePeeps
             : Radius;
         public int BodyLayer => bodyCollider != null ? bodyCollider.gameObject.layer : gameObject.layer;
 
+        // The body itself and where its circle sits in the world, for whoever has to treat this unit as a
+        // shape: a construction site letting it through its wall (Physics2D.IgnoreCollision) and telling
+        // when it is out (ConstructionArea).
+        public Collider2D Body => bodyCollider;
+        public Vector2 BodyCenter => (Vector2)transform.position + BodyOffset;
+
         // For AimProbe, the autopilot diagnostics.
         public int BouncesSinceRelease => bouncesSinceRelease;
         public bool IsHeld => holder != null;
+
+        // Out on the island, physics running — not resting in a house, not sitting in a tavern. The body is
+        // switched off exactly while the unit is inside a building (LeaveField) and back on the way out.
+        public bool IsOnField => rb != null && rb.simulated;
 
         private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
         private RunStats stats;        // injected on spawn; applies the UnitSpeed modifier to def.speed
@@ -351,8 +361,8 @@ namespace LittlePeeps
             LeaveField();
         }
 
-        // The unit is leaving the game from inside a tavern (SpawnSystem.Despawn: build mode, run
-        // teardown): tell the tavern, so the seat is free again and it never lets a pooled unit out.
+        // The unit is leaving the game from inside a tavern (SpawnSystem.Despawn: a puff, run teardown):
+        // tell the tavern, so the seat is free again and it never lets a pooled unit out.
         // `!= null`, not `?.`: a tavern torn down with the run is a destroyed component by then, and
         // there is nothing left to tell. Nothing to do for a unit that is not held.
         public void LeaveHold()

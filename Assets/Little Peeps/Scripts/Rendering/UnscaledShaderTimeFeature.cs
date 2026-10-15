@@ -6,8 +6,8 @@ using UnityEngine.Rendering.Universal;
 namespace LittlePeeps
 {
     // Shader time that ignores Time.timeScale. URP fills _Time / _TimeParameters from Time.time, so every
-    // shader-animated surface stops dead whenever the game pauses by timeScale 0 — build mode, the zone
-    // pick, the perk pick — and the water (Modern 2D Water: foam, strips, surface scroll are all Time
+    // shader-animated surface stops dead whenever the game pauses by timeScale 0 — the zone pick, the perk
+    // pick, the age transition — and the water (Modern 2D Water: foam, strips, surface scroll are all Time
     // nodes) is the whole background. Shader animation is ambience, not gameplay, so it runs on real time.
     //
     // ALWAYS unscaled, not only while paused: scaled and unscaled time drift apart at the first pause, and

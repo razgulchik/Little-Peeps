@@ -4,26 +4,18 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Which meaning a hover tint carries. The colour lives in PlacementVisuals; the tool only says what
-    // the player is about to do, so no call site has to know that "will be sold" happens to be red.
-    public enum HoverStyle
-    {
-        Sell,   // the structure under the cursor will be sold
-        Move,   // the structure under the cursor can be grabbed
-    }
-
     // Everything the build mode DRAWS that is not a real placed structure: the ghost preview, the faint
-    // territory halo, and the recolouring of real structures for hover and drag.
+    // territory halo, and the recolouring of a real structure about to be sold.
     //
     // Split out of PlacementController so the tools decide WHAT is targeted and this class decides how it
     // LOOKS — no tool touches a SpriteRenderer. It owns three visual subjects:
     //   - the GHOST: a neutralised clone of the real prefab that follows the cursor before anything is built;
     //   - the TERRITORY halo: one quad per cell of the footprint+border the ghost would claim;
-    //   - the HOVER and HELD tints: real structures already in the scene, recoloured and then restored.
-    // Ghost and halo are objects this class creates and destroys; hover and held targets are NOT — they are
-    // borrowed, so their original colours are remembered and put back. Drop shadows (SpriteShadow) follow
-    // one rule throughout: a shadow belongs to what stands on the ground. The ghost never has one, a
-    // carried structure hides its own until it lands, and no tint ever recolours one.
+    //   - the HOVER tint: a real structure already in the scene, recoloured and then restored.
+    // Ghost and halo are objects this class creates and destroys; the hover target is NOT — it is
+    // borrowed, so its original colours are remembered and put back. Drop shadows (SpriteShadow) follow
+    // one rule throughout: a shadow belongs to what stands on the ground. The ghost never has one, and no
+    // tint ever recolours one.
     //
     // A plain [Serializable] class, not a MonoBehaviour: the colours stay inspector-authored on the
     // PlacementController that owns it, but none of the drawing code sits in the controller any more.
@@ -34,7 +26,6 @@ namespace LittlePeeps
         [SerializeField] private Color validColor = new Color(0.4f, 1f, 0.4f, 0.6f);
         [SerializeField] private Color invalidColor = new Color(1f, 0.4f, 0.4f, 0.6f);
         [SerializeField] private Color sellHoverColor = new Color(1f, 0.4f, 0.4f, 0.6f);   // tint of the structure under the cursor in Sell mode
-        [SerializeField] private Color moveHoverColor = new Color(0.4f, 1f, 0.4f, 0.6f);   // tint of a grabbable structure under the cursor in idle Move mode
 
         [Header("Territory halo (ghost)")]
         [SerializeField] private Color territoryValidColor = new Color(0.4f, 1f, 0.4f, 0.18f);
@@ -50,7 +41,7 @@ namespace LittlePeeps
         private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
         private DualVisual ghostVisual;                // non-null when the ghost is an edge structure (fence)
 
-        // Faint tiles showing the footprint+border the ghost would claim (Place and Move): one quad per
+        // Faint tiles showing the footprint+border the ghost would claim: one quad per
         // claimed cell under a common parent, pooled — a shaped footprint needs the halo to follow its
         // shape, which one scaled square cannot.
         private GameObject territoryGhost;
@@ -61,15 +52,7 @@ namespace LittlePeeps
         // never both hovered (the edge wins by precedence), so one target covers both.
         private readonly TintTarget hoverTint = new();
 
-        // The structure OR fence lifted off the grid and following the cursor. Its transform and pose
-        // switch are captured on pick-up so the drag can be posed without handing the object back out.
-        private readonly TintTarget heldTint = new();
-        private Transform heldRoot;
-        private DualVisual heldVisual;
-        private SpriteShadow[] heldShadows;   // hidden while carried, shown again on release
-
         public bool HasGhost => ghost != null;
-        public bool HasHeld => heldTint.Active;
 
         // Called by PlacementController.Begin, before any drawing happens.
         public void Init(StructureSystem structureSystem)
@@ -162,9 +145,8 @@ namespace LittlePeeps
 
         // --- territory halo ---------------------------------------------------------------------------
 
-        // Show the faint footprint+border halo at `origin`, tinted by validity. Used by both Place (new
-        // structure) and Move (held structure) so the claimed area follows the cursor. One tile per
-        // claimed cell (Footprint.Claims — the same sweep CanPlace makes), so the halo shows exactly
+        // Show the faint footprint+border halo at `origin`, tinted by validity, so the area the ghost
+        // would claim follows the cursor. One tile per claimed cell (Footprint.Claims — the same sweep CanPlace makes), so the halo shows exactly
         // what would be claimed, notch and all.
         public void ShowTerritory(IslandGrid grid, Vector2Int origin, Footprint footprint, int border, bool valid)
         {
@@ -231,12 +213,12 @@ namespace LittlePeeps
 
         // --- hover tint (a real structure under the cursor) ---------------------------------------------
 
-        // Tint the structure/fence rooted at `root` so it reads as the hover target. Callers only do this
+        // Tint the structure/fence rooted at `root` so it reads as "will be sold". Callers only do this
         // when the target CHANGES, so the GetComponentsInChildren inside stays off the per-frame path.
-        public void SetHover(Component root, HoverStyle style)
+        public void SetHover(Component root)
         {
             hoverTint.Capture(root);
-            hoverTint.Retint(style == HoverStyle.Sell ? sellHoverColor : moveHoverColor);
+            hoverTint.Retint(sellHoverColor);
         }
 
         // Put the hover target's real colours back and forget it.
@@ -246,57 +228,9 @@ namespace LittlePeeps
         // nothing left to colour back.
         public void ForgetHover() => hoverTint.Forget();
 
-        // --- held tint + pose (the structure being dragged) ---------------------------------------------
-
-        // Take over the object being dragged: remember its renderers' real colours, its transform, and its
-        // pose switch if it has one. The caller must restore any hover tint FIRST, so the colours captured
-        // here are the real ones and not the green grabbable hint. Its drop shadows go dark for the ride —
-        // a carried structure stands on nothing — and come back in ReleaseHeld.
-        public void CaptureHeld(Component root)
-        {
-            heldTint.Capture(root);
-            heldRoot = root.transform;
-            heldVisual = root.GetComponent<DualVisual>();
-            heldShadows = root.GetComponentsInChildren<SpriteShadow>(true);
-            foreach (var shadow in heldShadows) shadow.SetVisible(false);
-        }
-
-        // Drag pose for a cell structure: anchored on `origin`, given the spot's look (a dragged forest
-        // re-laps to the row, a watermill turns to the river), tinted by validity.
-        public void PoseHeldCell(IslandGrid grid, Vector2Int origin, Footprint footprint, bool valid)
-        {
-            if (heldRoot == null) return;
-
-            structureSystem.AnchorOnFootprint(heldRoot, origin, footprint.Size);
-            StructureSystem.ApplyPlacementVisual(heldRoot.gameObject, grid, origin, footprint);
-            heldTint.Retint(valid ? validColor : invalidColor);
-        }
-
-        // Drag pose for a fence: snapped to `edge`'s midpoint, showing the matching pose, tinted by validity.
-        public void PoseHeldEdge(IslandGrid grid, Edge edge, bool valid)
-        {
-            if (heldRoot == null) return;
-
-            heldRoot.position = grid.EdgeToWorld(edge);
-            if (heldVisual != null) heldVisual.Show(edge.horizontal);
-            heldTint.Retint(valid ? validColor : invalidColor);
-        }
-
-        // Put the dragged object's real colours and shadows back and let go of it.
-        public void ReleaseHeld()
-        {
-            heldTint.Restore();
-            if (heldShadows != null)
-                foreach (var shadow in heldShadows) if (shadow != null) shadow.SetVisible(true);
-            heldShadows = null;
-            heldRoot = null;
-            heldVisual = null;
-            HideTerritory();
-        }
-
         // Color every renderer in the set (skipping nulls). Used to tint the multi-renderer place ghost,
-        // which is destroyed rather than restored. (A hovered/dragged structure uses TintTarget instead,
-        // which also remembers the originals so the tint can be undone.)
+        // which is destroyed rather than restored. (A hovered structure uses TintTarget instead, which
+        // also remembers the originals so the tint can be undone.)
         private static void Tint(SpriteRenderer[] renderers, Color color)
         {
             if (renderers == null) return;
@@ -304,10 +238,10 @@ namespace LittlePeeps
                 if (renderers[i] != null) renderers[i].color = color;
         }
 
-        // One tinted structure — a hover target or the dragged structure — bundling its renderers with the
-        // colors they had before the tint, so the tint can be applied and undone as a unit. Works the same
-        // for a cell structure (a forest is many trees) and a fence (its two poses): every renderer is
-        // taken includeInactive so a hidden visual root is covered too. Shared by hoverTint and heldTint.
+        // One tinted structure — the hover target — bundling its renderers with the colors they had before
+        // the tint, so the tint can be applied and undone as a unit. Works the same for a cell structure
+        // (a forest is many trees) and a fence (its two poses): every renderer is taken includeInactive so
+        // a hidden visual root is covered too.
         private sealed class TintTarget
         {
             private SpriteRenderer[] renderers;

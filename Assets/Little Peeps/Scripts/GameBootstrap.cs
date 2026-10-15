@@ -45,7 +45,6 @@ namespace LittlePeeps
 
         [Header("Build mode")]
         [SerializeField] private PlacementController placementController;
-        [SerializeField] private float buildModeCooldown = 5f;
 
         private MetaContext metaContext;
         private StateMachine appStateMachine;
@@ -74,8 +73,9 @@ namespace LittlePeeps
             runManager.StartNewRun();
             RunContext run = runManager.CurrentRun;
 
-            // 4. Wire run-dependent systems.
-            tapSystem.Initialize(run);
+            // 4. Wire run-dependent systems. The tap also learns about placement, which owns the click
+            //    whenever a build card or the sell tool is in hand.
+            tapSystem.Initialize(run, placementController);
             ageSystem.Initialize(run);
 
             // Every panel that needs the run, in one call. Which panels those ARE is UIRoot's business
@@ -105,11 +105,10 @@ namespace LittlePeeps
             //    through every prestige, so a captured context would be the finished run's.
             var gameplayFsm = new StateMachine();
             var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem, confirmDialog, metaScreen);
-            var buildModeState = new BuildModeState(spawnSystem, placementController);
+            var buildModeState = new BuildModeState(placementController);
             var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkScreen, runManager, playingState);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState, buildModeState,
-                                                                   perkSelectionState, buildModeCooldown,
-                                                                   ageSystem, ageSequencer, resourceSystem,
+                                                                   perkSelectionState, ageSystem, ageSequencer, resourceSystem,
                                                                    islandSystem, zoneScreen, runManager));
 
             // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM

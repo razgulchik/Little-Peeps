@@ -215,5 +215,31 @@ namespace LittlePeeps.Tests
             Assert.AreNotEqual(house, none);
             Assert.AreEqual(none, default(PlacementTarget), "no target must equal the default, so hover starts clean");
         }
+
+        // A construction site turns into its building under the SAME instance — only the object changes.
+        // A hover resting on the site must see a new target then, or it keeps tinting a destroyed site and
+        // never tints the building. Builds GameObjects: Unity's Test Runner only.
+        [Test]
+        public void TheSameInstance_WithItsObjectSwapped_IsANewTarget()
+        {
+            var grid = Island();
+            var instance = PutStructure(grid, Cell);
+            var site = new GameObject("Site").AddComponent<Structure>();
+            var building = new GameObject("Building").AddComponent<Structure>();
+            try
+            {
+                instance.RuntimeObject = site;
+                var onSite = PlacementTarget.Resolve(grid, CellCentre);
+                instance.RuntimeObject = building;
+                var onBuilding = PlacementTarget.Resolve(grid, CellCentre);
+
+                Assert.AreNotEqual(onSite, onBuilding);
+            }
+            finally
+            {
+                Object.DestroyImmediate(site.gameObject);
+                Object.DestroyImmediate(building.gameObject);
+            }
+        }
     }
 }

@@ -56,10 +56,9 @@ namespace LittlePeeps
         private bool registered;
 
         // Grid context injected on placement. `grid` is the single source of truth for which perimeter
-        // directions are open; `instance.Cell` is this spawner's origin and auto-updates when it's moved
-        // (StructureSystem.DropStructure writes the new cell into the same instance we hold here). When
-        // both are null (a spawner placed directly in the scene, not via StructureSystem) we fall back to
-        // the old random-direction launch so those still work.
+        // directions are open; `instance.Cell` is this spawner's origin. When both are null (a spawner
+        // placed directly in the scene, not via StructureSystem) we fall back to the old random-direction
+        // launch so those still work.
         private IslandGrid grid;
         private StructureInstance instance;
 
@@ -96,10 +95,9 @@ namespace LittlePeeps
             Warmup();
         }
 
-        // IStructureSpawner — called on placement and build-mode exit (and later by StructureSystem
-        // on build/move). Every slot holds its unit resting INSIDE for restDuration before its first
-        // launch — so placing or moving a structure never produces an instant launch (anti-abuse).
-        // Safe to call again on move: it won't re-register capacity or recreate slots, just restarts
+        // IStructureSpawner — called once, on placement. Every slot holds its unit resting INSIDE for
+        // restDuration before its first launch — so placing a house never produces an instant launch
+        // (anti-abuse). Safe to call again: it won't re-register capacity or recreate slots, just restarts
         // the rest delay.
         public void Warmup()
         {
@@ -119,28 +117,8 @@ namespace LittlePeeps
                 for (int i = 0; i < resolved; i++) slots.Add(new Slot());
             }
 
-            // Placed during build mode: register + reserve slots, but don't pull resting units from the
-            // pool yet. Build-mode exit re-runs Warmup (flag cleared) and fills the slots then, so units
-            // appear on exit together with the animals — nothing spawns while the player is building.
-            if (spawnSystem.IsBuildMode) return;
-
             foreach (var slot in slots)
                 FillSlot(slot);
-        }
-
-        // IStructureSpawner — build-mode enter (called via SpawnSystem): the units this spawner
-        // referenced were just returned to the pool by DespawnAll, so our slot references are now
-        // stale. Reset slots to Free (keep capacity registered) so the next Warmup re-spawns fresh
-        // resting units.
-        public void ResetForBuildMode()
-        {
-            if (slots == null) return;
-            foreach (var slot in slots)
-            {
-                slot.state = SlotState.Free;
-                slot.unit = null;
-                slot.timer = 0f;
-            }
         }
 
         // IStructureSpawner — the sheet changed mid-run (age, perk): re-resolve and grow to match.
@@ -182,9 +160,7 @@ namespace LittlePeeps
             {
                 var slot = new Slot();
                 slots.Add(slot);
-                // In build mode the slot is reserved but left empty, exactly like a house placed there:
-                // the exit warmup fills every slot at once, nothing materialises mid-build.
-                if (!spawnSystem.IsBuildMode) FillSlot(slot);
+                FillSlot(slot);
             }
         }
 
@@ -215,7 +191,7 @@ namespace LittlePeeps
         {
             if (slot.state == SlotState.Occupied && slot.unit != null)
             {
-                // Already holds a unit (e.g. moved mid-rest) — just restart its rest delay.
+                // Already holds a unit (Warmup called again) — just restart its rest delay.
                 slot.timer = ResolveRestDuration();
                 return;
             }
@@ -363,7 +339,7 @@ namespace LittlePeeps
         }
 
         // IStructureSpawner — hand everything back synchronously, before the object is destroyed.
-        // See the interface for why the deferred OnDestroy is too late during a run teardown.
+        // See the interface for why the deferred OnDestroy is too late (run teardown, a sale).
         public void Teardown() => Unregister();
 
         private void OnDestroy() => Unregister();
@@ -377,9 +353,10 @@ namespace LittlePeeps
             if (!registered) return;
             registered = false;
 
-            // Despawn units currently resting here so they don't leak as hidden objects.
-            // TODO: full global active-count reconciliation (also units this structure launched
-            // that are still roaming) belongs in StructureSystem.RemoveStructure.
+            // Despawn units currently resting here so they don't leak as hidden objects. The ones out on
+            // the island are no business of the house — it never owned them; when a sale leaves more of
+            // them than the houses left can hold, StructureSystem has SpawnSystem.TrimSurplus take the
+            // difference, after this has given the capacity back.
             if (slots != null && spawnSystem != null)
             {
                 foreach (var slot in slots)

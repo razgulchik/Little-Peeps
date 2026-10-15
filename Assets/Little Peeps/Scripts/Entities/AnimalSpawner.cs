@@ -10,8 +10,8 @@ namespace LittlePeeps
     // every side lets nobody out until a side opens again. Unlike Spawner's launch -> return -> rest slot
     // cycle, animals never come back: one whose source despawns (boar, fox) is destroyed and a
     // replacement is let out after spawnCooldown (one per cooldown while below maxAnimals). One that
-    // regrows (a shorn alpaca) stays out and keeps its slot. Registered with SpawnSystem
-    // via IStructureSpawner so build mode clears and re-warms it together with the unit spawners.
+    // regrows (a shorn alpaca) stays out and keeps its slot. Registered with SpawnSystem via
+    // IStructureSpawner, like the unit spawners.
     [RequireComponent(typeof(Structure))]
     public class AnimalSpawner : MonoBehaviour, IStructureSpawner
     {
@@ -32,9 +32,8 @@ namespace LittlePeeps
         [Tooltip("Random spread on the chosen side's direction, so animals don't all come out on exact lines.")]
         [SerializeField, Min(0f)] private float releaseJitterDegrees = 12f;
 
-        // Grid context injected on placement (same pattern as Spawner). `instance.Cell` auto-updates
-        // when the structure is moved, so after a build-mode move the territory follows the building.
-        // Both stay null for a scene-placed spawner, which then uses a plain circle around itself.
+        // Grid context injected on placement (same pattern as Spawner). Both stay null for a scene-placed
+        // spawner, which then uses a plain circle around itself.
         private IslandGrid grid;
         private StructureInstance instance;
 
@@ -79,15 +78,14 @@ namespace LittlePeeps
             if (resourceSystem == null)
                 Debug.LogError($"AnimalSpawner on '{name}' has no ResourceSystem assigned.", this);
             if (spawnSystem == null)
-                Debug.LogWarning($"AnimalSpawner on '{name}' has no SpawnSystem — it won't reset/re-warm with build mode.", this);
+                Debug.LogWarning($"AnimalSpawner on '{name}' has no SpawnSystem — it won't see the run's stats.", this);
 
             Warmup();
         }
 
-        // IStructureSpawner — placement and build-mode exit: let out up to maxAnimals at once, each
-        // through its own random free side. Instant refill is not farmable: the animal COUNT is capped,
-        // and only post-harvest replacements are rate-limited (by spawnCooldown in Update) — toggling
-        // build mode swaps animals one-for-one, it never mints extra ones.
+        // IStructureSpawner — placement: let out up to maxAnimals at once, each through its own random
+        // free side. Only the first fill is instant; every replacement after a harvest waits out
+        // spawnCooldown (Update), and nothing empties a den mid-run to start it over.
         public void Warmup()
         {
             if (animalPrefab == null) return;
@@ -97,11 +95,6 @@ namespace LittlePeeps
                 spawnSystem.RegisterSpawner(this);
                 registered = true;
             }
-
-            // Placed during build mode: register only. Build-mode exit runs WarmupAllSpawners with the
-            // flag already cleared, which lets the animals out then — so they appear when the player
-            // leaves build mode, not the moment the den is dropped.
-            if (spawnSystem != null && spawnSystem.IsBuildMode) return;
 
             int max = ResolveMaxAnimals();
             while (animals.Count < max)
@@ -129,9 +122,9 @@ namespace LittlePeeps
             return Mathf.Max(1, resolved);
         }
 
-        // IStructureSpawner — build-mode enter: remove every live animal (the animal counterpart of
-        // the units' despawn-all; animals aren't pooled units, so we destroy them ourselves).
-        public void ResetForBuildMode()
+        // Remove every live animal — the den is going (sold, or the run is over). Animals aren't pooled
+        // units, so we destroy them ourselves.
+        private void DestroyAnimals()
         {
             for (int i = 0; i < animals.Count; i++)
                 if (animals[i] != null) Destroy(animals[i].gameObject);
@@ -140,11 +133,6 @@ namespace LittlePeeps
 
         private void Update()
         {
-            // No respawns while building. Explicit (not just relying on timeScale=0): a den placed in
-            // build mode has respawnTimer==0 until its first real Warmup on exit, so without this the
-            // dt==0 frame would slip past the timer check and spawn an animal mid-build.
-            if (spawnSystem != null && spawnSystem.IsBuildMode) return;
-
             if (animals.Count >= ResolveMaxAnimals()) return;
 
             respawnTimer -= Time.deltaTime;
@@ -155,7 +143,7 @@ namespace LittlePeeps
         }
 
         // Called by an Animal as it is destroyed: free its slot so Update starts counting down toward
-        // the replacement. A no-op for the ones ResetForBuildMode already cleared out of the list.
+        // the replacement. A no-op for the ones DestroyAnimals already cleared out of the list.
         public void NotifyGone(Animal animal)
         {
             animals.Remove(animal);
@@ -235,18 +223,29 @@ namespace LittlePeeps
             return true;
         }
 
-        // World-space passability probe for AnimalWander's look-ahead: off-island is always
-        // blocked, an occupied cell only when its structure is flagged animalsAvoid (trees and
-        // fields stay walk-through, so forest animals keep roaming among the trees). A gridless
-        // (scene-placed) spawner has nothing to check against and blocks nothing.
-        public bool IsBlocked(Vector2 worldPos)
-        {
-            if (grid == null) return false;
+        // World-space passability probe for AnimalWander's look-ahead, from where the animal stands to the
+        // point ahead. Off-island is always blocked. An occupied cell refuses an animal when its structure
+        // is flagged animalsAvoid (trees and fields stay walk-through, so forest animals keep roaming among
+        // the trees) or is still a construction site, which waits for its spot to clear. A refused cell
+        // stops an animal stepping INTO it and never one already standing on refused ground — a building
+        // that went up around it, a site placed under it — or every step it tried would lead back inside
+        // and it would turn on the spot forever. A gridless (scene-placed) spawner has nothing to check
+        // against and blocks nothing.
+        public bool IsBlocked(Vector2 from, Vector2 to) => grid != null && IsBlocked(grid, from, to);
 
-            var cell = grid.GetCell(grid.WorldToGrid(worldPos));
-            if (cell == null) return true;   // off-island — the water's edge
-            return cell.occupant != null && cell.occupant.Def != null && cell.occupant.Def.animalsAvoid;
+        // The rule itself, over any grid — pure, so it is tested without a scene.
+        public static bool IsBlocked(IslandGrid grid, Vector2 from, Vector2 to)
+        {
+            var ahead = grid.GetCell(grid.WorldToGrid(to));
+            if (ahead == null) return true;   // off-island — the water's edge
+            if (!Refuses(ahead.occupant)) return false;
+
+            var here = grid.GetCell(grid.WorldToGrid(from));
+            return here == null || !Refuses(here.occupant);   // standing on refused ground: free to walk off
         }
+
+        private static bool Refuses(StructureInstance occupant) =>
+            occupant != null && occupant.Def != null && (occupant.Def.animalsAvoid || occupant.UnderConstruction);
 
         private void CollectTerritoryCells()
         {
@@ -277,17 +276,17 @@ namespace LittlePeeps
         }
 
         // IStructureSpawner — hand everything back synchronously, before the object is destroyed.
-        // See the interface for why the deferred OnDestroy is too late during a run teardown.
+        // See the interface for why the deferred OnDestroy is too late (run teardown, a sale).
         public void Teardown() => Unregister();
 
         private void OnDestroy() => Unregister();
 
         // Idempotent: `registered` is cleared first, so the OnDestroy following a Teardown is a no-op.
-        // ResetForBuildMode is safe to repeat on its own (it empties `animals`), but the unregistration
+        // DestroyAnimals is safe to repeat on its own (it empties `animals`), but the unregistration
         // is not — SpawnSystem would keep re-scanning a list this spawner already left.
         private void Unregister()
         {
-            ResetForBuildMode();   // destroy any remaining animals so they don't outlive their den
+            DestroyAnimals();   // destroy any remaining animals so they don't outlive their den
             if (!registered) return;
             registered = false;
             if (spawnSystem != null) spawnSystem.UnregisterSpawner(this);

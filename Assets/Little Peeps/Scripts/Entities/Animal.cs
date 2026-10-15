@@ -18,7 +18,7 @@ namespace LittlePeeps
             owner = spawner;
         }
 
-        // Every way an animal leaves — a Despawn source used up, build mode, the den torn down — ends
+        // Every way an animal leaves — a Despawn source used up, the den sold or torn down — ends
         // here, so the slot is freed the same way each time and ResourceSource never has to know
         // what a den is.
         private void OnDestroy()

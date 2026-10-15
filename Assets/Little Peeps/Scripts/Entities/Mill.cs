@@ -25,8 +25,8 @@ namespace LittlePeeps
     //
     // The clock and the cap live here, on the component, not in a def or the stats — one kind of mill; a
     // perk that wants one of them turns it into a stat then (the ForgeHeat way). Game time, like every
-    // production clock: a paused game (build mode, a perk pick) grinds nothing. The store belongs to this
-    // object, so it rides along on a move and is gone with the run.
+    // production clock: a paused game (a perk pick, an age transition) grinds nothing. The store belongs to
+    // this object, so it is gone with the mill and with the run.
     [RequireComponent(typeof(ResourceSource))]
     public class Mill : MonoBehaviour, IHitGate, IYieldScale
     {

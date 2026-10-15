@@ -4,9 +4,10 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // Bottom-right toggle button. A click publishes BuildModeToggleRequestedEvent; the button
-    // reflects mode + cooldown from BuildModeButtonStateEvent (label swap + interactable). It defaults
-    // to the playing state in Awake, so it does not depend on receiving an initial event.
+    // Bottom-right toggle button. A click publishes BuildModeToggleRequestedEvent; the label follows the
+    // UI mode — one label while the build panel is up, the other otherwise. Building no longer stops the
+    // game, so there is nothing else to reflect: the button is always clickable. It defaults to the
+    // playing label in Awake, so it does not depend on receiving an initial event.
     [RequireComponent(typeof(Button))]
     public class BuildModeButton : MonoBehaviour
     {
@@ -23,19 +24,19 @@ namespace LittlePeeps
         private void Awake()
         {
             if (button == null) button = GetComponent<Button>();
-            ApplyState(inBuildMode: false, interactable: true);   // default = playing, enabled
+            ApplyLabel(inBuildMode: false);   // default = playing
         }
 
         private void OnEnable()
         {
             button.onClick.AddListener(OnClick);
-            EventBus<BuildModeButtonStateEvent>.Subscribe(OnUIState);
+            EventBus<UIModeChangedEvent>.Subscribe(OnUIMode);
         }
 
         private void OnDisable()
         {
             button.onClick.RemoveListener(OnClick);
-            EventBus<BuildModeButtonStateEvent>.Unsubscribe(OnUIState);
+            EventBus<UIModeChangedEvent>.Unsubscribe(OnUIMode);
         }
 
         private void OnClick()
@@ -43,14 +44,10 @@ namespace LittlePeeps
             EventBus<BuildModeToggleRequestedEvent>.Publish(new BuildModeToggleRequestedEvent());
         }
 
-        private void OnUIState(BuildModeButtonStateEvent e)
-        {
-            ApplyState(e.InBuildMode, e.Interactable);
-        }
+        private void OnUIMode(UIModeChangedEvent e) => ApplyLabel(e.Mode == UIMode.Build);
 
-        private void ApplyState(bool inBuildMode, bool interactable)
+        private void ApplyLabel(bool inBuildMode)
         {
-            if (button != null) button.interactable = interactable;
             if (modeText != null)
                 modeText.text = inBuildMode ? playLabel : buildLabel;
         }

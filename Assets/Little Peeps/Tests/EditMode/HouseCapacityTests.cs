@@ -9,10 +9,10 @@ namespace LittlePeeps.Tests
     // on the next read — it has to be pushed (RunStats.Changed → SpawnSystem → RefreshFromStats).
     // These tests pin both halves: the resolve at warmup and the push after it.
     //
-    // Same harness as RunTeardownTests: real GameObjects, SpawnSystem parked in build mode so Warmup
-    // registers and reserves slots without pulling units from a pool this test does not have. That
-    // also means growth here adds EMPTY slots, exactly what the build-mode branch promises; the
-    // "new unit rests first" half of a mid-run raise is FillSlot's existing behaviour, not tested here.
+    // Same harness as RunTeardownTests: real GameObjects, and a SpawnSystem with no UnitPool, so Warmup
+    // registers and creates slots that stay empty — TrySpawn hands out nobody without a pool. That also
+    // means growth here adds EMPTY slots; the "new unit rests first" half of a mid-run raise is
+    // FillSlot's existing behaviour, not tested here.
     // Editor Test Runner only — the offline harness skips anything that builds a GameObject.
     public class HouseCapacityTests
     {
@@ -37,8 +37,6 @@ namespace LittlePeeps.Tests
 
             // Population is counted per UnitDef, so the instance itself is the key — no type to set.
             unitDef = ScriptableObject.CreateInstance<UnitDef>();
-
-            spawnSystem.DespawnAllAndResetSpawners();   // build mode: no pool needed, see class comment
         }
 
         [TearDown]

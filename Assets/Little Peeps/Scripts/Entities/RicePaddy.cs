@@ -29,7 +29,7 @@ namespace LittlePeeps
     // the query. Only asked while growing, and only while the game runs.
     //
     // Growth time is here on the component (one kind of paddy; a perk that wants it makes it a stat, the
-    // Mill way). Game time: a paused game (build mode, a perk pick) grows nothing. What the phases LOOK like
+    // Mill way). Game time: a paused game (a perk pick, an age transition) grows nothing. What the phases LOOK like
     // is RicePaddyView.
     [RequireComponent(typeof(ResourceSource))]
     public class RicePaddy : MonoBehaviour, IHitGate

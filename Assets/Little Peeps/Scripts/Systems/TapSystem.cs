@@ -4,8 +4,9 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Handles game-object taps: boosts units in an AoE radius around the cursor. A ring (TapRadiusVisual)
-    // follows the cursor every frame so the player sees the boost area; it only shows during normal
-    // gameplay (timeScale != 0 — build mode/pause freeze time and hide it). The pier is not clickable any
+    // follows the cursor every frame so the player sees the boost area; it shows while the game runs and
+    // the hand is empty — frozen screens (perk pick, age transition) hide it, and so does a build card or
+    // the sell tool in hand, since the click is placement's then. The pier is not clickable any
     // more: prestige starts from PrestigeButton, a UI button hanging over it. A click on UI never gets here
     // (InputHandler keeps it out of OnWorldClick), so a button pressed over the island boosts no one.
     //
@@ -51,12 +52,18 @@ namespace LittlePeeps
         }
 
         private RunContext runContext;
+        private PlacementController placement;   // owns the click while it holds a tool; null = never does
         private readonly List<Tapped> tapped = new();   // reused per tap: the units it boosted, each once
 
-        public void Initialize(RunContext context)
+        public void Initialize(RunContext context, PlacementController placement)
         {
             runContext = context;
+            this.placement = placement;
         }
+
+        // Live gameplay with nothing in hand: building no longer stops the game, so time alone cannot
+        // tell a tap from a placement click any more.
+        private bool CanTap => Time.timeScale != 0f && (placement == null || !placement.HoldsTool);
 
         private void OnEnable()
         {
@@ -79,7 +86,7 @@ namespace LittlePeeps
         {
             if (radiusVisual == null) return;
 
-            bool active = Time.timeScale != 0f && inputHandler.HasMouse;
+            bool active = CanTap && inputHandler.HasMouse;
             radiusVisual.SetVisible(active);
             if (!active) return;
 
@@ -91,9 +98,8 @@ namespace LittlePeeps
 
         private void OnWorldClick(Vector2 worldPos)
         {
-            // Build mode pauses the game (timeScale 0) and the PlacementController owns clicks then —
-            // don't boost units while placing structures.
-            if (Time.timeScale == 0f) return;
+            // Frozen screens take no taps, and a click made with a tool in hand places or sells instead.
+            if (!CanTap) return;
 
             // Units: AoE boost — every unit whose collider overlaps the tap radius gets boosted, once
             // however many of its colliders overlap. The collider lives on a child ("Physics"), so resolve

@@ -72,12 +72,11 @@ namespace LittlePeeps
         // cost to build again, so a build → sell cycle always loses (StructureSystem.RefundCost).
         [Range(0f, 1f)] public float sellRefundPercent = 0.5f;
 
-        // Whether build mode may sell / pick up this structure. Off for generated terrain-like content
-        // (mountains, river) that is part of the island rather than something the player owns; on for
-        // everything else, generated trees and the starting house included — there is no "player-placed"
+        // Whether build mode may sell this structure. Off for generated terrain-like content (mountains,
+        // river) that is part of the island rather than something the player owns; on for everything
+        // else, generated trees and the starting house included — there is no "player-placed"
         // distinction, only what a def allows.
         public bool canSell = true;
-        public bool canMove = true;
 
         // Units pass through this structure: its collider is a trigger (fields, bushes, tool racks —
         // CollisionTarget's "interactable path"), so it is not an obstacle and never closes a launch
@@ -110,9 +109,9 @@ namespace LittlePeeps
         public int border = 0;
 
         // --- How many may stand, and how the price grows with that count ---------------------------------
-        // Both count EVERY standing copy of this def: generated ones included (the starting house), and the
-        // one MoveTool is carrying too — a move is not a sale. No player-placed distinction, as everywhere
-        // else: only what stands. The count itself lives on the run (RunContext.CountOf).
+        // Both count EVERY standing copy of this def: generated ones included (the starting house). No
+        // player-placed distinction, as everywhere else: only what stands. The count itself lives on the
+        // run (RunContext.CountOf).
 
         [Header("Count & price growth")]
         [Tooltip("How many of this structure may stand at once. 0 = no limit. Counts every standing one, " +

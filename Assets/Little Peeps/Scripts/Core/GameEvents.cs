@@ -103,15 +103,6 @@ namespace LittlePeeps
         public UIMode Mode;
     }
 
-    // Pushed by GameplayContainerState for the build-mode toggle BUTTON alone — its label and whether it
-    // can be clicked. What is VISIBLE in build mode is not this event's business: that is UIMode, and the
-    // button is the one thing the mode cannot express, because the cooldown outlives the mode change.
-    public struct BuildModeButtonStateEvent
-    {
-        public bool InBuildMode;   // true → button shows the resume/play icon (click resumes)
-        public bool Interactable;  // false while the 5s post-exit cooldown is running
-    }
-
     // Published by PlacementController when the player tries to build on a valid cell but can't
     // afford it; the BuildPanelUI plays a cue on the selected card.
     public struct BuildDeniedEvent

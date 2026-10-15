@@ -24,9 +24,9 @@ namespace LittlePeeps
     //
     // Sealed in on every side, the tavern keeps its guests and tries again after another stay — never
     // removes or teleports them, like a house. Only reachable through StructureSystem (it needs the grid
-    // for the exits); a guest leaves the game from inside only through SpawnSystem.Despawn (build mode,
-    // run teardown), which tells the tavern through the unit (Unit.LeaveHold → Forget). Selling or moving
-    // happens in build mode only, by which time every guest is gone.
+    // for the exits); a guest leaves the game from inside only through SpawnSystem.Despawn (a puff, run
+    // teardown), which tells the tavern through the unit (Unit.LeaveHold → Forget). Selling happens in the
+    // running game, guests and all: the sale lets them out first (EvictAll).
     [RequireComponent(typeof(Structure))]
     public class Tavern : MonoBehaviour, IEntrance
     {
@@ -140,7 +140,7 @@ namespace LittlePeeps
 
         private Vector3 FxOrigin => fxAnchor != null ? fxAnchor.position : transform.position;
 
-        // Scaled time, like a house's rest: a paused game (build mode, perk pick) keeps the guests inside.
+        // Scaled time, like a house's rest: a paused game (perk pick, age transition) keeps the guests inside.
         // Walked backwards so a guest let out can be removed in place.
         private void Update()
         {
@@ -174,7 +174,34 @@ namespace LittlePeeps
                                                  exitDirs, releaseJitterDegrees, out Vector2 dir))
                 return false;
 
-            unit.transform.position = StructureExits.ExitPoint(grid, instance.Cell, footprint, dir, unit.Radius + releaseGap);
+            LetOut(unit, StructureExits.ExitPoint(grid, instance.Cell, footprint, dir, unit.Radius + releaseGap), dir);
+            return true;
+        }
+
+        // The tavern is being sold with guests inside (StructureSystem's live removal): everyone goes out
+        // at once, the ordinary way — drunk, on autopilot if tired — but from where the tavern stood and
+        // in any direction, since the building is about to go and none of its sides closes anything any
+        // more. Without grid context nobody ever got in, so there is nobody to let out.
+        public void EvictAll()
+        {
+            if (grid == null || instance == null || instance.Def == null) return;
+
+            Vector2 center = grid.OriginToWorldCenter(instance.Cell, instance.Def.Footprint.Size);
+            for (int i = 0; i < guests.Count; i++)
+            {
+                var unit = guests[i].unit;
+                if (unit == null) continue;
+                unit.MakeDrunk(drunkDuration, drunkSpeedMultiplier);
+                LetOut(unit, center, Vector2.zero);   // zero: Resume picks a random direction
+            }
+            guests.Clear();
+        }
+
+        // Put a drunk guest back on the field at `position`, heading `dir`. Shared by the ordinary release
+        // and the eviction.
+        private void LetOut(Unit unit, Vector2 position, Vector2 dir)
+        {
+            unit.transform.position = position;
             unit.Resume(dir);
             unit.MakeSound(exitSound);
 
@@ -183,7 +210,6 @@ namespace LittlePeeps
                 unit.EnterAutopilot();              // after Resume, which clears it
                 AimProbe.Released(this, unit);
             }
-            return true;
         }
 
         // The unit left the game from inside (Unit.LeaveHold, from SpawnSystem.Despawn): free its seat

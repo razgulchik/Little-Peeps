@@ -175,7 +175,7 @@ namespace LittlePeeps
             if (edgePanEnabled) dir += EdgeDir();
             if (dir != Vector2.zero)
             {
-                // Unscaled time → panning works in build mode (timeScale 0). Clamp so diagonals aren't faster.
+                // Unscaled time → panning works on the frozen screens too (timeScale 0). Clamp so diagonals aren't faster.
                 Vector2 step = Vector2.ClampMagnitude(dir, 1f) * (panSpeed * Time.unscaledDeltaTime);
                 pos.x += step.x;
                 pos.y += step.y;

@@ -7,11 +7,12 @@ namespace LittlePeeps
     // Routes build-mode input to whichever tool the BuildPanelUI selection has chosen:
     //  - a build card selected    → PlaceTool
     //  - the sell button selected → SellTool
-    //  - nothing selected         → MoveTool (the default)
-    // Right-click cancels: a tool with an action in progress consumes it (a Move drag returns to its
-    // origin), otherwise the selection is cleared back to Move and ToolCleared tells the panel to drop
-    // its highlight. Active only between Begin()/End(), called by BuildModeState. Clicks over UI never
-    // get here — InputHandler keeps them out of OnWorldClick — so panel buttons don't act on the world.
+    //  - nothing selected         → the empty hand: no tool, and the click is a tap (TapSystem)
+    // The game runs underneath the whole time, so "something in hand" (HoldsTool) is what decides
+    // whether a left click builds or taps. Right-click puts the tool down: the selection is cleared back
+    // to the empty hand and ToolCleared tells the panel to drop its highlight. Active only between
+    // Begin()/End(), called by BuildModeState. Clicks over UI never get here — InputHandler keeps them
+    // out of OnWorldClick — so panel buttons don't act on the world.
     //
     // Everything that decides WHAT happens lives in the tools, and everything DRAWN lives in
     // PlacementVisuals — this class only owns the inspector-wired references, the active tool, and the
@@ -28,15 +29,19 @@ namespace LittlePeeps
         [SerializeField] private PlacementVisuals visuals = new();
 
         // Raised when a right-click clears the active Place/Sell tool, so BuildPanelUI can drop its
-        // card / sell-button highlight (the controller has already reset itself to the Move tool).
+        // card / sell-button highlight (the controller has already gone back to the empty hand).
         public event Action ToolCleared;
 
         private PlacementContext context;
-        private MoveTool moveTool;    // also the default: "nothing selected" IS the Move tool
+        private readonly IPlacementTool emptyHand = new EmptyHand();   // the default: nothing selected
         private SellTool sellTool;
         private IPlacementTool tool;
 
         private bool active;
+
+        // A build card or the sell tool is in hand: the next left click in the world is placement's.
+        // False outside build mode and with nothing selected — the click is a tap then.
+        public bool HoldsTool => active && tool != null && tool != emptyHand;
 
         private void OnEnable()
         {
@@ -58,23 +63,22 @@ namespace LittlePeeps
             gridOverlay.Show();
         }
 
-        // Called by BuildModeState.Exit. The active tool tears down whatever it owns — including returning
-        // a structure that is still being carried.
+        // Called by BuildModeState.Exit. The active tool tears down whatever it owns (a ghost, a tint).
         public void End()
         {
             EnsureTools();
             tool.Exit();
-            tool = moveTool;
+            tool = emptyHand;
             active = false;
             gridOverlay.Hide();
         }
 
         // Choose which structure to place (BuildPanelUI calls this). A null def means "nothing selected"
-        // → back to the Move tool.
+        // → back to the empty hand.
         public void Select(StructureDef def)
         {
             EnsureTools();
-            SwitchTo(def != null ? new PlaceTool(context, def) : moveTool);
+            SwitchTo(def != null ? new PlaceTool(context, def) : emptyHand);
         }
 
         // Switch to the Sell tool (BuildPanelUI's sell button calls this).
@@ -85,9 +89,7 @@ namespace LittlePeeps
         }
 
         // The single path between tools. Exit before Enter, always — that ordering is what guarantees a
-        // ghost, a tint or a carried structure can never survive into the next tool. Switching to the
-        // tool that is already active is meaningful too: it restarts it (Select(null) mid-drag is how a
-        // carried structure gets put back).
+        // ghost or a tint can never survive into the next tool.
         private void SwitchTo(IPlacementTool next)
         {
             tool.Exit();
@@ -102,9 +104,8 @@ namespace LittlePeeps
 
             visuals.Init(structureSystem);
             context = new PlacementContext(islandSystem, structureSystem, resourceSystem, gridOverlay, visuals);
-            moveTool = new MoveTool(context);
             sellTool = new SellTool(context);
-            tool = moveTool;
+            tool = emptyHand;
         }
 
         private void Update()
@@ -126,17 +127,28 @@ namespace LittlePeeps
         {
             if (!active) return;
 
-            if (tool.Cancel()) return;      // a drag was returned to its origin
-            if (tool == moveTool) return;   // nothing selected — nothing to clear
+            if (tool.Cancel()) return;       // the tool had something in progress and undid it
+            if (tool == emptyHand) return;   // nothing selected — nothing to clear
 
-            SwitchTo(moveTool);
-            ToolCleared?.Invoke();          // let the panel drop its card / sell highlight
+            SwitchTo(emptyHand);
+            ToolCleared?.Invoke();           // let the panel drop its card / sell highlight
         }
 
         private Vector2 ScreenToWorld()
         {
             Vector2 screen = Mouse.current.position.ReadValue();
             return mainCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
+        }
+
+        // Nothing in hand. A tool that does nothing rather than a null, so every path above can talk to
+        // `tool` without asking first; the click it ignores is TapSystem's (see HoldsTool).
+        private sealed class EmptyHand : IPlacementTool
+        {
+            public void Enter() { }
+            public void Exit() { }
+            public void Tick(Vector2 cursor) { }
+            public void Click(Vector2 world) { }
+            public bool Cancel() => false;
         }
     }
 }

@@ -1,18 +1,15 @@
-using UnityEngine;
-
 namespace LittlePeeps
 {
-    // Build mode: gameplay frozen (Time.timeScale = 0) and all units returned to the pool; they
-    // respawn from their structures on exit. The PlacementController drives the ghost + grid overlay
-    // while we're here. The 5s re-entry cooldown is owned by GameplayContainerState, not here.
+    // Build mode: the build panel is up and the PlacementController drives the ghost + grid overlay. The
+    // game is NOT stopped — units keep bouncing and nobody leaves the field. That is the whole point: a mode
+    // that froze the world and sent everyone home was a free reset button (fresh stamina, full dens, every
+    // trajectory re-rolled), so building now happens in the running game.
     public class BuildModeState : IState
     {
-        private readonly SpawnSystem spawnSystem;
         private readonly PlacementController placement;
 
-        public BuildModeState(SpawnSystem spawnSystem, PlacementController placement)
+        public BuildModeState(PlacementController placement)
         {
-            this.spawnSystem = spawnSystem;
             this.placement = placement;
         }
 
@@ -21,16 +18,12 @@ namespace LittlePeeps
             // The palette and the sell button come up with this, the age panel goes down — all of it
             // authored in UIVisibility's table rather than wired from here.
             EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.Build });
-            Time.timeScale = 0f;
-            spawnSystem.DespawnAllAndResetSpawners();
             placement.Begin();
         }
 
         public void Exit()
         {
             placement.End();
-            spawnSystem.WarmupAllSpawners();
-            Time.timeScale = 1f;
         }
 
         public void Tick() { }

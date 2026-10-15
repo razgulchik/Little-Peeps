@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // What a build-mode tool is pointing AT: the fence on a grid edge, the structure on a cell, or
-    // nothing. Sell, Move pick-up and the hover highlight all ask exactly this question, and each used to
+    // nothing. The Sell click and the hover highlight both ask exactly this question, and each used to
     // answer it with its own copy of the same lines — including the fence-wins rule, which is a UX
     // decision that MUST stay identical between them: if highlighting and clicking disagreed about what
     // is under the cursor, the player would see one thing tinted and sell another.
@@ -21,11 +21,18 @@ namespace LittlePeeps
         public readonly Edge Edge;                  // the edge Fence sits on; meaningless when Fence is null
         public readonly StructureInstance Instance; // non-null → the cursor is on this structure's territory
 
+        // The scene object to tint, whichever kind this target is — the one standing there WHEN the target
+        // was resolved. Held rather than read through the instance, because a construction site is swapped
+        // for its building under the same instance, and comparing two targets must see that swap.
+        // Null when there is no target.
+        public readonly Structure RuntimeObject;
+
         private PlacementTarget(EdgeInstance fence, Edge edge)
         {
             Fence = fence;
             Edge = edge;
             Instance = null;
+            RuntimeObject = fence.RuntimeObject;
         }
 
         private PlacementTarget(StructureInstance instance)
@@ -33,21 +40,18 @@ namespace LittlePeeps
             Fence = null;
             Edge = default;
             Instance = instance;
+            RuntimeObject = instance.RuntimeObject;
         }
 
         public bool IsNone => Fence == null && Instance == null;
         public bool IsFence => Fence != null;
 
-        // The scene object to tint or grab, whichever kind this target is. Null when there is no target.
-        public Structure RuntimeObject => Fence != null ? Fence.RuntimeObject : Instance?.RuntimeObject;
-
         public StructureDef Def => Fence != null ? Fence.Def : Instance?.Def;
 
-        // What the tools may do with the target — the def decides (generated mountains and rivers say
-        // no). Asked by the hover and the click alike, so a thing never lights up as sellable or
-        // grabbable and then refuses.
+        // Whether the Sell tool may act on the target — the def decides (generated mountains and rivers
+        // say no). Asked by the hover and the click alike, so a thing never lights up as sellable and
+        // then refuses.
         public bool CanSell => Def != null && Def.canSell;
-        public bool CanMove => Def != null && Def.canMove;
 
         // Resolve what the cursor is on. A fence WINS over the cell beneath it when the cursor is right on
         // the edge line — otherwise a fence running along a structure's cell would be unreachable, because
@@ -73,7 +77,11 @@ namespace LittlePeeps
 
         // Identity is the thing targeted, so a tool can ask "still the same target?" with one compare and
         // skip the per-frame work. Edge is derived from Fence, so it is not part of it.
-        public bool Equals(PlacementTarget other) => Fence == other.Fence && Instance == other.Instance;
+        // RuntimeObject is compared too: a construction site is swapped for its finished building under the
+        // SAME instance, and a hover still on the site has to let go of it and tint the building instead.
+        // ReferenceEquals, not Unity's ==: a swap is a different object, destroyed or not.
+        public bool Equals(PlacementTarget other) => Fence == other.Fence && Instance == other.Instance
+                                                     && ReferenceEquals(RuntimeObject, other.RuntimeObject);
         public override bool Equals(object obj) => obj is PlacementTarget other && Equals(other);
 
         public override int GetHashCode()

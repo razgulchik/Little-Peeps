@@ -12,8 +12,10 @@ namespace LittlePeeps.Tests
     //
     // The fix is IStructureSpawner.Teardown: unregister synchronously, then make OnDestroy a no-op.
     //
-    // NOT COVERED HERE: the ordinary sell/remove path, where no Teardown runs and OnDestroy alone has to
-    // do the whole job. Edit Mode never invokes MonoBehaviour lifecycle callbacks for a plain
+    // The sale takes the same path since building went real-time: StructureSystem's live removal calls
+    // Teardown before the Destroy too, so the capacity is gone before it trims the surplus residents.
+    // What is NOT covered here is a structure destroyed some other way, where OnDestroy alone has to do
+    // the whole job. Edit Mode never invokes MonoBehaviour lifecycle callbacks for a plain
     // MonoBehaviour — the same rule that already forces MakeSpawner to call Warmup() by hand, because
     // Spawner.Start() would otherwise do it — so a test for it can only ever assert that Unity failed to
     // call OnDestroy. There was one; it was red from the day it was written and has been deleted. What
@@ -38,9 +40,8 @@ namespace LittlePeeps.Tests
             // Population is counted per UnitDef, so the instance itself is the key — no type to set.
             unitDef = ScriptableObject.CreateInstance<UnitDef>();
 
-            // Park the system in build mode: Warmup then registers capacity and reserves slots but
-            // returns before pulling units out of the pool, so these tests need no unit prefab.
-            spawnSystem.DespawnAllAndResetSpawners();
+            // No UnitPool on purpose: Warmup still registers capacity and creates slots, and TrySpawn
+            // hands out nobody, so these tests need no unit prefab.
         }
 
         [TearDown]
@@ -95,16 +96,13 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
-        public void ResetForNewRun_ClearsTheCapAndLeavesBuildModeOff()
+        public void ResetForNewRun_ClearsTheCap()
         {
             MakeSpawner(4);
 
             spawnSystem.ResetForNewRun();
 
             Assert.IsFalse(spawnSystem.CanSpawn(unitDef), "capacity from the finished run must be gone");
-            Assert.IsFalse(spawnSystem.IsBuildMode,
-                           "a run ended from inside build mode must not leave the flag set: the next " +
-                           "run's spawners would wait for an exit that never comes");
         }
     }
 }

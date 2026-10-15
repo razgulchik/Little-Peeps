@@ -11,9 +11,8 @@ namespace LittlePeeps
     // Created at Start, on purpose: the build-mode ghost is the same prefab with every behaviour disabled
     // (PlacementVisuals), and a disabled behaviour never Starts — so a ghost has no shadow by construction
     // and the placement code never has to strip one. The rule the player sees is "a shadow belongs to
-    // what stands on the ground": a structure carried by the Move tool hides its shadow through
-    // SetVisible until it lands, and PlacementVisuals leaves the shadow's renderer out of its hover/drag
-    // tints, so the building goes green or red and the shadow stays black.
+    // what stands on the ground": PlacementVisuals leaves the shadow's renderer out of its hover tint,
+    // so the building goes red and the shadow stays black.
     //
     // Generic — buildings, animals and units alike; it needs nothing but a SpriteRenderer on the same
     // object. Height is not modelled: the shadow is a silhouette offset, not a ground contact point, so
@@ -68,13 +67,6 @@ namespace LittlePeeps
         private void OnValidate()
         {
             if (shadow != null) ApplyLook();
-        }
-
-        // Show or hide the shadow without destroying it — the Move tool hides it while the structure is
-        // carried and shows it again on drop. No-op when there is no shadow.
-        public void SetVisible(bool visible)
-        {
-            if (shadow != null) shadow.gameObject.SetActive(visible);
         }
 
         // The shadow's own look: colour and offset. Pixels become local units through the sprite's PPU,

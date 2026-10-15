@@ -10,9 +10,8 @@ namespace LittlePeeps
         public Dictionary<Vector2Int, StructureInstance> structures = new();
         public Dictionary<Edge, EdgeInstance> fences = new();
 
-        // How many of each structure stand on the island: cells and fences, generated ones included, and
-        // the one MoveTool is carrying (a move is not a sale, so it never leaves this count while it is
-        // off the grid). Kept by StructureSystem where structures are built and removed; read through
+        // How many of each structure stand on the island: cells and fences, generated ones included.
+        // Kept by StructureSystem where structures are built and removed; read through
         // CountOf, for the build limit and the growing price (StructureDef.AtLimit / CostAt). Derivable
         // from structures + fences, so it needs no place in a save.
         public Dictionary<StructureDef, int> standing = new();
@@ -63,6 +62,11 @@ namespace LittlePeeps
         public StructureDef Def;
         public Structure RuntimeObject;
         public Vector2Int Cell;
+
+        // Still a construction site (StructureSystem.PlaceStructure until CompleteSite): RuntimeObject is
+        // the site, not the building. Read where the difference matters — animals keep off a site
+        // (AnimalSpawner.IsBlocked), since it waits for its spot to clear.
+        public bool UnderConstruction;
     }
 
     // Runtime pairing of an edge-placed structure (fence) with its live MonoBehaviour. Parallel to

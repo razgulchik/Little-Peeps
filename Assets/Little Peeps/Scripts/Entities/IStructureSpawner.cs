@@ -1,22 +1,15 @@
 namespace LittlePeeps
 {
     // Contract between structure-mounted spawners (Spawner for units, AnimalSpawner for animals)
-    // and SpawnSystem's build-mode flow. Each spawner registers itself on its first Warmup and
-    // unregisters in OnDestroy; SpawnSystem then drives build-mode transitions through this
-    // interface without knowing the concrete spawner kind. Internals are deliberately NOT shared:
-    // the unit launch->return->rest slot cycle and the animal die->cooldown->replace cycle have
-    // nothing in common beyond this contract.
+    // and SpawnSystem. Each spawner registers itself on its first Warmup and unregisters in Teardown /
+    // OnDestroy; SpawnSystem then reaches every live one through this interface without knowing the
+    // concrete spawner kind. Internals are deliberately NOT shared: the unit launch->return->rest slot
+    // cycle and the animal die->cooldown->replace cycle have nothing in common beyond this contract.
     public interface IStructureSpawner
     {
-        // Build-mode enter: this spawner's spawned entities are gone (or must go) — clear the
-        // per-entity bookkeeping so the next Warmup starts fresh.
-        void ResetForBuildMode();
-
-        // Placement and build-mode exit: register (once), then (re)create this spawner's entities.
-        // Called on placement during build mode too, where it registers but SKIPS spawning (reads
-        // SpawnSystem.IsBuildMode) — the entities are created by the build-mode-exit warmup, once the
-        // flag has cleared, so a structure built mid-session doesn't materialize its entities until the
-        // player leaves build mode.
+        // Placement: register (once), then create this spawner's entities — a resting unit per slot, the
+        // den's animals let out. Once per structure: nothing empties a spawner mid-run any more, so there
+        // is no second warmup to come.
         void Warmup();
 
         // The run's stat sheet changed mid-run (age, perk): re-resolve whatever this spawner
@@ -25,10 +18,11 @@ namespace LittlePeeps
         // nothing from the sheet is a no-op here.
         void RefreshFromStats();
 
-        // Run teardown: give everything back to SpawnSystem RIGHT NOW rather than in OnDestroy.
-        // Destroy() defers OnDestroy to the end of the frame, and a prestige ends one run and starts
-        // the next within a single frame — so the old spawner's unregistration would land AFTER the new
-        // run had already registered its own, corrupting the fresh run's books. Implementations must
+        // Give everything back to SpawnSystem RIGHT NOW rather than in OnDestroy. Two callers, one reason:
+        // Destroy() defers OnDestroy to the end of the frame. A run teardown ends one run and starts the
+        // next within a single frame, so the old spawner's unregistration would land AFTER the new run had
+        // already registered its own, corrupting the fresh run's books; and a sale (StructureSystem's live
+        // removal) needs the capacity gone before it trims the surplus residents. Implementations must
         // leave OnDestroy a no-op afterwards, and must stay safe to call twice.
         void Teardown();
     }

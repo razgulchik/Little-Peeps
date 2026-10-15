@@ -6,7 +6,10 @@ namespace LittlePeeps
 {
     // Bottom build palette, up for the whole of normal play — there is no build mode to open it. It is
     // LIVE in UIMode.Playing (UIModeChangedEvent) and asleep over any other screen; whether it is on
-    // screen is UIVisibility's table, not this class. Spawns a tab button per non-empty BuildPaletteDef
+    // screen is UIVisibility's table, not this class. The player may still tuck it away: the build button
+    // (or its key) toggles SHOWN, which this class owns and announces (BuildPanelShownEvent) for the
+    // table's rows that follow it. Hiding puts down whatever was in hand; a tab or sell key brings the
+    // panel back. Spawns a tab button per non-empty BuildPaletteDef
     // tab and a card per structure in it, showing one tab's cards at a time (click a tab or press its
     // digit). Drives the PlacementController's tool: click a card to place a structure, click the
     // separate sell button to sell, click the selected card/button again (or right-click in the world,
@@ -45,6 +48,7 @@ namespace LittlePeeps
         private BuildCardUI selectedCard;
         private bool sellSelected;
         private bool isOpen;   // true during normal play (panel live) — gates the sell and tab hotkeys
+        private bool shown = true;   // the player's choice, kept across screens and runs (UIVisibility starts the same)
         private int currentAge = RunContext.FirstAge;
         private RunContext run;   // for the structures a perk opened and how many stand (StructureDef.LockState)
         private bool cardsDirty;  // a structure count changed — refresh in LateUpdate (OnStructureCountChanged)
@@ -65,6 +69,7 @@ namespace LittlePeeps
             EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
             EventBus<StructureCountChangedEvent>.Subscribe(OnStructureCountChanged);
             EventBus<ResourceChangedEvent>.Subscribe(OnResourceChanged);
+            EventBus<BuildPanelToggleRequestedEvent>.Subscribe(OnToggleRequested);
             if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared += OnToolCleared;
         }
@@ -79,6 +84,7 @@ namespace LittlePeeps
             EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
             EventBus<StructureCountChangedEvent>.Unsubscribe(OnStructureCountChanged);
             EventBus<ResourceChangedEvent>.Unsubscribe(OnResourceChanged);
+            EventBus<BuildPanelToggleRequestedEvent>.Unsubscribe(OnToggleRequested);
             if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
             if (placementController != null) placementController.ToolCleared -= OnToolCleared;
         }
@@ -145,7 +151,21 @@ namespace LittlePeeps
 
         private void OnTabHotkey(BuildTabRequestedEvent e)
         {
-            if (isOpen) SelectTab(e.Index);
+            if (!isOpen) return;
+            SetShown(true);   // reaching for a tab means wanting the panel
+            SelectTab(e.Index);
+        }
+
+        private void OnToggleRequested(BuildPanelToggleRequestedEvent _) => SetShown(!shown);
+
+        // Show or hide the palette and the sell button. Hidden, nothing stays in hand: a card or the sell
+        // tool held by an invisible panel would turn the next tap into a building.
+        private void SetShown(bool value)
+        {
+            if (shown == value) return;
+            shown = value;
+            if (!shown) Deselect();
+            EventBus<BuildPanelShownEvent>.Publish(new BuildPanelShownEvent { Shown = shown });
         }
 
         // The palette's CONTENT follows the mode; its visibility is UIVisibility's row for this group.
@@ -181,10 +201,12 @@ namespace LittlePeeps
         }
 
         // Sell hotkey: route through the same toggle path as the sell button so the highlight and the
-        // PlacementController stay in sync. Ignored over any other screen.
+        // PlacementController stay in sync. Ignored over any other screen; brings a hidden panel back.
         private void OnSellHotkey(SellModeRequestedEvent _)
         {
-            if (isOpen) OnSellClicked();
+            if (!isOpen) return;
+            SetShown(true);
+            OnSellClicked();
         }
 
         private void OnCardClicked(BuildCardUI card)

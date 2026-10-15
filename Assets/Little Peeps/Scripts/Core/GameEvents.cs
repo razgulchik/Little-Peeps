@@ -59,6 +59,18 @@ namespace LittlePeeps
         public ZoneOffer Offer;
     }
 
+    // Published by the build button (BuildPanelButton) or its hotkey: show the build palette and the sell
+    // button if they are hidden, hide them if they are shown. Handled by BuildPanelUI, which owns that state.
+    public struct BuildPanelToggleRequestedEvent { }
+
+    // Pushed by BuildPanelUI whenever the player shows or hides the build panel. UIVisibility applies it to
+    // the rows marked to follow it; the build button swaps its label. Not a mode: the game runs the same
+    // either way — it is only how much of the screen the panel takes.
+    public struct BuildPanelShownEvent
+    {
+        public bool Shown;
+    }
+
     // Published by the sell hotkey (GameHotkeys). BuildPanelUI toggles its Sell tool during normal play, so
     // the button highlight and the PlacementController stay in sync; a no-op over any other screen.
     public struct SellModeRequestedEvent { }

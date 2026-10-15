@@ -959,20 +959,28 @@ MonoBehaviour:
   groups:
   - group: {fileID: 928229907151762420}
     visibleIn: 59
+    followsBuildPanel: 0
   - group: {fileID: 3706059102129453132}
     visibleIn: 57
+    followsBuildPanel: 0
   - group: {fileID: 8361800881523370260}
     visibleIn: 1
+    followsBuildPanel: 1
   - group: {fileID: 1749776260698554320}
     visibleIn: 1
+    followsBuildPanel: 1
   - group: {fileID: 6398945780874908185}
     visibleIn: 8
+    followsBuildPanel: 0
   - group: {fileID: 2805012886633077657}
     visibleIn: 4
+    followsBuildPanel: 0
   - group: {fileID: 5360033590157172622}
     visibleIn: 1
+    followsBuildPanel: 0
   - group: {fileID: 3281541433463076300}
     visibleIn: 64
+    followsBuildPanel: 0
 --- !u!1 &1708429310929672710
 GameObject:
   m_ObjectHideFlags: 0
@@ -1399,13 +1407,14 @@ GameObject:
   - component: {fileID: 9036447286054979182}
   - component: {fileID: 6222285629066364438}
   - component: {fileID: 4748595056572920495}
+  - component: {fileID: 5294958532607051882}
   m_Layer: 5
   m_Name: ModeButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &7496599337612676022
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1507,6 +1516,22 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5294958532607051882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2126743764944068217}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b675a77966c83e47b0ebce43377a29c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  button: {fileID: 4748595056572920495}
+  label: {fileID: 0}
+  hideLabel: B
+  showLabel: B
 --- !u!1 &2289026927527295770
 GameObject:
   m_ObjectHideFlags: 0

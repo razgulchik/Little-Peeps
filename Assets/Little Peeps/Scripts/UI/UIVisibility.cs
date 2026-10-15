@@ -4,8 +4,8 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // The one table of what is on screen in each UI mode. Every gameplay state announces its own mode
-    // (UIModeChangedEvent) and this maps that onto CanvasGroups — so "the age panel is hidden while
-    // building" is an inspector row, not a line of code in the build panel.
+    // (UIModeChangedEvent) and this maps that onto CanvasGroups — so "the age panel is hidden during a
+    // perk pick" is an inspector row, not a line of code in the build panel.
     //
     // It replaced four private SetVisible(bool) methods that each wrote out the same alpha /
     // interactable / blocksRaycasts triple, and one panel reaching across the hierarchy to switch off
@@ -15,6 +15,10 @@ namespace LittlePeeps
     // Groups NEST: a row for the HUD root and a row for the age panel inside it both work, because
     // CanvasGroup alpha multiplies down the chain and a non-interactable parent disables its children.
     // So a group only needs a row when it differs from its parent.
+    //
+    // One switch besides the mode: the player can hide the build panel (BuildPanelShownEvent). A row marked
+    // to follow it is visible only while its mode says so AND the panel is shown — still this table's row,
+    // so the group keeps one owner instead of a button writing over what the mode just set.
     [DisallowMultipleComponent]
     public class UIVisibility : MonoBehaviour
     {
@@ -25,21 +29,38 @@ namespace LittlePeeps
 
             [Tooltip("The modes this group is visible in. A mask — tick every mode it survives.")]
             public UIMode visibleIn;
+
+            [Tooltip("Also hidden while the player has the build panel hidden (the build button / its key).")]
+            public bool followsBuildPanel;
         }
 
         [Tooltip("One row per CanvasGroup whose visibility depends on the mode. Anything not listed is " +
                  "left alone, so a group that is always on needs no row.")]
         [SerializeField] private List<Entry> groups = new();
 
+        // The last mode announced and the build panel switch — the table is applied from both, whichever
+        // changes. The panel starts shown, as BuildPanelUI does.
+        private UIMode mode = UIMode.Playing;
+        private bool buildPanelShown = true;
+
         // The mode the game boots into, applied before any event can arrive. GameBootstrap.Awake builds
         // the FSM — and so publishes the first mode — and Unity gives no order between that Awake and
         // this one. Establishing the boot mode here makes the order irrelevant instead of depending on
         // it: either the event arrives and is applied, or it was missed and this already said the same
         // thing. Same rule BuildPanelUI follows.
-        private void Awake() => Apply(UIMode.Playing);
+        private void Awake() => Apply();
 
-        private void OnEnable() => EventBus<UIModeChangedEvent>.Subscribe(OnModeChanged);
-        private void OnDisable() => EventBus<UIModeChangedEvent>.Unsubscribe(OnModeChanged);
+        private void OnEnable()
+        {
+            EventBus<UIModeChangedEvent>.Subscribe(OnModeChanged);
+            EventBus<BuildPanelShownEvent>.Subscribe(OnBuildPanelShown);
+        }
+
+        private void OnDisable()
+        {
+            EventBus<UIModeChangedEvent>.Unsubscribe(OnModeChanged);
+            EventBus<BuildPanelShownEvent>.Unsubscribe(OnBuildPanelShown);
+        }
 
         // A row with no group is a half-finished line in the table, and the panel it was meant to name
         // would sit on screen for the whole run. Checked in Start so the warning lands once, after every
@@ -52,14 +73,27 @@ namespace LittlePeeps
                                      "to show or hide is not under this table's control.", this);
         }
 
-        private void OnModeChanged(UIModeChangedEvent e) => Apply(e.Mode);
+        private void OnModeChanged(UIModeChangedEvent e)
+        {
+            mode = e.Mode;
+            Apply();
+        }
+
+        private void OnBuildPanelShown(BuildPanelShownEvent e)
+        {
+            buildPanelShown = e.Shown;
+            Apply();
+        }
 
         // Every row, every time: the table is the state, so nothing can drift out of sync with a mode it
         // happened not to be told about.
-        private void Apply(UIMode mode)
+        private void Apply()
         {
             for (int i = 0; i < groups.Count; i++)
-                Set(groups[i].group, (groups[i].visibleIn & mode) != 0);
+            {
+                var row = groups[i];
+                Set(row.group, (row.visibleIn & mode) != 0 && (!row.followsBuildPanel || buildPanelShown));
+            }
         }
 
         // The show/hide triple, in one place. blocksRaycasts matters as much as alpha — an invisible panel

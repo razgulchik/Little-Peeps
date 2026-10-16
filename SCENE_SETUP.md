@@ -4,7 +4,8 @@
 Документ держим синхронным с кодом — обновляем при добавлении/переименовании систем и полей.
 
 > Полная сверка с кодом, сценой и префабами: **2026-10-08**. Стройка в реальном времени (режима
-> стройки больше нет): **2026-10-15**, сверено со сценой и `Canvas.prefab`. Не описана проводка звука
+> стройки больше нет): **2026-10-15**, сверено со сценой и `Canvas.prefab`. Цикл подношений (престиж
+> через пирс убран): **2026-10-16**, сверено со сценой и `Canvas.prefab`. Не описана проводка звука
 > (`SoundSystem` / `SoundDef`): система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -38,6 +39,7 @@ SampleScene
 │   ├── AgeSystem               → AgeSystem          (каталог эпох + CanAdvance)
 │   ├── AgeSequencer            → AgeSequencer
 │   ├── HarvestVfxSystem        → HarvestVfxSystem + HarvestNumbers   (эффекты сбора; эмиттеры и цифры становятся его детьми)
+│   ├── OfferingSystem          → OfferingSystem     (цикл подношений: часы, квота, оплата из запасов)
 │   ├── PerkSystem              → PerkSystem
 │   ├── PrestigeSystem          → PrestigeSystem
 │   ├── PlacementController     → PlacementController
@@ -65,13 +67,11 @@ SampleScene
 ├── ZonePreviewOverlay          → MeshFilter + MeshRenderer + ZonePreviewOverlay   (заливка зоны под карточкой при выборе)
 ├── IslandRise                  → IslandRisePlayer   (Transform 0,0,0; в рантайме его дети — дублёры тайлов,
 │                                  излучатели эффектов, «Rise voices» и CinemachineImpulseSource)
-├── Music                       → AudioSource: Audio Resource = трек флейты, Play On Awake, Loop, Priority 0
-│                                  ← фоновая музыка без кода: играет с запуска всю сессию, timeScale её не трогает
+├── Music (выключен)            → AudioSource: Audio Resource = трек флейты, Play On Awake, Loop, Priority 0
+│                                  ← фоновая музыка без кода: играет с запуска всю сессию, timeScale её не трогает.
+│                                    Сейчас объект выключен в сцене — музыки нет
 └── Canvas                      → префаб `Prefabs/Elements/Canvas`: Canvas + CanvasScaler + GraphicRaycaster
     │                             + **UIRoot** + **UIVisibility**. Порядок детей = порядок отрисовки: ниже = поверх
-    ├── Prestige                → CanvasGroup
-    │   └── PrestigeButton      → Image + Button + CanvasGroup + PrestigeButton   (висит над пирсом)
-    │       └── Text (TMP)      → TMP_Text
     ├── Hud                     → CanvasGroup                    ← весь игровой HUD одной группой
     │   ├── AgePanel            → CanvasGroup + AgeAdvancePanel
     │   │   ├── Advance
@@ -123,13 +123,19 @@ SampleScene
     │   │   │   └── Content     → Vertical Layout Group + Content Size Fitter   (строки мета-перков в рантайме)
     │   │   └── Scrollbar Vertical
     │   └── PlayButton          → Image + Button
-    └── FPSmeter
-        └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
+    ├── FPSmeter
+    │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
+    └── OfferingPanel           → CanvasGroup + OfferingPanel   ← ВРЕМЕННЫЙ виджет подношения (до полосы сверху):
+        │                         по центру над серединой экрана; цикл, время, квота «Wood 32/40»
+        ├── Label               → TMP_Text
+        └── OfferButton         → Image + Button                ← подношение досрочно
+            └── Text (TMP)      → TMP_Text
 ```
 
 > `HintView` и `ConfirmDialog` по замыслу кода — **последние** дети Canvas, чтобы рисоваться поверх всего.
-> Сейчас после них стоят `MetaScreen` и `FPSmeter`. На деле не мешает: вопрос «End this run?» задаётся
-> до мета-экрана, а сам мета-экран подсказок не показывает. Если это изменится — перенести оба вниз.
+> Сейчас после них стоят `MetaScreen`, `FPSmeter` и `OfferingPanel`. На деле не мешает: окно конца цикла
+> (это `ConfirmDialog`) идёт в режиме `OfferingEnd`, где `OfferingPanel` скрыт, а мета-экран открывается
+> уже после ответа и подсказок не показывает. Если это изменится — перенести оба вниз.
 
 ## Checklist проводки (критично)
 
@@ -143,6 +149,7 @@ SampleScene
 | | | **buildingSystem** | **StructureSystem** (поле зовётся «Building System»!) |
 | | | **tapSystem, runManager, prestigeSystem, saveSystem** | соответствующие компоненты |
 | | | **ageSystem** | AgeSystem (нужен для эпох) |
+| | | **offeringSystem** | `Systems/OfferingSystem`. Пусто — ошибка в консоли, игра идёт без цикла: ни квот, ни перков, ни кары, а значит, забег не закончить |
 | | | ageSequencer, perkSystem | AgeSequencer, PerkSystem |
 | | | **placementController** | PlacementController — стройка; его же бутстрап отдаёт `TapSystem` кодом, чтобы клик с инструментом в руке не был тапом |
 | | | **uiRoot** | **UIRoot на Canvas** — единственная UI-ссылка бутстрапа; панели разведены внутри префаба |
@@ -159,14 +166,15 @@ SampleScene
 | | | soundSystem | SoundSystem (юниты берут его отсюда для своих звуков; пуф тоже звучит через него) |
 | | | stuckSweepInterval | 0.5 с (дефолт): как часто ищутся застрявшие юниты — их отправляют в ближайший дом |
 | | | puffFx, puffParticles | «пуф», с которым исчезают лишние жители проданного дома и звери проданной норы: префаб ParticleSystem как общий эмиттер (World space, Looping, без своей эмиссии) и частиц на пуф (8). **В сцене пусто** — исчезают без эффекта |
-| | | puffSound | SoundDef пуфа. **В сцене пусто** — беззвучно |
+| | | puffSound | SoundDef пуфа — в сцене `SoundDef/Puff_Air` (3 варианта звука, `Sound/Puff`) |
 | Systems/UnitSystem | UnitSystem | — | (полей нет) |
 | Systems/UnitPool | UnitPool | — | (полей нет; юниты инстанцируются его детьми) |
 | Systems/PerkSystem | PerkSystem | catalogue | `ScriptableObjects/Perks/Perk Catalogue Def` (PerkCatalogueDef — список перков) |
-| | | choicesOffered | 3 (дефолт): сколько карточек в выборе перка |
+| | | choicesOffered | 3 (дефолт): сколько карточек в выборе перка (особых бывает меньше — сколько осталось) |
+| Systems/OfferingSystem | **OfferingSystem** | **schedule** | `ScriptableObjects/OfferingDef/Offering Schedule Def`. Пусто или без циклов — предупреждение, цикл выключен |
+| | | **resourceSystem** | ResourceSystem — из неё платится квота |
 | Systems/PrestigeSystem | **PrestigeSystem** | **saveSystem** | SaveSystem (на `Bootstrap`) |
-| | | formula | выплата: очки за эпоху + кривая по всему собранному; платится только то, что бьёт рекорды профиля |
-| | | pierUnlockAge | 3 (дефолт): с какой эпохи над пирсом появляется кнопка престижа (номер как у игрока: 3 = Age III) |
+| | | formula | выплата: очки за эпоху + кривая по всему собранному; платится только то, что бьёт рекорды профиля. Выплата — при каре богов, в любой эпохе |
 | | | upgrades | `Global Upgrade Catalogue Def` (GlobalUpgradeCatalogueDef) — мета-перки в порядке мета-экрана |
 | Systems/AgeSystem | **AgeSystem** | **ages, resourceSystem** | список AgeDef-ассетов по порядку (начинается с Age II — у Age I дефа нет); ResourceSystem |
 | Systems/AgeSequencer | AgeSequencer | islandSystem | Island |
@@ -239,12 +247,9 @@ SampleScene
 | Объект | Компонент | Поле | Что назначить |
 |--------|-----------|------|---------------|
 | Canvas | **UIRoot** | **zoneScreen, perkScreen, confirmDialog, metaScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen`, `ConfirmDialog`, `MetaScreen` — их зовут гейплейные стейты |
-| | | ageAdvance, ageCost, ageTimeline, prestigeButton | `Hud/AgePanel`, `.../Advance/Frame/Cost`, `.../Timeline/Frame`, `Prestige/PrestigeButton` — им нужен RunContext |
+| | | ageAdvance, ageCost, ageTimeline, offeringPanel | `Hud/AgePanel`, `.../Advance/Frame/Cost`, `.../Timeline/Frame`, `OfferingPanel` — им нужен RunContext (виджету — OfferingSystem) |
 | Canvas | **UIVisibility** | groups | 8 строк, таблица ниже |
-| Canvas/Prestige/PrestigeButton | **PrestigeButton** | button, label | Button, `Text (TMP)` |
-| | | labelFormat | `Prestige +{0}` — `{0}` = выплата |
-| | | zeroPayoutAlpha | 0.6 — прозрачность, пока забег не бьёт рекорд (кнопка всё равно нажимается) |
-| | | worldCamera | камера мира, чтобы найти пирс на экране (пусто = `Camera.main`) |
+| Canvas/OfferingPanel | OfferingPanel | label, offerButton | `Label` (TMP_Text), `OfferButton` (Button — активна, когда квота собрана целиком). Временный виджет, уйдёт с полосой сверху |
 | Canvas/Hud/BuildBar/ModeButton | BuildPanelButton | button, label, hideLabel, showLabel | Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Клик только просит (`BuildPanelToggleRequestedEvent`), видна ли панель — решает `BuildPanelUI` |
 | Canvas/Hud/BuildBar/Palette | **BuildPanelUI** | palette | `ScriptableObjects/BuildMode/Build Palette Def` |
 | | | placementController, resourceSystem | PlacementController, ResourceSystem (в сцене!) |
@@ -267,7 +272,7 @@ SampleScene
 | Canvas/MetaScreen | **MetaUpgradesUI** | rowPrefab, rowContainer | префаб `Prefabs/Elements/MetaUpgradeRow`, `Scroll View/Viewport/Content` |
 | | | pointsText, pointsFormat | `PointsText`, `Prestige points: {0}` |
 | | | **playButton** | `PlayButton` — следующий забег |
-| Canvas/ConfirmDialog | **ConfirmDialog** | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию |
+| Canvas/ConfirmDialog | **ConfirmDialog** | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию. Сейчас это **окно конца цикла**: Yes = «Offer», No = «Accept wrath» (надписи задаёт код). Yes бывает серой (ресурсов не хватает) — у кнопки Yes должен быть вид «отключена» (Disabled Color или спрайт) |
 
 #### Таблица UIVisibility
 
@@ -280,22 +285,24 @@ SampleScene
 режим говорит «да» **и** игрок не спрятал панель стройки (кнопка `ModeButton` или B). Это всё ещё строка
 таблицы, так что у группы один хозяин — кнопка ничего не пишет поверх того, что выставил режим.
 
-| # | Group | Playing | ZonePick | PerkPick | AgeTransition | PrestigeConfirm | MetaUpgrades | За панелью |
+| # | Group | Playing | ZonePick | PerkPick | AgeTransition | MetaUpgrades | OfferingEnd | За панелью |
 |---|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 0 | `Hud` | ✓ | — | ✓ | ✓ | ✓ | — | — |
-| 1 | `Hud/AgePanel` | ✓ | — | ✓ | ✓ | ✓ | — | — |
+| 0 | `Hud` | ✓ | — | ✓ | ✓ | — | — | — |
+| 1 | `Hud/AgePanel` | ✓ | — | ✓ | ✓ | — | — | — |
 | 2 | `Hud/BuildBar/Palette` | ✓ | — | — | — | — | — | ✓ |
 | 3 | `Hud/BuildBar/Sell` | ✓ | — | — | — | — | — | ✓ |
 | 4 | `Screens/PerkScreen` | — | — | ✓ | — | — | — | — |
 | 5 | `Screens/ZoneScreen` | — | ✓ | — | — | — | — | — |
-| 6 | `Prestige` | ✓ | — | — | — | — | — | — |
-| 7 | `MetaScreen` | — | — | — | — | — | ✓ | — |
+| 6 | `MetaScreen` | — | — | — | — | ✓ | — | — |
+| 7 | `OfferingPanel` | ✓ | — | — | — | — | — | — |
 
-Строка 0 читается как «всё, кроме выбора зоны и мета-экрана» (оба забирают себе весь экран), строки 2–3 —
-палитра и Sell всю живую игру, пока игрок их не спрятал, строка 6 — кнопка престижа только в живой игре.
-Строка 1 когда-то прятала панель эпохи в режиме стройки; без него она совпадает со строкой 0 и ничего не
-меняет — её можно удалить. Бит бывшего режима `Build` (`1 << 1`) в коде оставлен пустым, поэтому старые маски
-читаются как раньше: у `Hud` он до сих пор отмечен в сериализации, но ни на что не влияет.
+Строка 0 читается как «всё, кроме выбора зоны, мета-экрана и окна конца цикла»; строки 2–3 — палитра и Sell
+всю живую игру, пока игрок их не спрятал; строка 7 — виджет подношения только в живой игре. **В окне конца
+цикла HUD скрыт целиком**, запасов не видно — если их нужно видеть, отметить `OfferingEnd` у `Hud` (и у
+`Hud/AgePanel`, если панель эпохи тоже нужна). Строка 1 когда-то прятала панель эпохи в режиме стройки; без
+него она совпадает со строкой 0 и ничего не меняет — её можно удалить. Биты бывших режимов `Build` (`1 << 1`)
+и `PrestigeConfirm` (`1 << 5`) в коде оставлены пустыми, поэтому старые маски читаются как раньше: у `Hud` и
+`Hud/AgePanel` они до сих пор отмечены в сериализации, но ни на что не влияют.
 
 > Панели **не прячут сами себя** и не лезут в чужие корни. Если экран не появился — смотри сюда, а не
 > в код панели. Пустое поле `group` в строке ловится предупреждением в консоли на старте.
@@ -366,7 +373,7 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 | **Mill** (мельница, только у реки) | secondsPerSack, capacity | 4 с на мешок, 5 мешков в запасе; полная мельница не мелет |
 | **RicePaddy** (рисовое поле) | growTime | 30 с роста; растёт, только пока на поле никого нет |
 | **VisitZone** (проход рынка) | hitsPerVisit | 3 засчитанных удара за заход — база, стат `MarketVisitHits` сверху |
-| **Pier** | buttonAnchor | точка над пирсом, где висит кнопка престижа |
+| **Pier** | — | маркер без полей (см. «Пирс») |
 
 > Природные источники (дерево, пшеница, камень) — это `Structure` + `ResourceSource` (+ `ResourceSourceView`) **без** `Spawner`.
 > Юниты появятся только если у `Spawner` заполнены `spawnSystem` + `unitDef` (цикл стартует в `Spawner.Start()`).
@@ -530,11 +537,13 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 на восточный берег стартовой зоны, и дальше он стоит на месте. Морской проход от него до горизонта
 генератор зон держит свободным.
 - **Префаб** (`Prefabs/Buildings/Pier`) = Rigidbody2D (Static) + `Structure` + `Pier` + Visual/Model + Physics (BoxCollider2D)
-  + пустышка `ButtonAnchor`. `Pier` — маркер: по нему кнопка престижа находит пирс забега и висит над `buttonAnchor`.
+  + пустышка `ButtonAnchor`. `Pier` — пустой маркер: его сейчас никто не читает, оставлен под то, чем пирс станет
+  дальше (лодки, своя механика). `ButtonAnchor` — точка, над которой висела кнопка престижа; теперь не используется,
+  можно удалить или оставить под будущую кнопку.
 - **StructureDef Пирса:** `placement = Cell`, `border = 0` (иначе потребует клетки за краем острова), `size` 1×3,
   `cost` пустой, `canSell` выкл. В палитру стройки не кладётся.
-- **Престиж — кнопка, а не клик по пирсу:** `Canvas/Prestige/PrestigeButton` появляется с эпохи
-  `PrestigeSystem.pierUnlockAge` и висит над пирсом.
+- **Забег пирс больше не заканчивает:** кнопки престижа нет, забег кончается только карой богов в конце цикла
+  подношений.
 
 ## ScriptableObject-ассеты
 
@@ -552,7 +561,8 @@ visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Под�
 | **TerrainBorderSet** | LittlePeeps/TerrainBorderSet | граница одного биома, кладётся тайлмапом из строки `IslandSystem.borders`. **edgeAllRound** — край по всему краю биома (и к биомам выше, и к воде), а не только к тем, что он накрывает; **overSea** — кайма и на клетки воды вдоль берега. На биом выше кайма не ложится никогда — это его граница. 8 слотов **Over** — кайма на клетке нижнего биома (4 стороны + 4 вогнутых угла); 8 слотов **Edge** — край на своей клетке. В подсказке слота — имя файла художника. Спрайты: **Pivot = Center**, иначе граница съезжает (с Bottom Center — на полклетки вверх). В проекте: `TileSet/Forest Border Set` (обе галочки включены), тайлы в `Tiles/BordersForest` |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | tabs: вкладки нижней панели, у каждой name, icon, structures (список StructureDef). Порядок вкладок = порядок кнопок и цифр 1–9, порядок structures = порядок карточек; пустая вкладка кнопку не получает. Группировка живёт здесь, на StructureDef категории нет |
 | **AgeDef** | LittlePeeps/AgeDef | title (только в лог — на баннере номер римскими цифрами), resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), bonusOverride (текст вместо сгенерированного описания). Порядок задаётся списком `AgeSystem.ages`, начиная с Age II |
-| **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, weight (шанс выпасть), requires (предыдущий уровень — цепочки уровней). Stat Perk — modifiers[]; Unlock Structure Perk — structure (снимает `lockedUntilPerk`) |
+| **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, **grade** (Common — обычные подношения и стартовый выбор; Special — только подношения особых циклов; наборы не смешиваются, а если особых не осталось, особый цикл даёт обычные), weight (шанс выпасть), minAge (с какой эпохи предлагается), requires (предыдущий уровень — цепочки уровней). Stat Perk — modifiers[]; Unlock Structure Perk — structure (снимает `lockedUntilPerk`). Особые сейчас: Good rest, Bigger Houses, Unl Rice Paddy |
+| **Offering Schedule** | LittlePeeps/Offering Schedule | цикл подношений, для `OfferingSystem.schedule`: cycleSeconds (длина цикла в секундах игры — пауза не идёт), cycles[] (квота каждого цикла по порядку, первый элемент = цикл 1; ресурс эпохой не проверяется — не просить его раньше, чем обычный игрок до неё дойдёт), growthPastEnd (после списка повторяется последний набор, ×рост за каждый лишний цикл, округление вверх), specialEvery (каждый N-й цикл особый, 0 = нет). В проекте `OfferingDef/Offering Schedule Def`, **тестовые** значения: 60 с, дерево 10 → дерево 20 → еда 10, ×1.25, каждый 3-й; настоящие числа — за Даниилом |
 | **PerkCatalogueDef** | LittlePeeps/Perk Catalogue | perks — список перков для `PerkSystem.catalogue` |
 | **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Start Age | общее: id, title, description, maxLevel. Stat Upgrade — modifiers[]; Start Resources — resources; Start Age — zoneBiome (каким биомом растут пропущенные эпохи) |
 | **GlobalUpgradeCatalogueDef** | LittlePeeps/Meta/Upgrade Catalogue | upgrades — мета-перки в порядке мета-экрана, для `PrestigeSystem.upgrades` |
@@ -644,9 +654,13 @@ Script Execution Order настраивать **не нужно** (это кос
    клик ставит стройплощадку, которая становится зданием, когда с места все уйдут; Sell продаёт; ПКМ — пустая рука,
    клик снова тап. B прячет / показывает панель.
 5. **Next Age** (`AgeAdvancePanel`) активна, когда хватает ресурсов: клик → выбор зоны → зона поднимается из моря →
-   баннер «Age N» → выбор перка. Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
-6. С эпохи `pierUnlockAge` над пирсом — кнопка престижа → «End this run?» → Yes → очки престижа → мета-экран
-   (тратим очки на мета-перки) → **Play** → новый забег; камера снова в центре острова.
+   баннер «Age N» → снова игра (перка за эпоху нет). Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
+6. **Цикл подношений** идёт с первой секунды (`OfferingPanel` по центру: цикл, время, «Wood 3/10»); на любом экране
+   поверх игры часы стоят. Квота собрана → кнопка подношения активна → клик списывает квоту и сразу открывает выбор
+   перка (в особом цикле — особые перки); цикл дотикает и сменится следующим без окна.
+7. Время вышло, а подношения не было → пауза и окно «Cycle N is over…»: **Offer** (серая, если не хватает) → выбор
+   перка и следующий цикл; **Accept wrath** → очки престижа → мета-экран (тратим очки на мета-перки) → **Play** →
+   новый забег с цикла 1; камера снова в центре острова.
 
 ## Project settings — важное (не в сцене, но влияет)
 

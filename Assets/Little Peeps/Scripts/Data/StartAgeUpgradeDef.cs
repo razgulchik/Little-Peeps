@@ -3,12 +3,12 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // A meta perk that starts every run some ages in: level 1 = the Age II, level 2 = the Age III. Each
-    // skipped age is entered for free — its bonus, its zone of island, its perk pick — so the run stands
-    // where a run that bought those ages would.
+    // skipped age is entered for free — its bonus and its zone of island — so the run stands where a run
+    // that bought those ages would. Ages give no perk pick (perks come from the offerings), so neither does
+    // a skipped one.
     //
     // The zone choice is skipped too (the user's call): the island grows straight away, every skipped zone in
-    // ONE biome set here, since the start is the moment for the most universal land. The perk picks are kept
-    // and come one after another before play begins (RunContext.perkPicksOwed).
+    // ONE biome set here, since the start is the moment for the most universal land.
     //
     // Only the intent goes into the run here — this has neither the age list nor the island. RunManager
     // carries it out once the island exists (SkipStartAges), through the same TriggerAgeCmd.EnterAge a

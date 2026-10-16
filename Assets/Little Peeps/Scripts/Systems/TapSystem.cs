@@ -6,9 +6,9 @@ namespace LittlePeeps
     // Handles game-object taps: boosts units in an AoE radius around the cursor. A ring (TapRadiusVisual)
     // follows the cursor every frame so the player sees the boost area; it shows while the game runs and
     // the hand is empty — frozen screens (perk pick, age transition) hide it, and so does a build card or
-    // the sell tool in hand, since the click is placement's then. The pier is not clickable any
-    // more: prestige starts from PrestigeButton, a UI button hanging over it. A click on UI never gets here
-    // (InputHandler keeps it out of OnWorldClick), so a button pressed over the island boosts no one.
+    // the sell tool in hand, since the click is placement's then. The pier is not clickable. A click on UI
+    // never gets here (InputHandler keeps it out of OnWorldClick), so a button pressed over the island boosts
+    // no one.
     //
     // Every live tap answers, through the SoundSystem. A tap that boosts anyone is answered by the boosted
     // units themselves (UnitDef.tapSound): the nearest first, then each next one rippleStep later — a ripple

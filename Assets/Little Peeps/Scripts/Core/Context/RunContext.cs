@@ -21,16 +21,23 @@ namespace LittlePeeps
             !ReferenceEquals(def, null) && standing.TryGetValue(def, out int n) ? n : 0;
 
         // The age NUMBER the player sees: a run starts in the Age I, and every transition bought adds one.
-        // Every age-gated field the designer types in (StructureDef.requiredAge, PerkDef.minAge,
-        // PrestigeSystem.pierUnlockAge) is on this same scale, so it is compared as it stands — no +1
-        // anywhere. Transitions bought so far = currentAge - FirstAge.
+        // Every age-gated field the designer types in (StructureDef.requiredAge, PerkDef.minAge) is on this
+        // same scale, so it is compared as it stands — no +1 anywhere. Transitions bought so far =
+        // currentAge - FirstAge.
         public const int FirstAge = 1;
         public int currentAge = FirstAge;
 
         public List<PerkDef> perksChosen = new();
 
+        // The offering cycle (OfferingSystem): the cycle the run is in (1-based), the seconds of play it
+        // has run for, and whether its quota has already been offered. Plain numbers, kept here rather than
+        // on the system so a save can carry them like the age.
+        public int offeringCycle = 1;
+        public float offeringElapsed;
+        public bool offeredThisCycle;
+
         // Perk picks the run is owed at its start, shown one after another before play begins: one from
-        // StartPerkPickUpgradeDef, one per age skipped by StartAgeUpgradeDef. GameplayContainerState opens
+        // StartPerkPickUpgradeDef (skipped ages owe none — ages give no perks). GameplayContainerState opens
         // the first, PerkSelectionState counts them down and shows the rest in the same sitting. A pick that
         // finds nothing to offer drops what is left — the roll would only come up empty again.
         public int perkPicksOwed;

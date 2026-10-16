@@ -16,19 +16,10 @@ namespace LittlePeeps
         [Tooltip("The payout: points per age, plus a curve on everything the run harvested.")]
         [SerializeField] private PrestigeFormula formula = new();
 
-        [Tooltip("The age from which the prestige button shows over the pier. Below it a run cannot be " +
-                 "ended — a run that young isn't worth cashing in. Numbered as the player sees it: 3 = " +
-                 "from the Age III.")]
-        [Min(0)]
-        [SerializeField] private int pierUnlockAge = 3;
-
         [Tooltip("The meta perks prestige points buy, in the order the meta screen lists them.")]
         [SerializeField] private GlobalUpgradeCatalogueDef upgrades;
 
         private MetaContext metaContext;
-
-        // Public for PlayingState's log when a prestige is asked for too early.
-        public int PierUnlockAge => pierUnlockAge;
 
         public IReadOnlyList<GlobalUpgradeDef> Upgrades =>
             upgrades != null && upgrades.upgrades != null
@@ -47,8 +38,8 @@ namespace LittlePeeps
             ValidateCatalogue();
         }
 
-        // What this run is worth in prestige points. Pure and side-effect free — the prestige button and its
-        // "End this run?" question show the projection by calling exactly this. The formula itself lives in
+        // What this run is worth in prestige points. Pure and side-effect free — CashIn banks exactly this, and
+        // anything that wants to show the projection calls it too. The formula itself lives in
         // PrestigeFormula, so the arithmetic is inspector-tunable and testable without a scene.
         //
         // The records are read here rather than passed in: what has already been paid out belongs to the
@@ -58,30 +49,16 @@ namespace LittlePeeps
             return formula != null ? formula.Points(context, metaContext) : 0;
         }
 
-        // Whether this run may be cashed in yet. The single source of truth for the unlock — the prestige
-        // button asks it to show itself, the states ask it before asking the player, and CashIn asks it again
-        // before acting.
-        public bool CanPrestige(RunContext context)
-        {
-            return context != null && context.currentAge >= pierUnlockAge;
-        }
-
         // Cash the run in: credit what it beat, raise the records it beat, persist. This is the moment a run
-        // ends by the player's choice — from here on it is paid for and only waits, frozen under the meta
-        // screen, to be replaced. It is NOT replaced here: the meta screen's Play button does that, after
-        // the spending. Returns false when refused.
+        // ends — from here on it is paid for and only waits, frozen under the meta screen, to be replaced.
+        // It is NOT replaced here: the meta screen's Play button does that, after the spending. Returns
+        // false when refused (no profile to bank into).
+        //
+        // No age gate: the gods' wrath ends a run in any age (OfferingEndState), and a run too young to beat
+        // a record simply pays nothing.
         public bool CashIn(RunContext context)
         {
             if (context == null || metaContext == null) return false;
-
-            if (!CanPrestige(context))
-            {
-                // A warning, not a quiet return: reaching here means a caller skipped the gate, which is a
-                // wiring bug. The player-facing "not yet" is the button not being there.
-                Debug.LogWarning($"CashIn at age {context.currentAge}, but prestige opens at {pierUnlockAge}. " +
-                                 "Refused — check the caller's gate.", this);
-                return false;
-            }
 
             // Read EVERYTHING the finished run is worth before anything moves: Calculate subtracts the
             // records as they stand now, so raising them first would pay the run nothing.

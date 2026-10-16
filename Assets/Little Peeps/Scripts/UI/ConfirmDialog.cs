@@ -10,7 +10,7 @@ namespace LittlePeeps
     // A confirmation that needs content of its own (icons, a breakdown of points) is a screen, not this.
     //
     // It deliberately does not pause the game and does not know what it is asking about. Pausing is the
-    // caller's call — PrestigeMenuState freezes the run around its question, a question asked in build
+    // caller's call — OfferingEndState freezes the run around its question, a question asked in build
     // mode would have nothing to freeze — and that ignorance is what lets one prefab serve every question.
     //
     // Its visibility is its own and NOT a row in UIVisibility: a question can come up over any mode, so
@@ -34,6 +34,7 @@ namespace LittlePeeps
         private CanvasGroup group;
         private Action onYes;
         private Action onNo;
+        private bool yesEnabled = true;
 
         // The labels as authored, read before any caller can overwrite them: passing no label must mean
         // the prefab's words, not whatever the previous question happened to say.
@@ -65,7 +66,7 @@ namespace LittlePeeps
         }
 
         // Wiring tripwire, in Start so every Awake has had its chance first. A dialog that cannot show its
-        // question or take an answer would leave whoever asked waiting — PrestigeMenuState with the game
+        // question or take an answer would leave whoever asked waiting — OfferingEndState with the game
         // frozen under it.
         private void Start()
         {
@@ -77,10 +78,15 @@ namespace LittlePeeps
         // Ask. The answer arrives as exactly one call to onYes or onNo (either may be null), made after the
         // dialog has already closed — see Answer. A label left null shows the prefab's own.
         //
+        // `yesEnabled` false greys Yes out: the question still offers it, but it cannot be taken now (the
+        // end-of-cycle window shows the offering even when the stock cannot pay it). Every Show sets it
+        // afresh, so a greyed Yes never leaks into the next question.
+        //
         // Returns whether the question is actually on screen. False only when the object is inactive,
         // where the CanvasGroup cannot show anything: a caller that freezes the game around its question
         // must then not freeze it, or the player is left with no way to answer.
-        public bool Show(string message, Action onYes, Action onNo, string yesText = null, string noText = null)
+        public bool Show(string message, Action onYes, Action onNo, string yesText = null, string noText = null,
+                         bool yesEnabled = true)
         {
             if (!gameObject.activeInHierarchy)
             {
@@ -101,6 +107,8 @@ namespace LittlePeeps
             if (messageText != null) messageText.text = message;
             if (yesLabel != null) yesLabel.text = yesText ?? defaultYes;
             if (noLabel != null) noLabel.text = noText ?? defaultNo;
+            if (yesButton != null) yesButton.interactable = yesEnabled;
+            this.yesEnabled = yesEnabled;
 
             IsOpen = true;
             UIVisibility.Set(Group, true);
@@ -118,8 +126,13 @@ namespace LittlePeeps
             UIVisibility.Set(Group, false);
         }
 
-        // The two answers — what the buttons call, public so a key can give them too.
-        public void Confirm() => Answer(onYes);
+        // The two answers — what the buttons call, public so a key can give them too. A greyed-out Yes
+        // cannot be given by a key either.
+        public void Confirm()
+        {
+            if (yesEnabled) Answer(onYes);
+        }
+
         public void Cancel() => Answer(onNo);
 
         // Close FIRST, then call. The callback is the caller's continuation, and it is free to ask the next

@@ -1,13 +1,20 @@
+using UnityEngine;
+
 namespace LittlePeeps
 {
     // Outer app state owning the inner gameplay FSM: normal play (PlayingState — building included, the
-    // build panel is always up there) and the screens opened over it, the age advance and the perk picks
-    // owed at a run's start.
+    // build panel is always up there) and the screens opened over it, the age advance, the perk picks
+    // owed at a run's start and the offering cycle.
     public class GameplayContainerState : IState
     {
         private readonly StateMachine innerFsm;
         private readonly PlayingState playingState;
         private readonly PerkSelectionState perkSelectionState;
+
+        // The offering cycle: its clock runs only while normal play is current — advanced from Tick below —
+        // so every screen over the game stops it by construction, with no pause flag to keep in sync.
+        private readonly OfferingSystem offerings;
+        private readonly OfferingEndState offeringEndState;
 
         // Deps for building a ZoneSelectionState on demand (it builds the AgeTransitionState after it).
         private readonly AgeSystem ageSystem;
@@ -27,11 +34,14 @@ namespace LittlePeeps
                                       PerkSelectionState perkSelectionState,
                                       AgeSystem ageSystem, AgeSequencer ageSequencer,
                                       ResourceSystem resourceSystem, IslandSystem islandSystem,
-                                      ZoneSelectionUI zoneSelectionUI, RunManager runManager)
+                                      ZoneSelectionUI zoneSelectionUI, RunManager runManager,
+                                      OfferingSystem offerings = null, OfferingEndState offeringEndState = null)
         {
             this.innerFsm = innerFsm;
             this.playingState = playingState;
             this.perkSelectionState = perkSelectionState;
+            this.offerings = offerings;
+            this.offeringEndState = offeringEndState;
             this.ageSystem = ageSystem;
             this.ageSequencer = ageSequencer;
             this.resourceSystem = resourceSystem;
@@ -44,17 +54,46 @@ namespace LittlePeeps
         {
             innerFsm.ChangeState(playingState);
             EventBus<AgeAdvanceRequestedEvent>.Subscribe(OnAgeAdvanceRequested);
+            EventBus<OfferRequestedEvent>.Subscribe(OnOfferRequested);
         }
 
         public void Exit()
         {
             EventBus<AgeAdvanceRequestedEvent>.Unsubscribe(OnAgeAdvanceRequested);
+            EventBus<OfferRequestedEvent>.Unsubscribe(OnOfferRequested);
         }
 
         public void Tick()
         {
             TryOpenStartPerkPick();
+            TickOffering();
             innerFsm.Tick();
+        }
+
+        // Run the cycle's clock, and end the cycle when it runs out — only in normal play, after the owed
+        // start picks (those leave normal play, and the check below then waits for the way back). A cycle
+        // paid early simply gives way to the next one; an unpaid one stops the game and asks.
+        private void TickOffering()
+        {
+            if (offerings == null || innerFsm.Current != playingState) return;
+
+            offerings.Advance(Time.deltaTime);
+            if (!offerings.IsOver) return;
+
+            if (offerings.Offered) offerings.NextCycle();
+            else if (offeringEndState != null) innerFsm.ChangeState(offeringEndState);
+            else offerings.NextCycle();   // nothing to ask with: the run goes on, never ended unasked
+        }
+
+        // The offering button: pay now, before the time is up, and take the perk at once. Normal play only,
+        // the rule the age advance follows. The clock keeps its rhythm — the next cycle still starts when
+        // this one's time is up (TickOffering).
+        private void OnOfferRequested(OfferRequestedEvent _)
+        {
+            if (innerFsm.Current != playingState) return;
+            if (offerings == null || !offerings.TryOffer()) return;
+
+            innerFsm.ChangeState(perkSelectionState.For(offerings.RewardGrade));
         }
 
         // Meta perks can owe the run perk picks at its start (StartPerkPickUpgradeDef, StartAgeUpgradeDef).
@@ -91,7 +130,7 @@ namespace LittlePeeps
             if (run == null) return;
 
             innerFsm.ChangeState(new ZoneSelectionState(
-                innerFsm, playingState, perkSelectionState, ageSequencer, resourceSystem, islandSystem,
+                innerFsm, playingState, ageSequencer, resourceSystem, islandSystem,
                 zoneSelectionUI, run, ageSystem.NextAge));
         }
     }

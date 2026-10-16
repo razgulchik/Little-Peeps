@@ -13,8 +13,8 @@ namespace LittlePeeps
     //
     // Deliberately NOT a singleton and deliberately without logic: it is a list of what exists, read by
     // the composition root and nobody else. Only what a gameplay state has to drive is exposed at all —
-    // the two pick screens, the confirm dialog and the meta screen. The age panels and the prestige
-    // button are pure internal wiring, and nothing outside this file names them. A panel that wants
+    // the two pick screens, the confirm dialog and the meta screen. The age panels and the
+    // offering panel are pure internal wiring, and nothing outside this file names them. A panel that wants
     // another panel hidden asks by MODE (see UIVisibility); a panel that wants another panel's data asks
     // the EventBus. Adding a property here to shortcut either of those is how
     // this class turns into the global the rest of the architecture was built to avoid.
@@ -25,7 +25,8 @@ namespace LittlePeeps
         [SerializeField] private ZoneSelectionUI zoneScreen;
         [SerializeField] private PerkSelectionUI perkScreen;
 
-        [Tooltip("The one yes/no question for the whole game. PrestigeMenuState asks \"End this run?\" through it.")]
+        [Tooltip("The one yes/no question for the whole game. OfferingEndState asks it at the end of a cycle: " +
+                 "offer, or accept the gods' wrath.")]
         [SerializeField] private ConfirmDialog confirmDialog;
 
         [Tooltip("The screen after a prestige, where points are spent on meta perks before the next run.")]
@@ -35,7 +36,9 @@ namespace LittlePeeps
         [SerializeField] private AgeAdvancePanel ageAdvance;
         [SerializeField] private AgeCostPanel ageCost;
         [SerializeField] private AgeTimelinePanel ageTimeline;
-        [SerializeField] private PrestigeButton prestigeButton;
+
+        [Tooltip("The offering cycle's HUD: time left, the quota, the button that pays it early.")]
+        [SerializeField] private OfferingPanel offeringPanel;
 
         public ZoneSelectionUI ZoneScreen => zoneScreen;
         public PerkSelectionUI PerkScreen => perkScreen;
@@ -58,13 +61,11 @@ namespace LittlePeeps
                 Debug.LogError("[UIRoot] Perk Screen is not assigned — the perk pick will be skipped for " +
                                "the whole run.", this);
 
-            // The prestige pair is loud too: without either one there is no way to end a run at all.
+            // Loud too: without it the end of a cycle cannot ask, so the gods take what they can and the run
+            // never ends — a run is never ended without asking.
             if (confirmDialog == null)
-                Debug.LogError("[UIRoot] Confirm Dialog is not assigned — the prestige button will do " +
-                               "nothing, since a run is never ended without asking.", this);
-
-            if (prestigeButton == null)
-                Debug.LogError("[UIRoot] Prestige Button is not assigned — there is no way to prestige.", this);
+                Debug.LogError("[UIRoot] Confirm Dialog is not assigned — the end of an offering cycle cannot " +
+                               "ask, so no run can ever end.", this);
 
             if (metaScreen == null)
                 Debug.LogError("[UIRoot] Meta Screen is not assigned — after a prestige the next run starts at " +
@@ -73,18 +74,24 @@ namespace LittlePeeps
             if (ageAdvance == null) Debug.LogWarning("[UIRoot] Age Advance is not assigned.", this);
             if (ageCost == null) Debug.LogWarning("[UIRoot] Age Cost is not assigned.", this);
             if (ageTimeline == null) Debug.LogWarning("[UIRoot] Age Timeline is not assigned.", this);
+
+            // A warning: the cycle still runs and still asks at its end — only the early offering and the
+            // clock on screen are lost.
+            if (offeringPanel == null)
+                Debug.LogWarning("[UIRoot] Offering Panel is not assigned — no clock or quota on screen, and " +
+                                 "no way to offer before the cycle ends.", this);
         }
 
         // The panels that need the run, in one call from GameBootstrap.Awake. The null checks that used
         // to sit in bootstrap live here — same tripwires, one place. They stay null-tolerant rather than
         // loud because a half-wired Canvas should lose one panel, not the whole boot.
-        public void Initialize(AgeSystem ageSystem, ResourceSystem resourceSystem, PrestigeSystem prestigeSystem,
+        public void Initialize(AgeSystem ageSystem, ResourceSystem resourceSystem, OfferingSystem offeringSystem,
                                RunContext run)
         {
             if (ageAdvance != null) ageAdvance.Initialize(ageSystem, run);
             if (ageCost != null) ageCost.Initialize(ageSystem, resourceSystem, run);
             if (ageTimeline != null) ageTimeline.Initialize(ageSystem, run);
-            if (prestigeButton != null) prestigeButton.Initialize(prestigeSystem, run);
+            if (offeringPanel != null) offeringPanel.Initialize(offeringSystem, resourceSystem);
         }
     }
 }

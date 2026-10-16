@@ -2,15 +2,11 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Marker for the pier: the prestige button finds the run's pier by this component (anywhere in the
-    // prefab) and hangs over it on screen. The pier itself is not clickable any more — the button is the
-    // one way into a prestige, and it only appears once the run can be cashed in.
+    // Marker for the pier. Nothing reads it at the moment: the prestige button that hung over the pier left
+    // with the offering cycle (a run ends by the gods' wrath now). Kept on the prefab for what the pier
+    // becomes next — boats coming in, or a mechanism of its own — so that whatever it is can find the run's
+    // pier the way the button did: GetComponentInChildren<Pier> on the start structures.
     public class Pier : MonoBehaviour
     {
-        [Tooltip("Where the prestige button stands: an empty child placed at the spot, usually just above " +
-                 "the deck. Empty = the pier's own position.")]
-        [SerializeField] private Transform buttonAnchor;
-
-        public Vector3 ButtonPoint => (buttonAnchor != null ? buttonAnchor : transform).position;
     }
 }

@@ -126,13 +126,15 @@ namespace LittlePeeps.Tests
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private StatPerkDef Perk(string id, float weight = 1f, int minAge = 0, PerkDef requires = null)
+        private StatPerkDef Perk(string id, float weight = 1f, int minAge = 0, PerkDef requires = null,
+                                 PerkGrade grade = PerkGrade.Common)
         {
             var perk = ScriptableObject.CreateInstance<StatPerkDef>();
             perk.id = id;
             perk.weight = weight;
             perk.minAge = minAge;
             perk.requires = requires;
+            perk.grade = grade;
             created.Add(perk);
             catalogue.perks.Add(perk);
             return perk;
@@ -326,6 +328,44 @@ namespace LittlePeeps.Tests
             // Nothing has been chosen when there is no run to have chosen it in, so the filter passes
             // everything rather than throwing in the middle of an age transition.
             Assert.That(system.RollPerks(0, null), Is.EquivalentTo(new[] { perk }));
+        }
+
+        // --- grades: two pools that never mix ------------------------------------------------------------
+
+        [Test]
+        public void RollPerks_AnOrdinaryRoll_NeverOffersASpecialPerk()
+        {
+            var common = Perk("common");
+            Perk("special", grade: PerkGrade.Special);
+            Configure();
+
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { common }));
+        }
+
+        [Test]
+        public void RollPerks_ASpecialRoll_OffersOnlySpecialPerks()
+        {
+            Perk("common");
+            var special = Perk("special", grade: PerkGrade.Special);
+            Configure();
+
+            Assert.That(system.RollPerks(0, run, PerkGrade.Special), Is.EquivalentTo(new[] { special }),
+                        "fewer special perks than cards are offered as they are, not padded with common ones");
+        }
+
+        // A special cycle with nothing special left still pays out — and it is the EMPTY special pool that
+        // triggers it, so a taken or age-locked special perk counts as gone.
+        [Test]
+        public void RollPerks_ASpecialRollWithNothingSpecialLeft_FallsBackToCommon()
+        {
+            var common = Perk("common");
+            var taken = Perk("taken", grade: PerkGrade.Special);
+            Perk("late", minAge: 5, grade: PerkGrade.Special);
+            Configure();
+
+            system.ApplyPerk(taken, run);
+
+            Assert.That(system.RollPerks(2, run, PerkGrade.Special), Is.EquivalentTo(new[] { common }));
         }
     }
 }

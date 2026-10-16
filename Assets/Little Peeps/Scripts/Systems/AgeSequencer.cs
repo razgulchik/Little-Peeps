@@ -19,11 +19,10 @@ namespace LittlePeeps
     // wherever they land — over UI too, since the banner IS UI; TapSystem, which ignores its world clicks
     // at timeScale 0, never sees them as boosts.
     //
-    // Pure choreography, deliberately: every step here takes a KNOWN amount of time. The perk pick used
-    // to hang off the end of this chain as an empty hook, and was moved out to PerkSelectionState — a
-    // step that waits on a human is a mode, not a beat in an animation, and it has to run after the rise
-    // so the player can see the island the perk may go on to change. The zone pick is a mode for the
-    // same reason, and runs BEFORE this chain: it is about the island as it stands, which the rise changes.
+    // Pure choreography, deliberately: every step here takes a KNOWN amount of time. A step that waits on a
+    // human is a mode, not a beat in an animation — the zone pick is one, and runs BEFORE this chain: it is
+    // about the island as it stands, which the rise changes. No perk pick follows the chain any more: perks
+    // come from the offerings (OfferingSystem), not from ages.
     public class AgeSequencer : MonoBehaviour
     {
         [SerializeField] private IslandSystem islandSystem;

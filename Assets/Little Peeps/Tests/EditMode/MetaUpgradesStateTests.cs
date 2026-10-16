@@ -21,10 +21,6 @@ namespace LittlePeeps.Tests
         public void TearDown()
         {
             Time.timeScale = originalTimeScale;
-
-            // PlayingState.Enter subscribes; a state left current at the end of a test would otherwise
-            // leak its handler into the next one.
-            EventBus<PrestigeTriggeredEvent>.Clear();
         }
 
         private static MetaUpgradesState Build(StateMachine fsm, PlayingState playing) =>
@@ -34,7 +30,7 @@ namespace LittlePeeps.Tests
         public void WithNoScreen_ItHandsControlBackToPlaying()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
             var meta = Build(fsm, playing);
 
             fsm.ChangeState(meta);
@@ -50,7 +46,7 @@ namespace LittlePeeps.Tests
             Time.timeScale = 1f;
 
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
 
             fsm.ChangeState(Build(fsm, playing));
             Assert.That(Time.timeScale, Is.EqualTo(1f), "Enter froze the game with no screen to press Play on.");
@@ -63,7 +59,7 @@ namespace LittlePeeps.Tests
         public void LeavingAlwaysUnfreezesTheGame()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
 
             fsm.ChangeState(Build(fsm, playing));
             Time.timeScale = 0f;            // as if the screen had gone up normally

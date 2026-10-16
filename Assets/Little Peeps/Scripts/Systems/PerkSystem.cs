@@ -5,8 +5,8 @@ namespace LittlePeeps
 {
     // Rolls and applies perks: a weighted draw without replacement from the authored catalogue.
     //
-    // The cadence is one perk per age transition (AgeSequencer.WaitForPerkSelection), so this runs a
-    // couple of dozen times per run at most — plain lists and Random.value are the right cost here.
+    // The cadence is one perk per offering (a few minutes of play each), so this runs a couple of dozen
+    // times per run at most — plain lists and Random.value are the right cost here.
     public class PerkSystem : MonoBehaviour
     {
         [SerializeField] private PerkCatalogueDef catalogue;
@@ -79,7 +79,7 @@ namespace LittlePeeps
             return false;
         }
 
-        // The perks to offer this transition: eligible, distinct, weighted by PerkDef.weight.
+        // The perks to offer this time: eligible, distinct, weighted by PerkDef.weight.
         //
         // Returns FEWER than choicesOffered when fewer are eligible, and an empty list when none are —
         // no duplicates and no filler. The caller is expected to skip the selection step entirely on an
@@ -88,7 +88,23 @@ namespace LittlePeeps
         // A fresh list each call, deliberately: this is a transient result the UI reads and turns into
         // cards, not a long-lived slot handed to subscribers. Reusing it would mutate the offer under
         // whoever is still holding it.
-        public List<PerkDef> RollPerks(int currentAge, RunContext context)
+        //
+        // `grade` picks the pool (PerkDef.grade). A special roll that finds no special perk eligible — none
+        // authored, all taken, none unlocked at this age — rolls the common pool instead: the offering was
+        // paid, and an ordinary perk beats a reward that never comes. Fewer special perks than cards is
+        // not that case: they are offered as they are.
+        public List<PerkDef> RollPerks(int currentAge, RunContext context, PerkGrade grade = PerkGrade.Common)
+        {
+            var offer = Roll(currentAge, context, grade);
+            if (offer.Count == 0 && grade != PerkGrade.Common)
+            {
+                Debug.Log($"[Perks] No {grade} perk can be offered — rolling common ones instead.", this);
+                offer = Roll(currentAge, context, PerkGrade.Common);
+            }
+            return offer;
+        }
+
+        private List<PerkDef> Roll(int currentAge, RunContext context, PerkGrade grade)
         {
             var offer = new List<PerkDef>();
             if (catalogue == null) return offer;
@@ -99,7 +115,7 @@ namespace LittlePeeps
             for (int i = 0; i < catalogue.perks.Count; i++)
             {
                 var perk = catalogue.perks[i];
-                if (!IsEligible(perk, currentAge, context)) continue;
+                if (!IsEligible(perk, grade, currentAge, context)) continue;
                 candidates.Add(perk);
                 weights.Add(perk.weight);
             }
@@ -119,9 +135,10 @@ namespace LittlePeeps
             return offer;
         }
 
-        private static bool IsEligible(PerkDef perk, int currentAge, RunContext context)
+        private static bool IsEligible(PerkDef perk, PerkGrade grade, int currentAge, RunContext context)
         {
             if (perk == null) return false;
+            if (perk.grade != grade) return false;        // the pools never mix
             if (perk.weight <= 0f) return false;          // deliberate off-switch, not a roll of zero
             if (currentAge < perk.minAge) return false;
             if (context != null && context.perksChosen.Contains(perk)) return false;

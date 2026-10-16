@@ -3,19 +3,20 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Inner gameplay state that plays one age transition: freezes the game, runs the AgeSequencer
-    // (the chosen zone rises out of the sea, then the age banner), then hands over to the perk pick
-    // when it completes. The age itself is already bought and applied by the time this state is
+    // (the chosen zone rises out of the sea, then the age banner), then goes back to normal play when it
+    // completes. No perk follows: an age grows the island and grants its bonus, perks come from the
+    // offerings (OfferingSystem). The age itself is already bought and applied by the time this state is
     // entered — ZoneSelectionState does that, and it is the only thing that builds one of these.
     //
     // Input block: timeScale 0 stops the sim AND makes TapSystem ignore world clicks (it early-returns at
-    // timeScale 0), so pier/boost taps can't fire mid-transition — no UI-raycast juggling needed. The
+    // timeScale 0), so boost taps can't fire mid-transition — no UI-raycast juggling needed. The
     // sequencer runs on unscaled time, so the rise and the banner still animate while frozen, and it takes
     // its own taps (speed-up, skip) from InputHandler, which reports clicks at any time scale.
     public class AgeTransitionState : IState
     {
         private readonly StateMachine gameplayFsm;
         private readonly AgeSequencer ageSequencer;
-        private readonly PerkSelectionState perkSelectionState;
+        private readonly PlayingState playingState;
         private readonly int newAge;
         private readonly AgeDef ageDef;
 
@@ -25,11 +26,11 @@ namespace LittlePeeps
         private bool complete;
 
         public AgeTransitionState(StateMachine gameplayFsm, AgeSequencer ageSequencer,
-                                  PerkSelectionState perkSelectionState, int newAge, AgeDef ageDef, ZoneOffer zone)
+                                  PlayingState playingState, int newAge, AgeDef ageDef, ZoneOffer zone)
         {
             this.gameplayFsm = gameplayFsm;
             this.ageSequencer = ageSequencer;
-            this.perkSelectionState = perkSelectionState;
+            this.playingState = playingState;
             this.newAge = newAge;
             this.ageDef = ageDef;
             this.zone = zone;
@@ -61,7 +62,7 @@ namespace LittlePeeps
 
         public void Tick()
         {
-            if (complete) gameplayFsm.ChangeState(perkSelectionState);
+            if (complete) gameplayFsm.ChangeState(playingState);
         }
     }
 }

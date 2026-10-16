@@ -22,20 +22,19 @@ namespace LittlePeeps.Tests
         public void TearDown()
         {
             Time.timeScale = originalTimeScale;
-            EventBus<PrestigeTriggeredEvent>.Clear();
             EventBus<ZoneSelectedEvent>.Clear();
         }
 
         // Every dependency is null on purpose: the state must survive being handed nothing at all,
         // which is what an unwired scene gives it — and an age with no run or no def to buy is no age.
         private static ZoneSelectionState Build(StateMachine fsm, PlayingState playing) =>
-            new ZoneSelectionState(fsm, playing, null, null, null, null, null, null, null);
+            new ZoneSelectionState(fsm, playing, null, null, null, null, null, null);
 
         [Test]
         public void WithNothingWired_ItHandsControlBackToPlaying()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
             var zoneSelection = Build(fsm, playing);
 
             fsm.ChangeState(zoneSelection);
@@ -51,7 +50,7 @@ namespace LittlePeeps.Tests
         public void ItNeverLeavesFromInsideEnter()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
 
             fsm.ChangeState(Build(fsm, playing));
 
@@ -66,7 +65,7 @@ namespace LittlePeeps.Tests
             Time.timeScale = 1f;
 
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
 
             fsm.ChangeState(Build(fsm, playing));
             Assert.That(Time.timeScale, Is.EqualTo(1f), "Enter froze the game on a path it cannot finish.");
@@ -81,7 +80,7 @@ namespace LittlePeeps.Tests
         public void LeavingAlwaysUnfreezesTheGame()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
             var zoneSelection = Build(fsm, playing);
 
             fsm.ChangeState(zoneSelection);
@@ -93,9 +92,9 @@ namespace LittlePeeps.Tests
         }
     }
 
-    // The transition after the pick: it no longer buys anything, so its one job offline is to move on
-    // to the perk pick when there is nothing to play, rather than wait forever on a sequencer it does
-    // not have.
+    // The transition after the pick: it no longer buys anything, and no perk follows it any more (perks
+    // come from the offerings), so its one job offline is to go back to play when there is nothing to
+    // play, rather than wait forever on a sequencer it does not have.
     public class AgeTransitionStateTests
     {
         private float originalTimeScale;
@@ -110,30 +109,27 @@ namespace LittlePeeps.Tests
         public void TearDown()
         {
             Time.timeScale = originalTimeScale;
-            EventBus<PrestigeTriggeredEvent>.Clear();
-            EventBus<PerkSelectedEvent>.Clear();
         }
 
         [Test]
-        public void WithoutASequencer_ItMovesOnToThePerkPick()
+        public void WithoutASequencer_ItGoesBackToPlay()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
-            var perkSelection = new PerkSelectionState(fsm, null, null, null, playing);
-            var transition = new AgeTransitionState(fsm, null, perkSelection, 1, null, null);
+            var playing = new PlayingState();
+            var transition = new AgeTransitionState(fsm, null, playing, 1, null, null);
 
             fsm.ChangeState(transition);
             Assert.That(fsm.Current, Is.SameAs(transition), "Enter must not change state from inside itself.");
 
             fsm.Tick();
-            Assert.That(fsm.Current, Is.SameAs(perkSelection));
+            Assert.That(fsm.Current, Is.SameAs(playing));
         }
 
         [Test]
         public void LeavingAlwaysUnfreezesTheGame()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
             var transition = new AgeTransitionState(fsm, null, null, 1, null, null);
 
             fsm.ChangeState(transition);

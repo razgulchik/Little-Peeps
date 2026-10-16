@@ -17,13 +17,12 @@ namespace LittlePeeps
     // run on unscaled time, so the player can look around the offers while they decide.
     //
     // Built per request by GameplayContainerState and discarded after, so holding the RunContext
-    // directly is right here (the run cannot be replaced while the game is frozen and prestige is
-    // unreachable) — the same argument AgeTransitionState makes.
+    // directly is right here (the run cannot be replaced while the game is frozen: a run ends only at the
+    // end of an offering cycle, from normal play) — the same argument AgeTransitionState makes.
     public class ZoneSelectionState : IState
     {
         private readonly StateMachine gameplayFsm;
         private readonly PlayingState playingState;
-        private readonly PerkSelectionState perkSelectionState;
         private readonly AgeSequencer ageSequencer;
         private readonly ResourceSystem resourceSystem;
         private readonly IslandSystem islandSystem;
@@ -32,7 +31,7 @@ namespace LittlePeeps
         private readonly AgeDef ageDef;
 
         // The age never happened: the cost changed between the button press and here, or the state was
-        // handed nothing to work with. Back to play, and no perk — nothing was bought.
+        // handed nothing to work with. Back to play — nothing was bought.
         private bool aborted;
 
         // The age is bought and the zone question is settled — by a pick, by there being nothing to
@@ -42,14 +41,12 @@ namespace LittlePeeps
         private bool decided;
         private ZoneOffer chosen;
 
-        public ZoneSelectionState(StateMachine gameplayFsm, PlayingState playingState,
-                                  PerkSelectionState perkSelectionState, AgeSequencer ageSequencer,
+        public ZoneSelectionState(StateMachine gameplayFsm, PlayingState playingState, AgeSequencer ageSequencer,
                                   ResourceSystem resourceSystem, IslandSystem islandSystem, ZoneSelectionUI ui,
                                   RunContext runContext, AgeDef ageDef)
         {
             this.gameplayFsm = gameplayFsm;
             this.playingState = playingState;
-            this.perkSelectionState = perkSelectionState;
             this.ageSequencer = ageSequencer;
             this.resourceSystem = resourceSystem;
             this.islandSystem = islandSystem;
@@ -84,7 +81,7 @@ namespace LittlePeeps
             var offers = islandSystem != null ? islandSystem.ProposeZones() : new List<ZoneOffer>();
 
             // Nothing to offer is IslandSystem's to report (it does, loudly); here it only means the
-            // age goes on without growing. The player paid, so the transition and the perk still owe.
+            // age goes on without growing. The player paid, so the transition (the banner) still follows.
             if (offers.Count == 0)
             {
                 decided = true;
@@ -133,7 +130,7 @@ namespace LittlePeeps
             if (!decided) return;
 
             gameplayFsm.ChangeState(new AgeTransitionState(
-                gameplayFsm, ageSequencer, perkSelectionState, runContext.currentAge, ageDef, chosen));
+                gameplayFsm, ageSequencer, playingState, runContext.currentAge, ageDef, chosen));
         }
 
         // The player picked a card. Only recorded here; the state change happens in the next Tick so

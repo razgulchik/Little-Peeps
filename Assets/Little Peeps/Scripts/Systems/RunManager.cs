@@ -115,9 +115,9 @@ namespace LittlePeeps
         }
 
         // Enter the ages a meta perk skips (StartAgeUpgradeDef), each one as if bought for free: what entering
-        // an age grants (TriggerAgeCmd.EnterAge), its zone of island — grown at once, no pick, no rise — and
-        // its perk pick, owed for when play begins. Stops quietly at the final age: there is nothing left to
-        // skip into, and a high level must not run off the end of the list.
+        // an age grants (TriggerAgeCmd.EnterAge) and its zone of island — grown at once, no pick, no rise. No
+        // perk pick: ages give none since the offering cycle (perks come from offerings). Stops quietly at the
+        // final age: there is nothing left to skip into, and a high level must not run off the end of the list.
         private void SkipStartAges()
         {
             int skips = CurrentRun.startAgesToSkip;
@@ -138,11 +138,9 @@ namespace LittlePeeps
 
                 TriggerAgeCmd.EnterAge(CurrentRun, def);
                 if (CurrentRun.skippedAgeBiome != null) islandSystem.GrowZone(CurrentRun.skippedAgeBiome);
-                CurrentRun.perkPicksOwed++;
             }
 
-            Debug.Log($"[Run] Started in the Age {RomanNumeral.From(CurrentRun.currentAge)} (Start Age perk); " +
-                      $"{CurrentRun.perkPicksOwed} perk pick(s) owed.", this);
+            Debug.Log($"[Run] Started in the Age {RomanNumeral.From(CurrentRun.currentAge)} (Start Age perk).", this);
         }
 
         // Fill CurrentRun.resources from the config's starting amounts, before ResourceSystem.Initialize

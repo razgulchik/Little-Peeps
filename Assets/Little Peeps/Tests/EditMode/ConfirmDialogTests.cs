@@ -149,6 +149,23 @@ namespace LittlePeeps.Tests
             Assert.That(yes, Is.EqualTo(0), "the replaced question must not be answered too");
         }
 
+        // A greyed-out Yes (the end-of-cycle window when the stock cannot pay) must not be taken by a key
+        // either — and the next question gets a live Yes again.
+        [Test]
+        public void AGreyedYes_CannotBeGiven_AndDoesNotLeakIntoTheNextQuestion()
+        {
+            dialog.Show("Offer?", () => yes++, () => no++, yesEnabled: false);
+
+            dialog.Confirm();
+            Assert.That(yes, Is.EqualTo(0));
+            Assert.That(dialog.IsOpen, Is.True, "a refused Yes must leave the question up");
+
+            dialog.Cancel();
+            Ask();
+            dialog.Confirm();
+            Assert.That(yes, Is.EqualTo(1));
+        }
+
         // An inactive object cannot show anything, so the caller is told — and must not freeze the game
         // around a question nobody can see.
         [Test]

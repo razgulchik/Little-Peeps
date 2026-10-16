@@ -27,10 +27,6 @@ namespace LittlePeeps.Tests
         public void TearDown()
         {
             Time.timeScale = originalTimeScale;
-
-            // PlayingState.Enter subscribes; a state left current at the end of a test would otherwise
-            // leak its handler into the next one.
-            EventBus<PrestigeTriggeredEvent>.Clear();
             EventBus<PerkSelectedEvent>.Clear();
         }
 
@@ -43,7 +39,7 @@ namespace LittlePeeps.Tests
         public void WithNothingWired_ItHandsControlBackToPlaying()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
             var perkSelection = Build(fsm, playing);
 
             fsm.ChangeState(perkSelection);
@@ -59,7 +55,7 @@ namespace LittlePeeps.Tests
         public void ItNeverLeavesFromInsideEnter()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
 
             fsm.ChangeState(Build(fsm, playing));
 
@@ -74,7 +70,7 @@ namespace LittlePeeps.Tests
             Time.timeScale = 1f;
 
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
 
             fsm.ChangeState(Build(fsm, playing));
             Assert.That(Time.timeScale, Is.EqualTo(1f), "Enter froze the game on a path it cannot finish.");
@@ -89,7 +85,7 @@ namespace LittlePeeps.Tests
         public void LeavingAlwaysUnfreezesTheGame()
         {
             var fsm = new StateMachine();
-            var playing = new PlayingState(fsm, null, null, null, null);
+            var playing = new PlayingState();
             var perkSelection = Build(fsm, playing);
 
             fsm.ChangeState(perkSelection);

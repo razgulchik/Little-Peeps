@@ -100,8 +100,8 @@ namespace LittlePeeps
         // that still swallows clicks leaves a dead rectangle over the island.
         //
         // Public for the few groups that are NOT a mode's business and so have no row in the table: a
-        // question waiting for an answer (ConfirmDialog) can come up over any mode, and the prestige button
-        // shows by whether the run can be cashed in. Each of those sets only its OWN group. A group that
+        // question waiting for an answer (ConfirmDialog) can come up over any mode. Each of those sets only
+        // its OWN group. A group that
         // has a row here is set by this table and nobody else — two owners would overwrite each other,
         // and the last writer would win without a word.
         public static void Set(CanvasGroup group, bool visible)

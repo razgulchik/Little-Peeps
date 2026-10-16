@@ -6,10 +6,10 @@ namespace LittlePeeps
     // Play. Play is the only way out, and it is what starts the next run — AFTER the spending, so that run is
     // built with what was just bought (RunManager.StartNewRun → PrestigeSystem.ApplyUpgrades).
     //
-    // A gameplay state, like the perk pick: entered from PrestigeMenuState on Yes, left to PlayingState on
-    // Play, with the cashed-in run frozen underneath until then. It started life as an empty app-FSM stub in
-    // the first skeleton, meant for a "Meta" button on a main menu; that menu does not exist, and a prestige
-    // is the only way here.
+    // A gameplay state, like the perk pick: entered from OfferingEndState when the gods' wrath is accepted,
+    // left to PlayingState on Play, with the cashed-in run frozen underneath until then. It started life as an
+    // empty app-FSM stub in the first skeleton, meant for a "Meta" button on a main menu; that menu does not
+    // exist, and the end of a run is the only way here.
     public class MetaUpgradesState : IState
     {
         private readonly StateMachine gameplayFsm;

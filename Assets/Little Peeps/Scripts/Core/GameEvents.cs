@@ -51,6 +51,10 @@ namespace LittlePeeps
     // Published by the AgeAdvancePanel "Next Age" button; handled by GameplayContainerState (enters ZoneSelection).
     public struct AgeAdvanceRequestedEvent { }
 
+    // Published by the offering button (OfferingPanel): pay this cycle's quota now, before the time is up.
+    // Handled by GameplayContainerState — only from normal play — which pays it and opens the perk pick.
+    public struct OfferRequestedEvent { }
+
     // Published by ZoneSelectionUI when the player picks a zone card; handled by ZoneSelectionState,
     // which moves on to the age transition that grows the island by that zone. Same split as the perk
     // pick: the UI shows and reports, the state acts.
@@ -100,8 +104,10 @@ namespace LittlePeeps
         ZonePick        = 1 << 2,
         PerkPick        = 1 << 3,
         AgeTransition   = 1 << 4,
-        PrestigeConfirm = 1 << 5,
+        // 1 << 5 was PrestigeConfirm — the pier's "End this run?" question, gone with the offering cycle
+        // (a run ends at OfferingEnd now). Left unused for the same reason as Build's bit.
         MetaUpgrades    = 1 << 6,
+        OfferingEnd     = 1 << 7,
     }
 
     // Published by a gameplay state when its screen goes up. Deliberately at the point the screen is
@@ -145,12 +151,6 @@ namespace LittlePeeps
     {
         public object Owner;
     }
-
-    // Published by PrestigeButton when the player clicks it; handled by PlayingState, which asks before
-    // anything ends (PrestigeMenuState). Deliberately by the STATE rather than by PrestigeSystem: the
-    // subscription then lasts exactly as long as normal play, so a run can never be ended over another
-    // screen or mid-age-transition.
-    public struct PrestigeTriggeredEvent { }
 
     // Published by PerkSelectionUI when the player confirms a card; handled by PerkSelectionState, which
     // applies the perk and returns to normal play. The UI deliberately does NOT apply it itself: that is

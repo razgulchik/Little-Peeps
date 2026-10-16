@@ -35,13 +35,19 @@ namespace LittlePeeps
         [Tooltip("Shown on the selection card. Optional — a card with no icon just leaves the slot empty.")]
         public Sprite icon;
 
+        [Tooltip("Which pool the perk is rolled from. Common: every ordinary offering and the start-of-run " +
+                 "pick. Special: only the special cycles' offerings (every N-th, set on the Offering " +
+                 "Schedule). The pools never mix — a special cycle falls back to common perks only when no " +
+                 "special one is left to offer.")]
+        public PerkGrade grade = PerkGrade.Common;
+
         [Tooltip("Relative roll weight against the other eligible perks. 0 takes it out of the pool " +
                  "without removing it from the catalogue.")]
         public float weight = 1f;
 
         [Tooltip("Earliest age this perk can be offered in, so the strong ones stay out of the first " +
-                 "rolls. Numbered as the player sees it: 3 = first offered on the transition into the " +
-                 "Age III. 0, 1 or 2 = from the very first transition (into the Age II).")]
+                 "rolls. Numbered as the player sees it: 3 = offered once the run stands in the Age III. " +
+                 "0 or 1 = from the very first offering.")]
         [Min(0)] public int minAge;
 
         [Tooltip("A perk that must already be taken this run before this one can be offered — the " +
@@ -51,5 +57,12 @@ namespace LittlePeeps
 
         // Apply this perk's permanent effect to the current run state
         public abstract void ApplyPerk(RunContext context);
+    }
+
+    // The two perk pools: what an ordinary offering earns, and what a special cycle's offering earns.
+    public enum PerkGrade
+    {
+        Common,
+        Special,
     }
 }

@@ -13,9 +13,8 @@ namespace LittlePeeps
     //                the Canvas prefab. UIVisibility sits beside it and owns what is on screen per mode]
     //
     // The pier is NOT in this list: it is start content, like the house — IslandSystem places it per run
-    // from StartConfig.pier on the start's east coast, where it stays. What that def's PREFAB needs is the
-    // Pier marker component (on the root or any child): the prestige button finds the run's pier by it
-    // and hangs over it on screen.
+    // from StartConfig.pier on the start's east coast, where it stays. It no longer ends a run (the gods'
+    // wrath does); its Pier marker component waits for whatever the pier becomes next.
     //
     // Initialization (all in Awake — order-independent, see note on Awake below):
     //   1. Application.runInBackground
@@ -37,6 +36,7 @@ namespace LittlePeeps
         [SerializeField] private AgeSequencer ageSequencer;
         [SerializeField] private PerkSystem perkSystem;
         [SerializeField] private PrestigeSystem prestigeSystem;
+        [SerializeField] private OfferingSystem offeringSystem;
         [SerializeField] private RunManager runManager;
         [SerializeField] private SaveSystem saveSystem;
 
@@ -78,6 +78,11 @@ namespace LittlePeeps
             tapSystem.Initialize(run, placementController);
             ageSystem.Initialize(run);
 
+            // Loud but not fatal: without it there is no offering cycle — no quotas, no wrath, no perks
+            // from offerings — and the rest of the game plays on.
+            if (offeringSystem != null) offeringSystem.Initialize(run);
+            else Debug.LogError("[GameBootstrap] no OfferingSystem assigned — the offering cycle is off.", this);
+
             // Every panel that needs the run, in one call. Which panels those ARE is UIRoot's business
             // and lives in the Canvas prefab — bootstrap names the UI once and never its parts. One
             // missing reference here takes the WHOLE UI with it, so it is loud; the run still boots
@@ -87,7 +92,7 @@ namespace LittlePeeps
                 Debug.LogError("[GameBootstrap] no UIRoot assigned — the game boots with no UI at all. " +
                                "Assign the Canvas's UIRoot.", this);
             else
-                uiRoot.Initialize(ageSystem, resourceSystem, prestigeSystem, run);
+                uiRoot.Initialize(ageSystem, resourceSystem, offeringSystem, run);
 
             PerkSelectionUI perkScreen = uiRoot != null ? uiRoot.PerkScreen : null;
             ZoneSelectionUI zoneScreen = uiRoot != null ? uiRoot.ZoneScreen : null;
@@ -104,12 +109,20 @@ namespace LittlePeeps
             //    The states are handed runManager, NOT the RunContext: they are built once here and live
             //    through every prestige, so a captured context would be the finished run's.
             var gameplayFsm = new StateMachine();
-            var playingState = new PlayingState(gameplayFsm, runManager, prestigeSystem, confirmDialog, metaScreen,
-                                                placementController);
+            var playingState = new PlayingState(placementController);
             var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkScreen, runManager, playingState);
+
+            //    The one way a run ends: the gods' wrath at the end of an offering cycle → cash-in → the meta
+            //    screen, whose Play starts the next run.
+            var metaUpgradesState = new MetaUpgradesState(gameplayFsm, prestigeSystem, runManager, metaScreen,
+                                                          playingState);
+            var offeringEndState = new OfferingEndState(gameplayFsm, offeringSystem, prestigeSystem, runManager,
+                                                        confirmDialog, playingState, perkSelectionState,
+                                                        metaUpgradesState);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState,
                                                                    perkSelectionState, ageSystem, ageSequencer, resourceSystem,
-                                                                   islandSystem, zoneScreen, runManager));
+                                                                   islandSystem, zoneScreen, runManager,
+                                                                   offeringSystem, offeringEndState));
 
             // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM
             // and runManager live here; leaving the container restores timeScale via its Exit().

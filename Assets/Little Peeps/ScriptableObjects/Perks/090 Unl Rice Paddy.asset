@@ -16,6 +16,8 @@ MonoBehaviour:
   title: Unl Rice Paddy
   description: UNLOCKS RICE PADDY
   icon: {fileID: 21300000, guid: 6f5051a1e7dc8ef42a0a136a006cfb1a, type: 3}
+  grade: 1
   weight: 1
   minAge: 0
+  requires: {fileID: 0}
   structure: {fileID: 11400000, guid: 93d7be75fac17d04faacfe380f522199, type: 2}

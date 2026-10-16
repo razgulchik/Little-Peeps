@@ -16,8 +16,10 @@ MonoBehaviour:
   title: Bigger Houses
   description: +1 HOUSE SLOTS
   icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
+  grade: 1
   weight: 1
   minAge: 0
+  requires: {fileID: 0}
   modifiers:
   - id: 10
     unitScope: 0

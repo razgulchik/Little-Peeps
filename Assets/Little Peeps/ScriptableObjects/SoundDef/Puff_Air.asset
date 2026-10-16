@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47453c7ca1ec2544393021afc1f1bb58, type: 3}
+  m_Name: Puff_Air
+  m_EditorClassIdentifier: 
+  clips:
+  - {fileID: 8300000, guid: 02d0a27250ff4b9ba0223907ff508313, type: 3}
+  - {fileID: 8300000, guid: f7224feb242a41668714a5b04ad8e303, type: 3}
+  - {fileID: 8300000, guid: 005d16752f814ab6878402cf85177162, type: 3}
+  volume: 0.17
+  volumeJitter: 0.1
+  pitch: 1
+  pitchJitter: 0.06
+  maxVoices: 2
+  stealOldest: 0
+  minInterval: 0.05
+  followsCrowd: 0
+  output: {fileID: 0}

@@ -7,7 +7,7 @@
 > стройки больше нет): **2026-10-15**, сверено со сценой и `Canvas.prefab`. Цикл подношений (престиж
 > через пирс убран): **2026-10-16**, сверено со сценой и `Canvas.prefab`. Системы попадают в UI только
 > кодом, через `UIServices` (оверрайдов проводки Канваса в сцене больше нет): **2026-10-18**, сверено со сценой
-> и `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`): система в сцене есть, её поля и
+> и `Canvas.prefab`; там же HUD по макету (AgePanel из двух кусков встык, подложка в ResourceUnit). Не описана проводка звука (`SoundSystem` / `SoundDef`): система в сцене есть, её поля и
 > звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -76,17 +76,18 @@ SampleScene
 └── Canvas                      → префаб `Prefabs/Elements/Canvas`: Canvas + CanvasScaler + GraphicRaycaster
     │                             + **UIRoot** + **UIVisibility**. Порядок детей = порядок отрисовки: ниже = поверх
     ├── Hud                     → CanvasGroup                    ← весь игровой HUD одной группой
-    │   ├── AgePanel            → CanvasGroup + AgeAdvancePanel
-    │   │   ├── Timeline
-    │   │   │   └── Frame       → Image + AgeTimelinePanel
-    │   │   │       └── Viewport    → RectMask2D
-    │   │   │           └── Content → Vertical Layout Group + Content Size Fitter
-    │   │   │                         (прижат к НИЗУ: карточки эр растут вверх, маска режет сверху)
-    │   │   └── Advance
-    │   │       └── Frame       → Image
-    │   │           ├── Cost            → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме)
-    │   │           └── AdvanceButton   → Image + Button
-    │   │               └── Label       → TMP_Text
+    │   ├── AgePanel            → CanvasGroup + AgeAdvancePanel + Vertical Layout Group + Content Size Fitter
+    │   │   │                     ← левый верхний угол, ширина 81, высоту считает Fitter. Два нарезанных куска
+    │   │   │                       встык: Spacing −1, потому что строка шва нарисована на обоих. Ширину и
+    │   │   │                       позицию кускам задаёт раскладка, руками — только высота
+    │   │   ├── Timeline        → Image (panel_base_age_top, Sliced) + AgeTimelinePanel   (81×43)
+    │   │   │   └── Viewport    → RectMask2D
+    │   │   │       └── Content → Vertical Layout Group + Content Size Fitter
+    │   │   │                     (прижат к НИЗУ: карточки эр растут вверх, маска режет сверху)
+    │   │   └── Advance         → Image (panel_base_age_expand, Sliced)                  (81×82)
+    │   │       ├── Cost        → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме; ячейки 34×13)
+    │   │       └── AdvanceButton → Image + Button        (родные 69×43, по центру, 4 px от низа)
+    │   │           └── Label   → TMP_Text
     │   ├── BuildBar
     │   │   ├── ModeButton      → Image + Button + BuildPanelButton     (правый-нижний угол: прячет / показывает
     │   │   │                                                    палитру и Sell — не режим, игра идёт и так и так)
@@ -99,6 +100,7 @@ SampleScene
     │   │       └── SellButton  → Image + Button
     │   │           └── SelectedFrame   → Image                 (подсветка выбранного инструмента)
     │   └── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
+    │                             ← правый верхний угол, 124×36; ячейки 34×13, три в строку
     ├── AgeTransition           → Image (чёрный α≈0.42 — подложка баннера) + CanvasGroup (Alpha 0)   ← баннер эпохи;
     │   │                         его и BannerText перечисляет UIRoot, бутстрап отдаёт их AgeSequencer —
     │   │                         тот проявляет и гасит баннер целиком, клики он ловит только пока виден
@@ -270,10 +272,10 @@ SampleScene
 | | | scroller | BuildPanelScroller на `Viewport` |
 | | | sellButton, sellHighlight | `Sell/SellButton` и его `SelectedFrame` |
 | Canvas/Hud/ResourceBar | ResourcePanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
-| Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/Frame/AdvanceButton` |
-| Canvas/Hud/.../Frame/Cost | AgeCostPanel | unitPrefab, container, iconSet | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
+| Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/AdvanceButton` |
+| Canvas/Hud/AgePanel/Advance/Cost | AgeCostPanel | unitPrefab, container, iconSet | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
 | | | unaffordableColor, visibilityRoot | цвет суммы, которую не хватает; что гасить после последней эпохи, когда покупать больше нечего |
-| Canvas/Hud/.../Timeline/Frame | AgeTimelinePanel | cardPrefab, container | префаб `Prefabs/Elements/AgeCard`, `Viewport/Content` |
+| Canvas/Hud/AgePanel/Timeline | AgeTimelinePanel | cardPrefab, container | префаб `Prefabs/Elements/AgeCard`, `Viewport/Content` |
 | Canvas/Screens/PerkScreen | PerkSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/PerkCardUI`, `Panel/CardColumn` |
 | Canvas/Screens/ZoneScreen | ZoneSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/ZoneCardUI`, `Panel/CardRow` |
 | | | focusOffsetY | 0.15 (дефолт) — насколько выше центра экрана встаёт зона под карточкой |
@@ -554,6 +556,19 @@ Root → Button + BuildTabUI + Image          (область клика — с�
 Поля `BuildTabUI`: button, label, iconImage, selectedIndicator (необязателен — класть внутрь `Visual`),
 visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Подпись и иконка необязательны:
 что назначено, то и показывается.
+
+### ResourceUnit (иконка + число; инстанцируют ResourcePanel, AgeCostPanel и HintView в рантайме)
+```
+Root          → ResourceUnit + LayoutElement (Preferred 34×13)   (своей раскладки нет — дети на якорях)
+├── Backing   → Image (base_numbers, Sliced)   (подложка под числом: от x=6 до правого края, высота 8,
+│   │                                           по центру иконки; левый край уходит ПОД иконку)
+│   └── Label → TMP_Text                       (справа от иконки до конца подложки, по центру, без переноса)
+└── Icon      → Image 13×13                    (последним: рисуется поверх подложки)
+```
+Поля `ResourceUnit`: icon → `Icon`, label → `Label`. Порядок детей значим: подложка рисуется раньше иконки.
+Размер ячейки задаёт родитель: Grid Layout Group у ResourceBar и Cost (Cell Size 34×13) берёт свой Cell Size, а
+Layout Group, которая управляет размером детей (CostContainer в HintView), берёт Preferred из LayoutElement —
+без него ячейка там схлопнется в 0×0. Один префаб и для запасов, и для цены: цифры читаются одинаково.
 
 ### Пирс (Pier)
 Пирс — обычная **Structure**, но ставит его не игрок, а `IslandSystem`: на каждом забеге из `StartConfig.pier`,

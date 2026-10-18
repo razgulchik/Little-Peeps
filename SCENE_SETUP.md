@@ -5,14 +5,17 @@
 
 > Полная сверка с кодом, сценой и префабами: **2026-10-08**. Стройка в реальном времени (режима
 > стройки больше нет): **2026-10-15**, сверено со сценой и `Canvas.prefab`. Цикл подношений (престиж
-> через пирс убран): **2026-10-16**, сверено со сценой и `Canvas.prefab`. Не описана проводка звука
-> (`SoundSystem` / `SoundDef`): система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
+> через пирс убран): **2026-10-16**, сверено со сценой и `Canvas.prefab`. Системы попадают в UI только
+> кодом, через `UIServices` (оверрайдов проводки Канваса в сцене больше нет): **2026-10-18**, сверено со сценой
+> и `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`): система в сцене есть, её поля и
+> звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
 
 - **Одна сцена.** Каждая система — свой объект в сцене с компонентом. Кодом системы не создаются.
 - **`GameBootstrap` — единственная точка регистрации.** Порядок инициализации задаёт он (раздаёт контексты в `Awake`), а не случайный порядок `Awake` у объектов.
 - **Зависимости между системами — ссылками в инспекторе.** Каждое поле `[SerializeField]` нужно прокинуть руками. Забыл — `NullReferenceException` на старте.
+- **Кроме UI: Канвас ссылок на объекты сцены не держит.** Нужные системы элементам Канваса раздаёт код — `GameBootstrap` собирает набор `UIServices`, `UIRoot` отдаёт его каждому `IUIElement` под Канвасом (см. «UI»). Из сцены в Канвас ведёт одна ссылка (`GameBootstrap.uiRoot`), из Канваса в сцену — ни одной. Оверрайд в сцене не виден в Prefab Mode и стирается одним Revert — так однажды панель стройки осталась без `PlacementController`.
 - **Менеджеры — в контейнерах** `Bootstrap`, `Systems`, `Input`, отдельно от игровых объектов.
 - **Пространственные объекты живут в мире:** `Island` (вместе с `GridOverlay`), `ZonePreviewOverlay`, `IslandRise` — не в `Systems`. Пирс в сцену не кладётся вовсе: его ставит `IslandSystem` (см. «Пирс»).
 
@@ -74,34 +77,36 @@ SampleScene
     │                             + **UIRoot** + **UIVisibility**. Порядок детей = порядок отрисовки: ниже = поверх
     ├── Hud                     → CanvasGroup                    ← весь игровой HUD одной группой
     │   ├── AgePanel            → CanvasGroup + AgeAdvancePanel
-    │   │   ├── Advance
-    │   │   │   └── Frame       → Image
-    │   │   │       ├── Cost            → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме)
-    │   │   │       └── AdvanceButton   → Image + Button
-    │   │   │           └── Label       → TMP_Text
-    │   │   └── Timeline
-    │   │       └── Frame       → Image + AgeTimelinePanel
-    │   │           └── Viewport    → RectMask2D
-    │   │               └── Content → Vertical Layout Group + Content Size Fitter
-    │   │                             (прижат к НИЗУ: карточки эр растут вверх, маска режет сверху)
-    │   ├── ResourceBar
-    │   │   └── Slots           → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
-    │   └── BuildBar
-    │       ├── ModeButton      → Image + Button + BuildPanelButton     (правый-нижний угол: прячет / показывает
-    │       │                                                    палитру и Sell — не режим, игра идёт и так и так)
-    │       ├── Palette         → CanvasGroup + Image + BuildPanelUI    (открыта всю живую игру)
-    │       │   ├── TabConteiner → Vertical Layout Group        (кнопки вкладок в рантайме; ВНУТРИ Palette —
-    │       │   │                                                видны вместе с палитрой, своя строка UIVisibility не нужна)
-    │       │   └── Viewport    → Image + RectMask2D + BuildPanelScroller
-    │       │       └── CardRow → Horizontal Layout Group       (карточки построек в рантайме)
-    │       └── Sell            → CanvasGroup
-    │           └── SellButton  → Image + Button
-    │               └── SelectedFrame   → Image                 (подсветка выбранного инструмента)
+    │   │   ├── Timeline
+    │   │   │   └── Frame       → Image + AgeTimelinePanel
+    │   │   │       └── Viewport    → RectMask2D
+    │   │   │           └── Content → Vertical Layout Group + Content Size Fitter
+    │   │   │                         (прижат к НИЗУ: карточки эр растут вверх, маска режет сверху)
+    │   │   └── Advance
+    │   │       └── Frame       → Image
+    │   │           ├── Cost            → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме)
+    │   │           └── AdvanceButton   → Image + Button
+    │   │               └── Label       → TMP_Text
+    │   ├── BuildBar
+    │   │   ├── ModeButton      → Image + Button + BuildPanelButton     (правый-нижний угол: прячет / показывает
+    │   │   │                                                    палитру и Sell — не режим, игра идёт и так и так)
+    │   │   ├── Palette         → CanvasGroup + Image + BuildPanelUI    (открыта всю живую игру)
+    │   │   │   ├── TabConteiner → Vertical Layout Group        (кнопки вкладок в рантайме; ВНУТРИ Palette —
+    │   │   │   │                                                видны вместе с палитрой, своя строка UIVisibility не нужна)
+    │   │   │   └── Viewport    → Image + RectMask2D + BuildPanelScroller
+    │   │   │       └── CardRow → Horizontal Layout Group       (карточки построек в рантайме)
+    │   │   └── Sell            → CanvasGroup
+    │   │       └── SellButton  → Image + Button
+    │   │           └── SelectedFrame   → Image                 (подсветка выбранного инструмента)
+    │   └── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
     ├── AgeTransition           → Image (чёрный α≈0.42 — подложка баннера) + CanvasGroup (Alpha 0)   ← баннер эпохи;
-    │   │                         AgeSequencer проявляет и гасит его целиком, клики ловит только пока он виден
+    │   │                         его и BannerText перечисляет UIRoot, бутстрап отдаёт их AgeSequencer —
+    │   │                         тот проявляет и гасит баннер целиком, клики он ловит только пока виден
     │   └── BannerText          → TMP_Text                                 ← плашка «Age N»
     ├── Screens                 → ТОЛЬКО RectTransform, растянут на весь Canvas
     │   │                         ← CanvasGroup сюда НЕ вешать: перемножится с альфой экранов
+    │   │                         ← и НЕ выключать — ни его, ни экраны: их прячет UIVisibility, а выключенный
+    │   │                           экран не покажется вовсе (выбор зоны зависнет на паузе)
     │   ├── PerkScreen          → CanvasGroup + PerkSelectionUI
     │   │   └── Panel           → Image (затемнение — перехватывает ввод, это модальное окно)
     │   │       ├── TitleText   → TMP_Text
@@ -109,14 +114,13 @@ SampleScene
     │   └── ZoneScreen          → CanvasGroup + ZoneSelectionUI
     │       └── Panel           → Image (прозрачная, **Raycast Target ВЫКЛ** — иначе при выборе зоны нет зума)
     │           └── CardRow     → Horizontal Layout Group       (зон-карточки в рантайме)
-    ├── ref (выключен)          → скрин-референс вёрстки, в игре не участвует
     ├── HintView                → Image + CanvasGroup + HintView + Vertical Layout Group   ← окно подсказок, кликов не ловит
     │   ├── TitleText, BodyText → TMP_Text
     │   ├── CostContainer       → Vertical Layout Group         (строки цены в рантайме)
     │   └── FooterText          → TMP_Text
     ├── ConfirmDialog           → вложенный префаб `Prefabs/Elements/ConfirmDialog`: CanvasGroup + ConfirmDialog
     │                             (Backdrop, Panel с текстом и кнопками Yes / No)
-    ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← экран после престижа
+    ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← экран после престижа (включён, как Screens)
     │   ├── TitleText, PointsText → TMP_Text
     │   ├── Scroll View         → Image + ScrollRect
     │   │   ├── Viewport        → Image + Mask
@@ -125,15 +129,16 @@ SampleScene
     │   └── PlayButton          → Image + Button
     ├── FPSmeter
     │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
-    └── OfferingPanel           → CanvasGroup + OfferingPanel   ← ВРЕМЕННЫЙ виджет подношения (до полосы сверху):
-        │                         по центру над серединой экрана; цикл, время, квота «Wood 32/40»
-        ├── Label               → TMP_Text
-        └── OfferButton         → Image + Button                ← подношение досрочно
-            └── Text (TMP)      → TMP_Text
+    ├── OfferingPanel           → CanvasGroup + OfferingPanel   ← ВРЕМЕННЫЙ виджет подношения (до полосы сверху):
+    │   │                         по центру над серединой экрана; цикл, время, квота «Wood 32/40»
+    │   ├── Label               → TMP_Text
+    │   └── OfferButton         → Image + Button                ← подношение досрочно
+    │       └── Text (TMP)      → TMP_Text
+    └── ref (выключен)          → скрин-референс вёрстки, в игре не участвует
 ```
 
 > `HintView` и `ConfirmDialog` по замыслу кода — **последние** дети Canvas, чтобы рисоваться поверх всего.
-> Сейчас после них стоят `MetaScreen`, `FPSmeter` и `OfferingPanel`. На деле не мешает: окно конца цикла
+> Сейчас после них стоят `MetaScreen`, `FPSmeter`, `OfferingPanel` и выключенный `ref`. На деле не мешает: окно конца цикла
 > (это `ConfirmDialog`) идёт в режиме `OfferingEnd`, где `OfferingPanel` скрыт, а мета-экран открывается
 > уже после ответа и подсказок не показывает. Если это изменится — перенести оба вниз.
 
@@ -152,7 +157,8 @@ SampleScene
 | | | **offeringSystem** | `Systems/OfferingSystem`. Пусто — ошибка в консоли, игра идёт без цикла: ни квот, ни перков, ни кары, а значит, забег не закончить |
 | | | ageSequencer, perkSystem | AgeSequencer, PerkSystem |
 | | | **placementController** | PlacementController — стройка; его же бутстрап отдаёт `TapSystem` кодом, чтобы клик с инструментом в руке не был тапом |
-| | | **uiRoot** | **UIRoot на Canvas** — единственная UI-ссылка бутстрапа; панели разведены внутри префаба |
+| | | **uiRoot** | **UIRoot на Canvas** — единственная ссылка из сцены в Канвас. Всё, что UI нужно из сцены, бутстрап отдаёт ему кодом, набором `UIServices`: resourceSystem, ageSystem, offeringSystem, runManager, placementController и два поля ниже |
+| | | cameraController, zonePreview | `CameraController`, `ZonePreviewOverlay` — бутстрап сам их не использует, только передаёт в UI: выбор зоны двигает камеру и рисует зону на острове. Пусто — предупреждение `[UIServices] … is not assigned`, карточки зон без камеры и превью |
 | Bootstrap | SaveSystem | — | (полей нет; запись на диск пока заглушка) |
 | Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem, spawnSystem** | ResourceSystem, Island, StructureSystem, SpawnSystem (spawnSystem обязателен — иначе NPE в StartNewRun) |
 | | | **startConfig** | `ScriptableObjects/StartConfig/Start Config` — сид и правила острова, стартовый биом, дом, пирс, стартовые ресурсы и модификаторы. Пусто = случайный остров без дома и пирса, ноль ресурсов |
@@ -181,7 +187,7 @@ SampleScene
 | | | risePlayer | IslandRisePlayer на `IslandRise` (пусто = зона просто появляется, без подъёма) |
 | | | cameraController | CameraController (камера едет к всплывающей зоне) |
 | | | inputHandler | InputHandler на `Input` (тапы: ×3, пропуск, закрыть баннер; пусто = без тапов). Слушает `OnAnyClick` — клики и поверх UI, баннер сам UI |
-| | | banner, titleLabel | `Canvas/AgeTransition` (CanvasGroup), `Canvas/AgeTransition/BannerText` (TMP_Text) — единственные ссылки из системы внутрь Canvas |
+| | | — (баннер) | своих полей нет: баннер (`Canvas/AgeTransition` + `BannerText`) назначен на `UIRoot`, бутстрап отдаёт его кодом (`AgeSequencer.Initialize`) |
 | | | bannerFade, titleHold, bannerTapGrace | 0.5, 2, 0.4 (сек, дефолты): проявление/угасание баннера, сколько он висит, через сколько его можно закрыть тапом |
 | IslandRise | **IslandRisePlayer** | **profile** | ассет `ScriptableObjects/Profiles/Island Rise Profile` — все ручки подъёма (тайминги, кривые, эффекты, звук, тряска) |
 | | | **islandSystem** | Island |
@@ -233,11 +239,18 @@ SampleScene
 ### UI
 
 Вся разводка UI живёт **внутри `Canvas.prefab`**. Наружу из префаба торчит ровно одна ссылка —
-`GameBootstrap.uiRoot`. Сам Canvas несёт две таблицы, и они отвечают на разные вопросы:
+`GameBootstrap.uiRoot`. **Систем в инспекторе Канваса не назначают вовсе — их раздаёт код.** Бутстрап собирает
+набор `UIServices` (`ResourceSystem`, `AgeSystem`, `OfferingSystem`, `RunManager`, `PlacementController`,
+`CameraController`, `ZonePreviewOverlay`), а `UIRoot.Initialize` находит под Канвасом каждый `IUIElement` —
+выключенные тоже — и отдаёт набор ему. Сейчас это `BuildPanelUI`, `ResourcePanel`, `ZoneSelectionUI`,
+`AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `OfferingPanel`. Поэтому у экземпляра Канваса в сцене нет ни
+одного оверрайда со ссылкой на объект сцены — и появляться их не должно.
+
+Сам Canvas несёт две таблицы, и они отвечают на разные вопросы:
 
 | компонент | вопрос | что перечисляет |
 |---|---|---|
-| **UIRoot** | до кого тянется код **снаружи** UI | 8 панелей (см. ниже) |
+| **UIRoot** | чем код **снаружи** UI управляет сам | 4 экрана + баннер эпохи (см. ниже) |
 | **UIVisibility** | кто **когда** виден | CanvasGroup'ы + маска режимов |
 
 Панель, которая разговаривает только событиями, не попадает ни в одну (`ModeButton`), а видимая
@@ -247,24 +260,22 @@ SampleScene
 | Объект | Компонент | Поле | Что назначить |
 |--------|-----------|------|---------------|
 | Canvas | **UIRoot** | **zoneScreen, perkScreen, confirmDialog, metaScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen`, `ConfirmDialog`, `MetaScreen` — их зовут гейплейные стейты |
-| | | ageAdvance, ageCost, ageTimeline, offeringPanel | `Hud/AgePanel`, `.../Advance/Frame/Cost`, `.../Timeline/Frame`, `OfferingPanel` — им нужен RunContext (виджету — OfferingSystem) |
+| | | ageBanner, ageTitle | `AgeTransition` (CanvasGroup), `AgeTransition/BannerText` (TMP_Text) — баннер эпохи; бутстрап отдаёт их `AgeSequencer`. Пусто — предупреждение, эпохи сменяются без баннера |
 | Canvas | **UIVisibility** | groups | 8 строк, таблица ниже |
 | Canvas/OfferingPanel | OfferingPanel | label, offerButton | `Label` (TMP_Text), `OfferButton` (Button — активна, когда квота собрана целиком). Временный виджет, уйдёт с полосой сверху |
 | Canvas/Hud/BuildBar/ModeButton | BuildPanelButton | button, label, hideLabel, showLabel | Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Клик только просит (`BuildPanelToggleRequestedEvent`), видна ли панель — решает `BuildPanelUI` |
 | Canvas/Hud/BuildBar/Palette | **BuildPanelUI** | palette | `ScriptableObjects/BuildMode/Build Palette Def` |
-| | | placementController, resourceSystem | PlacementController, ResourceSystem (в сцене!) |
 | | | cardPrefab, cardContainer | префаб `Prefabs/Elements/BuildCard`, дочерний `Viewport/CardRow` |
 | | | tabPrefab, tabContainer | префаб `Prefabs/Elements/BuildTabUi`, дочерний `TabConteiner` |
 | | | scroller | BuildPanelScroller на `Viewport` |
 | | | sellButton, sellHighlight | `Sell/SellButton` и его `SelectedFrame` |
-| Canvas/Hud/ResourceBar/Slots | ResourcePanel | resourceSystem, unitPrefab, container, iconSet | ResourceSystem (в сцене!), `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
+| Canvas/Hud/ResourceBar | ResourcePanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
 | Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/Frame/AdvanceButton` |
 | Canvas/Hud/.../Frame/Cost | AgeCostPanel | unitPrefab, container, iconSet | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
 | | | unaffordableColor, visibilityRoot | цвет суммы, которую не хватает; что гасить после последней эпохи, когда покупать больше нечего |
 | Canvas/Hud/.../Timeline/Frame | AgeTimelinePanel | cardPrefab, container | префаб `Prefabs/Elements/AgeCard`, `Viewport/Content` |
 | Canvas/Screens/PerkScreen | PerkSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/PerkCardUI`, `Panel/CardColumn` |
 | Canvas/Screens/ZoneScreen | ZoneSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/ZoneCardUI`, `Panel/CardRow` |
-| | | preview, cameraController | ZonePreviewOverlay, CameraController (в сцене!) |
 | | | focusOffsetY | 0.15 (дефолт) — насколько выше центра экрана встаёт зона под карточкой |
 | Canvas/HintView | HintView | titleText, bodyText, costContainer, footerText | свои дети; секция с пустым содержимым прячется сама |
 | | | costPrefab, iconSet, unaffordableColor | ResourceUnit, ResourceIconSet, красный — цена, которую не потянуть |
@@ -273,6 +284,18 @@ SampleScene
 | | | pointsText, pointsFormat | `PointsText`, `Prestige points: {0}` |
 | | | **playButton** | `PlayButton` — следующий забег |
 | Canvas/ConfirmDialog | **ConfirmDialog** | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию. Сейчас это **окно конца цикла**: Yes = «Offer», No = «Accept wrath» (надписи задаёт код). Yes бывает серой (ресурсов не хватает) — у кнопки Yes должен быть вид «отключена» (Disabled Color или спрайт) |
+
+#### Новый элемент Канваса, которому нужна система
+
+1. Компонент реализует `IUIElement` — `public void Initialize(UIServices ui)` — и берёт из `ui` только своё.
+2. Кладём его куда угодно под `Canvas`. Ни поля на `UIRoot`, ни перетаскивания, ни оверрайда в сцене.
+3. `Initialize` приходит из `GameBootstrap.Awake` и может опередить собственный `Awake` элемента: там только
+   запомнить, а рисовать — начиная со `Start`.
+4. Нужной системы в наборе нет — одно поле в `UIServices` (названное по типу), одна строка там, где его заполняет
+   `GameBootstrap`, и одна в `UIServices.WarnMissing`. Если у бутстрапа нет и самой ссылки — ещё поле на `GameBootstrap`.
+
+Заспавненное в рантайме (карточки, юниты ресурсов) `IUIElement` не реализует: нужное отдаёт тот, кто его создал.
+Поле на `UIRoot` нужно в обратном случае — когда игра сама управляет элементом снаружи (экран стейта, баннер).
 
 #### Таблица UIVisibility
 
@@ -639,10 +662,12 @@ Script Execution Order настраивать **не нужно** (это кос
 - Unity гарантирует, что **все `Awake` отработают раньше любого `Start`**.
 - `GameBootstrap` делает всю проводку и старт рана в своём `Awake`. К моменту любого `Start` всё уже связано, а остров сгенерирован — какой объект инициализируется первым, не важно.
 - **Правило для новых систем:** не читай «вколотое» состояние (контексты, другие системы) в своих `Awake`/`OnEnable` — только начиная со `Start`. Подписки на события и `GetComponent` в `Awake`/`OnEnable` — можно.
+- **То же для элементов Канваса (`IUIElement`):** `Initialize(UIServices)` вызывается из `GameBootstrap.Awake` и может прийти раньше собственного `Awake` элемента — в нём только запомнить нужное, рисовать со `Start`. Поэтому `BuildPanelUI` строит карточки в `Start`, а не в `Awake`.
 
 ## Что должно произойти при Play
 
-1. `GameBootstrap.Awake`: загрузка MetaContext (с диска пока не читается — каждый запуск с чистого профиля), проводка систем;
+1. `GameBootstrap.Awake`: загрузка MetaContext (с диска пока не читается — каждый запуск с чистого профиля), проводка систем
+   и UI (набор `UIServices` → каждому `IUIElement` под Канвасом, баннер → `AgeSequencer`);
    `RunManager.StartNewRun()` → RunContext, стартовые модификаторы и ресурсы из StartConfig плюс купленные мета-перки,
    `IslandSystem.GenerateForRun` → стартовая зона с домом и пирсом; мета-перк Start Age сразу пропускает эпохи (остров
    растёт без анимации). App FSM → `Boot → GameplayContainer → Playing`. Камера — в центре острова, музыка — с первого кадра.

@@ -37,12 +37,6 @@ namespace LittlePeeps
         [SerializeField] private InputHandler inputHandler;
 
         [Header("Age banner")]
-        [Tooltip("The CanvasGroup holding the banner, faded in around the title and out again. It used to " +
-                 "black the screen out: an Image of its own should be switched off.")]
-        [FormerlySerializedAs("fadeOverlay")]
-        [SerializeField] private CanvasGroup banner;
-        [SerializeField] private TMP_Text titleLabel;
-
         [Tooltip("Seconds the banner takes to fade in, and again to fade out.")]
         [FormerlySerializedAs("fadeDuration")]
         [SerializeField] private float bannerFade = 0.5f;
@@ -53,14 +47,23 @@ namespace LittlePeeps
         [Tooltip("Seconds from the banner starting to appear before a tap can close it.")]
         [SerializeField] private float bannerTapGrace = 0.4f;
 
+        // The banner lives in the Canvas (UIRoot lists it) and arrives through Initialize — this scene object
+        // holds no reference into the Canvas prefab. Without it an age simply changes unannounced.
+        private CanvasGroup banner;
+        private TMP_Text titleLabel;
+
         private int taps;   // taps not yet acted on
 
+        // Handed the banner by GameBootstrap.Awake, before any input is processed.
+        //
         // The prefab is authored transparent, but an alpha-zero CanvasGroup still participates in UI
         // raycasts when blocksRaycasts is left on. Its centred title would then create an invisible
         // click-blocking strip across the island while placement hover (which does not query UI) stayed
-        // green. Establish the idle state explicitly before any input can be processed.
-        private void Awake()
+        // green. So the idle state is established here, explicitly, the moment the banner arrives.
+        public void Initialize(CanvasGroup banner, TMP_Text titleLabel)
         {
+            this.banner = banner;
+            this.titleLabel = titleLabel;
             SetBannerAlpha(0f);
             if (titleLabel != null) titleLabel.gameObject.SetActive(false);
         }

@@ -9,8 +9,9 @@ namespace LittlePeeps
     //   Island      [IslandSystem + Tilemap/TilemapRenderer children]
     //   Camera      [Camera + CinemachineBrain; a CinemachineCamera follows the CameraTarget object]
     //   CameraTarget[CameraController — moves this object; the vcam follows it with damping]
-    //   UI (Canvas) [UIRoot — the only UI reference this component holds; every panel is wired inside
-    //                the Canvas prefab. UIVisibility sits beside it and owns what is on screen per mode]
+    //   UI (Canvas) [UIRoot — the only reference into the UI. Everything the Canvas uses from the world
+    //                goes in through UIServices, built below, so no Canvas element references the scene.
+    //                UIVisibility sits beside it and owns what is on screen per mode]
     //
     // The pier is NOT in this list: it is start content, like the house — IslandSystem places it per run
     // from StartConfig.pier on the start's east coast, where it stays. It no longer ends a run (the gods'
@@ -42,6 +43,13 @@ namespace LittlePeeps
 
         [Header("UI")]
         [SerializeField] private UIRoot uiRoot;
+
+        [Tooltip("Handed to the UI (UIServices): the zone pick widens the camera to the offers and sends it " +
+                 "to the hovered one.")]
+        [SerializeField] private CameraController cameraController;
+
+        [Tooltip("Handed to the UI (UIServices): draws the zone offers on the island.")]
+        [SerializeField] private ZonePreviewOverlay zonePreview;
 
         [Header("Building")]
         [SerializeField] private PlacementController placementController;
@@ -83,16 +91,36 @@ namespace LittlePeeps
             if (offeringSystem != null) offeringSystem.Initialize(run);
             else Debug.LogError("[GameBootstrap] no OfferingSystem assigned — the offering cycle is off.", this);
 
-            // Every panel that needs the run, in one call. Which panels those ARE is UIRoot's business
-            // and lives in the Canvas prefab — bootstrap names the UI once and never its parts. One
-            // missing reference here takes the WHOLE UI with it, so it is loud; the run still boots
+            // Everything the Canvas may use from the world, packed once and handed to UIRoot, which passes
+            // it to every element under the Canvas (IUIElement). Which elements those ARE is the Canvas's
+            // business — bootstrap names the UI once and never its parts. A new system for the UI is one
+            // line here.
+            var ui = new UIServices
+            {
+                ResourceSystem = resourceSystem,
+                AgeSystem = ageSystem,
+                OfferingSystem = offeringSystem,
+                RunManager = runManager,
+                PlacementController = placementController,
+                CameraController = cameraController,
+                ZonePreviewOverlay = zonePreview,
+            };
+            ui.WarnMissing(this);
+
+            // One missing reference here takes the WHOLE UI with it, so it is loud; the run still boots
             // blind rather than dying inside Awake, which would leave nothing on screen to read the
             // error from.
             if (uiRoot == null)
                 Debug.LogError("[GameBootstrap] no UIRoot assigned — the game boots with no UI at all. " +
                                "Assign the Canvas's UIRoot.", this);
             else
-                uiRoot.Initialize(ageSystem, resourceSystem, offeringSystem, run);
+                uiRoot.Initialize(ui);
+
+            // The other direction: a piece of UI a system plays. The banner lives in the Canvas, so the
+            // AgeSequencer out in the scene gets it from here instead of referencing into the prefab.
+            if (ageSequencer != null)
+                ageSequencer.Initialize(uiRoot != null ? uiRoot.AgeBanner : null,
+                                        uiRoot != null ? uiRoot.AgeTitle : null);
 
             PerkSelectionUI perkScreen = uiRoot != null ? uiRoot.PerkScreen : null;
             ZoneSelectionUI zoneScreen = uiRoot != null ? uiRoot.ZoneScreen : null;

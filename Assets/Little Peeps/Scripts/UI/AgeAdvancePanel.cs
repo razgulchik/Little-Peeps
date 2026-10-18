@@ -10,7 +10,7 @@ namespace LittlePeeps
     // The button just publishes an intent (AgeAdvanceRequestedEvent) — GameplayContainerState decides
     // whether the transition may start. The button's interactable state tracks affordability
     // (recomputed on every resource change / age start).
-    public class AgeAdvancePanel : MonoBehaviour
+    public class AgeAdvancePanel : MonoBehaviour, IUIElement
     {
         [SerializeField] private TMP_Text ageLabel;
         [SerializeField] private Button nextAgeButton;
@@ -18,13 +18,14 @@ namespace LittlePeeps
         private AgeSystem ageSystem;
         private RunContext runContext;
 
-        // Injected by GameBootstrap once the run exists.
-        public void Initialize(AgeSystem ageSystem, RunContext runContext)
+        // From UIRoot once the run exists; the run is the one standing now, and RunStartedEvent replaces it.
+        public void Initialize(UIServices ui)
         {
-            this.ageSystem = ageSystem;
-            this.runContext = runContext;
-            Refresh();
+            ageSystem = ui.AgeSystem;
+            runContext = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
         }
+
+        private void Start() => Refresh();
 
         private void OnEnable()
         {

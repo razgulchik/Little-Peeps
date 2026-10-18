@@ -15,8 +15,8 @@ namespace LittlePeeps
     // lower and the bought age is now the highlighted one. Nothing here positions or animates
     // anything — which is also why the column cannot drift out of sync with itself.
     //
-    // Set up in the inspector: the card prefab and the container. GameBootstrap injects the system.
-    public class AgeTimelinePanel : MonoBehaviour
+    // Set up in the inspector: the card prefab and the container. The system comes from UIServices.
+    public class AgeTimelinePanel : MonoBehaviour, IUIElement
     {
         [SerializeField] private AgeTimelineCard cardPrefab;
         [SerializeField] private Transform container;   // bottom-aligned Vertical Layout Group
@@ -30,10 +30,11 @@ namespace LittlePeeps
 
         private readonly List<AgeTimelineCard> cards = new();
 
-        // Injected by GameBootstrap once the run exists.
-        public void Initialize(AgeSystem ageSystem, RunContext run)
+        // From UIRoot once the run exists.
+        public void Initialize(UIServices ui)
         {
-            this.ageSystem = ageSystem;
+            ageSystem = ui.AgeSystem;
+            RunContext run = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
             if (run != null) currentAge = run.currentAge;
         }
 
@@ -55,8 +56,8 @@ namespace LittlePeeps
         {
             if (ageSystem == null)
             {
-                Debug.LogWarning("[AgeTimelinePanel] never initialized — assign it on GameBootstrap. " +
-                                 "The timeline stays empty.", this);
+                Debug.LogWarning("[AgeTimelinePanel] no AgeSystem — it comes from UIRoot, so the panel must " +
+                                 "sit under the Canvas. The timeline stays empty.", this);
                 return;
             }
 

@@ -13,7 +13,7 @@ namespace LittlePeeps
     //
     // The text is rebuilt only when what it shows has changed (a second ticked, the stock moved, the cycle
     // turned), not every frame.
-    public class OfferingPanel : MonoBehaviour
+    public class OfferingPanel : MonoBehaviour, IUIElement
     {
         [SerializeField] private TMP_Text label;
         [SerializeField] private Button offerButton;
@@ -27,11 +27,11 @@ namespace LittlePeeps
         private int shownCycle = -1;
         private bool shownOffered;
 
-        // Injected through UIRoot by GameBootstrap.
-        public void Initialize(OfferingSystem offerings, ResourceSystem resources)
+        // From UIRoot (UIServices).
+        public void Initialize(UIServices ui)
         {
-            this.offerings = offerings;
-            this.resources = resources;
+            offerings = ui.OfferingSystem;
+            resources = ui.ResourceSystem;
             dirty = true;
         }
 

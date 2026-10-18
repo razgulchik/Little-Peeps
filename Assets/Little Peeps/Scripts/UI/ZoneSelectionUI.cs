@@ -29,25 +29,30 @@ namespace LittlePeeps
     // hiding the panel is likewise the table's job, never SetActive on this object — see PerkSelectionUI
     // for why an inactive panel's Awake would otherwise run inside the very Show() that reveals it.
     [RequireComponent(typeof(CanvasGroup))]
-    public class ZoneSelectionUI : MonoBehaviour
+    public class ZoneSelectionUI : MonoBehaviour, IUIElement
     {
         [SerializeField] private ZoneCardUI cardPrefab;
 
         [Tooltip("Parent for the spawned cards — give it a Layout Group.")]
         [SerializeField] private Transform cardContainer;
 
-        [Tooltip("Draws the offers on the island. Optional, but without it the cards are the only clue.")]
-        [SerializeField] private ZonePreviewOverlay preview;
-
-        [Tooltip("Widened to reach the offers while they are up; sent to look at the hovered one.")]
-        [SerializeField] private CameraController cameraController;
-
         [Tooltip("How far above the middle of the screen the focused zone sits, as a fraction of the " +
                  "visible height — enough that the cards along the bottom do not cover it. 0 = dead centre.")]
         [Range(0f, 0.4f)] [SerializeField] private float focusOffsetY = 0.15f;
 
+        // Both from UIServices, both optional. Without the preview the cards are the only clue; without the
+        // camera the view stays where the player left it.
+        private ZonePreviewOverlay preview;          // draws the offers on the island
+        private CameraController cameraController;   // widened to reach the offers, sent to the hovered one
+
         private readonly List<ZoneCardUI> cards = new();
         private ZoneOffer focused;
+
+        public void Initialize(UIServices ui)
+        {
+            preview = ui.ZonePreviewOverlay;
+            cameraController = ui.CameraController;
+        }
 
         // Fill the screen with one card per offer. Never called with an empty list: ZoneSelectionState
         // skips the choice instead, so there is no "and if there are none" state to draw. What it does

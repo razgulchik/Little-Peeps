@@ -16,11 +16,9 @@ namespace LittlePeeps
     // or let another screen come up) to clear — which drops back to the empty hand, where a click taps
     // again. A
     // right-click clear comes from the controller via its ToolCleared event.
-    public class BuildPanelUI : MonoBehaviour
+    public class BuildPanelUI : MonoBehaviour, IUIElement
     {
         [SerializeField] private BuildPaletteDef palette;
-        [SerializeField] private PlacementController placementController;
-        [SerializeField] private ResourceSystem resourceSystem;
         [SerializeField] private BuildCardUI cardPrefab;
         [SerializeField] private Transform cardContainer;   // parent with a Horizontal Layout Group
         [SerializeField] private BuildPanelScroller scroller;
@@ -42,6 +40,9 @@ namespace LittlePeeps
             public readonly List<BuildCardUI> Cards = new();
         }
 
+        private PlacementController placementController;   // from UIServices: the tool in hand
+        private ResourceSystem resourceSystem;             // from UIServices: the cards' wallet
+
         private readonly List<Tab> tabs = new();
         private readonly List<BuildCardUI> cards = new();
         private int currentTab = -1;   // survives Close(): back in normal play, the last tab is still open
@@ -53,10 +54,34 @@ namespace LittlePeeps
         private RunContext run;   // for the structures a perk opened and how many stand (StructureDef.LockState)
         private bool cardsDirty;  // a structure count changed — refresh in LateUpdate (OnStructureCountChanged)
 
+        // From UIRoot, once, in GameBootstrap.Awake — possibly before this object's own Awake, so it only
+        // takes what it needs. The controller's right-click clear is heard for the panel's whole life
+        // (until OnDestroy), not per enable: it lives as long as the Canvas.
+        public void Initialize(UIServices ui)
+        {
+            if (placementController != null) placementController.ToolCleared -= OnToolCleared;
+            placementController = ui.PlacementController;
+            resourceSystem = ui.ResourceSystem;
+            if (placementController != null) placementController.ToolCleared += OnToolCleared;
+        }
+
         private void Awake()
         {
-            BuildCards();
             SetSellHighlight(false);
+        }
+
+        // The cards are built here, not in Awake: each one keeps the wallet, which arrives with Initialize.
+        // By Start every Awake has run — GameBootstrap's included. The run and the age may already have
+        // been announced to an empty panel, so the new cards catch up at once.
+        private void Start()
+        {
+            BuildCards();
+            RefreshCards();
+        }
+
+        private void OnDestroy()
+        {
+            if (placementController != null) placementController.ToolCleared -= OnToolCleared;
         }
 
         private void OnEnable()
@@ -71,7 +96,6 @@ namespace LittlePeeps
             EventBus<ResourceChangedEvent>.Subscribe(OnResourceChanged);
             EventBus<BuildPanelToggleRequestedEvent>.Subscribe(OnToggleRequested);
             if (sellButton != null) sellButton.onClick.AddListener(OnSellClicked);
-            if (placementController != null) placementController.ToolCleared += OnToolCleared;
         }
 
         private void OnDisable()
@@ -86,7 +110,6 @@ namespace LittlePeeps
             EventBus<ResourceChangedEvent>.Unsubscribe(OnResourceChanged);
             EventBus<BuildPanelToggleRequestedEvent>.Unsubscribe(OnToggleRequested);
             if (sellButton != null) sellButton.onClick.RemoveListener(OnSellClicked);
-            if (placementController != null) placementController.ToolCleared -= OnToolCleared;
         }
 
         private void BuildCards()

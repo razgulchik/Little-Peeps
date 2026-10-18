@@ -9,8 +9,8 @@ namespace LittlePeeps
     // icon/format change lands on the wallet and on the price at the same time.
     //
     // Set up in the inspector: the ResourceUnit prefab, the container (the child with the Grid Layout
-    // Group), and the shared ResourceIconSet. GameBootstrap injects the systems.
-    public class AgeCostPanel : MonoBehaviour
+    // Group), and the shared ResourceIconSet. The systems come from UIServices.
+    public class AgeCostPanel : MonoBehaviour, IUIElement
     {
         [SerializeField] private ResourceUnit unitPrefab;
         [SerializeField] private Transform container;        // parent with the Grid Layout Group; defaults to this
@@ -35,11 +35,13 @@ namespace LittlePeeps
         private readonly List<ResourceUnit> units = new();
         private readonly List<ResourceCost> shown = new();   // the entry each unit displays, same index
 
-        // Injected by GameBootstrap once the run exists.
-        public void Initialize(AgeSystem ageSystem, ResourceSystem resourceSystem, RunContext run)
+        // From UIRoot once the run exists — even while switched off at the final age, since UIRoot finds
+        // inactive elements too.
+        public void Initialize(UIServices ui)
         {
-            this.ageSystem = ageSystem;
-            this.resourceSystem = resourceSystem;
+            ageSystem = ui.AgeSystem;
+            resourceSystem = ui.ResourceSystem;
+            RunContext run = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
             if (run != null) currentAge = run.currentAge;
         }
 
@@ -66,8 +68,8 @@ namespace LittlePeeps
         {
             if (ageSystem == null)
             {
-                Debug.LogWarning("[AgeCostPanel] never initialized — assign it on GameBootstrap. " +
-                                 "The age cost stays blank.", this);
+                Debug.LogWarning("[AgeCostPanel] no AgeSystem — it comes from UIRoot, so the panel must sit " +
+                                 "under the Canvas. The age cost stays blank.", this);
                 return;
             }
 

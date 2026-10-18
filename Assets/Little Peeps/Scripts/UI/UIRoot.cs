@@ -1,23 +1,25 @@
+using TMPro;
 using UnityEngine;
 
 namespace LittlePeeps
 {
-    // The UI's front door: the panels the rest of the game has to reach, listed once and wired INSIDE
-    // the Canvas prefab instead of from the Bootstrap object out in the scene. GameBootstrap holds one
-    // reference to this and names no panel of its own.
+    // The UI's front door. Two directions go through it, and each has exactly one way:
     //
-    // That move is not only tidiness. A reference from the scene into a prefab instance makes the SCENE
-    // carry a stripped-component stub per panel; five panels meant five stubs and five links in
-    // SampleScene.unity, all of them things a merge can fight over. One link survives, the rest live in
-    // the prefab where both ends already are.
+    //  - IN: what an element needs from the world. GameBootstrap packs it into UIServices and Initialize
+    //    hands that to every IUIElement under the Canvas, found here, not listed. A new element needs no
+    //    field on this class, no drag in the Inspector and no override in the scene.
+    //  - OUT: the UI pieces the game itself drives — the screens a gameplay state shows, the banner the
+    //    AgeSequencer plays. Those are listed below, once, and GameBootstrap reads them from here.
     //
-    // Deliberately NOT a singleton and deliberately without logic: it is a list of what exists, read by
-    // the composition root and nobody else. Only what a gameplay state has to drive is exposed at all —
-    // the two pick screens, the confirm dialog and the meta screen. The age panels and the
-    // offering panel are pure internal wiring, and nothing outside this file names them. A panel that wants
-    // another panel hidden asks by MODE (see UIVisibility); a panel that wants another panel's data asks
-    // the EventBus. Adding a property here to shortcut either of those is how
-    // this class turns into the global the rest of the architecture was built to avoid.
+    // So the scene holds a single link into the Canvas (GameBootstrap → this), and the Canvas none into
+    // the scene. A reference from the scene into a prefab instance makes the SCENE carry a stub per
+    // target and an override per field, all of them things a merge can fight over and a Revert can wipe.
+    //
+    // Deliberately NOT a singleton and deliberately without logic: it is the list of what the game drives,
+    // read by the composition root and nobody else. A panel that wants another panel hidden asks by MODE
+    // (see UIVisibility); a panel that wants another panel's data asks the EventBus. Adding a property
+    // here to shortcut either of those is how this class turns into the global the rest of the
+    // architecture was built to avoid.
     [DisallowMultipleComponent]
     public class UIRoot : MonoBehaviour
     {
@@ -32,23 +34,25 @@ namespace LittlePeeps
         [Tooltip("The screen after a prestige, where points are spent on meta perks before the next run.")]
         [SerializeField] private MetaUpgradesUI metaScreen;
 
-        [Header("Run-dependent panels (wired here, not named outside)")]
-        [SerializeField] private AgeAdvancePanel ageAdvance;
-        [SerializeField] private AgeCostPanel ageCost;
-        [SerializeField] private AgeTimelinePanel ageTimeline;
+        [Header("Age banner, played by AgeSequencer")]
+        [Tooltip("The CanvasGroup holding the banner (AgeTransition), faded in around the title and out again.")]
+        [SerializeField] private CanvasGroup ageBanner;
 
-        [Tooltip("The offering cycle's HUD: time left, the quota, the button that pays it early.")]
-        [SerializeField] private OfferingPanel offeringPanel;
+        [Tooltip("The banner's title (BannerText). It prints the age's number.")]
+        [SerializeField] private TMP_Text ageTitle;
 
         public ZoneSelectionUI ZoneScreen => zoneScreen;
         public PerkSelectionUI PerkScreen => perkScreen;
         public ConfirmDialog ConfirmDialog => confirmDialog;
         public MetaUpgradesUI MetaScreen => metaScreen;
+        public CanvasGroup AgeBanner => ageBanner;
+        public TMP_Text AgeTitle => ageTitle;
 
         // Wiring tripwire, and a loud one for the screens. They are read ONCE — by GameBootstrap.Awake,
         // straight into the states that drive them — so a missing reference stays invisible until the
         // player buys an age, and then costs them a zone pick and a perk with only a log to show for it.
-        // The age panels get a warning instead: each one dying alone is a cosmetic loss, not a lost run.
+        // The banner gets a warning instead: without it an age changes unannounced, which is a cosmetic
+        // loss, not a lost run.
         //
         // In Start rather than Awake so every Awake has had its chance to wire things first.
         private void Start()
@@ -71,27 +75,18 @@ namespace LittlePeeps
                 Debug.LogError("[UIRoot] Meta Screen is not assigned — after a prestige the next run starts at " +
                                "once, with no way to spend prestige points.", this);
 
-            if (ageAdvance == null) Debug.LogWarning("[UIRoot] Age Advance is not assigned.", this);
-            if (ageCost == null) Debug.LogWarning("[UIRoot] Age Cost is not assigned.", this);
-            if (ageTimeline == null) Debug.LogWarning("[UIRoot] Age Timeline is not assigned.", this);
-
-            // A warning: the cycle still runs and still asks at its end — only the early offering and the
-            // clock on screen are lost.
-            if (offeringPanel == null)
-                Debug.LogWarning("[UIRoot] Offering Panel is not assigned — no clock or quota on screen, and " +
-                                 "no way to offer before the cycle ends.", this);
+            if (ageBanner == null || ageTitle == null)
+                Debug.LogWarning("[UIRoot] Age Banner or Age Title is not assigned — ages change with no banner.",
+                                 this);
         }
 
-        // The panels that need the run, in one call from GameBootstrap.Awake. The null checks that used
-        // to sit in bootstrap live here — same tripwires, one place. They stay null-tolerant rather than
-        // loud because a half-wired Canvas should lose one panel, not the whole boot.
-        public void Initialize(AgeSystem ageSystem, ResourceSystem resourceSystem, OfferingSystem offeringSystem,
-                               RunContext run)
+        // Every element under the Canvas that needs the world, in one call from GameBootstrap.Awake —
+        // inactive ones included, since a panel that switches itself off (AgeCostPanel at the final age)
+        // still needs its systems for the next run. Called once: elements are reused across runs.
+        public void Initialize(UIServices ui)
         {
-            if (ageAdvance != null) ageAdvance.Initialize(ageSystem, run);
-            if (ageCost != null) ageCost.Initialize(ageSystem, resourceSystem, run);
-            if (ageTimeline != null) ageTimeline.Initialize(ageSystem, run);
-            if (offeringPanel != null) offeringPanel.Initialize(offeringSystem, resourceSystem);
+            foreach (var element in GetComponentsInChildren<IUIElement>(true))
+                element.Initialize(ui);
         }
     }
 }

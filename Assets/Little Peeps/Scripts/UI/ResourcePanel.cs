@@ -7,18 +7,22 @@ namespace LittlePeeps
     // AddResource/Spend.
     //
     // The icon set IS the bar's contents: its order is the display order, and adding an entry there
-    // adds it here. Set up in the inspector: assign the ResourceSystem, the ResourceUnit prefab, the
-    // container (a child with a Horizontal Layout Group) and the icon set. A type the ResourceSystem
-    // never seeded is simply not shown.
-    public class ResourcePanel : MonoBehaviour
+    // adds it here. Set up in the inspector: the ResourceUnit prefab, the container (a child with a
+    // Horizontal Layout Group) and the icon set; the ResourceSystem comes from UIServices. A type the
+    // ResourceSystem never seeded is simply not shown.
+    public class ResourcePanel : MonoBehaviour, IUIElement
     {
-        [SerializeField] private ResourceSystem resourceSystem;
         [SerializeField] private ResourceUnit unitPrefab;
         [SerializeField] private Transform container;   // parent with a Horizontal Layout Group
         [SerializeField] private ResourceIconSet iconSet;
 
-        // Build in Start (not Awake): by now GameBootstrap.Awake has run ResourceSystem.Initialize,
-        // so the ReactiveValues exist. See the Awake note in GameBootstrap / SCENE_SETUP.md.
+        private ResourceSystem resourceSystem;
+
+        public void Initialize(UIServices ui) => resourceSystem = ui.ResourceSystem;
+
+        // Build in Start (not Awake): by now GameBootstrap.Awake has run ResourceSystem.Initialize and
+        // handed the system over, so the ReactiveValues exist. See the Awake note in GameBootstrap /
+        // SCENE_SETUP.md.
         private void Start()
         {
             if (resourceSystem == null || unitPrefab == null || container == null) return;

@@ -628,8 +628,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   palette: {fileID: 11400000, guid: 21639bab9cf6cd34b8b5f45c77c9c991, type: 2}
-  placementController: {fileID: 0}
-  resourceSystem: {fileID: 0}
   cardPrefab: {fileID: 2689466547519329898, guid: 27a15a89d3d1f644b9fe645a5e677a70, type: 3}
   cardContainer: {fileID: 974708882825351838}
   scroller: {fileID: 9100000000000000002}
@@ -891,10 +889,8 @@ MonoBehaviour:
   perkScreen: {fileID: 2599796305896482923}
   confirmDialog: {fileID: 9038119044958285450}
   metaScreen: {fileID: 8110145747781757946}
-  ageAdvance: {fileID: 8954930831651226964}
-  ageCost: {fileID: 7638193266870220442}
-  ageTimeline: {fileID: 920375059152678463}
-  offeringPanel: {fileID: 444533693408271682}
+  ageBanner: {fileID: 989865603027003840}
+  ageTitle: {fileID: 671411800887952070}
 --- !u!114 &73578012889418422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5041,7 +5037,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0951c33ef22c9f34d92a6c5c6380acf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  resourceSystem: {fileID: 0}
   unitPrefab: {fileID: -4017216604878443824, guid: 5ca4d5e4bc8af2c498bf80bf89c4471d, type: 3}
   container: {fileID: 1403826550918590842}
   iconSet: {fileID: 11400000, guid: a8b6247b3cd9d1a58b1b4d63f81e733d, type: 2}
@@ -5109,8 +5104,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardPrefab: {fileID: 8876561960316945241, guid: ffa374ca1e93bce4f9056ea6dc23a475, type: 3}
   cardContainer: {fileID: 8669698840472332962}
-  preview: {fileID: 0}
-  cameraController: {fileID: 0}
   focusOffsetY: 0.15
 --- !u!1 &9182124775632263839
 GameObject:

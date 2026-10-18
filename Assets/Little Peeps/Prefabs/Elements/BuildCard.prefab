@@ -252,7 +252,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 85e6f953c50488e4a9e7e93afe95b340, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4dca8035314fda14a8cefa4d7d6db4a9, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1125,6 +1125,7 @@ MonoBehaviour:
   costPanel: {fileID: 2501}
   resourceIconImage: {fileID: 2514}
   costText: {fileID: 3220693561937864027}
+  countText: {fileID: 0}
   artworkCanvasGroup: {fileID: 2703}
   iconSet: {fileID: 11400000, guid: a8b6247b3cd9d1a58b1b4d63f81e733d, type: 2}
   shineViewport: {fileID: 2302}
@@ -1132,6 +1133,7 @@ MonoBehaviour:
   shineImage: {fileID: 2314}
   lockedOverlay: {fileID: 2601}
   lockedText: {fileID: 2614}
+  hintAnchor: {fileID: 0}
 --- !u!1 &4704087143286132239
 GameObject:
   m_ObjectHideFlags: 0

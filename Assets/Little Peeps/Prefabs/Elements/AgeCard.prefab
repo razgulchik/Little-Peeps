@@ -34,7 +34,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 7}
+  m_AnchoredPosition: {x: 0, y: 8.104167}
   m_SizeDelta: {x: 66, y: 15}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &646915623900921349
@@ -65,7 +65,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: NEW TEXT
+  m_text: AGE IV
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 9bf92fb844234ce47a1cd8617fba8347, type: 2}
   m_sharedMaterial: {fileID: -2654362891549049512, guid: 9bf92fb844234ce47a1cd8617fba8347, type: 2}
@@ -74,8 +74,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4284981446
+  m_fontColor: {r: 0.77647066, g: 0.627451, b: 0.4039216, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -92,8 +92,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 10
-  m_fontSizeBase: 10
+  m_fontSize: 15
+  m_fontSizeBase: 15
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -211,8 +211,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4290440703
-  m_fontColor: {r: 1, g: 0.9300614, b: 0.7311321, a: 1}
+    rgba: 4286696675
+  m_fontColor: {r: 0.89019614, g: 0.8000001, b: 0.5058824, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -229,8 +229,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 6
-  m_fontSizeBase: 6
+  m_fontSize: 9
+  m_fontSizeBase: 9
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -344,7 +344,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 2bef030c0c9f44f4fa7ec11d51eb2df7, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 26b3955f984e50046b25353358fdafc2, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -381,12 +381,12 @@ MonoBehaviour:
   ageLabel: {fileID: 6777888184694656712}
   bonusLabel: {fileID: 7904268450299344974}
   background: {fileID: 771455306218541107}
-  nextBackground: {fileID: 0}
-  nextTint: {r: 1, g: 1, b: 1, a: 1}
-  nextAlpha: 1
-  historyBackground: {fileID: 0}
-  historyTint: {r: 0.6, g: 0.65, b: 0.75, a: 1}
-  historyAlpha: 0.65
+  currentBackground: {fileID: 0}
+  currentTint: {r: 1, g: 1, b: 1, a: 1}
+  currentAlpha: 1
+  upcomingBackground: {fileID: 0}
+  upcomingTint: {r: 0.6, g: 0.65, b: 0.75, a: 1}
+  upcomingAlpha: 0.65
 --- !u!114 &7394652812252852270
 MonoBehaviour:
   m_ObjectHideFlags: 0

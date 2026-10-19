@@ -146,14 +146,23 @@ namespace LittlePeeps
         public int Count;
     }
 
-    // Published by anything with a hint while the pointer rests on it (a build card for now). HintView, the
-    // one hint window on the Canvas, shows Content next to Anchor after a short delay. Publishing again
-    // with the same Owner while it is up refreshes the window in place.
+    // Published by anything with a hint while the pointer rests on it (a build card, a HUD perk cell).
+    // HintView, the one hint window on the Canvas, shows Content next to Anchor after a short delay, on the
+    // Side asked for. Publishing again with the same Owner while it is up refreshes the window in place.
     public struct HintShowEvent
     {
         public object Owner;
         public HintContent Content;
         public RectTransform Anchor;
+        public HintSide Side;
+    }
+
+    // Where the hint window goes against its anchor. Above (the default) flips below when the Canvas top is
+    // too close; Left — for a column at the screen's right edge — flips right when the left edge is.
+    public enum HintSide
+    {
+        Above,
+        Left,
     }
 
     // The pointer left that source. Ignored unless Owner is the one whose hint is up or pending — the card
@@ -168,6 +177,14 @@ namespace LittlePeeps
     // what let the old stub cache a RunContext, and a cached run goes stale the first time a prestige
     // starts a new one.
     public struct PerkSelectedEvent
+    {
+        public PerkDef Perk;
+    }
+
+    // Published by PerkSystem.ApplyPerk once the perk has taken effect and stands in RunContext.perksChosen —
+    // the one place a perk enters a run, whichever way it was picked. The HUD's perk panel adds a cell on it.
+    // Not PerkSelectedEvent: that one is a request, and the panel would hear it before the perk is applied.
+    public struct PerkAppliedEvent
     {
         public PerkDef Perk;
     }

@@ -7,7 +7,8 @@ namespace LittlePeeps
 {
     // The one hint window on the Canvas. A UI element publishes HintShowEvent while the pointer rests on it
     // and HintHideEvent when it leaves; the window shows that content above the element (below it when
-    // there is no room above), kept inside the Canvas. One window for every kind of hint: its sections —
+    // there is no room above) or, when the element asks, to its left (right when there is no room) — kept
+    // inside the Canvas either way. One window for every kind of hint: its sections —
     // title, body, price lines, footer — each switch off while their part of the HintContent is empty.
     //
     // The window sizes itself: as wide as its longest line up to Max Width (past it the text wraps), as tall
@@ -60,6 +61,7 @@ namespace LittlePeeps
         private object owner;        // whose hint is up or waiting out the delay; null = none
         private HintContent content;
         private RectTransform anchor;
+        private HintSide side;
         private bool shown;
         private float showAt;        // unscaled time the waiting hint appears
         private float hiddenAt = float.NegativeInfinity;   // unscaled time the last shown hint closed
@@ -99,6 +101,7 @@ namespace LittlePeeps
             owner = e.Owner;
             content = e.Content;
             anchor = e.Anchor;
+            side = e.Side;
 
             // A new source starts its own delay — unless a hint closed a moment ago, then it shows at once.
             if (!shown && !sameOwner)
@@ -214,7 +217,8 @@ namespace LittlePeeps
         private static float PreferredWidth(TMP_Text text) =>
             text != null && text.gameObject.activeSelf ? Mathf.Ceil(text.GetPreferredValues(text.text).x) : 0f;
 
-        // Centred above the anchor; below it when the top of the Canvas is too close; then pushed inside
+        // Above: centred over the anchor, below it when the top of the Canvas is too close. Left: beside the
+        // anchor, tops level, on its right when the left edge of the Canvas is too close. Then pushed inside
         // the Canvas edges. Whole Canvas pixels, so the pixel font stays crisp.
         private void Place()
         {
@@ -226,9 +230,19 @@ namespace LittlePeeps
             Rect area = parent.rect;
             Vector2 size = window.rect.size;
 
-            float x = (low.x + high.x - size.x) * 0.5f;
-            float y = high.y + gap;
-            if (y + size.y > area.yMax - screenMargin) y = low.y - gap - size.y;
+            float x, y;
+            if (side == HintSide.Left)
+            {
+                x = low.x - gap - size.x;
+                if (x < area.xMin + screenMargin) x = high.x + gap;
+                y = high.y - size.y;
+            }
+            else
+            {
+                x = (low.x + high.x - size.x) * 0.5f;
+                y = high.y + gap;
+                if (y + size.y > area.yMax - screenMargin) y = low.y - gap - size.y;
+            }
 
             x = Mathf.Clamp(x, area.xMin + screenMargin, Mathf.Max(area.xMin + screenMargin, area.xMax - screenMargin - size.x));
             y = Mathf.Clamp(y, area.yMin + screenMargin, Mathf.Max(area.yMin + screenMargin, area.yMax - screenMargin - size.y));

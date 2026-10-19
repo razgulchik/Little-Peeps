@@ -320,6 +320,37 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void ApplyPerk_AnnouncesThePerk_OnlyOnceItStandsInTheRun()
+        {
+            // The HUD perk panel adds a cell on this event and a new run rebuilds from perksChosen; heard
+            // before the list is written, the two would disagree about what was taken.
+            var perk = Perk("announced");
+            Configure();
+
+            var heard = new List<PerkDef>();
+            bool listedWhenHeard = false;
+            System.Action<PerkAppliedEvent> handler = e =>
+            {
+                heard.Add(e.Perk);
+                listedWhenHeard = run.perksChosen.Contains(e.Perk);
+            };
+
+            EventBus<PerkAppliedEvent>.Subscribe(handler);
+            try
+            {
+                system.ApplyPerk(null, run);
+                system.ApplyPerk(perk, run);
+            }
+            finally
+            {
+                EventBus<PerkAppliedEvent>.Unsubscribe(handler);
+            }
+
+            Assert.That(heard, Is.EqualTo(new[] { perk }), "one event per perk taken, none for a null one");
+            Assert.That(listedWhenHeard, Is.True);
+        }
+
+        [Test]
         public void RollPerks_SurvivesANullRunContext()
         {
             var perk = Perk("any");

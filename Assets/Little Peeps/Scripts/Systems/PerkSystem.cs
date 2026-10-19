@@ -151,13 +151,15 @@ namespace LittlePeeps
             return true;
         }
 
-        // Apply the perk effect and record it so it can't be rolled again this run.
+        // Apply the perk effect and record it so it can't be rolled again this run. Announced only after
+        // both, so a listener reading perksChosen already finds the perk there.
         public void ApplyPerk(PerkDef perk, RunContext context)
         {
             if (perk == null || context == null) return;
 
             perk.ApplyPerk(context);
             context.perksChosen.Add(perk);
+            EventBus<PerkAppliedEvent>.Publish(new PerkAppliedEvent { Perk = perk });
         }
 
         // Index of the weighted pick for a roll in [0, 1], or -1 when nothing is rollable.

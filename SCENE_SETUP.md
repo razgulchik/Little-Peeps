@@ -7,8 +7,10 @@
 > стройки больше нет): **2026-10-15**, сверено со сценой и `Canvas.prefab`. Цикл подношений (престиж
 > через пирс убран): **2026-10-16**, сверено со сценой и `Canvas.prefab`. Системы попадают в UI только
 > кодом, через `UIServices` (оверрайдов проводки Канваса в сцене больше нет): **2026-10-18**, сверено со сценой
-> и `Canvas.prefab`; там же HUD по макету (AgePanel из двух кусков встык, подложка в ResourceUnit). Не описана проводка звука (`SoundSystem` / `SoundDef`): система в сцене есть, её поля и
-> звуковые поля префабов сюда ещё не внесены.
+> и `Canvas.prefab`; там же HUD по макету (AgePanel из двух кусков встык, подложка в ResourceUnit). Панель стройки —
+> четыре отдельных виджета, у каждого состояния один хозяин; блок цены эры растёт по строкам; лента времени
+> `TimePanel`: **2026-10-19**, сверено с `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
 
@@ -78,29 +80,41 @@ SampleScene
     ├── Hud                     → CanvasGroup                    ← весь игровой HUD одной группой
     │   ├── AgePanel            → CanvasGroup + AgeAdvancePanel + Vertical Layout Group + Content Size Fitter
     │   │   │                     ← левый верхний угол, ширина 81, высоту считает Fitter. Два нарезанных куска
-    │   │   │                       встык: Spacing −1, потому что строка шва нарисована на обоих. Ширину и
-    │   │   │                       позицию кускам задаёт раскладка, руками — только высота
-    │   │   ├── Timeline        → Image (panel_base_age_top, Sliced) + AgeTimelinePanel   (81×43)
+    │   │   │                       встык: Spacing −1, потому что строка шва нарисована на обоих. Размеры кускам
+    │   │   │                       задаёт раскладка (Control Child Size → Width и Height), руками их не трогать
+    │   │   ├── Timeline        → Image (panel_base_age_top, Sliced) + AgeTimelinePanel
+    │   │   │   │                 + LayoutElement (Preferred Height 43)                  (81×43)
     │   │   │   └── Viewport    → RectMask2D
     │   │   │       └── Content → Vertical Layout Group + Content Size Fitter
     │   │   │                     (прижат к НИЗУ: карточки эр растут вверх, маска режет сверху)
-    │   │   └── Advance         → Image (panel_base_age_expand, Sliced)                  (81×82)
-    │   │       ├── Cost        → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме; ячейки 34×13)
-    │   │       └── AdvanceButton → Image + Button        (родные 69×43, по центру, 4 px от низа)
+    │   │   └── Advance         → Image (panel_base_age_expand, Sliced) + Vertical Layout Group
+    │   │       │                 ← растёт по строкам цены: Padding 4/4/4/50 (снизу место под кнопку),
+    │   │       │                   Upper Center, Control Child Size W+H. Высота 54 + 14 × строк: 68 / 82 / 96
+    │   │       │                   при 1–3 строках; 54 на последней эре (Cost выключен) и в редакторе (Cost пуст)
+    │   │       ├── Cost        → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме; 2 колонки,
+    │   │       │                 ячейки 34×13 — свою высоту сетка считает сама)
+    │   │       └── AdvanceButton → Image + Button + LayoutElement (Ignore Layout)
+    │   │           │             (родные 69×43, по центру, 4 px от низа: прибита к низу Advance и едет с ним)
     │   │           └── Label   → TMP_Text
-    │   ├── BuildBar
-    │   │   ├── ModeButton      → Image + Button + BuildPanelButton     (правый-нижний угол: прячет / показывает
-    │   │   │                                                    палитру и Sell — не режим, игра идёт и так и так)
-    │   │   ├── Palette         → CanvasGroup + Image + BuildPanelUI    (открыта всю живую игру)
-    │   │   │   ├── TabConteiner → Vertical Layout Group        (кнопки вкладок в рантайме; ВНУТРИ Palette —
-    │   │   │   │                                                видны вместе с палитрой, своя строка UIVisibility не нужна)
-    │   │   │   └── Viewport    → Image + RectMask2D + BuildPanelScroller
-    │   │   │       └── CardRow → Horizontal Layout Group       (карточки построек в рантайме)
-    │   │   └── Sell            → CanvasGroup
-    │   │       └── SellButton  → Image + Button
-    │   │           └── SelectedFrame   → Image                 (подсветка выбранного инструмента)
-    │   └── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
-    │                             ← правый верхний угол, 124×36; ячейки 34×13, три в строку
+    │   ├── SellButton          → Image + Button + CanvasGroup + SellButtonUI   (левый нижний угол (2, 17), 34×42)
+    │   │   └── SelectedFrame   → Image                 (горит, пока в руке Sell)
+    │   ├── BuildTabs           → Vertical Layout Group + Content Size Fitter + CanvasGroup + BuildTabBar
+    │   │                         ← слева от палитры (59, 7), ширина 79, растёт вверх; Spacing −3 — соседние
+    │   │                           вкладки перекрываются на 3 px, как на макете; кнопки вкладок в рантайме
+    │   ├── BuildPalette        → CanvasGroup + Image (card_panel, Sliced) + BuildPaletteUI   (справа внизу (−47, 4), 440×64)
+    │   │   └── Viewport        → Image + RectMask2D + BuildPanelScroller   (тянется по ширине палитры)
+    │   │       └── CardRow     → Horizontal Layout Group       (карточки построек в рантайме)
+    │   ├── BuildToggle         → Image + Button + BuildPanelToggle   (правый нижний угол (−9, 19), 32×40: прячет /
+    │   │                         показывает SellButton, BuildTabs и BuildPalette — не режим, игра идёт и так и так)
+    │   ├── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
+    │   │                         ← правый верхний угол, 124×36; ячейки 34×13, три в строку
+    │   └── TimePanel           → Image (time_panel, Sliced) + CanvasGroup   ← лента времени цикла подношений,
+    │       │                     по центру сверху; пока только вёрстка, скрипта нет
+    │       ├── Now             → Image                 (кружок «сейчас», слева)
+    │       ├── Track           → RectMask2D
+    │       │   └── Belt        → превью ленты: Line / Year / HalfDecade (отрезки, отметки лет и полудесятилетия)
+    │       ├── Dots            → Image                 («и так далее», справа)
+    │       └── Offering        → Point + Icon (Image)  (место подношения, справа)
     ├── AgeTransition           → Image (чёрный α≈0.42 — подложка баннера) + CanvasGroup (Alpha 0)   ← баннер эпохи;
     │   │                         его и BannerText перечисляет UIRoot, бутстрап отдаёт их AgeSequencer —
     │   │                         тот проявляет и гасит баннер целиком, клики он ловит только пока виден
@@ -122,6 +136,13 @@ SampleScene
     │   └── FooterText          → TMP_Text
     ├── ConfirmDialog           → вложенный префаб `Prefabs/Elements/ConfirmDialog`: CanvasGroup + ConfirmDialog
     │                             (Backdrop, Panel с текстом и кнопками Yes / No)
+    ├── FPSmeter
+    │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
+    ├── OfferingPanel           → CanvasGroup + OfferingPanel   ← ВРЕМЕННЫЙ виджет подношения (до ленты TimePanel):
+    │   │                         над серединой экрана; цикл, время, квота «Wood 32/40»
+    │   ├── Label               → TMP_Text
+    │   └── OfferButton         → Image + Button                ← подношение досрочно
+    │       └── Text (TMP)      → TMP_Text
     ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← экран после престижа (включён, как Screens)
     │   ├── TitleText, PointsText → TMP_Text
     │   ├── Scroll View         → Image + ScrollRect
@@ -129,20 +150,14 @@ SampleScene
     │   │   │   └── Content     → Vertical Layout Group + Content Size Fitter   (строки мета-перков в рантайме)
     │   │   └── Scrollbar Vertical
     │   └── PlayButton          → Image + Button
-    ├── FPSmeter
-    │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
-    ├── OfferingPanel           → CanvasGroup + OfferingPanel   ← ВРЕМЕННЫЙ виджет подношения (до полосы сверху):
-    │   │                         по центру над серединой экрана; цикл, время, квота «Wood 32/40»
-    │   ├── Label               → TMP_Text
-    │   └── OfferButton         → Image + Button                ← подношение досрочно
-    │       └── Text (TMP)      → TMP_Text
     └── ref (выключен)          → скрин-референс вёрстки, в игре не участвует
 ```
 
 > `HintView` и `ConfirmDialog` по замыслу кода — **последние** дети Canvas, чтобы рисоваться поверх всего.
-> Сейчас после них стоят `MetaScreen`, `FPSmeter`, `OfferingPanel` и выключенный `ref`. На деле не мешает: окно конца цикла
-> (это `ConfirmDialog`) идёт в режиме `OfferingEnd`, где `OfferingPanel` скрыт, а мета-экран открывается
-> уже после ответа и подсказок не показывает. Если это изменится — перенести оба вниз.
+> Сейчас после них стоят `FPSmeter`, `OfferingPanel`, `MetaScreen` и выключенный `ref`. Мета-экран открывается уже
+> после ответа и подсказок не показывает, а `OfferingPanel` он закрывает собой. Но у `OfferingPanel` нет строки в
+> таблице видимости — он виден во всех режимах, в том числе поверх окна конца цикла (`ConfirmDialog`, режим
+> `OfferingEnd`). Если это мешает — вернуть ему строку или перенести `ConfirmDialog` ниже.
 
 ## Checklist проводки (критично)
 
@@ -244,8 +259,8 @@ SampleScene
 `GameBootstrap.uiRoot`. **Систем в инспекторе Канваса не назначают вовсе — их раздаёт код.** Бутстрап собирает
 набор `UIServices` (`ResourceSystem`, `AgeSystem`, `OfferingSystem`, `RunManager`, `PlacementController`,
 `CameraController`, `ZonePreviewOverlay`), а `UIRoot.Initialize` находит под Канвасом каждый `IUIElement` —
-выключенные тоже — и отдаёт набор ему. Сейчас это `BuildPanelUI`, `ResourcePanel`, `ZoneSelectionUI`,
-`AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `OfferingPanel`. Поэтому у экземпляра Канваса в сцене нет ни
+выключенные тоже — и отдаёт набор ему. Сейчас это `BuildPaletteUI`, `SellButtonUI`, `BuildPanelToggle`,
+`ResourcePanel`, `ZoneSelectionUI`, `AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `OfferingPanel`. Поэтому у экземпляра Канваса в сцене нет ни
 одного оверрайда со ссылкой на объект сцены — и появляться их не должно.
 
 Сам Canvas несёт две таблицы, и они отвечают на разные вопросы:
@@ -255,22 +270,22 @@ SampleScene
 | **UIRoot** | чем код **снаружи** UI управляет сам | 4 экрана + баннер эпохи (см. ниже) |
 | **UIVisibility** | кто **когда** виден | CanvasGroup'ы + маска режимов |
 
-Панель, которая разговаривает только событиями, не попадает ни в одну (`ModeButton`), а видимая
-по режиму — только во вторую (`Palette`, `Sell`). `ConfirmDialog` и `HintView` нет в таблице видимости:
+Элемент, которому не нужно ни то ни другое, не попадает ни в одну (`BuildToggle`), а видимый
+по режиму — только во вторую (`BuildPalette`, `SellButton`, `BuildTabs`). `ConfirmDialog` и `HintView` нет в таблице видимости:
 свою CanvasGroup каждый ведёт сам.
 
 | Объект | Компонент | Поле | Что назначить |
 |--------|-----------|------|---------------|
 | Canvas | **UIRoot** | **zoneScreen, perkScreen, confirmDialog, metaScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen`, `ConfirmDialog`, `MetaScreen` — их зовут гейплейные стейты |
 | | | ageBanner, ageTitle | `AgeTransition` (CanvasGroup), `AgeTransition/BannerText` (TMP_Text) — баннер эпохи; бутстрап отдаёт их `AgeSequencer`. Пусто — предупреждение, эпохи сменяются без баннера |
-| Canvas | **UIVisibility** | groups | 8 строк, таблица ниже |
+| Canvas | **UIVisibility** | groups | 7 строк, таблица ниже |
 | Canvas/OfferingPanel | OfferingPanel | label, offerButton | `Label` (TMP_Text), `OfferButton` (Button — активна, когда квота собрана целиком). Временный виджет, уйдёт с полосой сверху |
-| Canvas/Hud/BuildBar/ModeButton | BuildPanelButton | button, label, hideLabel, showLabel | Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Клик только просит (`BuildPanelToggleRequestedEvent`), видна ли панель — решает `BuildPanelUI` |
-| Canvas/Hud/BuildBar/Palette | **BuildPanelUI** | palette | `ScriptableObjects/BuildMode/Build Palette Def` |
-| | | cardPrefab, cardContainer | префаб `Prefabs/Elements/BuildCard`, дочерний `Viewport/CardRow` |
-| | | tabPrefab, tabContainer | префаб `Prefabs/Elements/BuildTabUi`, дочерний `TabConteiner` |
+| Canvas/Hud/BuildToggle | BuildPanelToggle | button, label, hideLabel, showLabel | свой Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Хозяин «показана / спрятана»: клик и B переключают, X и 1–9 возвращают спрятанную панель, прятание кладёт инструмент из руки |
+| Canvas/Hud/BuildTabs | **BuildTabBar** | palette | `ScriptableObjects/BuildMode/Build Palette Def` — без него нет ни вкладок, ни карточек |
+| | | tabPrefab, container | префаб `Prefabs/Elements/BuildTabUi`; container пусто = сам `BuildTabs` (его Vertical Layout Group) |
+| Canvas/Hud/BuildPalette | **BuildPaletteUI** | cardPrefab, cardContainer | префаб `Prefabs/Elements/BuildCard`, дочерний `Viewport/CardRow` |
 | | | scroller | BuildPanelScroller на `Viewport` |
-| | | sellButton, sellHighlight | `Sell/SellButton` и его `SelectedFrame` |
+| Canvas/Hud/SellButton | SellButtonUI | button, selectedFrame | свой Button, дочерний `SelectedFrame` |
 | Canvas/Hud/ResourceBar | ResourcePanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
 | Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/AdvanceButton` |
 | Canvas/Hud/AgePanel/Advance/Cost | AgeCostPanel | unitPrefab, container, iconSet | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
@@ -307,27 +322,26 @@ SampleScene
 родительской.
 
 Кроме режима у строки есть одна галочка — **Follows Build Panel**: такая группа видна, только если её
-режим говорит «да» **и** игрок не спрятал панель стройки (кнопка `ModeButton` или B). Это всё ещё строка
+режим говорит «да» **и** игрок не спрятал панель стройки (кнопка `BuildToggle` или B). Это всё ещё строка
 таблицы, так что у группы один хозяин — кнопка ничего не пишет поверх того, что выставил режим.
 
 | # | Group | Playing | ZonePick | PerkPick | AgeTransition | MetaUpgrades | OfferingEnd | За панелью |
 |---|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 0 | `Hud` | ✓ | — | ✓ | ✓ | — | — | — |
-| 1 | `Hud/AgePanel` | ✓ | — | ✓ | ✓ | — | — | — |
-| 2 | `Hud/BuildBar/Palette` | ✓ | — | — | — | — | — | ✓ |
-| 3 | `Hud/BuildBar/Sell` | ✓ | — | — | — | — | — | ✓ |
+| 0 | `Hud` | ✓ | — | ✓ | — | — | — | — |
+| 1 | `Hud/BuildPalette` | ✓ | — | — | — | — | — | ✓ |
+| 2 | `Hud/SellButton` | ✓ | — | — | — | — | — | ✓ |
+| 3 | `Hud/BuildTabs` | ✓ | — | — | — | — | — | ✓ |
 | 4 | `Screens/PerkScreen` | — | — | ✓ | — | — | — | — |
 | 5 | `Screens/ZoneScreen` | — | ✓ | — | — | — | — | — |
 | 6 | `MetaScreen` | — | — | — | — | ✓ | — | — |
-| 7 | `OfferingPanel` | ✓ | — | — | — | — | — | — |
 
-Строка 0 читается как «всё, кроме выбора зоны, мета-экрана и окна конца цикла»; строки 2–3 — палитра и Sell
-всю живую игру, пока игрок их не спрятал; строка 7 — виджет подношения только в живой игре. **В окне конца
-цикла HUD скрыт целиком**, запасов не видно — если их нужно видеть, отметить `OfferingEnd` у `Hud` (и у
-`Hud/AgePanel`, если панель эпохи тоже нужна). Строка 1 когда-то прятала панель эпохи в режиме стройки; без
-него она совпадает со строкой 0 и ничего не меняет — её можно удалить. Биты бывших режимов `Build` (`1 << 1`)
-и `PrestigeConfirm` (`1 << 5`) в коде оставлены пустыми, поэтому старые маски читаются как раньше: у `Hud` и
-`Hud/AgePanel` они до сих пор отмечены в сериализации, но ни на что не влияют.
+Строка 0 читается как «живая игра и выбор перка»: на выборе зоны, подъёме острова, мета-экране и в окне конца
+цикла HUD скрыт целиком, панель эры и лента времени вместе с ним (своих строк у них нет). Поэтому смена цены и
+высоты блока эры игроку не видна: HUD возвращается уже с новыми ценами. Строки 1–3 — три виджета стройки всю
+живую игру, пока игрок их не спрятал. **В окне конца цикла запасов не видно** — если их нужно видеть, отметить
+`OfferingEnd` у `Hud`. `OfferingPanel` строки не имеет и виден во всех режимах (см. примечание под деревом).
+Биты бывших режимов `Build` (`1 << 1`) и `PrestigeConfirm` (`1 << 5`) в коде оставлены пустыми, поэтому
+маски, сохранённые с ними, читаются как раньше.
 
 > Панели **не прячут сами себя** и не лезут в чужие корни. Если экран не появился — смотри сюда, а не
 > в код панели. Пустое поле `group` в строке ловится предупреждением в консоли на старте.
@@ -521,7 +535,7 @@ Root              → Rigidbody2D (Static) + Structure + DualVisual (firstRoot =
 - **Sell:** клик «выигрывает» забор, когда курсор ближе 0.3 клетки к линии ребра (иначе берётся
   структура в клетке под курсором).
 
-### BuildCard (префаб карточки, инстанцируется BuildPanelUI в рантайме)
+### BuildCard (префаб карточки, инстанцирует BuildPaletteUI в рантайме — при первом открытии её вкладки)
 ```
 Root → Image + Button + CanvasGroup + BuildCardUI
 ├── Shadow                → Image
@@ -546,13 +560,18 @@ lockedOverlay → `LockedOverlay` и т. д.); `countText` («Count: 1 of 2») �
 наклон и блик — в ассете `ScriptableObjects/BuildMode/Build Card Motion Profile` (поле motionProfile), иконки
 ресурсов — ResourceIconSet (iconSet), точка подсказки — hintAnchor.
 
-### BuildTabUi (префаб вкладки, инстанцируется BuildPanelUI в рантайме — по кнопке на непустую вкладку)
+### BuildTabUi (префаб вкладки, инстанцирует BuildTabBar в рантайме — по кнопке на непустую вкладку)
 ```
-Root → Button + BuildTabUI + Image          (область клика — стоит на месте, корень двигает Layout Group)
-└── Visual          → Image (фон)           (едет вправо, пока вкладка под курсором или открыта)
-    ├── Label       → TMP_Text              (название вкладки)
-    └── Image       → Image                 (иконка вкладки; без спрайта прячется)
+Root → Button + BuildTabUI + Image (прозрачная)   (79×18; область клика — стоит на месте, корень двигает Layout Group)
+└── Visual          → Image (build_tab, Sliced)   (растянут на корень; едет вправо, пока вкладка под курсором или открыта)
+    ├── Icon        → Image                 (8×8 в (7, 4) от левого верхнего угла, Preserve Aspect; без спрайта прячется)
+    └── Label       → TMP_Text              (m6x11plus 12, #6F6D60, Baseline — базовая линия на 12 px ниже верха;
+                                             от x 17 до 1 px от правого края, без переноса)
 ```
+Лучи ловит только корень: у `Visual`, `Icon` и `Label` Raycast Target выключен, поэтому наведение читается с
+неподвижного слота, и едущая картинка не уходит из-под курсора. Высота вкладки 18, а шаг в колонке 15:
+`BuildTabs` ставит их со Spacing −3, нижняя полоса вкладки уходит под следующую, как на макете.
+
 Поля `BuildTabUI`: button, label, iconImage, selectedIndicator (необязателен — класть внутрь `Visual`),
 visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Подпись и иконка необязательны:
 что назначено, то и показывается.
@@ -625,9 +644,9 @@ Layout Group, которая управляет размером детей (Cos
 - **`CameraController`** (на своём GO, НЕ на CameraTarget и НЕ на камере) — двигает transform пустого **CameraTarget** = логическую цель камеры; поллит ввод сам, считает на `unscaledDeltaTime` → работает и на паузах (`timeScale=0`: выбор зоны и перка, подъём острова). Источники: WASD + стрелки, курсор у края экрана, **drag средней кнопкой мыши** (мир тащится под курсором), **колесо — зум** (ortho size vcam в пределах `minZoom…maxZoom`). Цель клампится по `IslandGrid.WorldBounds()` + `boundsMargin`; границы перечитываются на `AgeStartedEvent` (рост острова) и `RunStartedEvent`. Плавность даёт не он, а **Cinemachine vcam**, которая следует за целью с damping; `Main Camera` несёт `CinemachineBrain` и рендерит. `viewCamera` (= Main Camera) нужен скрипту только чтобы перевести drag-пиксели в мир (его `orthographicSize` крутит brain → отражает живой зум). `Confiner2D` — отдельной итерацией позже.
   - **Старт забега** (`Start` и каждый `RunStartedEvent`): камера мгновенно, без damping, встаёт в центр острова с зумом из сцены (`Lens > Orthographic Size` у vcam) — новый забег всегда начинается с одного вида, что бы ни крутили до этого.
 - **`GameHotkeys`** (на `Input`) — дискретные команды по нажатию, публикует события в `EventBus`, ни во что не лезет напрямую. UI его не фильтрует: клавиатура не целится в то, что под курсором, поэтому подписчики сами проверяют состояние:
-  - **B** → `BuildPanelToggleRequestedEvent` (тот же путь, что кнопка `ModeButton`) → `BuildPanelUI` прячет или показывает палитру и Sell. Не режим: игра идёт и так и так; спрятанная панель кладёт инструмент из руки;
-  - **X** → `SellModeRequestedEvent` → `BuildPanelUI` тогглит инструмент Sell тем же путём, что кнопка (подсветка + контроллер синхронны); спрятанную панель показывает; поверх другого экрана (выбор перка, подъём острова…) — no-op;
-  - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildPanelUI` открывает N-ю вкладку и показывает спрятанную панель; поверх другого экрана — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
+  - **B** → `BuildPanelToggleRequestedEvent` → `BuildPanelToggle` (тот же переключатель, что клик по `BuildToggle`) прячет или показывает `SellButton`, `BuildTabs` и `BuildPalette`. Не режим: игра идёт и так и так; прятание кладёт инструмент из руки;
+  - **X** → `SellModeRequestedEvent` → `SellButtonUI` берёт Sell в руку или кладёт — тем же путём, что клик (подсветку рисует по факту, из `PlacementController.ToolChanged`); `BuildPanelToggle` показывает спрятанную панель. Поверх другого экрана (выбор перка, подъём острова…) — no-op: вне живой игры контроллер инструмент не даёт, а панель не показывается;
+  - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildTabBar` открывает N-ю вкладку, `BuildPanelToggle` показывает спрятанную панель; поверх другого экрана — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
   - **Esc** → `ExitToMenuRequestedEvent` → `GameBootstrap` пока **отклоняет** переход (warning в консоли): у `MainMenuState` нет экрана, и выход в него оставил бы игрока без пути назад. Вернуть — одна строка, когда меню появится.
 
 **Мышь над UI принадлежит UI.** Колесо и начало drag средней кнопкой, как и `OnWorldClick`, ничего не делают, пока курсор над UI (`InputHandler.IsPointerOverUI()` — ответ EventSystem). Начатый на острове drag может пройти и над UI. WASD и край экрана не фильтруются: они ни во что под курсором не целятся.
@@ -643,11 +662,12 @@ Layout Group, которая управляет размером детей (Cos
 
 - **Когда работает:** `PlayingState.Enter` → `PlacementController.Begin`, `Exit` → `End`. Любой другой экран (выбор
   зоны или перка, подъём острова, вопрос о престиже, мета-экран) начинается с того, что инструмент из руки кладётся.
-- **Инструмент = что выбрано в панели** (`PlacementController`):
+- **Что в руке — знает только `PlacementController`.** Виджеты панели лишь просят (`Select` / `SelectSell` /
+  `PutDown`) и рисуют подсветку по его событию `ToolChanged`, своих копий не держат; вне живой игры просьбы отклоняются:
   - карточка → **PLACE** (гост под курсором, клик ставит; инструмент остаётся в руке, можно ставить дальше),
   - кнопка Sell → **SELL** (наведение красит постройку, клик продаёт с возвратом `sellRefundPercent` от цены предыдущей копии — при росте цены возвращается то, что за эту копию заплатили),
   - ничего не выбрано → **пустая рука**: клик — это тап (`TapSystem`).
-  - ПКМ, повторный клик по выбранной карточке / Sell или спрятанная панель — назад к пустой руке.
+  - ПКМ, повторный клик по выбранной карточке / Sell, спрятанная панель или карточка, упёршаяся в лимит, — назад к пустой руке.
 - **Сетка** (`GridOverlay`) — пятно вокруг курсора, только пока в руке карточка или Sell.
 - **Постановка = стройплощадка.** Оплаченная постройка не встаёт на голову тем, кто там стоит: сначала появляется
   площадка. Префаба у неё **нет** — `ConstructionSite` собирает её кодом (объект `Site (<имя дефа>)`):
@@ -666,8 +686,8 @@ Layout Group, которая управляет размером детей (Cos
 - **Продажа идёт в живой игре:** таверна выпускает гостей пьяными там, где стояла; звери проданной норы исчезают с
   пуфом; лишние жители проданного дома (сколько не помещается в оставшиеся дома) исчезают с пуфом, ближайшие к нему
   первыми. Эффект и звук пуфа — поля `SpawnSystem` (`puffFx`, `puffSound`), в сцене пока пусто.
-- **Кнопка `ModeButton` / клавиша B** только прячут и показывают палитру и Sell (`BuildPanelUI` хранит это между
-  экранами и забегами); клавиши X и 1–9 спрятанную панель показывают.
+- **Кнопка `BuildToggle` / клавиша B** только прячут и показывают `SellButton`, `BuildTabs` и `BuildPalette`
+  (`BuildPanelToggle` хранит это между экранами и забегами); клавиши X и 1–9 спрятанную панель показывают.
 - **`EventSystem` обязателен** — клики над UI до `PlacementController` и `TapSystem` не доходят (`InputHandler` не пускает их в `OnWorldClick`, спрашивая EventSystem), а uGUI-кнопки без него не нажимаются. ПКМ работает и над панелью.
 
 ## Порядок выполнения скриптов — НЕ трогаем
@@ -677,7 +697,11 @@ Script Execution Order настраивать **не нужно** (это кос
 - Unity гарантирует, что **все `Awake` отработают раньше любого `Start`**.
 - `GameBootstrap` делает всю проводку и старт рана в своём `Awake`. К моменту любого `Start` всё уже связано, а остров сгенерирован — какой объект инициализируется первым, не важно.
 - **Правило для новых систем:** не читай «вколотое» состояние (контексты, другие системы) в своих `Awake`/`OnEnable` — только начиная со `Start`. Подписки на события и `GetComponent` в `Awake`/`OnEnable` — можно.
-- **То же для элементов Канваса (`IUIElement`):** `Initialize(UIServices)` вызывается из `GameBootstrap.Awake` и может прийти раньше собственного `Awake` элемента — в нём только запомнить нужное, рисовать со `Start`. Поэтому `BuildPanelUI` строит карточки в `Start`, а не в `Awake`.
+- **То же для элементов Канваса (`IUIElement`):** `Initialize(UIServices)` вызывается из `GameBootstrap.Awake` и может прийти раньше собственного `Awake` элемента — в нём только запомнить нужное, рисовать со `Start`. Поэтому карточки появляются не раньше `Start` (первую вкладку объявляет `BuildTabBar.Start`).
+- **События, отправленные внутри `GameBootstrap.Awake`, элементы Канваса могут не услышать** — их `OnEnable` ещё не
+  отработал. Так бывает с первым `RunStartedEvent` и первым `UIModeChangedEvent` (`Playing`). Поэтому текущий забег
+  читают в `Initialize` (`RunManager.CurrentRun`), а виджеты стройки стартуют так, будто режим уже `Playing` —
+  тем же правилом, что `UIVisibility` в своём `Awake`. Пришло событие — ничего не меняет, пропущено — состояние уже верное.
 
 ## Что должно произойти при Play
 

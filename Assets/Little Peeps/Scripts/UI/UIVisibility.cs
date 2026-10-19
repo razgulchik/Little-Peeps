@@ -39,7 +39,7 @@ namespace LittlePeeps
         [SerializeField] private List<Entry> groups = new();
 
         // The last mode announced and the build panel switch — the table is applied from both, whichever
-        // changes. The panel starts shown, as BuildPanelUI does.
+        // changes. The panel starts shown, as BuildPanelToggle does.
         private UIMode mode = UIMode.Playing;
         private bool buildPanelShown = true;
 
@@ -47,7 +47,7 @@ namespace LittlePeeps
         // the FSM — and so publishes the first mode — and Unity gives no order between that Awake and
         // this one. Establishing the boot mode here makes the order irrelevant instead of depending on
         // it: either the event arrives and is applied, or it was missed and this already said the same
-        // thing. Same rule BuildPanelUI follows.
+        // thing. Same rule the build panel's widgets follow: they boot live.
         private void Awake() => Apply();
 
         private void OnEnable()

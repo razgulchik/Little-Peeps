@@ -7,13 +7,13 @@ namespace LittlePeeps
     // not know the run, and does not decide whether it is on screen. A confirmed card is published as
     // PerkSelectedEvent and PerkSelectionState does the rest.
     //
-    // That split is the same one BuildCardUI → BuildPanelUI → FSM already uses, and it is why this class
+    // That split is the same one BuildCardUI → BuildPaletteUI → FSM already uses, and it is why this class
     // holds no RunContext. The previous stub took one in an Initialize() called once from
     // GameBootstrap.Awake — a long-lived UI object caching the run, which is exactly the shape that
     // froze the resource bar after the first prestige.
     //
     // Cards are instantiated per offer rather than living in the prefab as three fixed slots, following
-    // BuildPanelUI. A short offer then needs no special case: PerkSystem.RollPerks returns fewer than
+    // BuildPaletteUI. A short offer then needs no special case: PerkSystem.RollPerks returns fewer than
     // three when fewer are eligible, and the layout group simply gets fewer children.
     //
     // Visibility is NOT this panel's job — UIVisibility shows it on UIMode.PerkPick — but the object

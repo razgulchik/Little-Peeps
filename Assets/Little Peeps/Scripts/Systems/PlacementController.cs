@@ -4,17 +4,21 @@ using UnityEngine.InputSystem;
 
 namespace LittlePeeps
 {
-    // Routes building input to whichever tool the BuildPanelUI selection has chosen:
-    //  - a build card selected    → PlaceTool
-    //  - the sell button selected → SellTool
-    //  - nothing selected         → the empty hand: no tool, and the click is a tap (TapSystem)
+    // Holds the tool in hand and routes building input to it:
+    //  - a build card's structure (Select)  → PlaceTool
+    //  - the sell button's tool (SelectSell) → SellTool
+    //  - nothing (PutDown)                   → the empty hand: no tool, and the click is a tap (TapSystem)
     // There is no build mode: the panel is always up during normal play and the game runs underneath,
     // so "something in hand" (HoldsTool) is what decides whether a left click builds or taps — and
-    // whether the grid shows, as a spot around the cursor (GridOverlay). Right-click puts the tool down:
-    // the selection is cleared back to the empty hand and ToolCleared tells the panel to drop its
-    // highlight. Active only between Begin()/End(), called by PlayingState — any other screen (a perk
-    // pick, an age transition, the prestige question) drops the tool. Clicks over UI never get here —
-    // InputHandler keeps them out of OnWorldClick — so panel buttons don't act on the world.
+    // whether the grid shows, as a spot around the cursor (GridOverlay).
+    //
+    // The ONE owner of what is in hand. The build UI only asks (a card, the sell button, the build toggle
+    // hiding the panel) and draws what ToolChanged reports — every change goes out, whoever made it, so no
+    // widget keeps a copy that could disagree with another's. Right-click puts the tool down. Active only
+    // between Begin()/End(), called by PlayingState: any other screen (a perk pick, an age transition, the
+    // end of an offering cycle) empties the hand, and a request made outside normal play is refused.
+    // Clicks over UI never get here — InputHandler keeps them out of OnWorldClick — so panel buttons don't
+    // act on the world.
     //
     // Everything that decides WHAT happens lives in the tools, and everything DRAWN lives in
     // PlacementVisuals — this class only owns the inspector-wired references, the active tool, and the
@@ -30,9 +34,16 @@ namespace LittlePeeps
 
         [SerializeField] private PlacementVisuals visuals = new();
 
-        // Raised when a right-click clears the active Place/Sell tool, so BuildPanelUI can drop its
-        // card / sell-button highlight (the controller has already gone back to the empty hand).
-        public event Action ToolCleared;
+        // Raised on EVERY change of what is in hand — a card or the sell button taking a tool, a click or a
+        // right-click putting it down, a limit reached, normal play ending. The UI reads HeldStructure /
+        // HoldsSell here instead of remembering what it asked for.
+        public event Action ToolChanged;
+
+        // What is in hand, for the UI to draw: the structure a build card asked for, or null.
+        public StructureDef HeldStructure { get; private set; }
+
+        // The sell tool is in hand.
+        public bool HoldsSell => sellTool != null && tool == sellTool;
 
         private PlacementContext context;
         private readonly IPlacementTool emptyHand = new EmptyHand();   // the default: nothing selected
@@ -57,45 +68,64 @@ namespace LittlePeeps
             inputHandler.OnRightClick -= OnRightClick;
         }
 
-        // Called by PlayingState.Enter. The panel drives which structure is selected.
+        // Called by PlayingState.Enter. From here on the build UI may put a tool in hand.
         public void Begin()
         {
             EnsureTools();
             active = true;
         }
 
-        // Called by PlayingState.Exit. The active tool tears down whatever it owns (a ghost, a tint).
+        // Called by PlayingState.Exit. Whatever was in hand goes down, and the active tool tears down
+        // whatever it owns (a ghost, a tint).
         public void End()
         {
             EnsureTools();
-            tool.Exit();
-            tool = emptyHand;
             active = false;
+            SwitchTo(emptyHand);
             gridOverlay.Hide();
         }
 
-        // Choose which structure to place (BuildPanelUI calls this). A null def means "nothing selected"
-        // → back to the empty hand.
+        // Take a structure into the hand (a build card asks). Null is the empty hand, as PutDown.
         public void Select(StructureDef def)
         {
+            if (def == null)
+            {
+                PutDown();
+                return;
+            }
+
+            if (!active) return;   // outside normal play nothing can be taken
             EnsureTools();
-            SwitchTo(def != null ? new PlaceTool(context, def) : emptyHand);
+            SwitchTo(new PlaceTool(context, def), def);
         }
 
-        // Switch to the Sell tool (BuildPanelUI's sell button calls this).
-        public void SetSellMode()
+        // Take the sell tool into the hand (the sell button or its key asks).
+        public void SelectSell()
         {
+            if (!active) return;
             EnsureTools();
             SwitchTo(sellTool);
         }
 
-        // The single path between tools. Exit before Enter, always — that ordering is what guarantees a
-        // ghost or a tint can never survive into the next tool.
-        private void SwitchTo(IPlacementTool next)
+        // Back to the empty hand. Harmless with nothing in hand, so a caller never has to ask first.
+        public void PutDown()
         {
+            EnsureTools();
+            SwitchTo(emptyHand);
+        }
+
+        // The single path between tools. Exit before Enter, always — that ordering is what guarantees a
+        // ghost or a tint can never survive into the next tool. Switching to the tool already in hand is no
+        // change and reports none; a new PlaceTool is always a change.
+        private void SwitchTo(IPlacementTool next, StructureDef held = null)
+        {
+            if (next == tool) return;
+
             tool.Exit();
             tool = next;
+            HeldStructure = held;
             tool.Enter();
+            ToolChanged?.Invoke();
         }
 
         // Built once, lazily, so the tools exist no matter which entry point fires first.
@@ -136,17 +166,14 @@ namespace LittlePeeps
         }
 
         // Right-click = cancel the current action, like any strategy game. The tool gets first refusal:
-        // if it had something in progress it consumes the click, otherwise the selection is cleared.
+        // if it had something in progress it consumes the click, otherwise the tool is put down.
         // Over the panel too: cancel means the same wherever the cursor is.
         private void OnRightClick(Vector2 worldPos)
         {
             if (!active) return;
 
-            if (tool.Cancel()) return;       // the tool had something in progress and undid it
-            if (tool == emptyHand) return;   // nothing selected — nothing to clear
-
-            SwitchTo(emptyHand);
-            ToolCleared?.Invoke();           // let the panel drop its card / sell highlight
+            if (tool.Cancel()) return;   // the tool had something in progress and undid it
+            PutDown();
         }
 
         private Vector2 ScreenToWorld()

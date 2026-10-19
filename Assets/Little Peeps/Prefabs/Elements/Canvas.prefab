@@ -590,14 +590,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d749980cb5577d3459c23a4780f09ed4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  palette: {fileID: 11400000, guid: 21639bab9cf6cd34b8b5f45c77c9c991, type: 2}
   cardPrefab: {fileID: 2689466547519329898, guid: 27a15a89d3d1f644b9fe645a5e677a70, type: 3}
   cardContainer: {fileID: 974708882825351838}
   scroller: {fileID: 9100000000000000002}
-  tabPrefab: {fileID: 7616631459774216535, guid: 7688de3c869d92b47930c1ce8dae210c, type: 3}
-  tabContainer: {fileID: 3647114565480169441}
-  sellButton: {fileID: 2900268734306165461}
-  sellHighlight: {fileID: 1301537869926919852}
 --- !u!1 &1270764062661077858
 GameObject:
   m_ObjectHideFlags: 0
@@ -2863,6 +2858,7 @@ GameObject:
   - component: {fileID: 6194981013904233471}
   - component: {fileID: 3326257162484350209}
   - component: {fileID: 4589385820681472077}
+  - component: {fileID: 1842005311541986464}
   m_Layer: 5
   m_Name: BuildTabs
   m_TagString: Untagged
@@ -2941,6 +2937,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_HorizontalFit: 0
   m_VerticalFit: 2
+--- !u!114 &1842005311541986464
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4250736932891204894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b86f82d6a65341af8bd8b671041748d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  palette: {fileID: 11400000, guid: 21639bab9cf6cd34b8b5f45c77c9c991, type: 2}
+  tabPrefab: {fileID: 7616631459774216535, guid: 7688de3c869d92b47930c1ce8dae210c, type: 3}
+  container: {fileID: 0}
 --- !u!1 &4494535549667796013
 GameObject:
   m_ObjectHideFlags: 0
@@ -4346,6 +4357,7 @@ GameObject:
   - component: {fileID: 9121150621770210908}
   - component: {fileID: 2900268734306165461}
   - component: {fileID: 1749776260698554320}
+  - component: {fileID: 966356277621325847}
   m_Layer: 5
   m_Name: SellButton
   m_TagString: Untagged
@@ -4467,6 +4479,20 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &966356277621325847
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6486796218732868432}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 960d232f8a6e4472bc4520795360e098, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  button: {fileID: 2900268734306165461}
+  selectedFrame: {fileID: 1301537869926919852}
 --- !u!1 &6560521343616680615
 GameObject:
   m_ObjectHideFlags: 0

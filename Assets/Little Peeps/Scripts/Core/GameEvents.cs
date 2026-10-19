@@ -63,27 +63,38 @@ namespace LittlePeeps
         public ZoneOffer Offer;
     }
 
-    // Published by the build button (BuildPanelButton) or its hotkey: show the build palette and the sell
-    // button if they are hidden, hide them if they are shown. Handled by BuildPanelUI, which owns that state.
+    // Published by the build panel hotkey (GameHotkeys): show the sell button, the tabs and the palette if
+    // they are hidden, hide them if they are shown. Handled by BuildPanelToggle, which owns that state (its
+    // own click flips it directly).
     public struct BuildPanelToggleRequestedEvent { }
 
-    // Pushed by BuildPanelUI whenever the player shows or hides the build panel. UIVisibility applies it to
-    // the rows marked to follow it; the build button swaps its label. Not a mode: the game runs the same
-    // either way — it is only how much of the screen the panel takes.
+    // Pushed by BuildPanelToggle whenever the player shows or hides the build panel. UIVisibility applies it
+    // to the rows marked to follow it. Not a mode: the game runs the same either way — it is only how much
+    // of the screen the panel takes.
     public struct BuildPanelShownEvent
     {
         public bool Shown;
     }
 
-    // Published by the sell hotkey (GameHotkeys). BuildPanelUI toggles its Sell tool during normal play, so
-    // the button highlight and the PlacementController stay in sync; a no-op over any other screen.
+    // Published by the sell hotkey (GameHotkeys). SellButtonUI toggles the sell tool exactly as its click
+    // does — PlacementController refuses it outside normal play — and BuildPanelToggle brings a hidden
+    // panel back.
     public struct SellModeRequestedEvent { }
 
     // Published by the digit hotkeys (GameHotkeys): open the build panel's tab at this index (0 = key 1).
-    // BuildPanelUI acts on it only while open; an index past the last tab is ignored.
+    // BuildTabBar opens it during normal play (an index past the last tab is ignored); BuildPanelToggle
+    // brings a hidden panel back.
     public struct BuildTabRequestedEvent
     {
         public int Index;
+    }
+
+    // Published by BuildTabBar whenever the open build tab changes, the first one included (at its Start).
+    // BuildPaletteUI shows that tab's cards, spawning them on the tab's first showing. It carries the tab
+    // itself rather than its index, so the palette needs no copy of which tabs got a button.
+    public struct BuildTabChangedEvent
+    {
+        public BuildTab Tab;
     }
 
     // Published by the exit-to-menu hotkey (GameHotkeys). GameBootstrap transitions the app FSM to MainMenu.
@@ -120,7 +131,7 @@ namespace LittlePeeps
     }
 
     // Published by PlacementController when the player tries to build on a valid cell but can't
-    // afford it; the BuildPanelUI plays a cue on the selected card.
+    // afford it; BuildPaletteUI plays a cue on the card of that structure.
     public struct BuildDeniedEvent
     {
         public StructureDef Def;

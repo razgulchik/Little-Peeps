@@ -7,8 +7,8 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // One build-panel tab button, spawned by BuildPanelUI per non-empty BuildPaletteDef tab. Shows
-    // whatever the prefab has slots for — a label, an icon, or both — and reports clicks to the panel,
+    // One build-panel tab button, spawned by BuildTabBar per non-empty BuildPaletteDef tab. Shows
+    // whatever the prefab has slots for — a label, an icon, or both — and reports clicks to the tab bar,
     // which owns the selection.
     //
     // The root is the fixed layout/click slot: the container's Layout Group owns its position, so the

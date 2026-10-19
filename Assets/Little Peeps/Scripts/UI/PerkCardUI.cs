@@ -85,7 +85,7 @@ namespace LittlePeeps
         private void OnDestroy() => Cancel(ref scaleMotion);
 
         // Fill in the card and say where a confirmed pick goes. The callback rather than an event: this
-        // is card to panel, the same internal wiring BuildCardUI and BuildPanelUI use. Leaving the panel
+        // is card to panel, the same internal wiring BuildCardUI and BuildPaletteUI use. Leaving the panel
         // to publish keeps one publisher of PerkSelectedEvent instead of three.
         public void Init(PerkDef def, Action<PerkDef> onConfirmed)
         {

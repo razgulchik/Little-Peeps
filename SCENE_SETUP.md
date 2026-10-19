@@ -9,7 +9,8 @@
 > кодом, через `UIServices` (оверрайдов проводки Канваса в сцене больше нет): **2026-10-18**, сверено со сценой
 > и `Canvas.prefab`; там же HUD по макету (AgePanel из двух кусков встык, подложка в ResourceUnit). Панель стройки —
 > четыре отдельных виджета, у каждого состояния один хозяин; блок цены эры растёт по строкам; лента времени
-> `TimePanel`: **2026-10-19**, сверено с `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> `TimePanel`; панель взятых перков (`PerkPanel`, префаб `PerkSlot`) и подсказка слева: **2026-10-19**, сверено с
+> `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -108,13 +109,16 @@ SampleScene
     │   │                         показывает SellButton, BuildTabs и BuildPalette — не режим, игра идёт и так и так)
     │   ├── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
     │   │                         ← правый верхний угол, 124×36; ячейки 34×13, три в строку
-    │   └── TimePanel           → Image (time_panel, Sliced) + CanvasGroup   ← лента времени цикла подношений,
-    │       │                     по центру сверху; пока только вёрстка, скрипта нет
-    │       ├── Now             → Image                 (кружок «сейчас», слева)
-    │       ├── Track           → RectMask2D
-    │       │   └── Belt        → превью ленты: Line / Year / HalfDecade (отрезки, отметки лет и полудесятилетия)
-    │       ├── Dots            → Image                 («и так далее», справа)
-    │       └── Offering        → Point + Icon (Image)  (место подношения, справа)
+    │   ├── TimePanel           → Image (time_panel, Sliced) + CanvasGroup   ← лента времени цикла подношений,
+    │   │   │                     по центру сверху (0, −6), 288×30; пока только вёрстка, скрипта нет
+    │   │   ├── Now             → Image                 (кружок «сейчас», слева)
+    │   │   ├── Track           → RectMask2D
+    │   │   │   └── Belt        → превью ленты: Line / Year / HalfDecade (отрезки, отметки лет и полудесятилетия)
+    │   │   ├── Dots            → Image                 («и так далее», справа)
+    │   │   └── Offering        → Point + Icon (Image)  (место подношения, справа)
+    │   └── PerkPanel           → Grid Layout Group + Content Size Fitter + PerkPanel   ← взятые перки:
+    │                             правый верх (−9, −76), ширина 41, растёт вниз; ячейки PerkSlot в рантайме,
+    │                             по две в ряд, справа налево
     ├── AgeTransition           → Image (чёрный α≈0.42 — подложка баннера) + CanvasGroup (Alpha 0)   ← баннер эпохи;
     │   │                         его и BannerText перечисляет UIRoot, бутстрап отдаёт их AgeSequencer —
     │   │                         тот проявляет и гасит баннер целиком, клики он ловит только пока виден
@@ -287,6 +291,7 @@ SampleScene
 | | | scroller | BuildPanelScroller на `Viewport` |
 | Canvas/Hud/SellButton | SellButtonUI | button, selectedFrame | свой Button, дочерний `SelectedFrame` |
 | Canvas/Hud/ResourceBar | ResourcePanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
+| Canvas/Hud/PerkPanel | PerkPanel | slotPrefab | префаб `Prefabs/Elements/PerkSlot` (его PerkSlotUI). Сетка на том же объекте: Cell 20×20, Spacing 1, Fixed Column Count 2, **Start Corner и Child Alignment — Upper Right** (одного Start Corner мало: пока перков меньше двух, сетка сужается до одной колонки и прижимает её по Child Alignment — одиночный перк встал бы влево); Content Size Fitter — Vertical Fit Preferred |
 | Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/AdvanceButton` |
 | Canvas/Hud/AgePanel/Advance/Cost | AgeCostPanel | unitPrefab, container, iconSet | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
 | | | unaffordableColor, visibilityRoot | цвет суммы, которую не хватает; что гасить после последней эпохи, когда покупать больше нечего |
@@ -294,7 +299,7 @@ SampleScene
 | Canvas/Screens/PerkScreen | PerkSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/PerkCardUI`, `Panel/CardColumn` |
 | Canvas/Screens/ZoneScreen | ZoneSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/ZoneCardUI`, `Panel/CardRow` |
 | | | focusOffsetY | 0.15 (дефолт) — насколько выше центра экрана встаёт зона под карточкой |
-| Canvas/HintView | HintView | titleText, bodyText, costContainer, footerText | свои дети; секция с пустым содержимым прячется сама |
+| Canvas/HintView | HintView | titleText, bodyText, costContainer, footerText | свои дети; секция с пустым содержимым прячется сама. Встаёт над элементом или слева от него — как попросит источник (`HintShowEvent.Side`; карточки стройки — сверху, ячейки перков — слева) |
 | | | costPrefab, iconSet, unaffordableColor | ResourceUnit, ResourceIconSet, красный — цена, которую не потянуть |
 | | | maxWidth, gap, screenMargin, showDelay, chainWindow | 160, 4, 2, 0.25 с, 0.3 с (дефолты): ширина до переноса, отступ от элемента и от края экрана, задержка появления, окно «перехода» между соседними элементами без задержки |
 | Canvas/MetaScreen | **MetaUpgradesUI** | rowPrefab, rowContainer | префаб `Prefabs/Elements/MetaUpgradeRow`, `Scroll View/Viewport/Content` |
@@ -588,6 +593,18 @@ Root          → ResourceUnit + LayoutElement (Preferred 34×13)   (своей 
 Размер ячейки задаёт родитель: Grid Layout Group у ResourceBar и Cost (Cell Size 34×13) берёт свой Cell Size, а
 Layout Group, которая управляет размером детей (CostContainer в HintView), берёт Preferred из LayoutElement —
 без него ячейка там схлопнется в 0×0. Один префаб и для запасов, и для цены: цифры читаются одинаково.
+
+### PerkSlot (ячейка взятого перка; инстанцирует PerkPanel в рантайме)
+```
+Root      → Image (perk_place, Simple, 20×20, Raycast ВКЛ — ловит наведение) + PerkSlotUI
+├── Icon  → Image 16×16 по центру, Preserve Aspect   (компонент выключен: Image без спрайта рисует белый квадрат,
+│                                                      включает PerkSlotUI, когда у перка есть иконка)
+└── Label → TMP_Text, Micro5 11, Right + Baseline    (цифра в правом нижнем углу, базовая линия на рамке;
+                                                      пока всегда «1» из префаба — функции у неё ещё нет)
+```
+Поля `PerkSlotUI`: icon → `Icon`. Иконка — та же `PerkDef.icon`, что на карточке выбора (40×40, ужимается в 16×16).
+Micro5 размера 11 — пиксель шрифта на пиксель Канваса: цифры 3×5, как на макете; цвет — как у чисел ресурсов.
+Label стоит после Icon — цифра рисуется поверх картинки. Подсказка (название + описание) — слева от ячейки.
 
 ### Пирс (Pier)
 Пирс — обычная **Structure**, но ставит его не игрок, а `IslandSystem`: на каждом забеге из `StartConfig.pier`,

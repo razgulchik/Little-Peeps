@@ -5,55 +5,66 @@ namespace LittlePeeps
 {
     // Shared, designer-authored motion and geometry for every build card. Keeping the complete hover
     // treatment in one asset makes the "flight" easy to tune in the Inspector without touching code or
-    // editing every card instance separately.
+    // editing every card instance separately. Three poses: resting, hovered (the flight) and open (the
+    // card in hand, wider, with its name, description and terrains); the card blends between them.
     [CreateAssetMenu(menuName = "LittlePeeps/UI/Build Card Motion Profile")]
     public class BuildCardMotionProfile : ScriptableObject
     {
         [Header("Card geometry (reference pixels)")]
-        public Vector2 restingCardSize = new(57f, 76f);
-        public Vector2 hoveredCardSize = new(69f, 88f);
-        public Vector2 selectionFramePadding = new(4f, 4f);
-        public float selectedLift = 4f;
+        [Tooltip("Also the card's slot in the palette row while it is closed.")]
+        public Vector2 restingCardSize = new(54f, 70f);
+        public Vector2 hoveredCardSize = new(66f, 82f);
         public float hoverLift = 12f;
 
         [Header("Item container (building icon remains fixed-size)")]
-        public Vector2 restingItemContainerSize = new(47f, 47f);
-        public Vector2 hoveredItemContainerSize = new(59f, 59f);
-        public Vector2 restingItemContainerPosition = new(0f, 10f);
-        public Vector2 hoveredItemContainerPosition = new(0f, 10f);
+        public Vector2 restingItemContainerSize = new(48f, 48f);
+        public Vector2 hoveredItemContainerSize = new(60f, 60f);
+        public Vector2 restingItemContainerPosition = new(0f, 8f);
+        public Vector2 hoveredItemContainerPosition = new(0f, 8f);
 
-        [Header("Resource panel (fixed-size, bottom-center anchored)")]
-        [FormerlySerializedAs("resourcePanelSize")]
-        [InspectorName("Background Size")]
-        public Vector2 resourcePanelBackgroundSize = new(41f, 14f);
-        [Tooltip("X is measured from the card center; Y is measured upward from the card's bottom edge.")]
-        [InspectorName("Background Bottom Offset")]
-        public Vector2 resourcePanelBottomOffset = new(0f, 14f);
-        [InspectorName("Icon Size")]
-        public Vector2 resourceIconSize = new(10f, 10f);
-        [Tooltip("Measured from the resource panel's center.")]
-        [InspectorName("Icon Offset")]
-        public Vector2 resourceIconOffset = new(-14f, 0f);
-        [InspectorName("Text Rect Size")]
-        public Vector2 resourceTextRectSize = new(27f, 10f);
-        [Tooltip("Measured from the resource panel's center.")]
-        [InspectorName("Text Offset")]
-        public Vector2 resourceTextOffset = new(7f, 0f);
-        [Min(1f)]
-        [InspectorName("Text Font Size")]
-        public float resourceTextFontSize = 8f;
+        // The price is a ResourceUnit — its own look is the prefab's; only where it stands moves.
+        [Header("Cost")]
+        [Tooltip("Where the price's centre stands: X from the card's centre, Y up from the card's bottom edge.")]
+        public Vector2 costBottomOffset = new(0f, 10.5f);
 
         [Header("Thickness")]
         public float restingThickness = 1f;
         public float hoveredThickness = 3f;
 
         [Header("Shadow")]
-        public Vector2 restingShadowSize = new(53f, 4f);
-        public Vector2 hoveredShadowSize = new(61f, 5f);
-        public Vector2 restingShadowOffset = new(0f, -42f);
-        public Vector2 hoveredShadowOffset = new(0f, -49f);
+        public Vector2 restingShadowSize = new(54f, 6f);
+        public Vector2 hoveredShadowSize = new(64f, 10f);
+        public Vector2 restingShadowOffset = new(0f, -34f);
+        public Vector2 hoveredShadowOffset = new(0f, -32f);
         [Range(0f, 1f)] public float restingShadowAlpha = 0.75f;
         [Range(0f, 1f)] public float hoveredShadowAlpha = 0.48f;
+
+        // The open card is the one in hand. Its slot in the row widens with it, so the neighbours move
+        // apart; it grows upward from its bottom edge and does not fly or tilt.
+        [Header("Open card (the one in hand)")]
+        [Tooltip("Even sizes keep the card's edges on whole pixels.")]
+        public Vector2 expandedCardSize = new(138f, 90f);
+        [Tooltip("How far the open card's bottom edge stands above a resting card's.")]
+        public float expandedLift = 2f;
+        public Vector2 expandedItemContainerSize = new(64f, 64f);
+        [Tooltip("From the open card's centre.")]
+        public Vector2 expandedItemContainerPosition = new(-34f, 10f);
+        [Tooltip("Where the price's centre stands: X from the card's centre, Y up from the card's bottom edge.")]
+        public Vector2 expandedCostBottomOffset = new(-34f, 13.5f);
+        public Vector2 expandedShadowSize = new(138f, 6f);
+        public Vector2 expandedShadowOffset = new(0f, -32f);
+        [Range(0f, 1f)] public float expandedShadowAlpha = 0.75f;
+        [Min(0.01f)] public float expandDuration = 0.18f;
+        [Min(0.01f)] public float collapseDuration = 0.14f;
+        public AnimationCurve expandEase = new(
+            new Keyframe(0f, 0f, 0f, 2.2f),
+            new Keyframe(1f, 1f, 0f, 0f));
+        public AnimationCurve collapseEase = new(
+            new Keyframe(0f, 0f, 0f, 0f),
+            new Keyframe(1f, 1f, 2.2f, 0f));
+        [Tooltip("The name, description and terrains fade in over the end of the opening: 0.8 = from 80% " +
+                 "of the way on. Closing fades them out first, over the same stretch.")]
+        [Range(0f, 0.99f)] public float expandedTextFrom = 0.8f;
 
         [Header("Flight tween")]
         [Min(0.01f)] public float hoverInDuration = 0.16f;
@@ -97,13 +108,13 @@ namespace LittlePeeps
         {
             restingCardSize = Max(restingCardSize, Vector2.one);
             hoveredCardSize = Max(hoveredCardSize, restingCardSize);
-            selectionFramePadding = Max(selectionFramePadding, Vector2.zero);
+            expandedCardSize = Max(expandedCardSize, restingCardSize);
             restingItemContainerSize = Max(restingItemContainerSize, Vector2.one);
             hoveredItemContainerSize = Max(hoveredItemContainerSize, restingItemContainerSize);
-            resourcePanelBackgroundSize = Max(resourcePanelBackgroundSize, Vector2.one);
-            resourceIconSize = Max(resourceIconSize, Vector2.one);
-            resourceTextRectSize = Max(resourceTextRectSize, Vector2.one);
-            resourceTextFontSize = Mathf.Max(1f, resourceTextFontSize);
+            expandedItemContainerSize = Max(expandedItemContainerSize, Vector2.one);
+            expandedShadowSize = Max(expandedShadowSize, Vector2.one);
+            if (expandEase == null) expandEase = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+            if (collapseEase == null) collapseEase = AnimationCurve.Linear(0f, 0f, 1f, 1f);
             if (tiltXResponseCurve == null)
                 tiltXResponseCurve = AnimationCurve.Linear(-1f, -1f, 1f, 1f);
             if (tiltYResponseCurve == null)

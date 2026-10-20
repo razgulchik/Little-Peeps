@@ -13,9 +13,9 @@ namespace LittlePeeps
         [SerializeField] private RectTransform viewport;
         [SerializeField] private RectTransform content;
         // Gap held in front of the strip at either scroll stop. It has to clear the horizontal softness
-        // of the viewport RectMask2D (12) plus the hover growth of a card (57 -> 69, so 6 per side), or
-        // the outermost card fades into the mask while it rests against the stop.
-        [SerializeField, Min(0f)] private float edgePadding = 18f;
+        // of the viewport RectMask2D (0 now) plus the hover growth of a card (54 -> 66, so 6 per side), or
+        // the outermost card is cut by the mask while it rests against the stop.
+        [SerializeField, Min(0f)] private float edgePadding = 8f;
         [SerializeField, Min(1f)] private float wheelStep = 24f;
 
         public bool IsDragging { get; private set; }
@@ -57,24 +57,43 @@ namespace LittlePeeps
         {
             if (viewport == null || cardRect == null) return true;
 
-            // CalculateRelativeRectTransformBounds includes every active descendant. That makes the
-            // hover test depend on the flying visual, shadow, and especially the very wide shine:
-            // activating shine can push the calculated bounds outside the viewport, turn hover off,
-            // hide shine, and repeat every frame. Use only the fixed layout/click slot's own corners.
-            cardRect.GetWorldCorners(cardWorldCorners);
-            float cardMinX = float.PositiveInfinity;
-            float cardMaxX = float.NegativeInfinity;
-            for (int i = 0; i < cardWorldCorners.Length; i++)
-            {
-                float localX = viewport.InverseTransformPoint(cardWorldCorners[i]).x;
-                cardMinX = Mathf.Min(cardMinX, localX);
-                cardMaxX = Mathf.Max(cardMaxX, localX);
-            }
-
+            SpanInViewport(cardRect, out float cardMinX, out float cardMaxX);
             Rect viewportRect = viewport.rect;
             const float pixelTolerance = 0.5f;
             return cardMinX >= viewportRect.xMin - pixelTolerance &&
                    cardMaxX <= viewportRect.xMax + pixelTolerance;
+        }
+
+        // A card changed its slot's width (BuildCardUI opening or closing): the strip's length moved, so
+        // do the stops. An opening card is brought whole into the window, the right edge first and never
+        // past the left one.
+        public void Follow(RectTransform cardRect, bool keepInView)
+        {
+            RefreshBounds();
+            if (!keepInView || viewport == null || content == null || cardRect == null) return;
+
+            SpanInViewport(cardRect, out float cardMinX, out float cardMaxX);
+            Rect viewportRect = viewport.rect;
+            float shift = Mathf.Min(0f, viewportRect.xMax - edgePadding - cardMaxX);
+            shift = Mathf.Max(shift, viewportRect.xMin + edgePadding - cardMinX);
+            if (shift != 0f) SetContentX(content.anchoredPosition.x + shift);
+        }
+
+        // CalculateRelativeRectTransformBounds includes every active descendant. That makes the hover test
+        // depend on the flying visual, shadow, and especially the very wide shine: activating shine can push
+        // the calculated bounds outside the viewport, turn hover off, hide shine, and repeat every frame.
+        // Use only the fixed layout/click slot's own corners.
+        private void SpanInViewport(RectTransform cardRect, out float minX, out float maxX)
+        {
+            cardRect.GetWorldCorners(cardWorldCorners);
+            minX = float.PositiveInfinity;
+            maxX = float.NegativeInfinity;
+            for (int i = 0; i < cardWorldCorners.Length; i++)
+            {
+                float localX = viewport.InverseTransformPoint(cardWorldCorners[i]).x;
+                minX = Mathf.Min(minX, localX);
+                maxX = Mathf.Max(maxX, localX);
+            }
         }
 
         public void OnPointerDown(PointerEventData eventData) => NotifyPointerDown();
@@ -109,8 +128,10 @@ namespace LittlePeeps
         {
             if (viewport == null || content == null) return;
 
+            // The strip's length is its cards' (the row's preferred width), not the row rect's: a row rect
+            // wider than its cards would let the strip drag over empty space with everything in view.
             LayoutRebuilder.ForceRebuildLayoutImmediate(content);
-            float contentWidth = Mathf.Max(content.rect.width, LayoutUtility.GetPreferredWidth(content));
+            float contentWidth = LayoutUtility.GetPreferredWidth(content);
             float viewportWidth = viewport.rect.width;
 
             maxX = edgePadding;

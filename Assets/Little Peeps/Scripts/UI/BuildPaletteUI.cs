@@ -12,9 +12,9 @@ namespace LittlePeeps
     //    then on; a switch only shows / hides them, so a hidden card keeps its state. The tab arrives in the
     //    event, so the palette keeps no copy of BuildPaletteDef.
     //  - A click ASKS PlacementController for the card's structure, or to put it down if it is the one in
-    //    hand. Which card looks selected is read back from the controller (ToolChanged), never kept here —
-    //    so the sell button taking the hand, a right-click or the end of normal play clear the card
-    //    without anybody telling the palette.
+    //    hand. Which card is selected — the open one, with the building's name and terrains — is read back
+    //    from the controller (ToolChanged), never kept here — so the sell button taking the hand, a
+    //    right-click or the end of normal play close the card without anybody telling the palette.
     //  - Prices, counts and locks follow the age, the run, the resources and every build or sale.
     //
     // Live in UIMode.Playing, asleep over any other screen; whether it is on screen is UIVisibility's table,

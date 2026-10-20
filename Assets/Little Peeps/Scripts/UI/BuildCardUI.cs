@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using LitMotion;
 using TMPro;
 using UnityEngine;
@@ -7,8 +8,12 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // One build-palette card. The fixed root is the layout/click slot; AnimatedVisual is free to grow,
-    // rise and tilt without changing the list's spacing. Icon and cost objects are never scaled by flight.
+    // One build-palette card. The root is the layout/click slot; AnimatedVisual is free to grow, rise and
+    // tilt without changing the list's spacing. Icon and cost objects are never scaled by flight.
+    //
+    // The card in hand is OPEN: wider, with the building's name, description and the terrains it may stand
+    // on. Its slot widens with it (the row moves the neighbours apart), it grows upward and does not fly.
+    // Selected and open are one state — the palette reports the hand (SetSelected), the card animates it.
     [RequireComponent(typeof(Button))]
     public class BuildCardUI : MonoBehaviour, IPointerDownHandler
     {
@@ -23,21 +28,27 @@ namespace LittlePeeps
         [SerializeField] private RectTransform thickness;
         [SerializeField] private RectTransform shadow;
         [SerializeField] private Image shadowImage;
-        [SerializeField] private RectTransform selectionFrame;
-        [SerializeField] private GameObject selectionFrameObject;
 
         [Header("Card content")]
         [SerializeField] private RectTransform itemContainer;
         [SerializeField] private Image iconImage;
-        [SerializeField] private GameObject iconSelectionPlaceholder;
-        [SerializeField] private GameObject costPanel;
-        [SerializeField] private Image resourceIconImage;
-        [SerializeField] private TMP_Text costText;
+        // The price of the next one: icon + amount, the HUD's own price tag. Anchored to the card's centre;
+        // where it stands is the profile's.
+        [SerializeField] private ResourceUnit costUnit;
         // Optional: "1/2" on a building with a limit, hidden on one without. Left empty, the card shows no
         // count — the limit still locks it when reached.
         [SerializeField] private TMP_Text countText;
         [SerializeField] private CanvasGroup artworkCanvasGroup;
         [SerializeField] private ResourceIconSet iconSet;
+
+        [Header("Open card")]
+        [Tooltip("The column shown while the card is open: it fades in over the end of the opening.")]
+        [SerializeField] private CanvasGroup infoGroup;
+        [SerializeField] private TMP_Text titleText;
+        [SerializeField] private TMP_Text descriptionText;
+        [Tooltip("One object per terrain. The card shows those its building may stand on — every one for a " +
+                 "building without a terrain rule.")]
+        [SerializeField] private List<TerrainChip> terrainChips = new();
 
         [Header("Shine")]
         [SerializeField] private RectTransform shineViewport;
@@ -53,17 +64,28 @@ namespace LittlePeeps
                  "where the card flies to if the hint should clear the raised card.")]
         [SerializeField] private RectTransform hintAnchor;
 
+        [Serializable]
+        private struct TerrainChip
+        {
+            public TerrainType terrain;
+            public GameObject chip;
+        }
+
         public StructureDef Def { get; private set; }
         public bool IsLocked { get; private set; }
 
         private Action<BuildCardUI> onClick;
         private BuildPanelScroller scroller;
+        private RectTransform slot;      // the root: the card's place in the row
         private MotionHandle hoverMotion;
+        private MotionHandle expandMotion;
         private MotionHandle tiltMotion;
         private MotionHandle shineMotion;
         private float hoverProgress;
+        private float expandProgress;    // 0 closed .. 1 open
         private float currentLift;
         private Vector2 tiltValue;
+        private Vector4 restingRaycastPadding;
         private bool selected;
         private bool affordable = true;
         private int standing;   // how many of Def stand — the price shown is the next one's
@@ -91,19 +113,21 @@ namespace LittlePeeps
             Def = def;
             this.onClick = onClick;
             this.wallet = wallet;
+            slot = transform as RectTransform;
             scroller = GetComponentInParent<BuildPanelScroller>();
             uiCanvas = GetComponentInParent<Canvas>();
             interactionCanvasGroups = GetComponentsInParent<CanvasGroup>(true);
             ConfigureShineLocalSpace();
 
             if (iconImage != null) iconImage.sprite = def.icon;
+            FillInfo(def);
             ShowCount(null);   // before any run: nothing stands yet
 
             if (button == null) button = GetComponent<Button>();
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(OnButtonClicked);
+            if (button.targetGraphic != null) restingRaycastPadding = button.targetGraphic.raycastPadding;
 
-            SetSelected(false);
             SetAffordable(true);
             SetLocked(def.LockState(RunContext.FirstAge, null));   // before any run: nothing opened by a perk yet
             ResetInteractionVisuals();
@@ -115,8 +139,9 @@ namespace LittlePeeps
             bool over = TryGetPointerOverCard(out Vector2 screenPosition, out Camera eventCamera);
             UpdateHint(over);
 
-            // A locked card stays put — but still answers with its hint (UpdateHint, above).
-            bool shouldHover = over && !IsLocked;
+            // A locked card stays put — but still answers with its hint (UpdateHint, above). The open card
+            // stays put too: it carries text, and flight would only shake it.
+            bool shouldHover = over && !IsLocked && !selected;
             if (shouldHover != pointerInside)
             {
                 pointerInside = shouldHover;
@@ -140,12 +165,21 @@ namespace LittlePeeps
             CancelAllMotions();
         }
 
+        // Selected = in hand = open. The palette passes on every change of the hand to every card, so most
+        // calls change nothing.
         public void SetSelected(bool value)
         {
+            if (value == selected) return;
             selected = value;
-            if (selectionFrameObject != null) selectionFrameObject.SetActive(value);
-            if (iconSelectionPlaceholder != null) iconSelectionPlaceholder.SetActive(value);
-            ApplyVisualState();
+
+            if (value)
+            {
+                // The open card says itself what the hint would: it neither flies nor shows the hint.
+                pointerInside = false;
+                SetHovered(false);
+                HideHint();
+            }
+            SetExpanded(value);
         }
 
         public void SetAffordable(bool value)
@@ -199,12 +233,14 @@ namespace LittlePeeps
             RefreshArtworkAlpha();
         }
 
+        // Drops every tween and lands on the state the card is in: closed, or open if it is in hand.
         public void ResetInteractionVisuals()
         {
             pointerInside = false;
             dragSuppressed = false;
             CancelAllMotions();
             hoverProgress = 0f;
+            expandProgress = selected ? 1f : 0f;
             tiltValue = Vector2.zero;
             if (animatedVisual != null)
             {
@@ -235,6 +271,17 @@ namespace LittlePeeps
             onClick?.Invoke(this);
         }
 
+        // The open card's column: what the building is and where it may stand. Terrains by the rule
+        // placement itself uses (IslandGrid.IsTerrainAllowed), so the card never promises a different one.
+        private void FillInfo(StructureDef def)
+        {
+            if (titleText != null) titleText.text = def.ShownName;
+            if (descriptionText != null) descriptionText.text = def.description;
+            foreach (var entry in terrainChips)
+                if (entry.chip != null)
+                    entry.chip.SetActive(IslandGrid.IsTerrainAllowed(entry.terrain, def.allowedTerrain));
+        }
+
         // Whether the pointer may count as over this card at all. Lock is not part of it: a locked card
         // gets no flight (Update) but still shows its hint.
         private bool CanHover(RectTransform rect)
@@ -245,11 +292,12 @@ namespace LittlePeeps
 
         // The hint follows the pointer over the card — locked ones included, they are where "why is it shut"
         // gets asked. A click puts it away until the pointer leaves: the tool is in hand. A refresh of the
-        // card's numbers while the hint is up republishes it (same owner = updated in place).
+        // card's numbers while the hint is up republishes it (same owner = updated in place). None over the
+        // open card: it shows its name and description itself.
         private void UpdateHint(bool over)
         {
             if (!over) hintSuppressed = false;
-            bool want = over && !hintSuppressed;
+            bool want = over && !hintSuppressed && !selected;
 
             if (!want) HideHint();
             else if (!hintShown || hintStale) PublishHint();
@@ -349,6 +397,32 @@ namespace LittlePeeps
             }
         }
 
+        // Opens or closes the card. A hidden card (a tab not on screen) has nothing to watch: it lands on
+        // the end state at once.
+        private void SetExpanded(bool value)
+        {
+            Cancel(ref expandMotion);
+            float target = value ? 1f : 0f;
+            if (motionProfile == null || !isActiveAndEnabled)
+            {
+                expandProgress = target;
+                ApplyVisualState();
+                return;
+            }
+
+            float duration = value ? motionProfile.expandDuration : motionProfile.collapseDuration;
+            AnimationCurve ease = value ? motionProfile.expandEase : motionProfile.collapseEase;
+
+            expandMotion = LMotion.Create(expandProgress, target, duration)
+                .WithEase(ease)
+                .WithScheduler(MotionScheduler.InitializationIgnoreTimeScale)
+                .Bind(x =>
+                {
+                    expandProgress = x;
+                    ApplyVisualState();
+                });
+        }
+
         private void ApplyPointerTilt(Vector2 screenPosition, Camera eventCamera)
         {
             RectTransform rect = hitRect != null ? hitRect : transform as RectTransform;
@@ -406,79 +480,149 @@ namespace LittlePeeps
                 currentLift + tiltValue.y * motionProfile.maxTiltX * 0.2f);
         }
 
+        // Where each moving part of the card stands in one state. The profile gives three — resting,
+        // hovered, open — and ApplyVisualState blends them: resting → hovered by the hover tween, that →
+        // open by the open tween.
+        private struct Pose
+        {
+            public Vector2 size;               // the card body
+            public float lift;                 // the body's centre above the slot's
+            public Vector2 containerSize;
+            public Vector2 containerPosition;  // from the body's centre
+            public Vector2 costOffset;         // x from the body's centre, y up from its bottom edge
+            public float thickness;
+            public Vector2 shadowSize;
+            public Vector2 shadowOffset;       // from the slot's centre
+            public float shadowAlpha;
+
+            public static Pose Lerp(in Pose a, in Pose b, float t) => new()
+            {
+                size = Vector2.LerpUnclamped(a.size, b.size, t),
+                lift = Mathf.LerpUnclamped(a.lift, b.lift, t),
+                containerSize = Vector2.LerpUnclamped(a.containerSize, b.containerSize, t),
+                containerPosition = Vector2.LerpUnclamped(a.containerPosition, b.containerPosition, t),
+                costOffset = Vector2.LerpUnclamped(a.costOffset, b.costOffset, t),
+                thickness = Mathf.LerpUnclamped(a.thickness, b.thickness, t),
+                shadowSize = Vector2.LerpUnclamped(a.shadowSize, b.shadowSize, t),
+                shadowOffset = Vector2.LerpUnclamped(a.shadowOffset, b.shadowOffset, t),
+                shadowAlpha = Mathf.LerpUnclamped(a.shadowAlpha, b.shadowAlpha, t),
+            };
+        }
+
+        private Pose RestingPose() => new()
+        {
+            size = motionProfile.restingCardSize,
+            lift = 0f,
+            containerSize = motionProfile.restingItemContainerSize,
+            containerPosition = motionProfile.restingItemContainerPosition,
+            costOffset = motionProfile.costBottomOffset,
+            thickness = motionProfile.restingThickness,
+            shadowSize = motionProfile.restingShadowSize,
+            shadowOffset = motionProfile.restingShadowOffset,
+            shadowAlpha = motionProfile.restingShadowAlpha,
+        };
+
+        private Pose HoveredPose() => new()
+        {
+            size = motionProfile.hoveredCardSize,
+            lift = motionProfile.hoverLift,
+            containerSize = motionProfile.hoveredItemContainerSize,
+            containerPosition = motionProfile.hoveredItemContainerPosition,
+            costOffset = motionProfile.costBottomOffset,
+            thickness = motionProfile.hoveredThickness,
+            shadowSize = motionProfile.hoveredShadowSize,
+            shadowOffset = motionProfile.hoveredShadowOffset,
+            shadowAlpha = motionProfile.hoveredShadowAlpha,
+        };
+
+        // Grows up from the slot's bottom edge: the body's centre rises by half the extra height, plus the
+        // open card's own lift.
+        private Pose ExpandedPose() => new()
+        {
+            size = motionProfile.expandedCardSize,
+            lift = (motionProfile.expandedCardSize.y - motionProfile.restingCardSize.y) * 0.5f +
+                   motionProfile.expandedLift,
+            containerSize = motionProfile.expandedItemContainerSize,
+            containerPosition = motionProfile.expandedItemContainerPosition,
+            costOffset = motionProfile.expandedCostBottomOffset,
+            thickness = motionProfile.restingThickness,
+            shadowSize = motionProfile.expandedShadowSize,
+            shadowOffset = motionProfile.expandedShadowOffset,
+            shadowAlpha = motionProfile.expandedShadowAlpha,
+        };
+
         private void ApplyVisualState()
         {
             if (motionProfile == null) return;
 
-            Vector2 size = Vector2.LerpUnclamped(
-                motionProfile.restingCardSize, motionProfile.hoveredCardSize, hoverProgress);
-            currentLift = (selected ? motionProfile.selectedLift : 0f) +
-                          motionProfile.hoverLift * hoverProgress;
+            Pose pose = Pose.Lerp(
+                Pose.Lerp(RestingPose(), HoveredPose(), hoverProgress), ExpandedPose(), expandProgress);
+            currentLift = pose.lift;
+            ApplySlot();
 
             if (animatedVisual != null)
                 ApplyTilt();
             if (cardBody != null)
-                cardBody.sizeDelta = size;
-            if (selectionFrame != null)
-                selectionFrame.sizeDelta = size + motionProfile.selectionFramePadding;
+                cardBody.sizeDelta = pose.size;
             if (itemContainer != null)
             {
-                itemContainer.sizeDelta = PixelSnap(Vector2.LerpUnclamped(
-                    motionProfile.restingItemContainerSize,
-                    motionProfile.hoveredItemContainerSize,
-                    hoverProgress));
-                itemContainer.anchoredPosition = PixelSnap(Vector2.LerpUnclamped(
-                    motionProfile.restingItemContainerPosition,
-                    motionProfile.hoveredItemContainerPosition,
-                    hoverProgress));
+                itemContainer.sizeDelta = PixelSnap(pose.containerSize);
+                itemContainer.anchoredPosition = PixelSnap(pose.containerPosition);
             }
-            if (costPanel != null && costPanel.transform is RectTransform resourcePanel)
-            {
-                resourcePanel.sizeDelta = PixelSnap(motionProfile.resourcePanelBackgroundSize);
-                resourcePanel.anchoredPosition = PixelSnap(new Vector2(
-                    motionProfile.resourcePanelBottomOffset.x,
-                    -size.y * 0.5f + motionProfile.resourcePanelBottomOffset.y));
-            }
-            if (resourceIconImage != null)
-            {
-                resourceIconImage.rectTransform.sizeDelta = PixelSnap(motionProfile.resourceIconSize);
-                resourceIconImage.rectTransform.anchoredPosition =
-                    PixelSnap(motionProfile.resourceIconOffset);
-            }
-            if (costText != null)
-            {
-                costText.rectTransform.sizeDelta = PixelSnap(motionProfile.resourceTextRectSize);
-                costText.rectTransform.anchoredPosition =
-                    PixelSnap(motionProfile.resourceTextOffset);
-                costText.fontSize = motionProfile.resourceTextFontSize;
-            }
+            if (costUnit != null && costUnit.transform is RectTransform costRect)
+                PlaceCentred(costRect, new Vector2(pose.costOffset.x, -pose.size.y * 0.5f + pose.costOffset.y));
 
-            float thicknessHeight = Mathf.LerpUnclamped(
-                motionProfile.restingThickness, motionProfile.hoveredThickness, hoverProgress);
             if (thickness != null)
             {
-                thickness.sizeDelta = new Vector2(size.x, thicknessHeight);
-                thickness.anchoredPosition = new Vector2(0f, -size.y * 0.5f - thicknessHeight * 0.5f);
+                thickness.sizeDelta = new Vector2(pose.size.x, pose.thickness);
+                thickness.anchoredPosition = new Vector2(0f, -pose.size.y * 0.5f - pose.thickness * 0.5f);
             }
 
             if (shadow != null)
             {
-                shadow.sizeDelta = Vector2.LerpUnclamped(
-                    motionProfile.restingShadowSize, motionProfile.hoveredShadowSize, hoverProgress);
-                shadow.anchoredPosition = Vector2.LerpUnclamped(
-                    motionProfile.restingShadowOffset, motionProfile.hoveredShadowOffset, hoverProgress);
+                shadow.sizeDelta = pose.shadowSize;
+                shadow.anchoredPosition = pose.shadowOffset;
             }
 
             if (shadowImage != null)
             {
                 Color c = shadowImage.color;
-                c.a = Mathf.LerpUnclamped(
-                    motionProfile.restingShadowAlpha, motionProfile.hoveredShadowAlpha, hoverProgress);
+                c.a = pose.shadowAlpha;
                 shadowImage.color = c;
             }
 
             if (shineViewport != null)
-                shineViewport.sizeDelta = new Vector2(Mathf.Max(1f, size.x - 4f), Mathf.Max(1f, size.y - 4f));
+                shineViewport.sizeDelta = new Vector2(Mathf.Max(1f, pose.size.x - 4f), Mathf.Max(1f, pose.size.y - 4f));
+
+            if (infoGroup != null)
+                infoGroup.alpha = Mathf.InverseLerp(motionProfile.expandedTextFrom, 1f, expandProgress);
+        }
+
+        // The card's place in the row: as wide as the card is open, so the row's Horizontal Layout Group
+        // moves the neighbours apart. Whole pixels — the row adds these widths up into positions. The click
+        // area grows over the open card's top, which stands above the slot: a click there must stay on the
+        // card, not reach the island behind it.
+        private void ApplySlot()
+        {
+            if (slot == null) return;
+
+            float width = Mathf.Round(Mathf.LerpUnclamped(
+                motionProfile.restingCardSize.x, motionProfile.expandedCardSize.x, expandProgress));
+            Vector2 size = new(width, motionProfile.restingCardSize.y);
+
+            if (button != null && button.targetGraphic != null)
+            {
+                float rise = motionProfile.expandedCardSize.y + motionProfile.expandedLift -
+                             motionProfile.restingCardSize.y;
+                Vector4 padding = restingRaycastPadding;
+                padding.w -= Mathf.Round(Mathf.Max(0f, rise) * expandProgress);
+                button.targetGraphic.raycastPadding = padding;
+            }
+
+            if (slot.sizeDelta == size) return;
+            slot.sizeDelta = size;
+            if (scroller != null && isActiveAndEnabled) scroller.Follow(slot, selected);
+            else if (slot.parent is RectTransform row) LayoutRebuilder.MarkLayoutForRebuild(row);
         }
 
         private void StartShine()
@@ -552,21 +696,31 @@ namespace LittlePeeps
         private void RefreshCost()
         {
             bool hasCost = Def.cost != null && Def.cost.Count > 0 && Def.cost[0] != null;
-            if (costPanel != null) costPanel.SetActive(hasCost);
-            if (!hasCost) return;
+            if (costUnit != null) costUnit.gameObject.SetActive(hasCost);
+            if (!hasCost || costUnit == null) return;
 
             ResourceCost cost = Def.cost[0];
-            if (resourceIconImage != null)
-                resourceIconImage.sprite = iconSet != null ? iconSet.IconFor(cost.resourceType) : null;
-            if (costText != null) costText.text = ResourceFormat.Abbreviate(Def.CostAt(0, standing));
+            costUnit.Bind(iconSet != null ? iconSet.IconFor(cost.resourceType) : null, Def.CostAt(0, standing));
         }
 
         private static Vector2 PixelSnap(Vector2 value) =>
             new(Mathf.Round(value.x), Mathf.Round(value.y));
 
+        // Centres a rect (anchored to its parent's centre) on `centre` with its edges on whole pixels — an
+        // odd-sized one has a half-pixel centre. A half-way value rounds up, so a .5 in the profile picks
+        // the row above, not whichever happens to be even.
+        private static void PlaceCentred(RectTransform rect, Vector2 centre)
+        {
+            Vector2 size = rect.rect.size;
+            Vector2 min = centre - size * 0.5f;
+            min = new Vector2(Mathf.Floor(min.x + 0.5f), Mathf.Floor(min.y + 0.5f));
+            rect.anchoredPosition = min + Vector2.Scale(size, rect.pivot);
+        }
+
         private void CancelAllMotions()
         {
             Cancel(ref hoverMotion);
+            Cancel(ref expandMotion);
             Cancel(ref tiltMotion);
             Cancel(ref shineMotion);
         }

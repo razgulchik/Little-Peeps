@@ -95,7 +95,9 @@ namespace LittlePeeps
             return !def.needsWaterSide || WaterSides.Find(this, origin, footprint) != WaterSide.None;
         }
 
-        private static bool IsTerrainAllowed(TerrainType terrain, TerrainType[] allowed)
+        // The terrain rule on its own: empty = any. Public for the build card, which lists the terrains a
+        // building may stand on by this same rule.
+        public static bool IsTerrainAllowed(TerrainType terrain, TerrainType[] allowed)
         {
             if (allowed == null || allowed.Length == 0) return true;
             for (int i = 0; i < allowed.Length; i++)

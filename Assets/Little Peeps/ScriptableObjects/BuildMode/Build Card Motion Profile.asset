@@ -12,30 +12,81 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e972daf544a4ba7a72508df1e2fd09a, type: 3}
   m_Name: Build Card Motion Profile
   m_EditorClassIdentifier: 
-  restingCardSize: {x: 57, y: 76}
-  hoveredCardSize: {x: 69, y: 88}
-  selectionFramePadding: {x: 4, y: 4}
-  selectedLift: 4
+  restingCardSize: {x: 54, y: 70}
+  hoveredCardSize: {x: 66, y: 82}
   hoverLift: 12
-  restingItemContainerSize: {x: 47, y: 47}
-  hoveredItemContainerSize: {x: 59, y: 59}
-  restingItemContainerPosition: {x: 0, y: 10}
-  hoveredItemContainerPosition: {x: 0, y: 10}
-  resourcePanelBackgroundSize: {x: 30, y: 10}
-  resourcePanelBottomOffset: {x: 0, y: 14}
-  resourceIconSize: {x: 13, y: 13}
-  resourceIconOffset: {x: -14, y: 0}
-  resourceTextRectSize: {x: 27, y: 10}
-  resourceTextOffset: {x: 0, y: 0}
-  resourceTextFontSize: 14
+  restingItemContainerSize: {x: 48, y: 48}
+  hoveredItemContainerSize: {x: 60, y: 60}
+  restingItemContainerPosition: {x: 0, y: 8}
+  hoveredItemContainerPosition: {x: 0, y: 8}
+  costBottomOffset: {x: 0, y: 10.5}
   restingThickness: 1
   hoveredThickness: 3
-  restingShadowSize: {x: 57, y: 6}
-  hoveredShadowSize: {x: 67, y: 10}
-  restingShadowOffset: {x: 0, y: -37}
-  hoveredShadowOffset: {x: 0, y: -35}
+  restingShadowSize: {x: 54, y: 6}
+  hoveredShadowSize: {x: 64, y: 10}
+  restingShadowOffset: {x: 0, y: -34}
+  hoveredShadowOffset: {x: 0, y: -32}
   restingShadowAlpha: 0.75
   hoveredShadowAlpha: 0.48
+  expandedCardSize: {x: 138, y: 90}
+  expandedLift: 2
+  expandedItemContainerSize: {x: 64, y: 64}
+  expandedItemContainerPosition: {x: -34, y: 10}
+  expandedCostBottomOffset: {x: -34, y: 13.5}
+  expandedShadowSize: {x: 138, y: 6}
+  expandedShadowOffset: {x: 0, y: -32}
+  expandedShadowAlpha: 0.75
+  expandDuration: 0.18
+  collapseDuration: 0.14
+  expandEase:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 2.2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  collapseEase:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 2.2
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  expandedTextFrom: 0.8
   hoverInDuration: 0.16
   hoverOutDuration: 0.18
   hoverInEase:

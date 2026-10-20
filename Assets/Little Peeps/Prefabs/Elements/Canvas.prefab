@@ -3113,7 +3113,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: -8, y: -5}
+  m_AnchoredPosition: {x: 8, y: -1}
   m_SizeDelta: {x: 472, y: 92}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &6127546488170787218
@@ -3134,7 +3134,7 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 3
-  m_Spacing: 7
+  m_Spacing: 3
   m_ChildForceExpandWidth: 0
   m_ChildForceExpandHeight: 0
   m_ChildControlWidth: 0
@@ -5637,7 +5637,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding: {x: 0, y: 0, z: 0, w: 0}
-  m_Softness: {x: 12, y: 0}
+  m_Softness: {x: 0, y: 0}
 --- !u!114 &9100000000000000002
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5652,7 +5652,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   viewport: {fileID: 6465732706533579054}
   content: {fileID: 974708882825351838}
-  edgePadding: 18
+  edgePadding: 8
   wheelStep: 24
 --- !u!1 &9018823014948006014
 GameObject:

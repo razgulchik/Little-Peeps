@@ -10,7 +10,8 @@
 > и `Canvas.prefab`; там же HUD по макету (AgePanel из двух кусков встык, подложка в ResourceUnit). Панель стройки —
 > четыре отдельных виджета, у каждого состояния один хозяин; блок цены эры растёт по строкам; лента времени
 > `TimePanel`; панель взятых перков (`PerkPanel`, префаб `PerkSlot`) и подсказка слева: **2026-10-19**, сверено с
-> `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> `Canvas.prefab`. Лента времени работает (время в отрезках, годы под засечками, подсказка подношения), раннего
+> подношения и `OfferingPanel` больше нет: **2026-10-20**, сверено с `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -109,13 +110,22 @@ SampleScene
     │   │                         показывает SellButton, BuildTabs и BuildPalette — не режим, игра идёт и так и так)
     │   ├── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
     │   │                         ← правый верхний угол, 124×36; ячейки 34×13, три в строку
-    │   ├── TimePanel           → Image (time_panel, Sliced) + CanvasGroup   ← лента времени цикла подношений,
-    │   │   │                     по центру сверху (0, −6), 288×30; пока только вёрстка, скрипта нет
-    │   │   ├── Now             → Image                 (кружок «сейчас», слева)
-    │   │   ├── Track           → RectMask2D
-    │   │   │   └── Belt        → превью ленты: Line / Year / HalfDecade (отрезки, отметки лет и полудесятилетия)
+    │   ├── TimePanel           → Image (time_panel, Sliced, **Raycast Target ВКЛ** — ловит наведение) + CanvasGroup
+    │   │   │                     + TimePanel   ← лента времени до подношения, по центру сверху (0, −6), 288×30;
+    │   │   │                     своя строка видимости, у CanvasGroup включён Ignore Parent Groups
+    │   │   ├── Now             → Image                 (кружок «сейчас», слева, 5..13)
+    │   │   ├── Track           → RectMask2D            (маска слоя ромбов: от левого края кружка до большого ромба, 5..281)
+    │   │   │   ├── Belt        → RectMask2D            (своя маска: от края кружка до точек, 15..267; линия, засечки
+    │   │   │   │                 лет и края линии у засечек подношения — в рантайме)
+    │   │   │   └── Riders      → только RectTransform  (ромбики подношений — в рантайме)
+    │   │   ├── Years           → RectMask2D            (цифры лет под засечками: 15..267, строки 16..20)
+    │   │   │   └── Year        → TMP_Text, выключен    (шаблон цифры: Micro5 11, #BE9F85; копии — в рантайме)
     │   │   ├── Dots            → Image                 («и так далее», справа)
-    │   │   └── Offering        → Point + Icon (Image)  (место подношения, справа)
+    │   │   ├── Offering        → Point + Icon (Image)  (большой ромб и руки под ним; руки уезжают с маленьким ромбом)
+    │   │   └── Tooltip         → Image (HUD/tooltip, Sliced) + CanvasGroup + Vertical Layout Group + OfferingTooltip
+    │   │       │                 ← подсказка подношения: видна, пока курсор на ленте; кликов не ловит
+    │   │       ├── Header      → TMP_Text              («N years until Offering», m6x11plus 12, влево)
+    │   │       └── Costs       → Grid Layout Group     (ResourceUnit на ресурс квоты — в рантайме; 34×13, 2 колонки)
     │   └── PerkPanel           → Grid Layout Group + Content Size Fitter + PerkPanel   ← взятые перки:
     │                             правый верх (−9, −76), ширина 41, растёт вниз; ячейки PerkSlot в рантайме,
     │                             по две в ряд, справа налево
@@ -142,11 +152,6 @@ SampleScene
     │                             (Backdrop, Panel с текстом и кнопками Yes / No)
     ├── FPSmeter
     │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
-    ├── OfferingPanel           → CanvasGroup + OfferingPanel   ← ВРЕМЕННЫЙ виджет подношения (до ленты TimePanel):
-    │   │                         над серединой экрана; цикл, время, квота «Wood 32/40»
-    │   ├── Label               → TMP_Text
-    │   └── OfferButton         → Image + Button                ← подношение досрочно
-    │       └── Text (TMP)      → TMP_Text
     ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← экран после престижа (включён, как Screens)
     │   ├── TitleText, PointsText → TMP_Text
     │   ├── Scroll View         → Image + ScrollRect
@@ -158,10 +163,8 @@ SampleScene
 ```
 
 > `HintView` и `ConfirmDialog` по замыслу кода — **последние** дети Canvas, чтобы рисоваться поверх всего.
-> Сейчас после них стоят `FPSmeter`, `OfferingPanel`, `MetaScreen` и выключенный `ref`. Мета-экран открывается уже
-> после ответа и подсказок не показывает, а `OfferingPanel` он закрывает собой. Но у `OfferingPanel` нет строки в
-> таблице видимости — он виден во всех режимах, в том числе поверх окна конца цикла (`ConfirmDialog`, режим
-> `OfferingEnd`). Если это мешает — вернуть ему строку или перенести `ConfirmDialog` ниже.
+> Сейчас после них стоят `FPSmeter`, `MetaScreen` и выключенный `ref`. Мета-экран открывается уже после ответа и
+> подсказок не показывает, так что это не мешает.
 
 ## Checklist проводки (критично)
 
@@ -264,7 +267,8 @@ SampleScene
 набор `UIServices` (`ResourceSystem`, `AgeSystem`, `OfferingSystem`, `RunManager`, `PlacementController`,
 `CameraController`, `ZonePreviewOverlay`), а `UIRoot.Initialize` находит под Канвасом каждый `IUIElement` —
 выключенные тоже — и отдаёт набор ему. Сейчас это `BuildPaletteUI`, `SellButtonUI`, `BuildPanelToggle`,
-`ResourcePanel`, `ZoneSelectionUI`, `AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `OfferingPanel`. Поэтому у экземпляра Канваса в сцене нет ни
+`ResourcePanel`, `ZoneSelectionUI`, `AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `TimePanel`, `OfferingTooltip`,
+`PerkPanel`. Поэтому у экземпляра Канваса в сцене нет ни
 одного оверрайда со ссылкой на объект сцены — и появляться их не должно.
 
 Сам Canvas несёт две таблицы, и они отвечают на разные вопросы:
@@ -275,15 +279,14 @@ SampleScene
 | **UIVisibility** | кто **когда** виден | CanvasGroup'ы + маска режимов |
 
 Элемент, которому не нужно ни то ни другое, не попадает ни в одну (`BuildToggle`), а видимый
-по режиму — только во вторую (`BuildPalette`, `SellButton`, `BuildTabs`). `ConfirmDialog` и `HintView` нет в таблице видимости:
+по режиму — только во вторую (`BuildPalette`, `SellButton`, `BuildTabs`, `TimePanel`). `ConfirmDialog` и `HintView` нет в таблице видимости:
 свою CanvasGroup каждый ведёт сам.
 
 | Объект | Компонент | Поле | Что назначить |
 |--------|-----------|------|---------------|
 | Canvas | **UIRoot** | **zoneScreen, perkScreen, confirmDialog, metaScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen`, `ConfirmDialog`, `MetaScreen` — их зовут гейплейные стейты |
 | | | ageBanner, ageTitle | `AgeTransition` (CanvasGroup), `AgeTransition/BannerText` (TMP_Text) — баннер эпохи; бутстрап отдаёт их `AgeSequencer`. Пусто — предупреждение, эпохи сменяются без баннера |
-| Canvas | **UIVisibility** | groups | 7 строк, таблица ниже |
-| Canvas/OfferingPanel | OfferingPanel | label, offerButton | `Label` (TMP_Text), `OfferButton` (Button — активна, когда квота собрана целиком). Временный виджет, уйдёт с полосой сверху |
+| Canvas | **UIVisibility** | groups | 8 строк, таблица ниже |
 | Canvas/Hud/BuildToggle | BuildPanelToggle | button, label, hideLabel, showLabel | свой Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Хозяин «показана / спрятана»: клик и B переключают, X и 1–9 возвращают спрятанную панель, прятание кладёт инструмент из руки |
 | Canvas/Hud/BuildTabs | **BuildTabBar** | palette | `ScriptableObjects/BuildMode/Build Palette Def` — без него нет ни вкладок, ни карточек |
 | | | tabPrefab, container | префаб `Prefabs/Elements/BuildTabUi`; container пусто = сам `BuildTabs` (его Vertical Layout Group) |
@@ -292,6 +295,13 @@ SampleScene
 | Canvas/Hud/SellButton | SellButtonUI | button, selectedFrame | свой Button, дочерний `SelectedFrame` |
 | Canvas/Hud/ResourceBar | ResourcePanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
 | Canvas/Hud/PerkPanel | PerkPanel | slotPrefab | префаб `Prefabs/Elements/PerkSlot` (его PerkSlotUI). Сетка на том же объекте: Cell 20×20, Spacing 1, Fixed Column Count 2, **Start Corner и Child Alignment — Upper Right** (одного Start Corner мало: пока перков меньше двух, сетка сужается до одной колонки и прижимает её по Child Alignment — одиночный перк встал бы влево); Content Size Fitter — Vertical Fit Preferred |
+| Canvas/Hud/TimePanel | **TimePanel** | now, belt, riders, hands | `Now`, `Track/Belt`, `Track/Riders`, `Offering/Icon`. Руки ждут там, где стоят в префабе, — по центру большого ромба: с этого столбца стартует маленький ромб, и руки уезжают с ним без рывка |
+| | | lineSprite, yearSprite, offeringSprite | `time_line`, `time_icon_year`, `time_icon_halfdecade`. Засечку подношения скрипт режет на три части при старте — её спрайт нельзя паковать в атлас плотно (Tight), только прямоугольником |
+| | | segmentWidth, diamondWidth | 58 — длина отрезка-«года» в пикселях (скорость ленты = 58 px за Segment Seconds расписания); 5 — ширина ромбика в середине засечки подношения |
+| | | yearTemplate, tooltip | `Years/Year` (шаблон цифры, его якоря и выравнивание скрипт не читает — центрирует сам), `Tooltip` |
+| Canvas/Hud/TimePanel/Tooltip | OfferingTooltip | header, costContainer, anchor | `Header`, `Costs` (её Grid Layout Group: Cell 34×13, Spacing 2×3, Fixed Column Count 2, Child Alignment Upper Center), `Offering/Icon` — куда смотрит хвостик |
+| | | costPrefab, iconSet, shortColor, highlight | `Prefabs/Elements/ResourceUnit`, ResourceIconSet, #9B211E — ресурса не хватает, #FFD663 — слово Offering |
+| | | offset | (−2, −8): правый верхний угол подсказки (с хвостиком) от правого нижнего угла рук. Vertical Layout Group на корне: Padding 5 / 6 / 8 / 3, Spacing 3, Control Child Size — ширина и высота, Force Expand — ширина; **Content Size Fitter не вешать** — размер считает скрипт |
 | Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/AdvanceButton` |
 | Canvas/Hud/AgePanel/Advance/Cost | AgeCostPanel | unitPrefab, container, iconSet | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
 | | | unaffordableColor, visibilityRoot | цвет суммы, которую не хватает; что гасить после последней эпохи, когда покупать больше нечего |
@@ -332,19 +342,21 @@ SampleScene
 
 | # | Group | Playing | ZonePick | PerkPick | AgeTransition | MetaUpgrades | OfferingEnd | За панелью |
 |---|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 0 | `Hud` | ✓ | — | ✓ | — | — | — | — |
-| 1 | `Hud/BuildPalette` | ✓ | — | — | — | — | — | ✓ |
-| 2 | `Hud/SellButton` | ✓ | — | — | — | — | — | ✓ |
-| 3 | `Hud/BuildTabs` | ✓ | — | — | — | — | — | ✓ |
-| 4 | `Screens/PerkScreen` | — | — | ✓ | — | — | — | — |
-| 5 | `Screens/ZoneScreen` | — | ✓ | — | — | — | — | — |
-| 6 | `MetaScreen` | — | — | — | — | ✓ | — | — |
+| 0 | `Hud` | ✓ | — | — | — | — | — | — |
+| 1 | `Screens/PerkScreen` | — | — | ✓ | — | — | — | — |
+| 2 | `Screens/ZoneScreen` | — | ✓ | — | — | — | — | — |
+| 3 | `MetaScreen` | — | — | — | — | ✓ | — | — |
+| 4 | `Hud/BuildPalette` | ✓ | — | — | — | — | — | ✓ |
+| 5 | `Hud/SellButton` | ✓ | — | — | — | — | — | ✓ |
+| 6 | `Hud/BuildTabs` | ✓ | — | — | — | — | — | ✓ |
+| 7 | `Hud/TimePanel` | ✓ | — | ✓ | — | — | ✓ | — |
 
-Строка 0 читается как «живая игра и выбор перка»: на выборе зоны, подъёме острова, мета-экране и в окне конца
-цикла HUD скрыт целиком, панель эры и лента времени вместе с ним (своих строк у них нет). Поэтому смена цены и
-высоты блока эры игроку не видна: HUD возвращается уже с новыми ценами. Строки 1–3 — три виджета стройки всю
-живую игру, пока игрок их не спрятал. **В окне конца цикла запасов не видно** — если их нужно видеть, отметить
-`OfferingEnd` у `Hud`. `OfferingPanel` строки не имеет и виден во всех режимах (см. примечание под деревом).
+Строка 0 читается как «только живая игра»: на выборе зоны и перка, подъёме острова, мета-экране и в окне конца
+цикла HUD скрыт целиком, панель эры и панель перков вместе с ним (своих строк у них нет). Поэтому смена цены и
+высоты блока эры игроку не видна: HUD возвращается уже с новыми ценами. Строки 4–6 — три виджета стройки всю
+живую игру, пока игрок их не спрятал. Строка 7 — лента времени: у её CanvasGroup включён **Ignore Parent Groups**,
+поэтому она не зависит от `Hud` и видна ещё на выборе перка и в окне конца цикла — ромб подношения стоит в кружке
+прямо под окном. **В окне конца цикла запасов не видно** — если их нужно видеть, отметить `OfferingEnd` у `Hud`.
 Биты бывших режимов `Build` (`1 << 1`) и `PrestigeConfirm` (`1 << 5`) в коде оставлены пустыми, поэтому
 маски, сохранённые с ними, читаются как раньше.
 
@@ -636,7 +648,7 @@ Label стоит после Icon — цифра рисуется поверх к
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | tabs: вкладки нижней панели, у каждой name, icon, structures (список StructureDef). Порядок вкладок = порядок кнопок и цифр 1–9, порядок structures = порядок карточек; пустая вкладка кнопку не получает. Группировка живёт здесь, на StructureDef категории нет |
 | **AgeDef** | LittlePeeps/AgeDef | title (только в лог — на баннере номер римскими цифрами), resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), bonusOverride (текст вместо сгенерированного описания). Порядок задаётся списком `AgeSystem.ages`, начиная с Age II |
 | **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, **grade** (Common — обычные подношения и стартовый выбор; Special — только подношения особых циклов; наборы не смешиваются, а если особых не осталось, особый цикл даёт обычные), weight (шанс выпасть), minAge (с какой эпохи предлагается), requires (предыдущий уровень — цепочки уровней). Stat Perk — modifiers[]; Unlock Structure Perk — structure (снимает `lockedUntilPerk`). Особые сейчас: Good rest, Bigger Houses, Unl Rice Paddy |
-| **Offering Schedule** | LittlePeeps/Offering Schedule | цикл подношений, для `OfferingSystem.schedule`: cycleSeconds (длина цикла в секундах игры — пауза не идёт), cycles[] (квота каждого цикла по порядку, первый элемент = цикл 1; ресурс эпохой не проверяется — не просить его раньше, чем обычный игрок до неё дойдёт), growthPastEnd (после списка повторяется последний набор, ×рост за каждый лишний цикл, округление вверх), specialEvery (каждый N-й цикл особый, 0 = нет). В проекте `OfferingDef/Offering Schedule Def`, **тестовые** значения: 60 с, дерево 10 → дерево 20 → еда 10, ×1.25, каждый 3-й; настоящие числа — за Даниилом |
+| **Offering Schedule** | LittlePeeps/Offering Schedule | цикл подношений, для `OfferingSystem.schedule`: segmentSeconds (длина одного отрезка-«года» в секундах игры, одна на весь забег — лента всегда едет с одной скоростью; пауза не идёт), cycles[] (по порядку, первый элемент = цикл 1: segments — сколько отрезков длится цикл, не меньше одного; resources — квота; ресурс эпохой не проверяется — не просить его раньше, чем обычный игрок до неё дойдёт), growthPastEnd (после списка повторяется последний цикл: квота ×рост за каждый лишний цикл, округление вверх, длина — как есть), specialEvery (каждый N-й цикл особый, 0 = нет). В проекте `OfferingDef/Offering Schedule Def`, **тестовые** значения: 10 с × 6 отрезков = 60 с на цикл, дерево 10 → дерево 20 → еда 10, ×1.25, каждый 3-й; настоящие числа — за Даниилом |
 | **PerkCatalogueDef** | LittlePeeps/Perk Catalogue | perks — список перков для `PerkSystem.catalogue` |
 | **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Start Age | общее: id, title, description, maxLevel. Stat Upgrade — modifiers[]; Start Resources — resources; Start Age — zoneBiome (каким биомом растут пропущенные эпохи) |
 | **GlobalUpgradeCatalogueDef** | LittlePeeps/Meta/Upgrade Catalogue | upgrades — мета-перки в порядке мета-экрана, для `PrestigeSystem.upgrades` |
@@ -736,12 +748,13 @@ Script Execution Order настраивать **не нужно** (это кос
    клик снова тап. B прячет / показывает панель.
 5. **Next Age** (`AgeAdvancePanel`) активна, когда хватает ресурсов: клик → выбор зоны → зона поднимается из моря →
    баннер «Age N» → снова игра (перка за эпоху нет). Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
-6. **Цикл подношений** идёт с первой секунды (`OfferingPanel` по центру: цикл, время, «Wood 3/10»); на любом экране
-   поверх игры часы стоят. Квота собрана → кнопка подношения активна → клик списывает квоту и сразу открывает выбор
-   перка (в особом цикле — особые перки); цикл дотикает и сменится следующим без окна.
-7. Время вышло, а подношения не было → пауза и окно «Cycle N is over…»: **Offer** (серая, если не хватает) → выбор
-   перка и следующий цикл; **Accept wrath** → очки престижа → мета-экран (тратим очки на мета-перки) → **Play** →
-   новый забег с цикла 1; камера снова в центре острова.
+6. **Цикл подношений** идёт с первой секунды: лента сверху ползёт к кружку, под засечками годы с начала забега (1, 2,
+   3, 4 …); на любом экране поверх игры часы и лента стоят. Когда до подношения остаётся ≈4,6 года, в большом ромбе
+   справа появляется маленький и выезжает, руки — вместе с ним. Курсор на ленте → подсказка «N years until Offering»
+   и квота (красным — чего не хватает).
+7. Ромб дошёл до кружка → пауза и окно «Cycle N is over…»: **Offer** (серая, если не хватает) → выбор перка (в особом
+   цикле — особые перки) и следующий цикл; **Accept wrath** → очки престижа → мета-экран (тратим очки на мета-перки) →
+   **Play** → новый забег с цикла 1 и года 1; камера снова в центре острова.
 
 ## Project settings — важное (не в сцене, но влияет)
 

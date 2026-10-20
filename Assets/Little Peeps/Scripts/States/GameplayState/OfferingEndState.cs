@@ -4,13 +4,13 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // The end of an offering cycle that was not paid early: the game stops and asks. Two answers —
+    // The end of an offering cycle: the game stops and asks. Two answers —
     // Offer (only when the stock covers the quota) pays it and opens the perk pick; Accept wrath (always)
     // ends the run: it is cashed in and the meta screen follows, as after any prestige. Wrath is the
     // player's to accept even with a full stock, so this is also the way to end a run on purpose.
     //
-    // Entered by GameplayContainerState from normal play when the clock runs out on an unpaid cycle. A
-    // cycle paid early never comes here: the container just starts the next one.
+    // Entered by GameplayContainerState from normal play when the cycle's clock runs out — the only place
+    // an offering is paid.
     //
     // Frozen while the question is up, like every screen that waits on the player — the stock must not
     // change between "can you pay?" and the answer.

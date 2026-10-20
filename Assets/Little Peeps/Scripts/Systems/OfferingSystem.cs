@@ -6,8 +6,8 @@ namespace LittlePeeps
     // The offering cycle: a clock per cycle and the quota the gods want by its end. Pays an offering out of
     // the stock and moves on to the next cycle — and nothing else. It does NOT decide when either happens:
     // GameplayContainerState advances the clock (only in normal play, so every screen that pauses the game
-    // pauses the cycle by construction), takes the early offering from the button, and opens the
-    // end-of-cycle window (OfferingEndState) when the time is up.
+    // pauses the cycle by construction) and opens the end-of-cycle window (OfferingEndState) when the time
+    // is up — the only place an offering is paid.
     //
     // The cycle's state lives on RunContext, so this system holds nothing a new run has to reset.
     public class OfferingSystem : MonoBehaviour
@@ -46,10 +46,23 @@ namespace LittlePeeps
         public bool IsActive => schedule != null && !schedule.IsEmpty && run != null;
 
         public int Cycle => run != null ? run.offeringCycle : 0;
-        public float Duration => schedule != null ? schedule.cycleSeconds : 0f;
+
+        // The current cycle's length — its own number of segments, so it changes from cycle to cycle.
+        public float Duration => schedule != null && run != null ? schedule.SecondsOf(run.offeringCycle) : 0f;
+        public float Elapsed => run != null ? run.offeringElapsed : 0f;
         public float TimeLeft => run != null ? Mathf.Max(0f, Duration - run.offeringElapsed) : 0f;
+
+        // The time strip's unit: one segment in seconds, the same for every cycle. Every cycle is a whole
+        // number of segments, so every cycle starts and ends on a tick of the strip.
+        public float SegmentSeconds => schedule != null ? schedule.segmentSeconds : 0f;
+
+        // How long a cycle lasts, in segments — the strip reads ahead to place the offerings after this one.
+        public int SegmentsOf(int cycle) => schedule != null ? schedule.SegmentsOf(cycle) : 0;
+
+        // Segments the run has gone through before a cycle starts: the strip's year count at that cycle's
+        // start, so its years run on from the run's start, across cycles.
+        public int StartSegmentOf(int cycle) => schedule != null ? schedule.StartSegmentOf(cycle) : 0;
         public bool IsOver => IsActive && run.offeringElapsed >= Duration;
-        public bool Offered => run != null && run.offeredThisCycle;
         public bool IsSpecial => IsActive && schedule.IsSpecial(run.offeringCycle);
 
         // The perk pool this cycle's offering pays out of. Read it BEFORE NextCycle: after that it is the
@@ -72,18 +85,12 @@ namespace LittlePeeps
             }
         }
 
-        // What the next cycle will want — shown once this one is paid.
-        public List<ResourceCost> NextQuota =>
-            IsActive ? schedule.QuotaOf(run.offeringCycle + 1) : new List<ResourceCost>();
-
-        public bool IsSpecialCycle(int cycle) => schedule != null && schedule.IsSpecial(cycle);
-
-        // The quota can be paid right now: not paid yet this cycle, and all of it is in the stock.
+        // The quota can be paid right now: all of it is in the stock.
         public bool CanOffer
         {
             get
             {
-                if (!IsActive || run.offeredThisCycle || resourceSystem == null) return false;
+                if (!IsActive || resourceSystem == null) return false;
 
                 var q = Quota;
                 for (int i = 0; i < q.Count; i++)
@@ -109,20 +116,17 @@ namespace LittlePeeps
             for (int i = 0; i < q.Count; i++)
                 resourceSystem.AddResource(q[i].resourceType, -q[i].amount);
 
-            run.offeredThisCycle = true;
-            Debug.Log($"[Offering] Cycle {run.offeringCycle} offered{(IsSpecial ? " (special)" : "")} with " +
-                      $"{TimeLeft:0}s to spare.");
+            Debug.Log($"[Offering] Cycle {run.offeringCycle} offered{(IsSpecial ? " (special)" : "")}.");
             return true;
         }
 
-        // The next cycle starts: a fresh clock, nothing offered yet.
+        // The next cycle starts: a fresh clock.
         public void NextCycle()
         {
             if (run == null) return;
 
             run.offeringCycle++;
             run.offeringElapsed = 0f;
-            run.offeredThisCycle = false;
         }
     }
 }

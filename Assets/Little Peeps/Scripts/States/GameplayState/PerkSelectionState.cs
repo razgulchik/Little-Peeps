@@ -6,8 +6,8 @@ namespace LittlePeeps
     // animation — and a perk that changes the world needs the world to exist and be visible at the moment
     // it applies.
     //
-    // Perks are the gods' reward for an offering, so the state is entered right after one is paid: early,
-    // from the offering button (GameplayContainerState), or at the end of the cycle (OfferingEndState).
+    // Perks are the gods' reward for an offering, so the state is entered right after one is paid at the
+    // end of a cycle (OfferingEndState).
     // Ages give no perk any more. Its other way in is the start of a run, when meta perks owe the run picks
     // (RunContext.perkPicksOwed → GameplayContainerState): the same roll at the run's age, over the fresh
     // island, as many times in a row as are owed.

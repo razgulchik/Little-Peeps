@@ -4,8 +4,9 @@ using UnityEngine;
 
 namespace LittlePeeps.Tests
 {
-    // The schedule's rules: which quota a cycle asks for, how it grows past the authored list, which
-    // cycles are special. Pure statics on plain lists, so these run in the offline harness too.
+    // The schedule's rules: which quota a cycle asks for, how it grows past the authored list, how long a
+    // cycle lasts, which cycles are special. Pure statics on plain lists, so these run in the offline
+    // harness too.
     public class OfferingScheduleTests
     {
         private static OfferingQuota Q(params (ResourceType type, float amount)[] entries)
@@ -74,6 +75,60 @@ namespace LittlePeeps.Tests
             var quota = OfferingScheduleDef.QuotaFor(cycles, 1.5f, 1);
             Assert.That(quota.Count, Is.EqualTo(1));
             Assert.That(quota[0].resourceType, Is.EqualTo(ResourceType.Food));
+        }
+
+        private static OfferingQuota Lasting(int segments) => new OfferingQuota { segments = segments };
+
+        [Test]
+        public void EachCycle_LastsItsOwnSegments_AndPastTheList_TheLastLengthRepeats()
+        {
+            var cycles = new List<OfferingQuota> { Lasting(6), Lasting(10) };
+
+            Assert.That(OfferingScheduleDef.SegmentsFor(cycles, 1), Is.EqualTo(6));
+            Assert.That(OfferingScheduleDef.SegmentsFor(cycles, 2), Is.EqualTo(10));
+            Assert.That(OfferingScheduleDef.SegmentsFor(cycles, 3), Is.EqualTo(10), "only the quota grows past the list");
+            Assert.That(OfferingScheduleDef.SegmentsFor(cycles, 7), Is.EqualTo(10));
+        }
+
+        // One segment is one fixed stretch of time, so the strip moves at one speed whatever the cycle.
+        [Test]
+        public void ACycleLasts_ItsSegments_TimesTheSegmentLength()
+        {
+            var cycles = new List<OfferingQuota> { Lasting(6), Lasting(10) };
+
+            Assert.That(OfferingScheduleDef.SecondsFor(cycles, 10f, 1), Is.EqualTo(60f));
+            Assert.That(OfferingScheduleDef.SecondsFor(cycles, 10f, 2), Is.EqualTo(100f));
+        }
+
+        [Test]
+        public void NothingAuthored_OrNoCycleYet_LastsNothing()
+        {
+            Assert.That(OfferingScheduleDef.SegmentsFor(new List<OfferingQuota>(), 1), Is.EqualTo(0));
+            Assert.That(OfferingScheduleDef.SegmentsFor(null, 1), Is.EqualTo(0));
+            Assert.That(OfferingScheduleDef.SegmentsFor(new List<OfferingQuota> { Lasting(6) }, 0), Is.EqualTo(0));
+        }
+
+        // The strip's years run on from the run's start: a cycle starts where all the ones before it ended.
+        [Test]
+        public void ACycleStarts_WhereTheOnesBeforeItEnded_PastTheListToo()
+        {
+            var cycles = new List<OfferingQuota> { Lasting(6), Lasting(10) };
+
+            Assert.That(OfferingScheduleDef.StartSegmentFor(cycles, 1), Is.EqualTo(0));
+            Assert.That(OfferingScheduleDef.StartSegmentFor(cycles, 2), Is.EqualTo(6));
+            Assert.That(OfferingScheduleDef.StartSegmentFor(cycles, 3), Is.EqualTo(16));
+            Assert.That(OfferingScheduleDef.StartSegmentFor(cycles, 5), Is.EqualTo(36), "the last length repeats");
+            Assert.That(OfferingScheduleDef.StartSegmentFor(null, 3), Is.EqualTo(0));
+        }
+
+        // A cycle of no time would be over the moment it began — every frame, for ever.
+        [Test]
+        public void AZeroLengthCycle_LastsOneSegment()
+        {
+            var cycles = new List<OfferingQuota> { Lasting(0), Lasting(-3) };
+
+            Assert.That(OfferingScheduleDef.SegmentsFor(cycles, 1), Is.EqualTo(1));
+            Assert.That(OfferingScheduleDef.SegmentsFor(cycles, 2), Is.EqualTo(1));
         }
 
         [Test]

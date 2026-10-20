@@ -51,10 +51,6 @@ namespace LittlePeeps
     // Published by the AgeAdvancePanel "Next Age" button; handled by GameplayContainerState (enters ZoneSelection).
     public struct AgeAdvanceRequestedEvent { }
 
-    // Published by the offering button (OfferingPanel): pay this cycle's quota now, before the time is up.
-    // Handled by GameplayContainerState — only from normal play — which pays it and opens the perk pick.
-    public struct OfferRequestedEvent { }
-
     // Published by ZoneSelectionUI when the player picks a zone card; handled by ZoneSelectionState,
     // which moves on to the age transition that grows the island by that zone. Same split as the perk
     // pick: the UI shows and reports, the state acts.

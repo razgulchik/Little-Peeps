@@ -54,13 +54,11 @@ namespace LittlePeeps
         {
             innerFsm.ChangeState(playingState);
             EventBus<AgeAdvanceRequestedEvent>.Subscribe(OnAgeAdvanceRequested);
-            EventBus<OfferRequestedEvent>.Subscribe(OnOfferRequested);
         }
 
         public void Exit()
         {
             EventBus<AgeAdvanceRequestedEvent>.Unsubscribe(OnAgeAdvanceRequested);
-            EventBus<OfferRequestedEvent>.Unsubscribe(OnOfferRequested);
         }
 
         public void Tick()
@@ -71,8 +69,8 @@ namespace LittlePeeps
         }
 
         // Run the cycle's clock, and end the cycle when it runs out — only in normal play, after the owed
-        // start picks (those leave normal play, and the check below then waits for the way back). A cycle
-        // paid early simply gives way to the next one; an unpaid one stops the game and asks.
+        // start picks (those leave normal play, and the check below then waits for the way back). The end of
+        // a cycle stops the game and asks: offer, or accept the gods' wrath.
         private void TickOffering()
         {
             if (offerings == null || innerFsm.Current != playingState) return;
@@ -80,20 +78,8 @@ namespace LittlePeeps
             offerings.Advance(Time.deltaTime);
             if (!offerings.IsOver) return;
 
-            if (offerings.Offered) offerings.NextCycle();
-            else if (offeringEndState != null) innerFsm.ChangeState(offeringEndState);
+            if (offeringEndState != null) innerFsm.ChangeState(offeringEndState);
             else offerings.NextCycle();   // nothing to ask with: the run goes on, never ended unasked
-        }
-
-        // The offering button: pay now, before the time is up, and take the perk at once. Normal play only,
-        // the rule the age advance follows. The clock keeps its rhythm — the next cycle still starts when
-        // this one's time is up (TickOffering).
-        private void OnOfferRequested(OfferRequestedEvent _)
-        {
-            if (innerFsm.Current != playingState) return;
-            if (offerings == null || !offerings.TryOffer()) return;
-
-            innerFsm.ChangeState(perkSelectionState.For(offerings.RewardGrade));
         }
 
         // Meta perks can owe the run perk picks at its start (StartPerkPickUpgradeDef, StartAgeUpgradeDef).

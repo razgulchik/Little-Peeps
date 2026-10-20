@@ -29,12 +29,11 @@ namespace LittlePeeps
 
         public List<PerkDef> perksChosen = new();
 
-        // The offering cycle (OfferingSystem): the cycle the run is in (1-based), the seconds of play it
-        // has run for, and whether its quota has already been offered. Plain numbers, kept here rather than
-        // on the system so a save can carry them like the age.
+        // The offering cycle (OfferingSystem): the cycle the run is in (1-based) and the seconds of play it
+        // has run for. Plain numbers, kept here rather than on the system so a save can carry them like the
+        // age.
         public int offeringCycle = 1;
         public float offeringElapsed;
-        public bool offeredThisCycle;
 
         // Perk picks the run is owed at its start, shown one after another before play begins: one from
         // StartPerkPickUpgradeDef (skipped ages owe none — ages give no perks). GameplayContainerState opens

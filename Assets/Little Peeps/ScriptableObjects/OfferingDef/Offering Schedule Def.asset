@@ -12,15 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dbc2bd93c28e60d41afc0f7e172be16d, type: 3}
   m_Name: Offering Schedule Def
   m_EditorClassIdentifier: 
-  cycleSeconds: 60
+  segmentSeconds: 10
   cycles:
-  - resources:
+  - segments: 6
+    resources:
     - resourceType: 1
       amount: 10
-  - resources:
+  - segments: 6
+    resources:
     - resourceType: 1
       amount: 20
-  - resources:
+  - segments: 6
+    resources:
     - resourceType: 0
       amount: 10
   growthPastEnd: 1.25

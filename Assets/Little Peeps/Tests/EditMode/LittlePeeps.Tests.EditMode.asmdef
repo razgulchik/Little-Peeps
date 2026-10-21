@@ -3,6 +3,7 @@
     "rootNamespace": "LittlePeeps.Tests",
     "references": [
         "LittlePeeps.Runtime",
+        "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

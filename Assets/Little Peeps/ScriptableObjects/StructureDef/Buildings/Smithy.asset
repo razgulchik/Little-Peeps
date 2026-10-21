@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: smithy
   displayName: Smithy
+  description: Blacksmiths forge Metal. Stops if it overheats.
   icon: {fileID: 21300000, guid: 80732d954e7b6b441bb7dd0c2f3a4037, type: 3}
   prefab: {fileID: 7501885316365535831, guid: 81db741bd8569c4449b6f3b31fe13634, type: 3}
   placement: 0

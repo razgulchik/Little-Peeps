@@ -221,5 +221,4 @@ MonoBehaviour:
   shineInterval: 1
   shineAlpha: 0.5
   unaffordableAlpha: 0.55
-  lockedArtworkAlpha: 0.3
   hoverSortingOrder: 100

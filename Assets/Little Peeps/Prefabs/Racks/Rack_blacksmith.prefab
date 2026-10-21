@@ -88,7 +88,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 465586094d542fd4fa09800e98518981, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  profession: {fileID: 11400000, guid: de2a28c5c08efed4abf8e4b28f377650, type: 2}
+  profession: {fileID: 11400000, guid: 1c0b7242cb2190646923d2ccf0cac0b8, type: 2}
   availableRoot: {fileID: 4924945041359699940}
   takenRoot: {fileID: 7757070926767666809}
 --- !u!1 &4493039114167410941

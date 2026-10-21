@@ -60,6 +60,8 @@ namespace LittlePeeps
         [SerializeField] private TMP_Text lockedText;
 
         [Header("Hint")]
+        [Tooltip("Show the hover tooltip above this build card.")]
+        [SerializeField] private bool showHint;
         [Tooltip("The hint window opens above this rect. Empty = the hit rect; point it at a child placed " +
                  "where the card flies to if the hint should clear the raised card.")]
         [SerializeField] private RectTransform hintAnchor;
@@ -139,7 +141,7 @@ namespace LittlePeeps
             bool over = TryGetPointerOverCard(out Vector2 screenPosition, out Camera eventCamera);
             UpdateHint(over);
 
-            // A locked card stays put — but still answers with its hint (UpdateHint, above). The open card
+            // A locked card stays put — but can still show its hint when enabled. The open card
             // stays put too: it carries text, and flight would only shake it.
             bool shouldHover = over && !IsLocked && !selected;
             if (shouldHover != pointerInside)
@@ -297,7 +299,7 @@ namespace LittlePeeps
         private void UpdateHint(bool over)
         {
             if (!over) hintSuppressed = false;
-            bool want = over && !hintSuppressed && !selected;
+            bool want = showHint && over && !hintSuppressed && !selected;
 
             if (!want) HideHint();
             else if (!hintShown || hintStale) PublishHint();
@@ -578,6 +580,16 @@ namespace LittlePeeps
                 thickness.anchoredPosition = new Vector2(0f, -pose.size.y * 0.5f - pose.thickness * 0.5f);
             }
 
+            // Cover the full face and its bottom edge, including while a newly locked card settles.
+            if (lockedOverlay != null && lockedOverlay.transform is RectTransform overlayRect)
+            {
+                float depth = thickness != null ? pose.thickness : 0f;
+                overlayRect.sizeDelta = new Vector2(pose.size.x, pose.size.y + depth);
+                overlayRect.anchoredPosition = new Vector2(0f, -depth * 0.5f);
+                if (lockedText != null)
+                    lockedText.rectTransform.anchoredPosition = new Vector2(0f, depth * 0.5f);
+            }
+
             if (shadow != null)
             {
                 shadow.sizeDelta = pose.shadowSize;
@@ -687,9 +699,8 @@ namespace LittlePeeps
         private void RefreshArtworkAlpha()
         {
             if (artworkCanvasGroup == null || motionProfile == null) return;
-            artworkCanvasGroup.alpha = IsLocked
-                ? motionProfile.lockedArtworkAlpha
-                : affordable ? 1f : motionProfile.unaffordableAlpha;
+            // The lock overlay greys out an opaque card, so the world cannot show through it.
+            artworkCanvasGroup.alpha = IsLocked || affordable ? 1f : motionProfile.unaffordableAlpha;
         }
 
         // The first cost entry at the price the NEXT one costs — it grows with how many stand.

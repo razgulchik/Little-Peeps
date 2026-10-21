@@ -15,3 +15,5 @@ MonoBehaviour:
   type: 3
   frames:
   - {fileID: 21300000, guid: b1dfecf1fa5435d4f8f2ff388b85e732, type: 3}
+  abilities:
+  - {fileID: 11400000, guid: b3e732c8675145528389558126de26e7, type: 2}

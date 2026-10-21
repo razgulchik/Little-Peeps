@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   restingCardSize: {x: 54, y: 70}
   hoveredCardSize: {x: 66, y: 82}
+  selectionFramePadding: {x: 4, y: 4}
   hoverLift: 12
   restingItemContainerSize: {x: 48, y: 48}
   hoveredItemContainerSize: {x: 60, y: 60}

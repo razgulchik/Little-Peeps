@@ -28,10 +28,15 @@ namespace LittlePeeps
         [SerializeField] private RectTransform thickness;
         [SerializeField] private RectTransform shadow;
         [SerializeField] private Image shadowImage;
+        // The highlight of the card in hand: behind the body, as large as the card plus the profile's
+        // padding, so it grows with the card while it opens. Off on every other card.
+        [SerializeField] private RectTransform selectionFrame;
 
         [Header("Card content")]
         [SerializeField] private RectTransform itemContainer;
         [SerializeField] private Image iconImage;
+        // Behind the icon, on with the selection frame.
+        [SerializeField] private GameObject iconSelectionPlaceholder;
         // The price of the next one: icon + amount, the HUD's own price tag. Anchored to the card's centre;
         // where it stands is the profile's.
         [SerializeField] private ResourceUnit costUnit;
@@ -132,6 +137,7 @@ namespace LittlePeeps
 
             SetAffordable(true);
             SetLocked(def.LockState(RunContext.FirstAge, null));   // before any run: nothing opened by a perk yet
+            ShowSelectionHighlight();
             ResetInteractionVisuals();
         }
 
@@ -150,9 +156,16 @@ namespace LittlePeeps
                 SetHovered(shouldHover);
             }
 
-            // Live tilt is a stateless pointer-to-transform mapping. It is sampled every frame
-            // while hovered, so there is no response tween to restart, lag behind or go stale.
-            if (shouldHover) ApplyPointerTilt(screenPosition, eventCamera);
+            if (shouldHover)
+            {
+                // Live tilt is a stateless pointer-to-transform mapping. It is sampled every frame
+                // while hovered, so there is no response tween to restart, lag behind or go stale.
+                ApplyPointerTilt(screenPosition, eventCamera);
+
+                // A closing card flies at once, but its shine waits until it is back to its size: the
+                // shine starts outside a small card, but inside the corner of a big one.
+                if (!shineMotion.IsActive() && !expandMotion.IsActive()) StartShine();
+            }
         }
 
         private void OnDisable()
@@ -173,6 +186,7 @@ namespace LittlePeeps
         {
             if (value == selected) return;
             selected = value;
+            ShowSelectionHighlight();
 
             if (value)
             {
@@ -182,6 +196,13 @@ namespace LittlePeeps
                 HideHint();
             }
             SetExpanded(value);
+        }
+
+        // The highlight comes and goes with the click at once; only the card's size animates.
+        private void ShowSelectionHighlight()
+        {
+            if (selectionFrame != null) selectionFrame.gameObject.SetActive(selected);
+            if (iconSelectionPlaceholder != null) iconSelectionPlaceholder.SetActive(selected);
         }
 
         public void SetAffordable(bool value)
@@ -391,8 +412,8 @@ namespace LittlePeeps
                     ApplyVisualState();
                 });
 
-            if (value) StartShine();
-            else
+            // The shine is started by Update, once the card is at its size.
+            if (!value)
             {
                 StopShine();
                 StartTiltReset();
@@ -566,6 +587,8 @@ namespace LittlePeeps
                 ApplyTilt();
             if (cardBody != null)
                 cardBody.sizeDelta = pose.size;
+            if (selectionFrame != null)
+                selectionFrame.sizeDelta = pose.size + motionProfile.selectionFramePadding;
             if (itemContainer != null)
             {
                 itemContainer.sizeDelta = PixelSnap(pose.containerSize);

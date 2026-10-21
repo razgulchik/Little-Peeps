@@ -14,6 +14,8 @@ namespace LittlePeeps
         [Tooltip("Also the card's slot in the palette row while it is closed.")]
         public Vector2 restingCardSize = new(54f, 70f);
         public Vector2 hoveredCardSize = new(66f, 82f);
+        [Tooltip("The selection frame is the card plus this: 4 = 2 px out on each side, in every pose.")]
+        public Vector2 selectionFramePadding = new(4f, 4f);
         public float hoverLift = 12f;
 
         [Header("Item container (building icon remains fixed-size)")]
@@ -108,6 +110,7 @@ namespace LittlePeeps
             restingCardSize = Max(restingCardSize, Vector2.one);
             hoveredCardSize = Max(hoveredCardSize, restingCardSize);
             expandedCardSize = Max(expandedCardSize, restingCardSize);
+            selectionFramePadding = Max(selectionFramePadding, Vector2.zero);
             restingItemContainerSize = Max(restingItemContainerSize, Vector2.one);
             hoveredItemContainerSize = Max(hoveredItemContainerSize, restingItemContainerSize);
             expandedItemContainerSize = Max(expandedItemContainerSize, Vector2.one);

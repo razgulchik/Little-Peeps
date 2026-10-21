@@ -103,6 +103,7 @@ namespace LittlePeeps
 
         [Header("State presentation")]
         [Range(0f, 1f)] public float unaffordableAlpha = 0.55f;
+        [Tooltip("Draw priority within the build row while hovered. The open card uses one less.")]
         public int hoverSortingOrder = 100;
 
         private void OnValidate()

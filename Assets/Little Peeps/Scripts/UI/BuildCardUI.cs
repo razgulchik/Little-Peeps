@@ -83,6 +83,7 @@ namespace LittlePeeps
 
         private Action<BuildCardUI> onClick;
         private BuildPanelScroller scroller;
+        private BuildCardRow cardRow;
         private RectTransform slot;      // the root: the card's place in the row
         private MotionHandle hoverMotion;
         private MotionHandle expandMotion;
@@ -121,6 +122,7 @@ namespace LittlePeeps
             this.onClick = onClick;
             this.wallet = wallet;
             slot = transform as RectTransform;
+            cardRow = slot != null && slot.parent != null ? slot.parent.GetComponent<BuildCardRow>() : null;
             scroller = GetComponentInParent<BuildPanelScroller>();
             uiCanvas = GetComponentInParent<Canvas>();
             interactionCanvasGroups = GetComponentsInParent<CanvasGroup>(true);
@@ -168,9 +170,15 @@ namespace LittlePeeps
             }
         }
 
+        private void OnEnable()
+        {
+            RefreshDrawOrder();
+        }
+
         private void OnDisable()
         {
             CancelAllMotions();
+            if (cardRow != null) cardRow.SetDrawPriority(slot, 0);
             HideHint();
             hintSuppressed = false;
         }
@@ -391,6 +399,7 @@ namespace LittlePeeps
 
         private void SetHovered(bool value)
         {
+            RefreshDrawOrder();
             if (motionProfile == null)
             {
                 hoverProgress = value ? 1f : 0f;
@@ -424,6 +433,7 @@ namespace LittlePeeps
         // the end state at once.
         private void SetExpanded(bool value)
         {
+            RefreshDrawOrder();
             Cancel(ref expandMotion);
             float target = value ? 1f : 0f;
             if (motionProfile == null || !isActiveAndEnabled)
@@ -576,6 +586,7 @@ namespace LittlePeeps
 
         private void ApplyVisualState()
         {
+            RefreshDrawOrder();
             if (motionProfile == null) return;
 
             Pose pose = Pose.Lerp(
@@ -631,6 +642,20 @@ namespace LittlePeeps
 
             if (infoGroup != null)
                 infoGroup.alpha = Mathf.InverseLerp(motionProfile.expandedTextFrom, 1f, expandProgress);
+        }
+
+        private void RefreshDrawOrder()
+        {
+            if (cardRow == null || slot == null) return;
+
+            // The pointer wins over an open card; a returning card stays above its resting neighbours
+            // until it has landed. Move the whole card so its overlay and border always travel together.
+            int hoverOrder = motionProfile != null ? Mathf.Max(3, motionProfile.hoverSortingOrder) : 100;
+            int priority = !isActiveAndEnabled ? 0
+                : pointerInside ? hoverOrder
+                : selected ? hoverOrder - 1
+                : hoverProgress > 0f || expandProgress > 0f ? 1 : 0;
+            cardRow.SetDrawPriority(slot, priority);
         }
 
         // The card's place in the row: as wide as the card is open, so the row's Horizontal Layout Group

@@ -101,7 +101,6 @@ namespace LittlePeeps
 
         [Header("State presentation")]
         [Range(0f, 1f)] public float unaffordableAlpha = 0.55f;
-        [Range(0f, 1f)] public float lockedArtworkAlpha = 0.3f;
         public int hoverSortingOrder = 100;
 
         private void OnValidate()

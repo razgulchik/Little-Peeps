@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: mill
   displayName: Mill
+  description: Produces Food over time for workers to collect.
   icon: {fileID: 21300000, guid: 98cf34eb9bb208a4eb0f1f7016ac1912, type: 3}
   prefab: {fileID: 2603376487552531715, guid: b722aabdf2525bb45b98d890dc70f305, type: 3}
   placement: 0

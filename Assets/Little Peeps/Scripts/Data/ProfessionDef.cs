@@ -12,8 +12,9 @@ namespace LittlePeeps
     // the unit walks without stepping until a second is drawn; the order is the order they cycle in.
     //
     // Numbers a profession may one day carry (a speed factor, a stamina tariff) go here as they get a
-    // consumer, one field and one read each; a profession with BEHAVIOUR of its own is a subclass
-    // with a hook, the same rule perks and ages follow.
+    // consumer, one field and one read each. BEHAVIOUR of its own — the hunter's bow — is not a
+    // subclass of this: it is a ProfessionAbility asset listed in `abilities`, numbers and mechanics
+    // together, run per unit by UnitAbilities. One ability asset may serve several professions.
     [CreateAssetMenu(menuName = "LittlePeeps/ProfessionDef")]
     public class ProfessionDef : ScriptableObject
     {
@@ -22,5 +23,9 @@ namespace LittlePeeps
         [Tooltip("Walk cycle, in order. One sprite = stands still while moving; two or more cycle at " +
                  "ProfessionView's frame rate. Empty = the unit keeps whatever its renderer shows.")]
         public Sprite[] frames;
+
+        [Tooltip("What a unit of this profession can do besides harvesting by contact (the Archer's bow). " +
+                 "Each one runs on the unit for as long as it wears the profession. Empty = nothing special.")]
+        public ProfessionAbility[] abilities;
     }
 }

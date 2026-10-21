@@ -57,8 +57,8 @@ namespace LittlePeeps
         // Entrances first, for every unit: one that lets the unit in has taken it off the field, so the
         // hit ends there. Past them a tired unit stops — a resource or a market is a plain wall to a
         // unit that is done for the day, and the gates are not even asked, so it can neither spend a
-        // market visit nor heat the forge for nothing. Working: gates first (a refused hit is a plain
-        // bounce with no effect), only then the effects.
+        // market visit nor heat the forge for nothing. Working: Work (a refused hit is a plain bounce
+        // with no effect).
         private void HandleHit(Unit unit)
         {
             for (int i = 0; i < entrances.Length; i++)
@@ -66,6 +66,21 @@ namespace LittlePeeps
 
             if (unit.IsTired) return;
 
+            Work(unit);
+        }
+
+        // A hit that came from afar instead of by contact — an arrow. Nobody steps through a door from
+        // across the field, so the entrances are skipped; and whether the unit was working was settled
+        // when it let go (a tired unit never shoots — UnitAbilities), so that is not asked again either.
+        // From the gates on it is the same hit a bounce would be: same payout, same depletion.
+        public void HitFromRange(Unit unit)
+        {
+            if (unit != null) Work(unit);
+        }
+
+        // The working half of a hit: gates first (a refused hit has no effect), only then the effects.
+        private void Work(Unit unit)
+        {
             for (int i = 0; i < gates.Length; i++)
                 if (!gates[i].TryConsume(unit)) return;
             for (int i = 0; i < effects.Length; i++)

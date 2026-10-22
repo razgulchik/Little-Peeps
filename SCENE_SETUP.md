@@ -11,7 +11,9 @@
 > четыре отдельных виджета, у каждого состояния один хозяин; блок цены эры растёт по строкам; лента времени
 > `TimePanel`; панель взятых перков (`PerkPanel`, префаб `PerkSlot`) и подсказка слева: **2026-10-19**, сверено с
 > `Canvas.prefab`. Лента времени работает (время в отрезках, годы под засечками, подсказка подношения), раннего
-> подношения и `OfferingPanel` больше нет: **2026-10-20**, сверено с `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> подношения и `OfferingPanel` больше нет: **2026-10-20**, сверено с `Canvas.prefab`. Большой ромб ленты уезжает с
+> руками, на стоянку приезжает маленький, раскладка ленты по UI03; кромка острова в два слоя (`TrimHorizontal` /
+> `TrimVertical`): **2026-10-22**, сверено со сценой и `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -64,7 +66,10 @@ SampleScene
 │   ├── Grid                    → Grid (компонент)   ← все тайлмапы под ним — на слое сортировки Island
 │   │   ├── Ground              → Tilemap + TilemapRenderer + Rigidbody2D (Static) + TilemapCollider2D
 │   │   │                          + CompositeCollider2D   ← суша и граница острова
-│   │   ├── GroundTrim          → Tilemap + TilemapRenderer   ← кайма берега: лежит на клетках ВОДЫ, поэтому без коллайдера
+│   │   ├── TrimHorizontal      → Tilemap + TilemapRenderer   ← горизонтальная кромка берега — полосы под сушей (Order 0);
+│   │   │                          лежит на клетках ВОДЫ, поэтому без коллайдера
+│   │   ├── TrimVertical        → Tilemap + TilemapRenderer   ← вертикальная кромка — столбики по бокам суши, поверх полос;
+│   │   │                          без коллайдера; материал, слой и Order ставит код (как у TrimHorizontal, +1)
 │   │   ├── Decor               → Tilemap + TilemapRenderer   ← декор поверх земли (Order 1), без коллайдера
 │   │   ├── BordersForest       → Tilemap + TilemapRenderer   ← мягкая граница леса, без коллайдера
 │   │   ├── BordersMeadow       → Tilemap + TilemapRenderer   ← мягкая граница луга (арта пока нет), без коллайдера
@@ -111,17 +116,22 @@ SampleScene
     │   ├── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
     │   │                         ← правый верхний угол, 124×36; ячейки 34×13, три в строку
     │   ├── TimePanel           → Image (time_panel, Sliced, **Raycast Target ВКЛ** — ловит наведение) + CanvasGroup
-    │   │   │                     + TimePanel   ← лента времени до подношения, по центру сверху (0, −6), 288×30;
-    │   │   │                     своя строка видимости, у CanvasGroup включён Ignore Parent Groups
-    │   │   ├── Now             → Image                 (кружок «сейчас», слева, 5..13)
-    │   │   ├── Track           → RectMask2D            (маска слоя ромбов: от левого края кружка до большого ромба, 5..281)
-    │   │   │   ├── Belt        → RectMask2D            (своя маска: от края кружка до точек, 15..267; линия, засечки
-    │   │   │   │                 лет и края линии у засечек подношения — в рантайме)
-    │   │   │   └── Riders      → только RectTransform  (ромбики подношений — в рантайме)
-    │   │   ├── Years           → RectMask2D            (цифры лет под засечками: 15..267, строки 16..20)
+    │   │   │                     + TimePanel   ← лента времени до подношения, по центру сверху (0.5, −10), 281×29:
+    │   │   │                     ширина нечётная, поэтому X = 0.5 — левый край панели на целом пикселе (от него
+    │   │   │                     код считает всю ленту); своя строка видимости, у CanvasGroup включён Ignore Parent Groups
+    │   │   ├── Now             → Image                 (кружок «сейчас», слева, 7..15)
+    │   │   ├── Track           → RectMask2D            (маска слоя ромбов: от левого края кружка до правого края стоянки, 7..274)
+    │   │   │   ├── Belt        → RectMask2D            (своя маска: от края кружка до точек, 18..260; линия, засечки
+    │   │   │   │                 лет и края линии у засечек подношения — в рантайме. Правый край маски двигает код:
+    │   │   │   │                 до конца точек, когда они стали линией, и до ромба, пока он проезжает над ними)
+    │   │   │   └── Riders      → только RectTransform  (большие ромбы в пути и маленький на стоянке — в рантайме)
+    │   │   ├── Years           → RectMask2D            (цифры лет под засечками: 18..260, строки 16..20)
     │   │   │   └── Year        → TMP_Text, выключен    (шаблон цифры: Micro5 11, #BE9F85; копии — в рантайме)
-    │   │   ├── Dots            → Image                 («и так далее», справа)
-    │   │   ├── Offering        → Point + Icon (Image)  (большой ромб и руки под ним; руки уезжают с маленьким ромбом)
+    │   │   ├── Dots            → Image                 («и так далее», 261..266; Filled справа ставит код — видны
+    │   │   │                     только правее уезжающего ромба, а когда видна цифра года перед подношением — линия)
+    │   │   ├── Offering        → Point + Icon (Image)  (стоянка, 266..275: большой ромб и руки под ним. Ромб уезжает
+    │   │   │                     вместе с руками — код прячет Point, лента везёт его копию; на стоянку из-за края
+    │   │   │                     приезжает маленький ромб, после подношения снова большой с руками)
     │   │   └── Tooltip         → Image (HUD/tooltip, Sliced) + CanvasGroup + Vertical Layout Group + OfferingTooltip
     │   │       │                 ← подсказка подношения: видна, пока курсор на ленте; кликов не ловит
     │   │       ├── Header      → TMP_Text              («N years until Offering», m6x11plus 12, влево)
@@ -232,7 +242,7 @@ SampleScene
 | | | viewCamera, offscreenMargin | как выше |
 | | | maxConcurrent | 60 (дефолт) — потолок живых цифр; сверх него перерабатывается ближайшая к смерти |
 | Systems/WaterSystem | **WaterSystem** | **waterPrefab** | `Prefabs/DontTouch/Water` (Modern 2D Water — весь вид моря в префабе) |
-| | | coastTilemaps | `Ground`, `GroundTrim` — их контур становится берегом, о который бьётся вода. `Decor` и `Borders*` сюда НЕ добавлять: форму берега они не меняют |
+| | | coastTilemaps | `Ground`, `TrimHorizontal`, `TrimVertical` — их контур становится берегом, о который бьётся вода (по столбикам вертикальной кромки идёт боковая пена). `Decor` и `Borders*` сюда НЕ добавлять: форму берега они не меняют |
 | | | foamMinPixels, foamMaxPixels, foamPeriod, foamWholePixels | пена под южным берегом: толщина в арт-пикселях от/до, период пульса (сек), шаг целыми пикселями. В сцене 1 / 2 / 5 / выкл |
 | | | sideFoamShader, sideFoamPixels | шейдер `Little Peeps/Sprite Flat Color` и ширина пены по восточному/западному краю (1 px). Пустой шейдер = без боковой пены |
 | Input | **InputHandler** | **mainCamera** | Main Camera |
@@ -245,10 +255,11 @@ SampleScene
 | Main Camera | **CinemachineBrain** | Ignore Time Scale ✓ | пишет позицию из активной vcam — и при `timeScale = 0` |
 | CinemachineCamera | **CinemachineCamera** (vcam) | Follow = CameraTarget; Body = CinemachineFollow (damping ~0.1–0.2) | плавно следует за целью |
 | | CinemachineImpulseListener | Channel Mask 1 (дефолт) | без него толчки подъёма острова никто не почувствует; сам источник толчков IslandRise добавляет себе кодом |
-| Island | **IslandSystem** | **tilemap, trimTilemap** | `Grid/Ground` (суша с коллайдером), `Grid/GroundTrim` (кайма берега, без коллайдера) |
-| | | decorTilemap | `Grid/Decor` — декор из списков Decor в тайлсетах; пусто = без декора. Тайлмап должен быть свой (не Ground / GroundTrim / тайлмап границы) — иначе ошибка в консоли и декора нет. Слой сортировки Island, Order 1, материал `Materials/BendMaterial`, без коллайдера |
+| Island | **IslandSystem** | **tilemap, trimHorizontalTilemap** | `Grid/Ground` (суша с коллайдером), `Grid/TrimHorizontal` (горизонтальная кромка — полосы под сушей, без коллайдера) |
+| | | trimVerticalTilemap | `Grid/TrimVertical` — вертикальная кромка: столбики по бокам суши, поверх полос. Внутренний угол залива — полоса плюс столбик, каждый в цвете своего биома, отдельных тайлов для него нет. Материал, слой сортировки и Order код берёт у TrimHorizontal (на один выше). Пусто = столбики ложатся на TrimHorizontal, у внутренних углов пропадает столбик, в консоли предупреждение. Тайлмап должен быть свой |
+| | | decorTilemap | `Grid/Decor` — декор из списков Decor в тайлсетах; пусто = без декора. Тайлмап должен быть свой (не Ground / кромка / тайлмап границы) — иначе ошибка в консоли и декора нет. Слой сортировки Island, Order 1, материал `Materials/BendMaterial`, без коллайдера |
 | | | **tileSet, biomes** | `TileSet/Base Tile Set` — тайлы для биома без своего тайлсета; биомы, из которых эпоха предлагает зоны (Meadow, Forest, Desert) |
-| | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → набор пуст → `Grid/BordersMeadow`; `Forest` → `TileSet/Forest Border Set` → `Grid/BordersForest`. Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / GroundTrim), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / каймы — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
+| | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → набор пуст → `Grid/BordersMeadow`; `Forest` → `TileSet/Forest Border Set` → `Grid/BordersForest`. Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / обеими кромками), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / кромки — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
 | | | **structureSystem** | StructureSystem — через неё зона получает природное содержимое (деревья, реки, стартовый дом) |
 | | | cellSize, previewSeed | 1; сид для редакторского превью «Generate Island» (контекстное меню). Забег берёт сид из StartConfig |
 | Island/GridOverlay | **GridOverlay** | **islandSystem** | Island. Сетка — **пятно у курсора**, и только пока в руке карточка или Sell; весь остров она не покрывает |
@@ -295,9 +306,10 @@ SampleScene
 | Canvas/Hud/SellButton | SellButtonUI | button, selectedFrame | свой Button, дочерний `SelectedFrame` |
 | Canvas/Hud/ResourceBar | ResourcePanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
 | Canvas/Hud/PerkPanel | PerkPanel | slotPrefab | префаб `Prefabs/Elements/PerkSlot` (его PerkSlotUI). Сетка на том же объекте: Cell 20×20, Spacing 1, Fixed Column Count 2, **Start Corner и Child Alignment — Upper Right** (одного Start Corner мало: пока перков меньше двух, сетка сужается до одной колонки и прижимает её по Child Alignment — одиночный перк встал бы влево); Content Size Fitter — Vertical Fit Preferred |
-| Canvas/Hud/TimePanel | **TimePanel** | now, belt, riders, hands | `Now`, `Track/Belt`, `Track/Riders`, `Offering/Icon`. Руки ждут там, где стоят в префабе, — по центру большого ромба: с этого столбца стартует маленький ромб, и руки уезжают с ним без рывка |
-| | | lineSprite, yearSprite, offeringSprite | `time_line`, `time_icon_year`, `time_icon_halfdecade`. Засечку подношения скрипт режет на три части при старте — её спрайт нельзя паковать в атлас плотно (Tight), только прямоугольником |
-| | | segmentWidth, diamondWidth | 58 — длина отрезка-«года» в пикселях (скорость ленты = 58 px за Segment Seconds расписания); 5 — ширина ромбика в середине засечки подношения |
+| Canvas/Hud/TimePanel | **TimePanel** | now, belt, riders, hands | `Now`, `Track/Belt`, `Track/Riders`, `Offering/Icon`. Руки ждут там, где стоят в префабе, — по центру большого ромба: с этого столбца ромб уезжает, и руки уезжают с ним без рывка |
+| | | bigDiamond, dots | `Offering/Point` — большой ромб на стоянке (пока подношение в пути, код его прячет, а лента везёт его копию с тем же спрайтом), `Dots` |
+| | | lineSprite, yearSprite, offeringSprite | `time_line`, `time_icon_year`, `time_icon_halfdecade`. Засечку подношения скрипт режет на три части при старте: края линии идут вокруг большого ромба на ленте, середина — маленький ромб на стоянке. Поэтому её спрайт нельзя паковать в атлас плотно (Tight), только прямоугольником |
+| | | segmentWidth, diamondWidth | 58 — длина отрезка-«года» в пикселях (скорость ленты = 58 px за Segment Seconds расписания); 5 — ширина маленького ромба в середине засечки подношения |
 | | | yearTemplate, tooltip | `Years/Year` (шаблон цифры, его якоря и выравнивание скрипт не читает — центрирует сам), `Tooltip` |
 | Canvas/Hud/TimePanel/Tooltip | OfferingTooltip | header, costContainer, anchor | `Header`, `Costs` (её Grid Layout Group: Cell 34×13, Spacing 2×3, Fixed Column Count 2, Child Alignment Upper Center), `Offering/Icon` — куда смотрит хвостик |
 | | | costPrefab, iconSet, shortColor, highlight | `Prefabs/Elements/ResourceUnit`, ResourceIconSet, #9B211E — ресурса не хватает, #FFD663 — слово Offering |
@@ -643,7 +655,7 @@ Label стоит после Icon — цифра рисуется поверх к
 | **UnitDef** | LittlePeeps/UnitDef | id, prefab (→ BaseUnit), speed, profession (с какой профессией рождается — `Unassigned`, настоящую даёт стойка) |
 | **ProfessionDef** | LittlePeeps/ProfessionDef | type (UnitType), frames[] — кадры ходьбы этой профессии |
 | **BiomeDef** | LittlePeeps/BiomeDef | profile (параметры генерации зоны), tileSet, displayName, icon, previewColor (заливка зоны при выборе) |
-| **IslandTileSet** | LittlePeeps/IslandTileSet | тайлы земли (светлые/тёмные клетки), углы, края, внутренние углы; **decorLight / decorDark** (декор для светлых / тёмных клеток) и decorChance (доля клеток с декором, 0.3) |
+| **IslandTileSet** | LittlePeeps/IslandTileSet | тайлы земли (светлые/тёмные клетки), углы суши, кромка — полосы под сушей (горизонтальная) и столбики по бокам (вертикальная); слотов внутренних углов нет: угол залива собирается из полосы и столбика; **decorLight / decorDark** (декор для светлых / тёмных клеток) и decorChance (доля клеток с декором, 0.3) |
 | **TerrainBorderSet** | LittlePeeps/TerrainBorderSet | граница одного биома, кладётся тайлмапом из строки `IslandSystem.borders`. **edgeAllRound** — край по всему краю биома (и к биомам выше, и к воде), а не только к тем, что он накрывает; **overSea** — кайма и на клетки воды вдоль берега. На биом выше кайма не ложится никогда — это его граница. 8 слотов **Over** — кайма на клетке нижнего биома (4 стороны + 4 вогнутых угла); 8 слотов **Edge** — край на своей клетке. В подсказке слота — имя файла художника. Спрайты: **Pivot = Center**, иначе граница съезжает (с Bottom Center — на полклетки вверх). В проекте: `TileSet/Forest Border Set` (обе галочки включены), тайлы в `Tiles/BordersForest` |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | tabs: вкладки нижней панели, у каждой name, icon, structures (список StructureDef). Порядок вкладок = порядок кнопок и цифр 1–9, порядок structures = порядок карточек; пустая вкладка кнопку не получает. Группировка живёт здесь, на StructureDef категории нет |
 | **AgeDef** | LittlePeeps/AgeDef | title (только в лог — на баннере номер римскими цифрами), resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), bonusOverride (текст вместо сгенерированного описания). Порядок задаётся списком `AgeSystem.ages`, начиная с Age II |
@@ -749,11 +761,12 @@ Script Execution Order настраивать **не нужно** (это кос
 5. **Next Age** (`AgeAdvancePanel`) активна, когда хватает ресурсов: клик → выбор зоны → зона поднимается из моря →
    баннер «Age N» → снова игра (перка за эпоху нет). Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
 6. **Цикл подношений** идёт с первой секунды: лента сверху ползёт к кружку, под засечками годы с начала забега (1, 2,
-   3, 4 …); на любом экране поверх игры часы и лента стоят. Когда до подношения остаётся ≈4,6 года, в большом ромбе
-   справа появляется маленький и выезжает, руки — вместе с ним. Курсор на ленте → подсказка «N years until Offering»
+   3, 4 …); на любом экране поверх игры часы и лента стоят. Как только видна цифра года перед подношением, точки
+   перед большим ромбом становятся линией. Когда до подношения остаётся ≈4,5 года, большой ромб справа уезжает вместе
+   с руками, а на его место из-за края приезжает маленький. Курсор на ленте → подсказка «N years until Offering»
    и квота (красным — чего не хватает).
 7. Ромб дошёл до кружка → пауза и окно «Cycle N is over…»: **Offer** (серая, если не хватает) → выбор перка (в особом
-   цикле — особые перки) и следующий цикл; **Accept wrath** → очки престижа → мета-экран (тратим очки на мета-перки) →
+   цикле — особые перки) и следующий цикл, на стоянке снова большой ромб с руками; **Accept wrath** → очки престижа → мета-экран (тратим очки на мета-перки) →
    **Play** → новый забег с цикла 1 и года 1; камера снова в центре острова.
 
 ## Project settings — важное (не в сцене, но влияет)

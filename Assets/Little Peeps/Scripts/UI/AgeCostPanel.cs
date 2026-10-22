@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // The price tag under the "New Age" button: one ResourceUnit per entry in the NEXT age's
+    // The price tag above the "Expand Island" button: one ResourceUnit per entry in the NEXT age's
     // AgeDef.resourceCost. Spawned at runtime from the same prefab the resource bar uses, so a cost of
     // one resource or of five reads correctly with no hand-placed slots to keep in sync — and an
     // icon/format change lands on the wallet and on the price at the same time.
@@ -133,8 +133,10 @@ namespace LittlePeeps
             for (int i = 0; i < units.Count; i++)
             {
                 if (units[i] == null) continue;
-                if (resourceSystem.GetResource(shown[i].resourceType) >= shown[i].amount) units[i].ClearTint();
+                bool affordable = resourceSystem.GetResource(shown[i].resourceType) >= shown[i].amount;
+                if (affordable) units[i].ClearTint();
                 else units[i].Tint(unaffordableColor);
+                units[i].ShowRing(!affordable);
             }
         }
 

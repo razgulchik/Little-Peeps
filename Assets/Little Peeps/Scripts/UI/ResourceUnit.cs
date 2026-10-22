@@ -17,6 +17,11 @@ namespace LittlePeeps
         [SerializeField] private Image icon;
         [SerializeField] private TMP_Text label;
 
+        [Tooltip("Optional outline around the icon's silhouette, drawn by the icon ring material. Off unless a " +
+                 "caller asks for it (ShowRing) — the age price rings what the player can't pay, a tooltip " +
+                 "only reddens the number.")]
+        [SerializeField] private Image ring;
+
         private ReactiveValue<float> reactive;
 
         // The colour the prefab authored for the label. Captured before anything can tint it, so
@@ -33,7 +38,7 @@ namespace LittlePeeps
         public void Bind(Sprite iconSprite, ReactiveValue<float> value)
         {
             Unsubscribe();
-            if (icon != null) icon.sprite = iconSprite;
+            SetIcon(iconSprite);
 
             reactive = value;
             if (reactive == null) return;
@@ -48,8 +53,15 @@ namespace LittlePeeps
         public void Bind(Sprite iconSprite, float amount)
         {
             Unsubscribe();
-            if (icon != null) icon.sprite = iconSprite;
+            SetIcon(iconSprite);
             OnValueChanged(amount);
+        }
+
+        // The ring outlines the icon's own sprite, so it follows every re-bind.
+        private void SetIcon(Sprite iconSprite)
+        {
+            if (icon != null) icon.sprite = iconSprite;
+            if (ring != null) ring.sprite = iconSprite;
         }
 
         // Recolour the amount label — used by cost panels to flag a price the player can't pay yet.
@@ -61,6 +73,12 @@ namespace LittlePeeps
         public void ClearTint()
         {
             if (label != null) label.color = baseLabelColor;
+        }
+
+        // A louder flag than the tint: the outline around the icon. Its colour is the ring Image's own.
+        public void ShowRing(bool show)
+        {
+            if (ring != null) ring.enabled = show;
         }
 
         private void OnDestroy() => Unsubscribe();

@@ -129,19 +129,19 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1045771906143010500, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1045771906143010500, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1045771906143010500, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 81
       objectReference: {fileID: 0}
     - target: {fileID: 1045771906143010500, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 43
       objectReference: {fileID: 0}
     - target: {fileID: 1417217396717466179, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_Value
@@ -409,23 +409,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7166263161830136673, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7166263161830136673, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7166263161830136673, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 81
       objectReference: {fileID: 0}
     - target: {fileID: 7166263161830136673, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 54.1
       objectReference: {fileID: 0}
     - target: {fileID: 7166263161830136673, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -42
       objectReference: {fileID: 0}
     - target: {fileID: 7415838142485291896, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchorMax.x
@@ -3273,7 +3273,7 @@ MonoBehaviour:
   islandSystem: {fileID: 738684714}
   structureSystem: {fileID: 42342360}
   spawnSystem: {fileID: 711440996}
-  startConfig: {fileID: 11400000, guid: f3c66f8d0ee42a442936f2bd654325d2, type: 2}
+  startConfig: {fileID: 11400000, guid: 627ada24423ec1e4ca22ff04184af04a, type: 2}
 --- !u!1 &1088972179
 GameObject:
   m_ObjectHideFlags: 0

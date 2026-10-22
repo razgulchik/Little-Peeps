@@ -31,8 +31,6 @@ MonoBehaviour:
   bottomEdgeLeft: {fileID: 11400000, guid: 0c8eeb63e3b1a8143aea74ef2ff4ca27, type: 2}
   bottomEdgeMid: {fileID: 11400000, guid: b065f6c9f2fe7ad458fde79578b97aae, type: 2}
   bottomEdgeRight: {fileID: 11400000, guid: 68163ce30bf869e4aa730d44c74ea17d, type: 2}
-  innerCornerLeft: {fileID: 11400000, guid: b97b72ef91720d94c8b6e69e546e3646, type: 2}
-  innerCornerRight: {fileID: 11400000, guid: 189d7a830738fda45b079d8b6ee993c1, type: 2}
   decorLight:
   - {fileID: 11400000, guid: c0dfc58e134f72642a8fb2881179ea80, type: 2}
   - {fileID: 11400000, guid: b49b20c494fb65f43ad00b33e38372f1, type: 2}

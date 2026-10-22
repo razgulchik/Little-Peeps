@@ -17,7 +17,7 @@ namespace LittlePeeps
 
     // Which piece of the coastline outline a NON-land cell draws. Named after the island edge the piece
     // hugs (that is how the sheet is laid out); the neighbour condition that selects it is documented on
-    // the matching field below.
+    // the matching field below. A cell may draw two: a bottom-edge band and a side column, on two layers.
     public enum IslandTrimPiece
     {
         None,
@@ -30,8 +30,6 @@ namespace LittlePeeps
         BottomEdgeLeft,
         BottomEdgeMid,
         BottomEdgeRight,
-        InnerCornerLeft,
-        InnerCornerRight,
     }
 
     // The tiles one island terrain is drawn with: the ground fill in its two checkerboard shades, the decor
@@ -39,9 +37,10 @@ namespace LittlePeeps
     //
     // The outline art is drawn OUTSIDE the land cell — a 1px column in the neighbour to the side, a 4px
     // band in the neighbour below — so trim tiles land on water cells and must go on their own
-    // collider-less tilemap. That keeps the island's logical size exactly the playable cells: the ring is
+    // collider-less tilemaps. That keeps the island's logical size exactly the playable cells: the ring is
     // derived decoration, not part of the grid (contrast the old approach of building the island one row
-    // and two columns bigger to leave room for the border).
+    // and two columns bigger to leave room for the border). Bands and columns go on two tilemaps, the
+    // columns over the bands: a bay's inner corner is one of each, so it needs no art of its own.
     //
     // The north side has no outline at all — the art is drawn that way on purpose, so there are no
     // top-edge trim slots to fill.
@@ -76,10 +75,6 @@ namespace LittlePeeps
         public TileBase bottomEdgeLeft;   // NW is water: the band's left end is rounded off
         public TileBase bottomEdgeMid;    // NW and NE are land: full band
         public TileBase bottomEdgeRight;  // NE is water: the band's right end is rounded off
-
-        [Header("Trim — inner (bay) top corners")]
-        public TileBase innerCornerLeft;  // land to the N and W: band plus a column down the cell's left side
-        public TileBase innerCornerRight; // land to the N and E: band plus a column down the cell's right side
 
         [Header("Decor — scattered over the ground")]
         [Tooltip("Specks on transparency, drawn over the light ground, corners included (keep the pixels the " +
@@ -128,8 +123,6 @@ namespace LittlePeeps
                 case IslandTrimPiece.BottomEdgeLeft:   return bottomEdgeLeft;
                 case IslandTrimPiece.BottomEdgeMid:    return bottomEdgeMid;
                 case IslandTrimPiece.BottomEdgeRight:  return bottomEdgeRight;
-                case IslandTrimPiece.InnerCornerLeft:  return innerCornerLeft;
-                case IslandTrimPiece.InnerCornerRight: return innerCornerRight;
                 default:                               return null;
             }
         }

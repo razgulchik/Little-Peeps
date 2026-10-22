@@ -300,7 +300,9 @@ namespace LittlePeeps.EditorTools
             var gridObject = Child(root, "Grid");
             gridObject.AddComponent<Grid>();
             var ground = NewTilemap(gridObject, "Ground", sceneIsland != null ? sceneIsland.GroundTilemap : null, 0);
-            var trim = NewTilemap(gridObject, "GroundTrim", sceneIsland != null ? sceneIsland.TrimTilemap : null, 1);
+            var trimHorizontal = NewTilemap(gridObject, "TrimHorizontal", sceneIsland != null ? sceneIsland.TrimHorizontalTilemap : null, 1);
+            // The drawing makes the vertical trim draw like the horizontal, right over it.
+            var trimVertical = NewTilemap(gridObject, "TrimVertical", sceneIsland != null ? sceneIsland.TrimVerticalTilemap : null, 2);
             // Decor only where the scene's island draws it, made like the scene's.
             var decor = sceneIsland != null && sceneIsland.DecorTilemap != null
                 ? NewTilemap(gridObject, "Decor", sceneIsland.DecorTilemap, 1)
@@ -319,7 +321,8 @@ namespace LittlePeeps.EditorTools
                     borders.Add(new IslandBorderLayer(layer.terrain, layer.tiles, tilemap));
                 }
 
-            drawing = new IslandDrawing(grid, terrain => terrain == zoneTerrain ? zoneTiles : otherTiles, ground, trim, decor, seed, borders);
+            drawing = new IslandDrawing(grid, terrain => terrain == zoneTerrain ? zoneTiles : otherTiles, ground, trimHorizontal,
+                                        decor, seed, borders, trimVertical);
             drawing.HideLand(zone.Cells);
 
             grid.CellBounds(out var min, out var max);

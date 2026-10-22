@@ -21,6 +21,16 @@ namespace LittlePeeps.Tests
             return grid;
         }
 
+        // The old island in one terrain, the zone in another: where they meet, bays get corners between two.
+        private static IslandGrid GridOf(IEnumerable<Vector2Int> old, IEnumerable<Vector2Int> zone,
+                                         TerrainType oldTerrain, TerrainType zoneTerrain)
+        {
+            var grid = new IslandGrid(1f);
+            foreach (var cell in old) grid.SetCell(cell, oldTerrain);
+            foreach (var cell in zone) grid.SetCell(cell, zoneTerrain);
+            return grid;
+        }
+
         // What RepaintAround does to the tilemaps, done to a plan: redraw the 3×3, clearing what now draws
         // nothing.
         private static void RepaintAround(Dictionary<Vector2Int, Paint> plan, IslandTilePainter.Land land, Vector2Int cell)
@@ -89,7 +99,11 @@ namespace LittlePeeps.Tests
 
                     foreach (var paint in drawn.Values)
                         if (paint.land) groundSeen.Add(paint.ground);
-                        else trimSeen.Add(paint.trim);
+                        else
+                        {
+                            trimSeen.Add(paint.horizontal);
+                            trimSeen.Add(paint.vertical);
+                        }
                 }
             }
 
@@ -126,6 +140,79 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void AZoneOfAnotherTerrain_RevealedTileByTile_MatchesAFullRepaint()
+        {
+            // Where the zone meets the old island, bays get corners whose band and column belong to different
+            // terrains; their pieces come and go as the zone's tiles land, and have to agree with a full
+            // repaint at every step like the rest.
+            int mixedCorners = 0;
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                var (old, zone) = GrownIsland(seed);
+                if (zone == null) continue;
+
+                var hidden = new HashSet<Vector2Int>(zone);
+                var land = new IslandTilePainter.Land(GridOf(old, zone, TerrainType.Grass, TerrainType.Desert), hidden.Contains);
+                var drawn = IslandTilePainter.Plan(land);
+
+                new IslandRng(seed).Shuffle(zone);
+                foreach (var cell in zone)
+                {
+                    hidden.Remove(cell);
+                    RepaintAround(drawn, land, cell);
+                    AssertSamePlan(IslandTilePainter.Plan(land), drawn, $"seed {seed}, revealed {cell}");
+                    mixedCorners += drawn.Values.Count(p => p.horizontal != IslandTrimPiece.None &&
+                                                            p.vertical != IslandTrimPiece.None &&
+                                                            land.TerrainOf(p.horizontalSource) != land.TerrainOf(p.verticalSource));
+                }
+            }
+
+            Assert.That(mixedCorners, Is.GreaterThan(0), "no bay corner between the two terrains ever came up — nothing was tested");
+        }
+
+        [Test]
+        public void ABaysCorner_IsTheBandOfTheLandAbove_AndTheColumnOfItsWall()
+        {
+            // A forest strip along y = 1 with a wall at each end below it: water at (1, 0) is a bay's left
+            // corner (land north and west), water at (3, 0) a right one (land north and east), (2, 0) between.
+            var grid = new IslandGrid(1f);
+            for (int x = 0; x <= 4; x++) grid.SetCell(new Vector2Int(x, 1), TerrainType.Forest);
+            grid.SetCell(new Vector2Int(0, 0), TerrainType.Desert);
+            grid.SetCell(new Vector2Int(4, 0), TerrainType.Forest);
+            var land = new IslandTilePainter.Land(grid);
+
+            var left = IslandTilePainter.PaintOf(land, new Vector2Int(1, 0));
+            Assert.That(left.horizontal, Is.EqualTo(IslandTrimPiece.BottomEdgeMid), "the band runs on into the corner");
+            Assert.That(left.horizontalSource, Is.EqualTo(new Vector2Int(1, 1)));
+            Assert.That(left.vertical, Is.EqualTo(IslandTrimPiece.RightEdgeMid));
+            Assert.That(left.verticalSource, Is.EqualTo(new Vector2Int(0, 0)), "the column is the wall's, desert or not");
+
+            var middle = IslandTilePainter.PaintOf(land, new Vector2Int(2, 0));
+            Assert.That(middle.horizontal, Is.EqualTo(IslandTrimPiece.BottomEdgeMid));
+            Assert.That(middle.vertical, Is.EqualTo(IslandTrimPiece.None));
+
+            var right = IslandTilePainter.PaintOf(land, new Vector2Int(3, 0));
+            Assert.That(right.horizontal, Is.EqualTo(IslandTrimPiece.BottomEdgeMid));
+            Assert.That(right.vertical, Is.EqualTo(IslandTrimPiece.LeftEdgeMid));
+            Assert.That(right.verticalSource, Is.EqualTo(new Vector2Int(4, 0)));
+        }
+
+        [Test]
+        public void ANotchedCorner_RoundsItsBand_AndCutsItsColumnShort()
+        {
+            // Land north and west of a water cell, water at their diagonal: both land cells round that corner
+            // off, so the band's end is rounded and the column starts lower, to meet them.
+            var grid = new IslandGrid(1f);
+            foreach (var cell in new[] { new Vector2Int(0, 1), new Vector2Int(1, 1), new Vector2Int(-1, 0), new Vector2Int(-1, -1) })
+                grid.SetCell(cell, TerrainType.Grass);
+            var land = new IslandTilePainter.Land(grid);
+
+            var notch = IslandTilePainter.PaintOf(land, new Vector2Int(0, 0));
+            Assert.That(notch.horizontal, Is.EqualTo(IslandTrimPiece.BottomEdgeLeft));
+            Assert.That(notch.vertical, Is.EqualTo(IslandTrimPiece.RightEdgeTop));
+        }
+
+        [Test]
         public void HiddenLand_IsDrawnExactlyAsIfItWereNotOnTheGrid()
         {
             var (old, zone) = GrownIsland(3);
@@ -154,16 +241,24 @@ namespace LittlePeeps.Tests
             Assert.That(plan[new Vector2Int(1, -1)].ground, Is.EqualTo(IslandGroundPiece.CornerBottomRight));
             Assert.That(plan[new Vector2Int(0, 0)].ground, Is.EqualTo(IslandGroundPiece.Plain));
 
-            Assert.That(plan[new Vector2Int(-1, -2)].trim, Is.EqualTo(IslandTrimPiece.BottomEdgeLeft));
-            Assert.That(plan[new Vector2Int(0, -2)].trim, Is.EqualTo(IslandTrimPiece.BottomEdgeMid));
-            Assert.That(plan[new Vector2Int(1, -2)].trim, Is.EqualTo(IslandTrimPiece.BottomEdgeRight));
+            // Bands along the bottom, columns down the sides — each on its own layer, nothing on the other.
+            Assert.That(plan[new Vector2Int(-1, -2)].horizontal, Is.EqualTo(IslandTrimPiece.BottomEdgeLeft));
+            Assert.That(plan[new Vector2Int(0, -2)].horizontal, Is.EqualTo(IslandTrimPiece.BottomEdgeMid));
+            Assert.That(plan[new Vector2Int(1, -2)].horizontal, Is.EqualTo(IslandTrimPiece.BottomEdgeRight));
+            for (int x = -1; x <= 1; x++)
+                Assert.That(plan[new Vector2Int(x, -2)].vertical, Is.EqualTo(IslandTrimPiece.None), $"vertical under x = {x}");
 
-            Assert.That(plan[new Vector2Int(-2, 1)].trim, Is.EqualTo(IslandTrimPiece.LeftEdgeTop));
-            Assert.That(plan[new Vector2Int(-2, 0)].trim, Is.EqualTo(IslandTrimPiece.LeftEdgeMid));
-            Assert.That(plan[new Vector2Int(-2, -2)].trim, Is.EqualTo(IslandTrimPiece.LeftEdgeBottom));
-            Assert.That(plan[new Vector2Int(-2, -2)].trimSource, Is.EqualTo(new Vector2Int(-1, -1)));
-            Assert.That(plan[new Vector2Int(2, 1)].trim, Is.EqualTo(IslandTrimPiece.RightEdgeTop));
-            Assert.That(plan[new Vector2Int(2, -2)].trim, Is.EqualTo(IslandTrimPiece.RightEdgeBottom));
+            Assert.That(plan[new Vector2Int(-2, 1)].vertical, Is.EqualTo(IslandTrimPiece.LeftEdgeTop));
+            Assert.That(plan[new Vector2Int(-2, 0)].vertical, Is.EqualTo(IslandTrimPiece.LeftEdgeMid));
+            Assert.That(plan[new Vector2Int(-2, -2)].vertical, Is.EqualTo(IslandTrimPiece.LeftEdgeBottom));
+            Assert.That(plan[new Vector2Int(-2, -2)].verticalSource, Is.EqualTo(new Vector2Int(-1, -1)));
+            Assert.That(plan[new Vector2Int(2, 1)].vertical, Is.EqualTo(IslandTrimPiece.RightEdgeTop));
+            Assert.That(plan[new Vector2Int(2, -2)].vertical, Is.EqualTo(IslandTrimPiece.RightEdgeBottom));
+            for (int y = -2; y <= 1; y++)
+            {
+                Assert.That(plan[new Vector2Int(-2, y)].horizontal, Is.EqualTo(IslandTrimPiece.None), $"horizontal left of y = {y}");
+                Assert.That(plan[new Vector2Int(2, y)].horizontal, Is.EqualTo(IslandTrimPiece.None), $"horizontal right of y = {y}");
+            }
 
             for (int x = -2; x <= 2; x++)
                 Assert.That(plan.ContainsKey(new Vector2Int(x, 2)), Is.False, $"nothing along the top at x = {x}");

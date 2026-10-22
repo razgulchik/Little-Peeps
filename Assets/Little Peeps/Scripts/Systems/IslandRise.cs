@@ -717,12 +717,13 @@ namespace LittlePeeps
         private void ReadSorting()
         {
             var ground = drawing.GroundTilemap.GetComponent<TilemapRenderer>();
-            var trim = drawing.TrimTilemap != null ? drawing.TrimTilemap.GetComponent<TilemapRenderer>() : null;
 
             sortingLayer = ground.sortingLayerID;
             int lowest = ground.sortingOrder, highest = ground.sortingOrder;
-            if (trim != null && trim.sortingLayerID == ground.sortingLayerID)
+            foreach (var coast in new[] { drawing.TrimHorizontalTilemap, drawing.TrimVerticalTilemap })
             {
+                var trim = coast != null ? coast.GetComponent<TilemapRenderer>() : null;
+                if (trim == null || trim.sortingLayerID != ground.sortingLayerID) continue;
                 lowest = Mathf.Min(lowest, trim.sortingOrder);
                 highest = Mathf.Max(highest, trim.sortingOrder);
             }

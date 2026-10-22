@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.Tilemaps;
 using Debug = UnityEngine.Debug;
 
@@ -15,9 +16,22 @@ namespace LittlePeeps
         [SerializeField] private Tilemap tilemap;
 
         // Coastline outline. The art draws the island's edge OUTSIDE the land cell, so these tiles land on
-        // water cells and need their own tilemap — one WITHOUT a collider, or the ground collider would
-        // grow a cell past the coast in every direction.
-        [SerializeField] private Tilemap trimTilemap;
+        // water cells and need their own tilemaps — WITHOUT a collider, or the ground collider would grow a
+        // cell past the coast in every direction. Two of them: the horizontal trim, the bands under the island,
+        // and the vertical trim, the columns down its sides.
+        [Tooltip("Horizontal trim: the outline's bands, under the island's south-facing coast. No collider. One " +
+                 "of the water's coast tilemaps.")]
+        [FormerlySerializedAs("trimTilemap")]
+        [SerializeField] private Tilemap trimHorizontalTilemap;
+
+        [Tooltip("Vertical trim: the outline's columns, beside the island's east- and west-facing coast — over " +
+                 "the horizontal trim, so a bay's corner is a band with the wall's column on it. No collider; its " +
+                 "material, sorting layer and order are set from the horizontal trim's (one above it). One of the " +
+                 "water's coast tilemaps too. Empty: the columns go on the horizontal trim and bay corners show " +
+                 "their band alone.")]
+        [FormerlySerializedAs("trimSideTilemap")]
+        [FormerlySerializedAs("trimOverlayTilemap")]
+        [SerializeField] private Tilemap trimVerticalTilemap;
 
         [Tooltip("Decor specks over the ground (each tile set's Decor lists): no collider, the ground's " +
                  "material (so it bends with the land), sorted above the ground and below the borders. " +
@@ -62,7 +76,8 @@ namespace LittlePeeps
         // window draws its sample island with the same sorting, material and border art. Painted only
         // through Drawing.
         public Tilemap GroundTilemap => tilemap;
-        public Tilemap TrimTilemap => trimTilemap;
+        public Tilemap TrimHorizontalTilemap => trimHorizontalTilemap;
+        public Tilemap TrimVerticalTilemap => trimVerticalTilemap;
         public Tilemap DecorTilemap => decorTilemap;
         public IReadOnlyList<IslandBorderLayer> BorderLayers => borders;
 
@@ -218,7 +233,15 @@ namespace LittlePeeps
             Build(previewSeed, new IslandRules(), null);
     #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(tilemap);
-            if (trimTilemap != null) UnityEditor.EditorUtility.SetDirty(trimTilemap);
+            if (trimHorizontalTilemap != null) UnityEditor.EditorUtility.SetDirty(trimHorizontalTilemap);
+            var vertical = Drawing.TrimVerticalTilemap;
+            if (vertical != null)
+            {
+                UnityEditor.EditorUtility.SetDirty(vertical);
+                // The drawing made it draw like the horizontal trim: keep the scene showing what is actually used.
+                var renderer = vertical.GetComponent<TilemapRenderer>();
+                if (renderer != null) UnityEditor.EditorUtility.SetDirty(renderer);
+            }
             if (decorTilemap != null) UnityEditor.EditorUtility.SetDirty(decorTilemap);
             foreach (var layer in borders)
                 if (layer != null && layer.tilemap != null)
@@ -239,7 +262,8 @@ namespace LittlePeeps
             var clock = Stopwatch.StartNew();
             Grid = new IslandGrid(cellSize);
             var usableBorders = UsableBorders();
-            Drawing = new IslandDrawing(Grid, TileSetFor(), tilemap, trimTilemap, UsableDecor(usableBorders), seed, usableBorders);
+            Drawing = new IslandDrawing(Grid, TileSetFor(), tilemap, trimHorizontalTilemap, UsableDecor(usableBorders), seed,
+                                        usableBorders, UsableTrimVertical());
             Generator = new IslandGenerator(rules, seed);
             var start = Generator.GenerateStart();
 
@@ -358,8 +382,9 @@ namespace LittlePeeps
 
         // The border list as the drawing takes it, checked once per run. A terrain listed twice keeps only
         // its first row (that is the place it ranks at anyway). Each layer's repaint clears its whole
-        // tilemap, so a row may not draw on the ground or the trim, and a tilemap shared by two rows stays
-        // with the first. A row that loses its tilemap still ranks in the order — it just draws nothing.
+        // tilemap, so a row may not draw on the ground or either trim layer, and a tilemap shared by two
+        // rows stays with the first. A row that loses its tilemap still ranks in the order — it just draws
+        // nothing.
         private List<IslandBorderLayer> UsableBorders()
         {
             var usable = new List<IslandBorderLayer>();
@@ -375,7 +400,8 @@ namespace LittlePeeps
                 }
 
                 var layerTilemap = layer.tilemap;
-                if (layerTilemap != null && (layerTilemap == tilemap || layerTilemap == trimTilemap))
+                if (layerTilemap != null &&
+                    (layerTilemap == tilemap || layerTilemap == trimHorizontalTilemap || layerTilemap == trimVerticalTilemap))
                 {
                     Debug.LogError($"IslandSystem: the {layer.terrain} border is set to draw on the island's own " +
                                    $"'{layerTilemap.name}' tilemap — give it one of its own; this one is not drawn.", this);
@@ -400,12 +426,33 @@ namespace LittlePeeps
         private Tilemap UsableDecor(IReadOnlyList<IslandBorderLayer> usableBorders)
         {
             if (decorTilemap == null) return null;
-            bool shared = decorTilemap == tilemap || decorTilemap == trimTilemap;
+            bool shared = decorTilemap == tilemap || decorTilemap == trimHorizontalTilemap ||
+                          decorTilemap == trimVerticalTilemap;
             foreach (var layer in usableBorders) shared |= layer.tilemap == decorTilemap;
             if (!shared) return decorTilemap;
 
             Debug.LogError($"IslandSystem: the decor is set to draw on '{decorTilemap.name}', which another island " +
                            "layer draws on — give it a tilemap of its own; no decor is drawn.", this);
+            return null;
+        }
+
+        // So does the vertical trim's. A border or the decor set to draw on it is turned away above; what is
+        // left to check is the ground and the horizontal trim. Without one the columns go on the horizontal
+        // trim, which keeps the island's sides but loses the column of every bay's corner — said here, since it
+        // looks almost right.
+        private Tilemap UsableTrimVertical()
+        {
+            if (trimVerticalTilemap == null)
+            {
+                if (trimHorizontalTilemap != null)
+                    Debug.LogWarning("IslandSystem: no Trim Vertical Tilemap — the outline's columns go on the horizontal " +
+                                     "trim, and bay corners lose theirs. Give them a tilemap of their own.", this);
+                return null;
+            }
+            if (trimVerticalTilemap != tilemap && trimVerticalTilemap != trimHorizontalTilemap) return trimVerticalTilemap;
+
+            Debug.LogError($"IslandSystem: the vertical trim is set to draw on '{trimVerticalTilemap.name}', which another " +
+                           "island layer draws on — give it a tilemap of its own; bay corners lose their column.", this);
             return null;
         }
     }

@@ -34,8 +34,9 @@ namespace LittlePeeps
     // silhouette in the side foam's shader instead, bending like the land. For a tile that is all Red draws:
     // the sprite's alpha in red (its _h cut-off is 1 on the coast, so it cuts nothing).
     //
-    // Wire: waterPrefab → the water prefab; coastTilemaps → Ground and GroundTrim (the trim draws the
-    // coastline on water cells, so it is part of the coast the ripples meet); sideFoamShader → the
+    // Wire: waterPrefab → the water prefab; coastTilemaps → Ground, TrimHorizontal and TrimVertical (the
+    // trim draws the coastline on water cells — bands and side columns — so it is part of the coast the
+    // ripples meet); sideFoamShader → the
     // "Little Peeps/Sprite Flat Color" shader (the side foam and the bending coast).
     public class WaterSystem : MonoBehaviour
     {

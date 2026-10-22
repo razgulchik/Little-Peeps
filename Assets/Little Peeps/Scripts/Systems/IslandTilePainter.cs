@@ -5,17 +5,24 @@ using UnityEngine.Tilemaps;
 
 namespace LittlePeeps
 {
-    // Pure C# autotiler: turns the sparse IslandGrid into three tilemap layers.
+    // Pure C# autotiler: turns the sparse IslandGrid into four tilemap layers.
     //  - ground: one tile per land cell — checkerboard shade from cell parity, rounded variant at the
     //            island's outer corners;
     //  - decor:  specks scattered over the ground, on a random share of the land cells (see HasDecor);
-    //  - trim:   the coastline outline, painted on the NON-land cells that touch land.
+    //  - trim:   the coastline outline, painted on the NON-land cells that touch land, in two layers:
+    //            HORIZONTAL — the band under land to the north (the island's bottom edge) — and VERTICAL —
+    //            the column beside land to the east or west (the island's sides), drawn over the horizontal.
     //
     // Every choice is made from the 8 neighbours ("a cell exists in the grid" == land), never from an
     // index inside a rectangle. That is what makes it survive the shapes IslandGenerator produces:
     // chamfered masses, staircase coasts, broad bays. Nothing here writes to the grid — the outline ring is
     // decoration derived from it, so the island's logical size stays exactly its playable cells and the
     // ground collider never grows past the coast.
+    //
+    // Two trim layers because a water cell can sit under one land cell and beside another — a bay's inner
+    // corner — and each of the two owes it a piece of its own: the land above a band, the land beside a
+    // column. Each layer has one rule and one owner, so a corner needs no art of its own, and where its two
+    // owners are different biomes each piece is still its own one's.
     //
     // Which tile SET draws a cell is the terrain's (one per biome): the ground takes its own cell's set,
     // a trim piece takes the set of the land cell that gives it its shape — so a coast is drawn in the
@@ -57,36 +64,54 @@ namespace LittlePeeps
             }
         }
 
-        // What one cell draws: a land cell its ground piece, a water cell its outline piece (None = bare
-        // water). Tiles are not chosen here — they depend on the tile set, which is the terrain's.
+        // What one cell draws: a land cell its ground piece, a water cell its horizontal and its vertical
+        // trim piece (None = nothing on that layer; both None = bare water). Tiles are not chosen here —
+        // they depend on the tile set, which is the terrain's.
         public readonly struct CellPaint
         {
             public readonly bool land;
-            public readonly IslandGroundPiece ground;   // land cells
-            public readonly IslandTrimPiece trim;       // water cells
-            public readonly Vector2Int trimSource;      // the land cell whose terrain colours the outline
+            public readonly IslandGroundPiece ground;     // land cells
+            public readonly IslandTrimPiece horizontal;   // water cells: the band under land to the north
+            public readonly Vector2Int horizontalSource;  // the land cell whose terrain colours it
+            public readonly IslandTrimPiece vertical;     // water cells: the column beside land to the east or west
+            public readonly Vector2Int verticalSource;    // the land cell whose terrain colours it
 
-            private CellPaint(bool land, IslandGroundPiece ground, IslandTrimPiece trim, Vector2Int trimSource)
+            private CellPaint(bool land, IslandGroundPiece ground, IslandTrimPiece horizontal, Vector2Int horizontalSource,
+                              IslandTrimPiece vertical, Vector2Int verticalSource)
             {
                 this.land = land;
                 this.ground = ground;
-                this.trim = trim;
-                this.trimSource = trimSource;
+                this.horizontal = horizontal;
+                this.horizontalSource = horizontalSource;
+                this.vertical = vertical;
+                this.verticalSource = verticalSource;
             }
 
-            public static CellPaint Ground(IslandGroundPiece piece) => new(true, piece, IslandTrimPiece.None, default);
-            public static CellPaint Trim(IslandTrimPiece piece, Vector2Int source) => new(false, default, piece, source);
+            public static CellPaint Ground(IslandGroundPiece piece) =>
+                new(true, piece, IslandTrimPiece.None, default, IslandTrimPiece.None, default);
 
-            public bool DrawsSomething => land || trim != IslandTrimPiece.None;
+            public static CellPaint Water(IslandTrimPiece horizontal, Vector2Int horizontalSource,
+                                          IslandTrimPiece vertical, Vector2Int verticalSource) =>
+                new(false, default, horizontal, horizontalSource, vertical, verticalSource);
 
-            public override string ToString() => land ? $"ground {ground}" : $"trim {trim} from {trimSource}";
+            public bool DrawsSomething => land || horizontal != IslandTrimPiece.None || vertical != IslandTrimPiece.None;
+
+            public override string ToString()
+            {
+                if (land) return $"ground {ground}";
+                var parts = new List<string>();
+                if (horizontal != IslandTrimPiece.None) parts.Add($"horizontal {horizontal} from {horizontalSource}");
+                if (vertical != IslandTrimPiece.None) parts.Add($"vertical {vertical} from {verticalSource}");
+                return parts.Count > 0 ? string.Join(", ", parts) : "water";
+            }
         }
 
         public static CellPaint PaintOf(Land land, Vector2Int coord)
         {
             if (land.Contains(coord)) return CellPaint.Ground(PickGround(land, coord));
-            var piece = PickTrim(land, coord, out Vector2Int source);
-            return CellPaint.Trim(piece, source);
+            var horizontal = PickHorizontal(land, coord, out Vector2Int horizontalSource);
+            var vertical = PickVertical(land, coord, out Vector2Int verticalSource);
+            return CellPaint.Water(horizontal, horizontalSource, vertical, verticalSource);
         }
 
         // Every cell that draws something, and what: the land cells, and the outline ring around them.
@@ -123,15 +148,17 @@ namespace LittlePeeps
         }
 
         // Repaint every layer from scratch. tileSetFor answers with a set for every terrain (a default
-        // for unmapped ones); trimTilemap and decorTilemap may be null — the ground still draws, just
-        // bare. decorSeed is the run's: the same seed draws the same decor.
-        public static void Repaint(Land land, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap, Tilemap trimTilemap,
-                                   Tilemap decorTilemap, int decorSeed)
+        // for unmapped ones); the two trim tilemaps and decorTilemap may be null — the ground still draws,
+        // just bare (see SetTrim for a missing vertical one). decorSeed is the run's: the same seed draws
+        // the same decor.
+        public static void Repaint(Land land, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap,
+                                   Tilemap horizontalTilemap, Tilemap verticalTilemap, Tilemap decorTilemap, int decorSeed)
         {
             if (!CanPaint(tileSetFor, groundTilemap)) return;
 
             groundTilemap.ClearAllTiles();
-            if (trimTilemap != null) trimTilemap.ClearAllTiles();
+            if (horizontalTilemap != null) horizontalTilemap.ClearAllTiles();
+            if (verticalTilemap != null) verticalTilemap.ClearAllTiles();
             if (decorTilemap != null) decorTilemap.ClearAllTiles();
             if (land == null) return;
 
@@ -152,9 +179,11 @@ namespace LittlePeeps
                     var decor = decorTilemap != null ? DecorTile(land, coord, paint, tileSetFor, decorSeed) : null;
                     if (decor != null) decorTilemap.SetTile(ToTilemapCell(coord), decor);
                 }
-                else if (trimTilemap != null)
+                else
                 {
-                    trimTilemap.SetTile(ToTilemapCell(coord), TrimTile(land, paint, tileSetFor));
+                    SetTrim(horizontalTilemap, verticalTilemap, ToTilemapCell(coord),
+                            TrimTile(land, paint.horizontal, paint.horizontalSource, tileSetFor),
+                            TrimTile(land, paint.vertical, paint.verticalSource, tileSetFor));
                 }
             }
         }
@@ -163,7 +192,8 @@ namespace LittlePeeps
         // layer, cleared where it now draws nothing, so the result is exactly what Repaint would draw.
         // A missing tile set stays silent here: the full repaint that drew the island already said so.
         public static void RepaintAround(Land land, Vector2Int cell, Func<TerrainType, IslandTileSet> tileSetFor,
-                                         Tilemap groundTilemap, Tilemap trimTilemap, Tilemap decorTilemap, int decorSeed)
+                                         Tilemap groundTilemap, Tilemap horizontalTilemap, Tilemap verticalTilemap,
+                                         Tilemap decorTilemap, int decorSeed)
         {
             if (!CanPaint(tileSetFor, groundTilemap) || land == null) return;
 
@@ -172,8 +202,9 @@ namespace LittlePeeps
                 var paint = PaintOf(land, coord);
                 var tilemapCell = ToTilemapCell(coord);
                 groundTilemap.SetTile(tilemapCell, paint.land ? GroundTile(land, coord, paint, tileSetFor) : null);
-                if (trimTilemap != null)
-                    trimTilemap.SetTile(tilemapCell, paint.land ? null : TrimTile(land, paint, tileSetFor));
+                SetTrim(horizontalTilemap, verticalTilemap, tilemapCell,
+                        paint.land ? null : TrimTile(land, paint.horizontal, paint.horizontalSource, tileSetFor),
+                        paint.land ? null : TrimTile(land, paint.vertical, paint.verticalSource, tileSetFor));
                 if (decorTilemap != null)
                     decorTilemap.SetTile(tilemapCell, DecorTile(land, coord, paint, tileSetFor, decorSeed));
             }
@@ -227,11 +258,23 @@ namespace LittlePeeps
             return options.Length > 0 ? options[DecorSlot(coord, seed, options.Length)] : null;
         }
 
-        private static TileBase TrimTile(Land land, CellPaint paint, Func<TerrainType, IslandTileSet> tileSetFor)
+        // A water cell's two pieces onto the two trim layers. With no vertical layer the vertical piece goes
+        // on the horizontal one wherever that leaves the cell empty: the island keeps its sides, and only a
+        // bay's corner shows its band alone.
+        private static void SetTrim(Tilemap horizontalTilemap, Tilemap verticalTilemap, Vector3Int at,
+                                    TileBase horizontal, TileBase vertical)
         {
-            if (paint.trim == IslandTrimPiece.None) return null;
-            var tileSet = tileSetFor(land.TerrainOf(paint.trimSource));
-            return tileSet != null ? tileSet.GetTrim(paint.trim) : null;
+            if (verticalTilemap != null) verticalTilemap.SetTile(at, vertical);
+            if (horizontalTilemap != null)
+                horizontalTilemap.SetTile(at, verticalTilemap != null || horizontal != null ? horizontal : vertical);
+        }
+
+        // A trim piece in the colours of the land cell it belongs to; null for None.
+        private static TileBase TrimTile(Land land, IslandTrimPiece piece, Vector2Int source, Func<TerrainType, IslandTileSet> tileSetFor)
+        {
+            if (piece == IslandTrimPiece.None) return null;
+            var tileSet = tileSetFor(land.TerrainOf(source));
+            return tileSet != null ? tileSet.GetTrim(piece) : null;
         }
 
         // IslandGrid cell c maps 1:1 to tilemap cell c — both put the centre of c at (c + 0.5) * cellSize,
@@ -261,50 +304,46 @@ namespace LittlePeeps
             return IslandGroundPiece.Plain;
         }
 
-        // Outline piece for a water cell, from the land around it, and which land cell it belongs to
-        // (whose terrain picks the tile set). Only the north, east and west sides of this cell can carry
-        // outline — a cell whose only land neighbour is to the south draws nothing, because the island
+        // The two outline pieces of a water cell come from the land around it, each with the land cell it
+        // belongs to (whose terrain picks the tile set). Only the north, east and west sides of the cell can
+        // carry outline — a cell whose only land neighbour is to the south draws nothing, because the island
         // has no outline along its top.
-        //
-        // Order is priority: the earlier a case sits, the more of the cell it covers. Cases that would need
-        // two pieces at once (land on both sides, or a band rounded at both ends) only arise on geometry
-        // one cell wide, which the island shapes never produce; they degrade to the nearest piece here
-        // rather than leaving a gap.
-        private static IslandTrimPiece PickTrim(Land land, Vector2Int c, out Vector2Int source)
+
+        // The horizontal piece, a band under land to the north: its ends round off wherever the coast turns,
+        // so it meets the rounded corner tile of the land above. A band rounded at both ends would only arise
+        // under a strip one cell wide, which the island shapes never produce; it takes the left end.
+        private static IslandTrimPiece PickHorizontal(Land land, Vector2Int c, out Vector2Int source)
         {
-            var north = new Vector2Int(c.x, c.y + 1);
-            var east  = new Vector2Int(c.x + 1, c.y);
-            var west  = new Vector2Int(c.x - 1, c.y);
-            var northEast = new Vector2Int(c.x + 1, c.y + 1);
-            var northWest = new Vector2Int(c.x - 1, c.y + 1);
-            bool n  = land.Contains(north);
-            bool e  = land.Contains(east);
-            bool w  = land.Contains(west);
-            bool ne = land.Contains(northEast);
-            bool nw = land.Contains(northWest);
-
-            // Inside a bay: the band along its top plus the column down one of its walls.
-            source = north;
-            if (n && w) return IslandTrimPiece.InnerCornerLeft;
-            if (n && e) return IslandTrimPiece.InnerCornerRight;
-
-            // Along the island's bottom: the band's ends round off wherever the coast turns.
-            if (n)
+            source = new Vector2Int(c.x, c.y + 1);
+            if (!land.Contains(source))
             {
-                if (!nw) return IslandTrimPiece.BottomEdgeLeft;
-                if (!ne) return IslandTrimPiece.BottomEdgeRight;
-                return IslandTrimPiece.BottomEdgeMid;
+                source = default;
+                return IslandTrimPiece.None;
             }
+            if (!IsLand(land, c.x - 1, c.y + 1)) return IslandTrimPiece.BottomEdgeLeft;
+            if (!IsLand(land, c.x + 1, c.y + 1)) return IslandTrimPiece.BottomEdgeRight;
+            return IslandTrimPiece.BottomEdgeMid;
+        }
 
-            // Down the island's sides: the column is cut short at the top, where the rounding is already
-            // baked into the corner tile of the land itself.
-            if (e) { source = east; return ne ? IslandTrimPiece.LeftEdgeMid : IslandTrimPiece.LeftEdgeTop; }
-            if (w) { source = west; return nw ? IslandTrimPiece.RightEdgeMid : IslandTrimPiece.RightEdgeTop; }
+        // The vertical piece, a column beside land to the east or west: cut short at the top where the land's
+        // own corner tile is rounded, and closed off one cell below a side's last cell by a stub — unless land
+        // to the north puts a band there, which closes it already. Land on both sides would only arise in a
+        // channel one cell wide, which the island shapes never produce; the east side's column is drawn.
+        private static IslandTrimPiece PickVertical(Land land, Vector2Int c, out Vector2Int source)
+        {
+            bool n  = IsLand(land, c.x, c.y + 1);
+            bool ne = IsLand(land, c.x + 1, c.y + 1);
+            bool nw = IsLand(land, c.x - 1, c.y + 1);
 
-            // One cell below the last cell of a side: the stub that closes the column off.
-            if (ne) { source = northEast; return IslandTrimPiece.LeftEdgeBottom; }
-            if (nw) { source = northWest; return IslandTrimPiece.RightEdgeBottom; }
+            source = new Vector2Int(c.x + 1, c.y);
+            if (land.Contains(source)) return ne ? IslandTrimPiece.LeftEdgeMid : IslandTrimPiece.LeftEdgeTop;
+            source = new Vector2Int(c.x - 1, c.y);
+            if (land.Contains(source)) return nw ? IslandTrimPiece.RightEdgeMid : IslandTrimPiece.RightEdgeTop;
 
+            if (!n && ne) { source = new Vector2Int(c.x + 1, c.y + 1); return IslandTrimPiece.LeftEdgeBottom; }
+            if (!n && nw) { source = new Vector2Int(c.x - 1, c.y + 1); return IslandTrimPiece.RightEdgeBottom; }
+
+            source = default;
             return IslandTrimPiece.None;
         }
     }

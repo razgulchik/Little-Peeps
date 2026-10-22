@@ -34,7 +34,7 @@ namespace LittlePeeps.Tests
             root = new GameObject("Island");
             root.AddComponent<Grid>();
             var ground = NewTilemap("Ground", "Default", 0);
-            var trim = NewTilemap("GroundTrim", "Default", 1);
+            var trim = NewTilemap("TrimHorizontal", "Default", 1);
             var decor = NewTilemap("Decor", "Default", 4);
             // Typed in upside down, and the meadow on another sorting layer altogether.
             var meadow = NewTilemap("BordersMeadow", "Water", 0);

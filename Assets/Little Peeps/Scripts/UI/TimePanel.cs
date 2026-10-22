@@ -25,10 +25,14 @@ namespace LittlePeeps
     // edge and holds the place until the offering is made; then the next offering's big diamond and the
     // hands stand there again.
     //
-    // Between the belt and the stand, the dots: more than a year to the offering waiting there. As soon as
-    // the number of the year before it is wholly out, they are a line — the belt runs on to the diamond. A
-    // big diamond leaving the stand crosses them; they show only right of it, where it has passed, never
-    // through it.
+    // Between the belt and the stand, the dots: the way on to the offering waiting there. Just before it
+    // leaves, the line comes out over them to meet it, at the belt's own speed — it starts when the
+    // offering's place is as far from the stand as the dots are long, and reaches the diamond as it sets
+    // off. A big diamond leaving the stand crosses them; they show only right of it, where it has passed,
+    // never through it.
+    //
+    // Under the big diamond on the stand, three more dots, hidden while it stands: they show behind it as
+    // it leaves, until the small diamond comes in over them.
     //
     // Under every tick its year: the segments gone since the run's start, so the numbers run on across
     // cycles and start again with the next run. The tick the hands ride to has none — the hands stand
@@ -52,8 +56,8 @@ namespace LittlePeeps
         [SerializeField] private RectTransform now;
 
         [Tooltip("Where the line, the year ticks and the offering ticks' line ends are made. Its RectMask2D " +
-                 "runs from the circle's edge to the dots; its right edge is moved past them while they are a " +
-                 "line, or while a big diamond leaving the stand is over them.")]
+                 "runs from the circle's edge to the dots; its right edge is moved over them as the line comes " +
+                 "out to meet an offering about to leave the stand, and behind a big diamond leaving it.")]
         [SerializeField] private RectTransform belt;
 
         [Tooltip("Where the offering ticks' big diamonds and the small diamond on the stand are made. Its clip " +
@@ -68,9 +72,13 @@ namespace LittlePeeps
                  "way — the belt carries a copy of it then — until the next offering stands there.")]
         [SerializeField] private Image bigDiamond;
 
-        [Tooltip("The dots between the belt and the stand. Made Filled here: a big diamond leaving the stand " +
-                 "crosses them, and they show only where it has passed.")]
+        [Tooltip("The dots between the belt and the stand. Made Filled here: they show only right of the line " +
+                 "coming out over them, and right of a big diamond leaving the stand across them.")]
         [SerializeField] private Image dots;
+
+        [Tooltip("Three more dots under the big diamond on the stand, hidden while it stands. Made Filled here: " +
+                 "they show behind it as it leaves, until the small diamond comes in over them. Optional.")]
+        [SerializeField] private Image standDots;
 
         [Header("Art")]
         [SerializeField] private Sprite lineSprite;
@@ -102,11 +110,11 @@ namespace LittlePeeps
         private OfferingSystem offerings;
 
         // Measured once, in this panel's own space: the circle's centre, where the belt starts and ends, the
-        // strip's edges, where the hands wait, the stand's left edge, the dots' edges, where the numbers'
-        // parent starts and ends.
+        // strip's edges, where the hands wait, the stand's left edge, the edges of both dots, the gap the dots
+        // keep from the stand, where the numbers' parent starts.
         private RectTransform panel;
         private float nowX, beltLeft, beltRight, stripLeft, stripRight, handsHomeX, standLeft, dotsLeft, dotsRight,
-                      yearsLeft, yearsRight, yearY;
+                      standDotsLeft, standDotsRight, standGap, yearsLeft, yearY;
         private Vector2 handsHome;
         private bool ready;
 
@@ -133,7 +141,6 @@ namespace LittlePeeps
             public TMP_Text text;
             public int year = -1;
             public float width;   // the number's advance width, whole pixels
-            public float ink;     // where its last digit ends, from its left edge — the advance less the spacing
         }
 
         // What the belt shows now; laid out again only when one of these changes.
@@ -168,17 +175,25 @@ namespace LittlePeeps
             standLeft = PanelX(bigDiamond.rectTransform, bigDiamond.rectTransform.rect.xMin);
             dotsLeft = PanelX(dots.rectTransform, dots.rectTransform.rect.xMin);
             dotsRight = PanelX(dots.rectTransform, dots.rectTransform.rect.xMax);
+            standGap = Mathf.Max(0f, standLeft - dotsRight);
 
-            // Filled from the right: only the part right of a big diamond crossing them shows.
+            // Filled from the right: only the part right of the line or of a big diamond over them shows.
             dots.type = Image.Type.Filled;
             dots.fillMethod = Image.FillMethod.Horizontal;
             dots.fillOrigin = (int)Image.OriginHorizontal.Right;
 
-            yearsRight = beltRight;   // with no numbers, the tick has to be out from under the dots
+            // Filled too, from whichever side is uncovered (LayoutStandDots).
+            if (standDots != null)
+            {
+                standDotsLeft = PanelX(standDots.rectTransform, standDots.rectTransform.rect.xMin);
+                standDotsRight = PanelX(standDots.rectTransform, standDots.rectTransform.rect.xMax);
+                standDots.type = Image.Type.Filled;
+                standDots.fillMethod = Image.FillMethod.Horizontal;
+            }
+
             if (yearTemplate != null && yearTemplate.transform.parent is RectTransform yearsParent)
             {
                 yearsLeft = PanelX(yearsParent, yearsParent.rect.xMin);
-                yearsRight = PanelX(yearsParent, yearsParent.rect.xMax);
                 yearY = yearTemplate.rectTransform.anchoredPosition.y;
                 yearTemplate.gameObject.SetActive(false);
             }
@@ -292,11 +307,15 @@ namespace LittlePeeps
                 waitingTick = NextOffering(ref waitingCycle, waitingTick);
             }
 
-            // Between the belt and the stand, a line instead of the dots as soon as the number of the year before
-            // the waiting offering is wholly out: a year to go, no more. In a one-year cycle that year is the
-            // offering before, gone already.
-            int lastYearTick = waitingTick - 1;
-            bool line = waitingTick > 0 && lastYearTick == goneTick;
+            // The line comes out over the dots to meet the waiting offering, as fast as the belt brings its place
+            // to the stand: its end is short of the dots' right end by just as much as that place is short of
+            // leaving, so the two meet as the diamond sets off. Short of the dots' length, it hasn't started.
+            float lineEnd = beltRight;
+            if (waitingTick > 0)
+            {
+                float toGo = nowX + waitingTick * segmentWidth - moved - handsHomeX;
+                lineEnd = Mathf.Clamp(dotsRight - toGo, beltRight, dotsRight);
+            }
 
             float lastRight = 0f;
             for (int i = 0; i < 64; i++, k++)
@@ -315,10 +334,7 @@ namespace LittlePeeps
 
                 lastRight = left + width;
                 if (left >= stripRight) break;   // past the big diamond: this tick only closes the line
-                if (k == handsTick) continue;
-
-                float yearRight = PlaceYear(labelCount++, firstYear + k, centre, moved);
-                if (k == lastYearTick && yearRight <= yearsRight) line = true;
+                if (k != handsTick) PlaceYear(labelCount++, firstYear + k, centre, moved);
             }
 
             HideFrom(lines, lineCount);
@@ -337,7 +353,7 @@ namespace LittlePeeps
                 ? handsHome + new Vector2(Mathf.Round(offeringStart - handsHomeX) - moved, 0f)
                 : handsHome;
 
-            LayoutStand(moved, riding, goneTick, line);
+            LayoutStand(moved, riding, goneTick, lineEnd);
         }
 
         // An offering tick: its line ends on the belt, with the line (clipped where the line is); its big
@@ -354,34 +370,53 @@ namespace LittlePeeps
                 Place(diamonds, diamondCount++, riders, bigDiamond.sprite, BigLeft(centre, moved) - stripLeft);
         }
 
-        // The stand and the dots: `goneTick` is the offering that left the stand last, `line` whether the dots
-        // are a line by now (both from Layout).
-        private void LayoutStand(float moved, bool riding, int goneTick, bool line)
+        // The stand and the dots: `goneTick` is the offering that left the stand last, `lineEnd` how far the
+        // line has come out over the dots (both from Layout).
+        private void LayoutStand(float moved, bool riding, int goneTick, float lineEnd)
         {
             float goneLeft = BigLeft(nowX + goneTick * segmentWidth, moved);
             float goneRight = goneLeft + bigDiamond.sprite.rect.width;
 
-            // The belt ends at the dots — past them while they are a line, and at the left tip of a big diamond
-            // leaving over them, so its line end goes with it.
-            float end = Mathf.Max(beltRight, goneLeft);
-            if (line) end = Mathf.Max(end, dotsRight);
+            // The belt ends at the dots — over them as far as the line has come out, and at the left tip of a
+            // big diamond leaving over them, so its line end goes with it.
+            float end = Mathf.Max(Mathf.Max(beltRight, goneLeft), lineEnd);
             float offsetRight = beltOffsetRight + end - beltRight;
             if (belt.offsetMax.x != offsetRight) belt.offsetMax = new Vector2(offsetRight, belt.offsetMax.y);
 
-            // The dots show only right of a big diamond leaving over them: nothing of them through it, nor left
-            // of it, where its line is.
-            dots.fillAmount = line ? 0f : (dotsRight - Mathf.Max(dotsLeft, goneRight)) / (dotsRight - dotsLeft);
+            // The dots show only right of the line and of a big diamond leaving over them: nothing of them
+            // through it, nor left of it, where its line is.
+            float shown = Mathf.Max(Mathf.Max(dotsLeft, goneRight), lineEnd);
+            dots.fillAmount = (dotsRight - shown) / (dotsRight - dotsLeft);
 
             // On the stand: the big diamond until this cycle's offering leaves, then the small one — in from
             // behind the right edge once the big one is off the stand, at the belt's speed.
             bigDiamond.enabled = !riding;
+            float smallLeft = stripRight;
             if (riding)
             {
                 float home = Mathf.Round(handsHomeX - offeringDiamond.rect.width / 2f);
-                float left = Mathf.Max(home, stripRight + goneRight - standLeft);
-                Place(stand, 0, riders, offeringDiamond, left - stripLeft);
+                smallLeft = Mathf.Max(home, stripRight + goneRight - standLeft);
+                Place(stand, 0, riders, offeringDiamond, smallLeft - stripLeft);
             }
             HideFrom(stand, riding ? 1 : 0);
+
+            if (standDots != null) LayoutStandDots(riding, goneRight, smallLeft);
+        }
+
+        // The dots under the stand show between the big diamond leaving and the small one coming in — none
+        // while the big one stands on them — and stop short of the small one by the gap the dots keep from
+        // the big one on the stand. The small one follows the big one a fixed distance behind (the right
+        // edge's from the stand's left: the big one's width), so dots narrower than what is left between them
+        // are cut on one side at a time: the big one's while it is over them, then the small one's.
+        private void LayoutStandDots(bool riding, float goneRight, float smallLeft)
+        {
+            float from = Mathf.Max(standDotsLeft, goneRight);
+            float to = Mathf.Min(standDotsRight, smallLeft - standGap);
+            bool smallOver = to < standDotsRight;   // then what shows runs from their left end
+
+            standDots.fillOrigin = (int)(smallOver ? Image.OriginHorizontal.Left : Image.OriginHorizontal.Right);
+            standDots.fillAmount = !riding || to <= from ? 0f
+                : (smallOver ? to - standDotsLeft : standDotsRight - from) / (standDotsRight - standDotsLeft);
         }
 
         // Where a big diamond centred on `centre` has its left edge, the belt `moved` along — whole pixels, as
@@ -409,12 +444,9 @@ namespace LittlePeeps
 
         // A year under its tick. Centred on whole pixels: the tick's centre sits on a half pixel, so a number
         // of odd width centres exactly and an even one half a pixel to the left — never between pixels.
-        // Returns where the number ends on the right — with no numbers, where the tick does: what has to be
-        // out from under the dots before they turn into a line.
-        private float PlaceYear(int index, int year, float centre, float moved)
+        private void PlaceYear(int index, int year, float centre, float moved)
         {
-            if (yearTemplate == null)
-                return Mathf.Round(centre - yearSprite.rect.width / 2f) - moved + yearSprite.rect.width;
+            if (yearTemplate == null) return;
 
             YearLabel label = index < labels.Count ? labels[index] : MakeLabel();
             if (!label.text.gameObject.activeSelf) label.text.gameObject.SetActive(true);
@@ -423,14 +455,10 @@ namespace LittlePeeps
                 label.year = year;
                 label.text.SetText("{0}", year);
                 label.width = Mathf.Round(label.text.GetPreferredValues().x);
-                label.text.ForceMeshUpdate();
-                float ink = Mathf.Round(label.text.textBounds.max.x);
-                label.ink = ink > 0f && ink < label.width ? ink : label.width;
             }
 
             float left = Mathf.Floor(centre + 0.5f - label.width / 2f) - moved;
             label.text.rectTransform.anchoredPosition = new Vector2(left - yearsLeft, yearY);
-            return left + label.ink;
         }
 
         // A copy of the template beside it, held by its parent's left edge and left-aligned: the centring is

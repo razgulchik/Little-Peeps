@@ -14,25 +14,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   groundLight: {fileID: 11400000, guid: b2ba768f0e0c80847af966b6817afbf6, type: 2}
   groundDark: {fileID: 11400000, guid: 8878ee67529d2d6449c64ba2ba0d0313, type: 2}
-  cornerTopLeftLight: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  cornerTopLeftDark: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  cornerTopRightLight: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  cornerTopRightDark: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  cornerBottomLeftLight: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  cornerBottomLeftDark: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  cornerBottomRightLight: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  cornerBottomRightDark: {fileID: 11400000, guid: e1ea7bb2a907521458551b8d898fee42, type: 2}
-  leftEdgeTop: {fileID: 11400000, guid: 4e266264d5a3031428d89a93b09c3bb0, type: 2}
-  leftEdgeMid: {fileID: 11400000, guid: 18fb9f410bdfd2644adc5eba8ecab629, type: 2}
-  leftEdgeBottom: {fileID: 11400000, guid: 9cda0a3886dac674fa980ccb7229083a, type: 2}
-  rightEdgeTop: {fileID: 11400000, guid: cda3a19ca50ce6641840de3cbc3256d0, type: 2}
-  rightEdgeMid: {fileID: 11400000, guid: a1f631af5d9a80d438ae1433bbdb796f, type: 2}
-  rightEdgeBottom: {fileID: 11400000, guid: 0d6e170d8610af54a8b4f31c5c1e6f6f, type: 2}
-  bottomEdgeLeft: {fileID: 11400000, guid: d5889c91cd29e3445bd47914baa744fe, type: 2}
-  bottomEdgeMid: {fileID: 11400000, guid: 6d1f0870ab5f89e438736b49e6b6bbc7, type: 2}
-  bottomEdgeRight: {fileID: 11400000, guid: d58ba90beb4eae142aff6d5453999dce, type: 2}
-  innerCornerLeft: {fileID: 11400000, guid: 67a3ac467441755499c90c44d57dce06, type: 2}
-  innerCornerRight: {fileID: 11400000, guid: 19ebec875d011994e87b7c1612664e7e, type: 2}
+  cornerTopLeftLight: {fileID: 11400000, guid: 1b90c8371cd949843b5442d81f5bc09b, type: 2}
+  cornerTopLeftDark: {fileID: 11400000, guid: 1348f1f99c05a924397e7818dc32c4e1, type: 2}
+  cornerTopRightLight: {fileID: 11400000, guid: 05b30cb83436f96469c81054c79eb391, type: 2}
+  cornerTopRightDark: {fileID: 11400000, guid: c05270c8de6b7e2468c76253902d8ecc, type: 2}
+  cornerBottomLeftLight: {fileID: 11400000, guid: 72ac898ac9c19014a997650ad6494f28, type: 2}
+  cornerBottomLeftDark: {fileID: 11400000, guid: 0c3f5cf2c2cbed44d839cd69fe2c5e2c, type: 2}
+  cornerBottomRightLight: {fileID: 11400000, guid: fd78d6c3ad2cd4145b3cacb65e979e56, type: 2}
+  cornerBottomRightDark: {fileID: 11400000, guid: 3363b158407dc1046aeab4ead2d114f4, type: 2}
+  leftEdgeTop: {fileID: 11400000, guid: 1bb3f2590e0004d4e932647193607889, type: 2}
+  leftEdgeMid: {fileID: 11400000, guid: 994a1ab5c2fdb1f40b61144b76c2f3cb, type: 2}
+  leftEdgeBottom: {fileID: 11400000, guid: 064b99175f590a8498a89d98f1817ea8, type: 2}
+  rightEdgeTop: {fileID: 11400000, guid: afb13923d5ff50148af0c2603d2e2b28, type: 2}
+  rightEdgeMid: {fileID: 11400000, guid: 61a2444058890944596514bc4f576257, type: 2}
+  rightEdgeBottom: {fileID: 11400000, guid: 5f0c0769505035749b606b06f6228ea4, type: 2}
+  bottomEdgeLeft: {fileID: 11400000, guid: 673fba7a743984a4f8f4dae443d444cf, type: 2}
+  bottomEdgeMid: {fileID: 11400000, guid: cde6ba095c2bc6e46996b6316ea06f15, type: 2}
+  bottomEdgeRight: {fileID: 11400000, guid: 16d887eb9075dca49a4dc818740f901c, type: 2}
+  innerCornerLeft: {fileID: 11400000, guid: 7b391a7bfbd5b1441a67fd0ea2e988a1, type: 2}
+  innerCornerRight: {fileID: 11400000, guid: b6cd6c8b525af324b96bb0107371695b, type: 2}
   decorLight:
   - {fileID: 11400000, guid: 8f5a807a54bc09f4abb3f5c1d9af17b3, type: 2}
   - {fileID: 11400000, guid: 88fd15be9eac98a42b7a995572a27e58, type: 2}

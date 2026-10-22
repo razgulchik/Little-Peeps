@@ -23,6 +23,10 @@ namespace LittlePeeps
         [Tooltip("The rest of the bonus — \"ALL PRODUCTION\". Left-aligned, Baseline, centred by the script.")]
         [SerializeField] private TMP_Text bonusTextLabel;
 
+        [Tooltip("Stands in for the bonus when the age grants none (the Age I), in one line midway between the " +
+                 "two the bonus takes.")]
+        [SerializeField] private string noBonusText = "NO BONUS";
+
         [Space]
         [SerializeField] private Button nextAgeButton;
 
@@ -33,12 +37,27 @@ namespace LittlePeeps
         // AgeCostPanel.
         private int currentAge = RunContext.FirstAge;
 
+        // The rows of the bonus text line as authored, and midway between the two bonus lines — where the
+        // single "no bonus" line stands. Read off the prefab once, so moving the labels there is enough.
+        private float bonusTextY;
+        private float noBonusY;
+
         // From UIRoot once the run exists; RunStartedEvent replaces it.
         public void Initialize(UIServices ui)
         {
             ageSystem = ui.AgeSystem;
             RunContext run = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
             if (run != null) currentAge = run.currentAge;
+        }
+
+        private void Awake()
+        {
+            if (bonusTextLabel == null) return;
+
+            bonusTextY = bonusTextLabel.rectTransform.anchoredPosition.y;
+            noBonusY = bonusValueLabel != null
+                ? Mathf.Floor((bonusValueLabel.rectTransform.anchoredPosition.y + bonusTextY) / 2f)
+                : bonusTextY;
         }
 
         private void Start()
@@ -86,16 +105,35 @@ namespace LittlePeeps
         }
 
         // The bonus reads "+10% ALL PRODUCTION" in the data and stands in two lines here, the amount over
-        // what it applies to. The Age I has no AgeDef (never bought), so it shows no bonus at all.
+        // what it applies to. An age without one — the Age I has no AgeDef at all (never bought) — says so in
+        // a single line between the two.
         private void RefreshAge()
         {
             AgeDef def = ageSystem != null ? ageSystem.DefOf(currentAge) : null;
-            string bonus = def != null ? def.BonusText.Trim() : string.Empty;
-            int space = bonus.IndexOf(' ');
+            string bonus = def != null && def.BonusText != null ? def.BonusText.Trim() : string.Empty;
 
             SetCentred(titleLabel, $"AGE {RomanNumeral.From(currentAge)}");
+
+            if (bonus.Length == 0)
+            {
+                SetCentred(bonusValueLabel, string.Empty);
+                SetCentred(bonusTextLabel, noBonusText);
+                SetRow(bonusTextLabel, noBonusY);
+                return;
+            }
+
+            int space = bonus.IndexOf(' ');
             SetCentred(bonusValueLabel, space < 0 ? bonus : bonus.Substring(0, space));
             SetCentred(bonusTextLabel, space < 0 ? string.Empty : bonus.Substring(space + 1).Trim());
+            SetRow(bonusTextLabel, bonusTextY);
+        }
+
+        private static void SetRow(TMP_Text label, float y)
+        {
+            if (label == null) return;
+
+            RectTransform box = label.rectTransform;
+            box.anchoredPosition = new Vector2(box.anchoredPosition.x, y);
         }
 
         private void RefreshButton()

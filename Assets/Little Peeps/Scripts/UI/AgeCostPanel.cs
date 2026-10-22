@@ -18,7 +18,7 @@ namespace LittlePeeps
 
         [Tooltip("Amount label colour while the player cannot pay that resource. The affordable colour " +
                  "is whatever the ResourceUnit prefab authors — nothing to keep in sync here.")]
-        [SerializeField] private Color unaffordableColor = new Color(0.85f, 0.25f, 0.25f);
+        [SerializeField] private Color unaffordableColor = new Color(0.6078f, 0.1294f, 0.1176f);
 
         [Tooltip("Switched off once the final age is reached and there is nothing left to buy. " +
                  "Leave empty to hide this object.")]

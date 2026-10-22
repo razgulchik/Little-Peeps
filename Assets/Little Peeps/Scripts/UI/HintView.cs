@@ -34,7 +34,7 @@ namespace LittlePeeps
         [SerializeField] private ResourceIconSet iconSet;
         [Tooltip("Amount colour for a price the player cannot pay yet. The affordable colour is whatever " +
                  "the ResourceUnit prefab authors.")]
-        [SerializeField] private Color unaffordableColor = new Color(0.85f, 0.25f, 0.25f);
+        [SerializeField] private Color unaffordableColor = new Color(0.6078f, 0.1294f, 0.1176f);
 
         [Header("Size and place")]
         [Tooltip("The window grows with its text up to this width (Canvas pixels); a longer text wraps.")]

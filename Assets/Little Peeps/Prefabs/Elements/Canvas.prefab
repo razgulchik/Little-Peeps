@@ -5364,7 +5364,7 @@ MonoBehaviour:
   footerText: {fileID: 4323172858549782854}
   costPrefab: {fileID: -4017216604878443824, guid: 5ca4d5e4bc8af2c498bf80bf89c4471d, type: 3}
   iconSet: {fileID: 11400000, guid: a8b6247b3cd9d1a58b1b4d63f81e733d, type: 2}
-  unaffordableColor: {r: 0.85, g: 0.25, b: 0.25, a: 1}
+  unaffordableColor: {r: 0.60784316, g: 0.12941177, b: 0.11764706, a: 1}
   maxWidth: 160
   gap: 10
   screenMargin: 2

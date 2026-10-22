@@ -42,4 +42,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 8261887ac55c41240aad2d4d70e8d06c, type: 2}
   - {fileID: 11400000, guid: 9c9c7bb17ada4a84b8604a90a36b0d33, type: 2}
   - {fileID: 11400000, guid: ec2daf0a90a93184eb2689edbfe27cb8, type: 2}
+  decorChance: 0.6
   invertCheckerboard: 1

@@ -29,7 +29,7 @@ MonoBehaviour:
       maxCount: 2
       weight: 3
       clustered: 1
-    - def: {fileID: 11400000, guid: f05811ed46b78cf44b71568a3f231b29, type: 2}
+    - def: {fileID: 11400000, guid: 38dd3e8dcf19226de235374c68f5224c, type: 2}
       chance: 0
       minCount: 0
       maxCount: 0

@@ -1044,7 +1044,7 @@ MonoBehaviour:
     visibleIn: 1
     followsBuildPanel: 1
   - group: {fileID: 818090564715122291}
-    visibleIn: 137
+    visibleIn: 129
     followsBuildPanel: 0
   - group: {fileID: 311156407917186901}
     visibleIn: 128
@@ -2516,7 +2516,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: fe4b23c5ebd87a14882f33db917cf165, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4dca8035314fda14a8cefa4d7d6db4a9, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2539,7 +2539,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Content: {fileID: 1824460855923752623}
-  m_Horizontal: 1
+  m_Horizontal: 0
   m_Vertical: 1
   m_MovementType: 1
   m_Elasticity: 0.1
@@ -3537,7 +3537,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 2bef030c0c9f44f4fa7ec11d51eb2df7, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 7babddad6516990448dbbd4ff40aa8f6, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6962,7 +6962,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 2bef030c0c9f44f4fa7ec11d51eb2df7, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 26b3955f984e50046b25353358fdafc2, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -7242,6 +7242,7 @@ MonoBehaviour:
   titleLabel: {fileID: 4745662260109457918}
   bonusValueLabel: {fileID: 7133530811084231457}
   bonusTextLabel: {fileID: 6808953645684558136}
+  noBonusText: NO BONUS
   nextAgeButton: {fileID: 5913191584800459565}
 --- !u!225 &3706059102129453132
 CanvasGroup:

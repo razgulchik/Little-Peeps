@@ -14,7 +14,11 @@
 > подношения и `OfferingPanel` больше нет: **2026-10-20**, сверено с `Canvas.prefab`. Большой ромб ленты уезжает с
 > руками, на стоянку приезжает маленький, раскладка ленты по UI03; кромка острова в два слоя (`TrimHorizontal` /
 > `TrimVertical`): **2026-10-22**, сверено со сценой и `Canvas.prefab`; в тот же день — полоса наползает на точки со
-> скоростью ленты, под стоянкой вторые точки `StandDots`, сверено с `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> скоростью ленты, под стоянкой вторые точки `StandDots`, сверено с `Canvas.prefab`; и панель эпохи одной панелью по
+> UI03 (рамка эпохи с бонусом или «NO BONUS», цены, кнопка Expand Island; кольцо вокруг иконки цены, которой не хватает;
+> вариант ResourceUnit для цены эпохи), сверено с `Canvas.prefab`. Своё окно конца цикла по макету Gods Blessing
+> (`Screens/OfferingWindow` вместо `ConfirmDialog`, кнопка кары удержанием, весь текст на целых пикселях —
+> `PixelSnapText`) и тень текста на панели эпохи пресетами шрифтов: **2026-10-23**, сверено с `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -86,24 +90,30 @@ SampleScene
 └── Canvas                      → префаб `Prefabs/Elements/Canvas`: Canvas + CanvasScaler + GraphicRaycaster
     │                             + **UIRoot** + **UIVisibility**. Порядок детей = порядок отрисовки: ниже = поверх
     ├── Hud                     → CanvasGroup                    ← весь игровой HUD одной группой
-    │   ├── AgePanel            → CanvasGroup + AgeAdvancePanel + Vertical Layout Group + Content Size Fitter
-    │   │   │                     ← левый верхний угол, ширина 81, высоту считает Fitter. Два нарезанных куска
-    │   │   │                       встык: Spacing −1, потому что строка шва нарисована на обоих. Размеры кускам
-    │   │   │                       задаёт раскладка (Control Child Size → Width и Height), руками их не трогать
-    │   │   ├── Timeline        → Image (panel_base_age_top, Sliced) + AgeTimelinePanel
-    │   │   │   │                 + LayoutElement (Preferred Height 43)                  (81×43)
-    │   │   │   └── Viewport    → RectMask2D
-    │   │   │       └── Content → Vertical Layout Group + Content Size Fitter
-    │   │   │                     (прижат к НИЗУ: карточки эр растут вверх, маска режет сверху)
-    │   │   └── Advance         → Image (panel_base_age_expand, Sliced) + Vertical Layout Group
-    │   │       │                 ← растёт по строкам цены: Padding 4/4/4/50 (снизу место под кнопку),
-    │   │       │                   Upper Center, Control Child Size W+H. Высота 54 + 14 × строк: 68 / 82 / 96
-    │   │       │                   при 1–3 строках; 54 на последней эре (Cost выключен) и в редакторе (Cost пуст)
-    │   │       ├── Cost        → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме; 2 колонки,
-    │   │       │                 ячейки 34×13 — свою высоту сетка считает сама)
-    │   │       └── AdvanceButton → Image + Button + LayoutElement (Ignore Layout)
-    │   │           │             (родные 69×43, по центру, 4 px от низа: прибита к низу Advance и едет с ним)
-    │   │           └── Label   → TMP_Text
+    │   ├── AgePanel            → Image (panel_base_age_expand, Sliced, Raycast ВКЛ) + CanvasGroup + AgeAdvancePanel
+    │   │   │                     + Vertical Layout Group + Content Size Fitter
+    │   │   │                     ← левый верхний угол (8, −10), ширина 79, высоту считает Fitter. Один спрайт на
+    │   │   │                       всю панель: нарезка сверху держит эпоху и разделитель, тянется низ. Padding
+    │   │   │                       0/0/45/49 (сверху рамка эпохи, снизу место под кнопку), Upper Center, Control
+    │   │   │                       Child Size W+H. Высота 93 + 14 × строк цены: 107 / 121 / 135 при 1–3 строках
+    │   │   │                       (121 — как на макете); 94 на последней эре (Cost выключен) и в редакторе (Cost пуст)
+    │   │   ├── Age             → Image (panel_age_actual, Sliced) + LayoutElement (Ignore Layout)
+    │   │   │   │                 (рамка эпохи 73×35 в (3, −3), вне раскладки)
+    │   │   │   ├── Title       → TMP_Text, m6x11plus 18, #C69F67     («AGE IV»; y −4, 73×22)
+    │   │   │   ├── BonusValue  → TMP_Text, Micro5 11, #E3CC81       («+10%»; y −19, 73×10)
+    │   │   │   └── BonusText   → TMP_Text, Micro5 11, #E3CC81       («ALL PRODUCTION» или «NO BONUS»; y −26, 73×10)
+    │   │   │                     у всех трёх материал — пресет с тенью (см. «Шрифты и тень текста»)
+    │   │   │                     все три Left + Baseline, без переноса, Raycast выкл.; x ставит скрипт — центрует
+    │   │   │                     по краям букв на целых пикселях. Размеры шрифтов не трогать: m6x11plus чёткий
+    │   │   │                     только в 18 (36), Micro5 — в 11 (22); в других размерах пиксель шрифта ложится
+    │   │   │                     между пикселями экрана и текст мылится
+    │   │   ├── Cost            → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме; 2 колонки,
+    │   │   │                     ячейки 34×13, Spacing 3×1, Padding 0 — свою высоту сетка считает сама)
+    │   │   └── AdvanceButton   → Image (bttn_age_expand) + Button + LayoutElement (Ignore Layout)
+    │   │       │                 (родные 69×43, по центру, 4 px от низа: прибита к низу AgePanel и едет с ним;
+    │   │       │                  от последней строки цены 2 px)
+    │   │       ├── Line1       → TMP_Text «EXPAND», m6x11plus 18 + пресет с тенью, #C69F67, Left + Baseline, (13, −7), 50×22
+    │   │       └── Line2       → TMP_Text «ISLAND», то же, (14, −21) — обе строки по центру кнопки по краям букв
     │   ├── SellButton          → Image + Button + CanvasGroup + SellButtonUI   (левый нижний угол (2, 17), 34×42)
     │   │   └── SelectedFrame   → Image                 (горит, пока в руке Sell)
     │   ├── BuildTabs           → Vertical Layout Group + Content Size Fitter + CanvasGroup + BuildTabBar
@@ -157,15 +167,47 @@ SampleScene
     │   │   └── Panel           → Image (затемнение — перехватывает ввод, это модальное окно)
     │   │       ├── TitleText   → TMP_Text
     │   │       └── CardColumn  → Vertical Layout Group         (перк-карточки в рантайме)
-    │   └── ZoneScreen          → CanvasGroup + ZoneSelectionUI
-    │       └── Panel           → Image (прозрачная, **Raycast Target ВЫКЛ** — иначе при выборе зоны нет зума)
-    │           └── CardRow     → Horizontal Layout Group       (зон-карточки в рантайме)
+    │   ├── ZoneScreen          → CanvasGroup + ZoneSelectionUI
+    │   │   └── Panel           → Image (прозрачная, **Raycast Target ВЫКЛ** — иначе при выборе зоны нет зума)
+    │   │       └── CardRow     → Horizontal Layout Group       (зон-карточки в рантайме)
+    │   └── OfferingWindow      → Image (чёрный α 0.7 — затемнение, глотает клики) + CanvasGroup + OfferingWindow
+    │       │                     ← окно конца цикла по макету `Sprites/UI/Offering Window/Gods Blessing.png`;
+    │       │                     растянут на весь Canvas; весь текст — m6x11plus, на каждой надписи PixelSnapText
+    │       └── Window          → только RectTransform: по центру, Pivot (0, 1), (−122, 155), 245×309 —
+    │           │                 ширина нечётная, позиция целая, так края окна на целых пикселях
+    │           ├── BaseLeft / BaseRight → Image (ui_window_demand_base_0 / _1, Sliced) (0, 0) 123×309 и (123, 0)
+    │           │                 122×309 — фон двумя половинами: у спрайта орнамент по центру сверху и снизу,
+    │           │                 тянуть можно только полосы по бокам от него, а у Sliced полоса одна
+    │           ├── DecorLeft   → Image (ui_window_demand_decor_01) (13, −9) 29×38
+    │           ├── DecorRight  → Image (ui_window_demand_decor_02) (205, −8) 24×39
+    │           ├── Title       → TMP_Text «Gods Demand / the Offering», m6x11plus **36** + пресет с тенью, #FFCB2D,
+    │           │                 Center + Top, Line Spacing −27.78 (шаг строки 26) — (0, −4), 245×64
+    │           ├── TextPanelLeft / TextPanelRight → Image (ui_window_demand_text_panel_0 / _1, Sliced)
+    │           │                 (4, −72) и (122, −72), по 118×109 — подложка под текст, тоже две половины
+    │           ├── Body        → TMP_Text m6x11plus 18, #6E5439, цветные слова тегами <color>, Center + Top,
+    │           │                 Line Spacing −16.67 (шаг 15), переносы строк как на макете — (4, −78), 236×90
+    │           ├── DemandShadow → Image без спрайта, #23282C (47, −240) 150×3 — тень под плашкой, как на макете
+    │           ├── Demand      → Image (offer_res_panel, Sliced) (47, −184) 150×57 — кремовая плашка квоты
+    │           │   ├── Header  → TMP_Text «Demanded Offering», m6x11plus 18, #6E5439 — (0, −2), 150×18
+    │           │   └── Costs   → только RectTransform (20, −22) 114×26 — ResourceUnit на ресурс квоты в рантайме,
+    │           │                 раскладывает код: ряды по 3 (34×13, зазор 6), каждый ряд по центру
+    │           ├── PayButton   → Image (bttn_pay_offering, Sliced, Raycast ВКЛ) + Button + CanvasGroup
+    │           │   │             (12, −248) 105×47; Button: Color Tint только на нажатие, Navigation None;
+    │           │   │             CanvasGroup гасит всю кнопку, пока запасов не хватает
+    │           │   ├── HandsLeft / HandsRight → Image (Timeline/time_icon_offering) (10, −10) и (86, −10), 9×7
+    │           │   └── Label   → TMP_Text «Pay / the Offering», m6x11plus 18 + тень, #DD8F2D, (0, −3) 105×34
+    │           └── WrathButton → Image (bttn_facethewrath, Sliced, Raycast ВКЛ) + HoldButton   (128, −248) 105×47
+    │               ├── Fill    → Image без спрайта, #721C26 α 0.6, (5, −5) 95×33 — заливка удержания (полная ширина;
+    │               │             в покое код сжимает её в ноль)
+    │               ├── SkullLeft / SkullRight → Image (icon_skulls) (10, −8) и (86, −8), 9×9
+    │               └── Label   → TMP_Text «Face / the Wrath», m6x11plus 18 + тень, #A9231C, (0, −3) 105×34
     ├── HintView                → Image + CanvasGroup + HintView + Vertical Layout Group   ← окно подсказок, кликов не ловит
     │   ├── TitleText, BodyText → TMP_Text
     │   ├── CostContainer       → Vertical Layout Group         (строки цены в рантайме)
     │   └── FooterText          → TMP_Text
     ├── ConfirmDialog           → вложенный префаб `Prefabs/Elements/ConfirmDialog`: CanvasGroup + ConfirmDialog
-    │                             (Backdrop, Panel с текстом и кнопками Yes / No)
+    │                             (Backdrop, Panel с текстом и кнопками Yes / No) — сейчас его никто не зовёт:
+    │                             конец цикла спрашивает через `OfferingWindow`; оставлен для простых да/нет
     ├── FPSmeter
     │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
     ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← экран после престижа (включён, как Screens)
@@ -284,15 +326,15 @@ SampleScene
 набор `UIServices` (`ResourceSystem`, `AgeSystem`, `OfferingSystem`, `RunManager`, `PlacementController`,
 `CameraController`, `ZonePreviewOverlay`), а `UIRoot.Initialize` находит под Канвасом каждый `IUIElement` —
 выключенные тоже — и отдаёт набор ему. Сейчас это `BuildPaletteUI`, `SellButtonUI`, `BuildPanelToggle`,
-`ResourcePanel`, `ZoneSelectionUI`, `AgeAdvancePanel`, `AgeCostPanel`, `AgeTimelinePanel`, `TimePanel`, `OfferingTooltip`,
-`PerkPanel`. Поэтому у экземпляра Канваса в сцене нет ни
+`ResourcePanel`, `ZoneSelectionUI`, `AgeAdvancePanel`, `AgeCostPanel`, `TimePanel`, `OfferingTooltip`,
+`PerkPanel`, `OfferingWindow`. Поэтому у экземпляра Канваса в сцене нет ни
 одного оверрайда со ссылкой на объект сцены — и появляться их не должно.
 
 Сам Canvas несёт две таблицы, и они отвечают на разные вопросы:
 
 | компонент | вопрос | что перечисляет |
 |---|---|---|
-| **UIRoot** | чем код **снаружи** UI управляет сам | 4 экрана + баннер эпохи (см. ниже) |
+| **UIRoot** | чем код **снаружи** UI управляет сам | 4 экрана (зона, перк, окно подношения, мета) + баннер эпохи (см. ниже) |
 | **UIVisibility** | кто **когда** виден | CanvasGroup'ы + маска режимов |
 
 Элемент, которому не нужно ни то ни другое, не попадает ни в одну (`BuildToggle`), а видимый
@@ -301,9 +343,9 @@ SampleScene
 
 | Объект | Компонент | Поле | Что назначить |
 |--------|-----------|------|---------------|
-| Canvas | **UIRoot** | **zoneScreen, perkScreen, confirmDialog, metaScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen`, `ConfirmDialog`, `MetaScreen` — их зовут гейплейные стейты |
+| Canvas | **UIRoot** | **zoneScreen, perkScreen, offeringWindow, metaScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen`, `Screens/OfferingWindow`, `MetaScreen` — их зовут гейплейные стейты. Без окна подношения конец цикла не может спросить, и забег не кончится никогда — ошибка на старте |
 | | | ageBanner, ageTitle | `AgeTransition` (CanvasGroup), `AgeTransition/BannerText` (TMP_Text) — баннер эпохи; бутстрап отдаёт их `AgeSequencer`. Пусто — предупреждение, эпохи сменяются без баннера |
-| Canvas | **UIVisibility** | groups | 8 строк, таблица ниже |
+| Canvas | **UIVisibility** | groups | 9 строк, таблица ниже |
 | Canvas/Hud/BuildToggle | BuildPanelToggle | button, label, hideLabel, showLabel | свой Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Хозяин «показана / спрятана»: клик и B переключают, X и 1–9 возвращают спрятанную панель, прятание кладёт инструмент из руки |
 | Canvas/Hud/BuildTabs | **BuildTabBar** | palette | `ScriptableObjects/BuildMode/Build Palette Def` — без него нет ни вкладок, ни карточек |
 | | | tabPrefab, container | префаб `Prefabs/Elements/BuildTabUi`; container пусто = сам `BuildTabs` (его Vertical Layout Group) |
@@ -320,20 +362,26 @@ SampleScene
 | Canvas/Hud/TimePanel/Tooltip | OfferingTooltip | header, costContainer, anchor | `Header`, `Costs` (её Grid Layout Group: Cell 34×13, Spacing 2×3, Fixed Column Count 2, Child Alignment Upper Center), `Offering/Icon` — куда смотрит хвостик |
 | | | costPrefab, iconSet, shortColor, highlight | `Prefabs/Elements/ResourceUnit`, ResourceIconSet, #9B211E — ресурса не хватает, #FFD663 — слово Offering |
 | | | offset | (−2, −8): правый верхний угол подсказки (с хвостиком) от правого нижнего угла рук. Vertical Layout Group на корне: Padding 5 / 6 / 8 / 3, Spacing 3, Control Child Size — ширина и высота, Force Expand — ширина; **Content Size Fitter не вешать** — размер считает скрипт |
-| Canvas/Hud/AgePanel | AgeAdvancePanel | ageLabel, nextAgeButton | TMP_Text, `Advance/AdvanceButton` |
-| Canvas/Hud/AgePanel/Advance/Cost | AgeCostPanel | unitPrefab, container, iconSet | ResourceUnit, себя (Grid Layout Group), ResourceIconSet |
-| | | unaffordableColor, visibilityRoot | цвет суммы, которую не хватает; что гасить после последней эпохи, когда покупать больше нечего |
-| Canvas/Hud/AgePanel/Timeline | AgeTimelinePanel | cardPrefab, container | префаб `Prefabs/Elements/AgeCard`, `Viewport/Content` |
+| Canvas/Hud/AgePanel | AgeAdvancePanel | titleLabel, bonusValueLabel, bonusTextLabel | `Age/Title`, `Age/BonusValue`, `Age/BonusText`. Бонус из данных («+10% ALL PRODUCTION») делится по первому пробелу: число — в первой строке, остальное — во второй |
+| | | noBonusText, nextAgeButton | «NO BONUS» — у эпохи без бонуса (Age I без AgeDef или пустой бонус в данных): одна строка посередине между строками бонуса, высоту скрипт берёт из их позиций в префабе; `AdvanceButton` |
+| Canvas/Hud/AgePanel/Cost | AgeCostPanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit Variant For Age` (не сам ResourceUnit — см. его раздел), себя (Grid Layout Group), ResourceIconSet |
+| | | unaffordableColor, visibilityRoot | #9B211E — сумма, которой не хватает (её иконку ещё и обводит кольцо); что гасить после последней эпохи, когда покупать больше нечего (пусто = сам Cost) |
 | Canvas/Screens/PerkScreen | PerkSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/PerkCardUI`, `Panel/CardColumn` |
 | Canvas/Screens/ZoneScreen | ZoneSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/ZoneCardUI`, `Panel/CardRow` |
 | | | focusOffsetY | 0.15 (дефолт) — насколько выше центра экрана встаёт зона под карточкой |
+| Canvas/Screens/OfferingWindow | **OfferingWindow** | **payButton, wrathButton** | `Window/PayButton` (его Button), `Window/WrathButton` (его HoldButton). Без любой из них окно не может спросить — `OfferingEndState` тогда не замораживает игру, а берёт что может |
+| | | payGroup, payDisabledAlpha | CanvasGroup на `PayButton` (необязательно), 0.5 — прозрачность всей кнопки, пока запасов не хватает (кнопка при этом и не нажимается) |
+| | | costArea, costPrefab, iconSet | `Window/Demand/Costs`, `Prefabs/Elements/ResourceUnit Variant For Offering` (светлая подложка, см. раздел ResourceUnit), ResourceIconSet |
+| | | perRow, spacing, shortColor | 3, (6, 0) — по сколько в ряд и зазоры; #9B211E — ресурса не хватает. Ячейку код берёт из размера корня префаба юнита (34×13) |
+| Canvas/Screens/OfferingWindow/Window/WrathButton | HoldButton | holdDuration, fill | 1 с удержания (0 = обычный клик на отпускании); `Fill` — его размер в префабе и есть полная заливка, якорь слева |
+| надписи окна | PixelSnapText | — | полей нет: ставит каждую строку TMP на целый пиксель (центр по краям букв, базовую линию от верхнего края). Рамка надписи должна стоять на целых пикселях, шрифт — в чётком размере |
 | Canvas/HintView | HintView | titleText, bodyText, costContainer, footerText | свои дети; секция с пустым содержимым прячется сама. Встаёт над элементом или слева от него — как попросит источник (`HintShowEvent.Side`; карточки стройки — сверху, ячейки перков — слева) |
-| | | costPrefab, iconSet, unaffordableColor | ResourceUnit, ResourceIconSet, красный — цена, которую не потянуть |
+| | | costPrefab, iconSet, unaffordableColor | ResourceUnit, ResourceIconSet, #9B211E — цена, которую не потянуть |
 | | | maxWidth, gap, screenMargin, showDelay, chainWindow | 160, 4, 2, 0.25 с, 0.3 с (дефолты): ширина до переноса, отступ от элемента и от края экрана, задержка появления, окно «перехода» между соседними элементами без задержки |
 | Canvas/MetaScreen | **MetaUpgradesUI** | rowPrefab, rowContainer | префаб `Prefabs/Elements/MetaUpgradeRow`, `Scroll View/Viewport/Content` |
 | | | pointsText, pointsFormat | `PointsText`, `Prestige points: {0}` |
 | | | **playButton** | `PlayButton` — следующий забег |
-| Canvas/ConfirmDialog | **ConfirmDialog** | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию. Сейчас это **окно конца цикла**: Yes = «Offer», No = «Accept wrath» (надписи задаёт код). Yes бывает серой (ресурсов не хватает) — у кнопки Yes должен быть вид «отключена» (Disabled Color или спрайт) |
+| Canvas/ConfirmDialog | ConfirmDialog | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию. Сейчас не вызывается: окно конца цикла — `Screens/OfferingWindow`. На `UIRoot` ссылки на него больше нет |
 
 #### Новый элемент Канваса, которому нужна система
 
@@ -346,6 +394,19 @@ SampleScene
 
 Заспавненное в рантайме (карточки, юниты ресурсов) `IUIElement` не реализует: нужное отдаёт тот, кто его создал.
 Поле на `UIRoot` нужно в обратном случае — когда игра сама управляет элементом снаружи (экран стейта, баннер).
+
+#### Шрифты и тень текста
+
+Пиксельный шрифт чёткий только в своих размерах: **m6x11plus — 18 и 36**, **Micro5 — 11 и 22**. В других пиксель
+шрифта ложится между пикселями экрана, и текст мылится. Даже в чётком размере строку TMP может сдвинуть на
+полпикселя центрирование — поэтому центрованные надписи ставит на целые пиксели код: `PixelSnapText` на надписи
+(окно подношения) или центровка в скрипте панели (`AgeAdvancePanel`, годы `TimePanel`).
+
+Тень — не отдельный объект, а материал-пресет шрифта с подложкой (Underlay) на 1 px вниз, цвет #2D2D2B:
+`Fonts/m6x11plus SDF - Shadow` и `Fonts/Micro5-Regular SDF - Shadow` (выбираются в TMP_Text → Material Preset).
+Сдвиг подогнан под 18 и 11 соответственно и растёт с размером шрифта: у заголовка окна подношения (36) тень
+2 px — один пиксель самого шрифта. В пресетах включён `RATIOS_OFF` — без него TMP пересчитывает сдвиг, и тень
+не доходит до целого пикселя. Пресет TMP находит по первому слову имени и тому же атласу — имена не менять.
 
 #### Таблица UIVisibility
 
@@ -367,14 +428,16 @@ SampleScene
 | 4 | `Hud/BuildPalette` | ✓ | — | — | — | — | — | ✓ |
 | 5 | `Hud/SellButton` | ✓ | — | — | — | — | — | ✓ |
 | 6 | `Hud/BuildTabs` | ✓ | — | — | — | — | — | ✓ |
-| 7 | `Hud/TimePanel` | ✓ | — | ✓ | — | — | ✓ | — |
+| 7 | `Hud/TimePanel` | ✓ | — | — | — | — | ✓ | — |
+| 8 | `Screens/OfferingWindow` | — | — | — | — | — | ✓ | — |
 
 Строка 0 читается как «только живая игра»: на выборе зоны и перка, подъёме острова, мета-экране и в окне конца
 цикла HUD скрыт целиком, панель эры и панель перков вместе с ним (своих строк у них нет). Поэтому смена цены и
 высоты блока эры игроку не видна: HUD возвращается уже с новыми ценами. Строки 4–6 — три виджета стройки всю
 живую игру, пока игрок их не спрятал. Строка 7 — лента времени: у её CanvasGroup включён **Ignore Parent Groups**,
-поэтому она не зависит от `Hud` и видна ещё на выборе перка и в окне конца цикла — ромб подношения стоит в кружке
-прямо под окном. **В окне конца цикла запасов не видно** — если их нужно видеть, отметить `OfferingEnd` у `Hud`.
+поэтому она не зависит от `Hud` и видна ещё в окне конца цикла — ромб подношения стоит в кружке над окном (на
+макете окна ленты нет — снять `OfferingEnd` в строке 7, если её там не нужно). Строка 8 — окно подношения, только
+в своём режиме. **В окне конца цикла запасов не видно** — если их нужно видеть, отметить `OfferingEnd` у `Hud`.
 Биты бывших режимов `Build` (`1 << 1`) и `PrestigeConfirm` (`1 << 5`) в коде оставлены пустыми, поэтому
 маски, сохранённые с ними, читаются как раньше.
 
@@ -611,15 +674,29 @@ Root → Button + BuildTabUI + Image (прозрачная)   (79×18; обла�
 visual, slideOffset (4 px), slideDuration (0.1 с), slideEase (OutQuad). Подпись и иконка необязательны:
 что назначено, то и показывается.
 
-### ResourceUnit (иконка + число; инстанцируют ResourcePanel, AgeCostPanel и HintView в рантайме)
+### ResourceUnit (иконка + число; инстанцируют ResourcePanel, AgeCostPanel, HintView и OfferingTooltip в рантайме)
 ```
 Root          → ResourceUnit + LayoutElement (Preferred 34×13)   (своей раскладки нет — дети на якорях)
 ├── Backing   → Image (base_numbers, Sliced)   (подложка под числом: от x=6 до правого края, высота 8,
 │   │                                           по центру иконки; левый край уходит ПОД иконку)
-│   └── Label → TMP_Text                       (справа от иконки до конца подложки, по центру, без переноса)
-└── Icon      → Image 13×13                    (последним: рисуется поверх подложки)
+│   └── Label → TMP_Text, #BE9F85              (справа от иконки до конца подложки, по центру, без переноса)
+├── Ring      → Image (материал M_UI_IconRing, #9B211E, Raycast выкл., **компонент выключен**)
+│                                              (15×15 в (−1, 1) — на пиксель шире иконки со всех сторон)
+└── Icon      → Image 13×13                    (последним: рисуется поверх подложки и кольца)
 ```
-Поля `ResourceUnit`: icon → `Icon`, label → `Label`. Порядок детей значим: подложка рисуется раньше иконки.
+Поля `ResourceUnit`: icon → `Icon`, label → `Label`, ring → `Ring` (необязательно). Порядок детей значим: подложка
+рисуется раньше иконки, кольцо — над подложкой. Кольцо — обводка в пиксель по силуэту иконки (шейдер
+`Little Peeps/UI Icon Ring` красит прозрачные пиксели, которые касаются иконки сбоку или углом), цвет — у самого
+Image. Спрайт кольцо берёт иконкин (`Bind`), включает его только тот, кто попросит (`ShowRing`): сейчас это цена
+эпохи — в подсказке подношения и в хинте нехватку показывает только красное число. Шейдер ждёт, что спрайт иконки
+занимает свою текстуру целиком (одиночный спрайт, не в атласе) — так у иконок ресурсов и есть.
+
+**ResourceUnit Variant For Age** — вариант для цены эпохи (его берёт только `AgeCostPanel`): у `Label` Left 9 вместо 8,
+у `Backing` Right −1 вместо 0. Цифры начинаются и подложка кончается на пиксель правее — как в панели эпохи на
+макете: между кольцом и первой цифрой остаётся пустой столбец. Остальное — от ResourceUnit.
+**ResourceUnit Variant For Offering** — вариант для квоты в окне подношения (его берёт только `OfferingWindow`):
+светлая подложка на кремовой плашке, как на макете — у `Backing` спрайта нет (Image без спрайта рисует ровный
+прямоугольник цвета), цвет #B4B29E; у `Label` цвет #292D2E. Красный нехватки (#9B211E) кладёт поверх код.
 Размер ячейки задаёт родитель: Grid Layout Group у ResourceBar и Cost (Cell Size 34×13) берёт свой Cell Size, а
 Layout Group, которая управляет размером детей (CostContainer в HintView), берёт Preferred из LayoutElement —
 без него ячейка там схлопнется в 0×0. Один префаб и для запасов, и для цены: цифры читаются одинаково.
@@ -764,15 +841,17 @@ Script Execution Order настраивать **не нужно** (это кос
 4. Панель стройки внизу открыта всё время, игра под ней идёт: карточка в руке → сетка пятном у курсора и гост,
    клик ставит стройплощадку, которая становится зданием, когда с места все уйдут; Sell продаёт; ПКМ — пустая рука,
    клик снова тап. B прячет / показывает панель.
-5. **Next Age** (`AgeAdvancePanel`) активна, когда хватает ресурсов: клик → выбор зоны → зона поднимается из моря →
+5. **Expand Island** (`AgeAdvancePanel`) активна, когда хватает ресурсов: клик → выбор зоны → зона поднимается из моря →
    баннер «Age N» → снова игра (перка за эпоху нет). Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
 6. **Цикл подношений** идёт с первой секунды: лента сверху ползёт к кружку, под засечками годы с начала забега (1, 2,
-   3, 4 …); на любом экране поверх игры часы и лента стоят. Как только видна цифра года перед подношением, точки
-   перед большим ромбом становятся линией. Когда до подношения остаётся ≈4,5 года, большой ромб справа уезжает вместе
+   3, 4 …); на любом экране поверх игры часы и лента стоят. Перед отъездом большого ромба полоса наползает на точки
+   ему навстречу со скоростью ленты. Когда до подношения остаётся ≈4,5 года, большой ромб справа уезжает вместе
    с руками, а на его место из-за края приезжает маленький. Курсор на ленте → подсказка «N years until Offering»
    и квота (красным — чего не хватает).
-7. Ромб дошёл до кружка → пауза и окно «Cycle N is over…»: **Offer** (серая, если не хватает) → выбор перка (в особом
-   цикле — особые перки) и следующий цикл, на стоянке снова большой ромб с руками; **Accept wrath** → очки престижа → мета-экран (тратим очки на мета-перки) →
+7. Ромб дошёл до кружка → пауза, затемнение и окно «Gods Demand the Offering» с квотой (красным — чего не хватает):
+   **Pay the Offering** (бледная и не жмётся, если не хватает) → выбор перка (в особом цикле — особые перки) и
+   следующий цикл, на стоянке снова большой ромб с руками; **Face the Wrath** — держать секунду, заливка тёмно-красным
+   растёт слева направо (отпустил или увёл курсор — сброс) → очки престижа → мета-экран (тратим очки на мета-перки) →
    **Play** → новый забег с цикла 1 и года 1; камера снова в центре острова.
 
 ## Project settings — важное (не в сцене, но влияет)

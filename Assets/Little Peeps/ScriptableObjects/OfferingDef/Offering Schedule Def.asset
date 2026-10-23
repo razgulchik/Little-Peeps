@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   segmentSeconds: 10
   cycles:
-  - segments: 10
+  - segments: 1
     resources:
     - resourceType: 1
-      amount: 10
+      amount: 1
   - segments: 10
     resources:
     - resourceType: 1

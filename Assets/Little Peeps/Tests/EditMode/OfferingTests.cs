@@ -148,32 +148,6 @@ namespace LittlePeeps.Tests
         }
     }
 
-    // The end-of-cycle window's words. Pure strings, so they run offline too.
-    public class OfferingQuestionTests
-    {
-        private static readonly List<ResourceCost> Quota = new()
-        {
-            new ResourceCost { resourceType = ResourceType.Wood, amount = 40 },
-            new ResourceCost { resourceType = ResourceType.Food, amount = 20 },
-        };
-
-        [Test]
-        public void Question_NamesTheCycleAndTheQuota()
-        {
-            string q = OfferingEndState.Question(3, Quota, true);
-            Assert.That(q, Does.Contain("Cycle 3"));
-            Assert.That(q, Does.Contain("40 Wood"));
-            Assert.That(q, Does.Contain("20 Food"));
-        }
-
-        [Test]
-        public void Question_SaysSoWhenTheStockCannotPay()
-        {
-            Assert.That(OfferingEndState.Question(1, Quota, false), Does.Contain("enough"));
-            Assert.That(OfferingEndState.Question(1, Quota, true), Does.Not.Contain("enough"));
-        }
-    }
-
     // The end-of-cycle window freezes the game and waits, so a path that reaches it with no way to answer
     // is a softlock — and one that ends the run unasked is worse. Only the refusal paths are pinned, for
     // PerkSelectionStateTests' reason: the rest hangs off RunManager.CurrentRun, which only StartNewRun fills.

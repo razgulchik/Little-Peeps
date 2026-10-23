@@ -27,9 +27,9 @@ namespace LittlePeeps
         [SerializeField] private ZoneSelectionUI zoneScreen;
         [SerializeField] private PerkSelectionUI perkScreen;
 
-        [Tooltip("The one yes/no question for the whole game. OfferingEndState asks it at the end of a cycle: " +
-                 "offer, or accept the gods' wrath.")]
-        [SerializeField] private ConfirmDialog confirmDialog;
+        [Tooltip("The end of an offering cycle: OfferingEndState asks through it — pay the offering, or face " +
+                 "the gods' wrath.")]
+        [SerializeField] private OfferingWindow offeringWindow;
 
         [Tooltip("The screen after a prestige, where points are spent on meta perks before the next run.")]
         [SerializeField] private MetaUpgradesUI metaScreen;
@@ -43,7 +43,7 @@ namespace LittlePeeps
 
         public ZoneSelectionUI ZoneScreen => zoneScreen;
         public PerkSelectionUI PerkScreen => perkScreen;
-        public ConfirmDialog ConfirmDialog => confirmDialog;
+        public OfferingWindow OfferingWindow => offeringWindow;
         public MetaUpgradesUI MetaScreen => metaScreen;
         public CanvasGroup AgeBanner => ageBanner;
         public TMP_Text AgeTitle => ageTitle;
@@ -67,8 +67,8 @@ namespace LittlePeeps
 
             // Loud too: without it the end of a cycle cannot ask, so the gods take what they can and the run
             // never ends — a run is never ended without asking.
-            if (confirmDialog == null)
-                Debug.LogError("[UIRoot] Confirm Dialog is not assigned — the end of an offering cycle cannot " +
+            if (offeringWindow == null)
+                Debug.LogError("[UIRoot] Offering Window is not assigned — the end of an offering cycle cannot " +
                                "ask, so no run can ever end.", this);
 
             if (metaScreen == null)

@@ -7,11 +7,13 @@ namespace LittlePeeps
 {
     // A yes/no question over whatever is on screen. ONE instance on the Canvas, reused by every caller:
     // the caller brings the words and what each answer does, the dialog brings the look and the clicks.
-    // A confirmation that needs content of its own (icons, a breakdown of points) is a screen, not this.
+    // A confirmation that needs content of its own (icons, a breakdown of points) is a screen, not this —
+    // which is why the end of an offering cycle, its first caller, moved to OfferingWindow. No caller now;
+    // kept for the next plain yes/no question.
     //
     // It deliberately does not pause the game and does not know what it is asking about. Pausing is the
-    // caller's call — OfferingEndState freezes the run around its question, a question asked in build
-    // mode would have nothing to freeze — and that ignorance is what lets one prefab serve every question.
+    // caller's call — a state may freeze the run around its question, a question asked during play has
+    // nothing to freeze — and that ignorance is what lets one prefab serve every question.
     //
     // Its visibility is its own and NOT a row in UIVisibility: a question can come up over any mode, so
     // "is it on screen" means "is a question pending", which no mode can say. The object must stay ACTIVE
@@ -66,8 +68,8 @@ namespace LittlePeeps
         }
 
         // Wiring tripwire, in Start so every Awake has had its chance first. A dialog that cannot show its
-        // question or take an answer would leave whoever asked waiting — OfferingEndState with the game
-        // frozen under it.
+        // question or take an answer would leave whoever asked waiting — perhaps with the game frozen
+        // under it.
         private void Start()
         {
             if (messageText == null || yesButton == null || noButton == null)

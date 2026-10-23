@@ -124,7 +124,7 @@ namespace LittlePeeps
 
             PerkSelectionUI perkScreen = uiRoot != null ? uiRoot.PerkScreen : null;
             ZoneSelectionUI zoneScreen = uiRoot != null ? uiRoot.ZoneScreen : null;
-            ConfirmDialog confirmDialog = uiRoot != null ? uiRoot.ConfirmDialog : null;
+            OfferingWindow offeringWindow = uiRoot != null ? uiRoot.OfferingWindow : null;
             MetaUpgradesUI metaScreen = uiRoot != null ? uiRoot.MetaScreen : null;
 
             // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
@@ -145,7 +145,7 @@ namespace LittlePeeps
             var metaUpgradesState = new MetaUpgradesState(gameplayFsm, prestigeSystem, runManager, metaScreen,
                                                           playingState);
             var offeringEndState = new OfferingEndState(gameplayFsm, offeringSystem, prestigeSystem, runManager,
-                                                        confirmDialog, playingState, perkSelectionState,
+                                                        offeringWindow, playingState, perkSelectionState,
                                                         metaUpgradesState);
             appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState,
                                                                    perkSelectionState, ageSystem, ageSequencer, resourceSystem,

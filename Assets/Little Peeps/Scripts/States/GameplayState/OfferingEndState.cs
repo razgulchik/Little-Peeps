@@ -1,13 +1,12 @@
-using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 
 namespace LittlePeeps
 {
-    // The end of an offering cycle: the game stops and asks. Two answers —
-    // Offer (only when the stock covers the quota) pays it and opens the perk pick; Accept wrath (always)
-    // ends the run: it is cashed in and the meta screen follows, as after any prestige. Wrath is the
-    // player's to accept even with a full stock, so this is also the way to end a run on purpose.
+    // The end of an offering cycle: the game stops and asks, through the OfferingWindow. Two answers —
+    // Pay the Offering (only when the stock covers the quota) pays it and opens the perk pick; Face the
+    // Wrath (always) ends the run: it is cashed in and the meta screen follows, as after any prestige.
+    // Wrath is the player's to accept even with a full stock, so this is also the way to end a run on
+    // purpose.
     //
     // Entered by GameplayContainerState from normal play when the cycle's clock runs out — the only place
     // an offering is paid.
@@ -19,7 +18,7 @@ namespace LittlePeeps
         private readonly StateMachine gameplayFsm;
         private readonly OfferingSystem offerings;
         private readonly PrestigeSystem prestigeSystem;
-        private readonly ConfirmDialog dialog;
+        private readonly OfferingWindow window;
         private readonly PlayingState playingState;
         private readonly PerkSelectionState perkSelection;
         private readonly MetaUpgradesState metaUpgrades;
@@ -32,14 +31,14 @@ namespace LittlePeeps
         private IState leaveTo;
 
         public OfferingEndState(StateMachine gameplayFsm, OfferingSystem offerings, PrestigeSystem prestigeSystem,
-                                RunManager runManager, ConfirmDialog dialog, PlayingState playingState,
+                                RunManager runManager, OfferingWindow window, PlayingState playingState,
                                 PerkSelectionState perkSelection, MetaUpgradesState metaUpgrades)
         {
             this.gameplayFsm = gameplayFsm;
             this.offerings = offerings;
             this.prestigeSystem = prestigeSystem;
             this.runManager = runManager;
-            this.dialog = dialog;
+            this.window = window;
             this.playingState = playingState;
             this.perkSelection = perkSelection;
             this.metaUpgrades = metaUpgrades;
@@ -61,12 +60,11 @@ namespace LittlePeeps
             // No window, no question — and a run is never ended unasked: it is the one thing the player cannot
             // take back. So without one the gods take what they can: paid if the stock covers it, forgiven if
             // not. Loud, because it is a wiring mistake, not a situation.
-            if (dialog == null || !dialog.Show(Question(offerings.Cycle, offerings.Quota, canOffer),
-                                               OnOffer, OnWrath, "Offer", "Accept wrath", canOffer))
+            if (window == null || !window.Show(offerings.Quota, canOffer, OnOffer, OnWrath))
             {
-                if (dialog == null)
-                    Debug.LogError("OfferingEndState has no ConfirmDialog — the cycle ends without asking and " +
-                                   "the run goes on. Assign Confirm Dialog on the Canvas's UIRoot.");
+                if (window == null)
+                    Debug.LogError("OfferingEndState has no OfferingWindow — the cycle ends without asking and " +
+                                   "the run goes on. Assign Offering Window on the Canvas's UIRoot.");
                 leaveTo = PayOrForgive();
                 return;
             }
@@ -80,8 +78,9 @@ namespace LittlePeeps
         public void Exit()
         {
             // Whichever way the state is left, the question goes with it — a late click must not reach a
-            // state that is no longer current. Harmless after an answer: the dialog is already closed.
-            if (dialog != null) dialog.Hide();
+            // state that is no longer current. Harmless after an answer: the window is already closed. The
+            // window itself is hidden by the next state's mode.
+            if (window != null) window.Hide();
 
             // Unconditional, like the other freezing states.
             Time.timeScale = 1f;
@@ -92,25 +91,10 @@ namespace LittlePeeps
             if (leaveTo != null) gameplayFsm.ChangeState(leaveTo);
         }
 
-        // The window's words: which cycle ended and what the gods want, and plainly whether the stock can
-        // pay it. Public and static so the wording is pinned without a scene.
-        public static string Question(int cycle, IReadOnlyList<ResourceCost> quota, bool canOffer)
-        {
-            var sb = new StringBuilder();
-            sb.Append("Cycle ").Append(cycle).Append(" is over.\nThe gods want ");
-            for (int i = 0; i < quota.Count; i++)
-            {
-                if (i > 0) sb.Append(", ");
-                sb.Append(Mathf.CeilToInt(quota[i].amount)).Append(' ').Append(quota[i].resourceType);
-            }
-            sb.Append(canOffer ? "." : ".\nYou don't have enough.");
-            return sb.ToString();
-        }
-
         // Offer: pay, then the next cycle, then the perk the offering earned — from the pool of the cycle
         // that was PAID, so its grade is read before the cycle turns. The next cycle starts BEFORE the pick,
         // so the clock is already the new one's when play resumes. A payment refused here cannot happen
-        // (Offer is greyed out unless the stock covers it, and the game has been frozen since); if it ever
+        // (Pay is greyed out unless the stock covers it, and the game has been frozen since); if it ever
         // did, back to play with the cycle still over — the container asks again on its next Tick.
         private void OnOffer()
         {

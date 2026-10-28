@@ -28,4 +28,4 @@ MonoBehaviour:
   depletion: 0
   hitsToDeplete: 1
   regrowTime: 30
-  keepBodyWhileDepleted: 0
+  keepBodyWhileDepleted: 1

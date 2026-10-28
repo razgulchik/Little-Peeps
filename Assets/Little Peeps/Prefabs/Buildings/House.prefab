@@ -313,6 +313,9 @@ MonoBehaviour:
     m_RotationOrder: 4
   widthFollows: 1
   squashDuration: 0.2
+  waves: 1
+  blockedSquash: 0.5
+  uselessSquash: 0.35
   minInterval: 0.15
 --- !u!1 &3660868618199599061
 GameObject:

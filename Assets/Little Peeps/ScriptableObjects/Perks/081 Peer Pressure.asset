@@ -15,8 +15,10 @@ MonoBehaviour:
   id: peer_pressure_lvl_1
   title: Peer Pressure lvl 1
   description: +0.2 TAP RADIUS
-  icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
-  weight: 100
+  icon: {fileID: 21300000, guid: b1f9512e006b81149b66acab48c35e2d, type: 3}
+  grade: 0
+  rarity: 1
+  weight: 1
   minAge: 0
   requires: {fileID: 0}
   modifiers:

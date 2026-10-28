@@ -301,7 +301,7 @@ MonoBehaviour:
   coinSource: {fileID: 11400000, guid: cc0ba8f5393f5f94184bcb0e08035617, type: 2}
   fxAnchor: {fileID: 6218793812256843068}
   drunkDuration: 10
-  drunkSpeedMultiplier: 0.85
+  drunkSpeedMultiplier: 0.6
   releaseGap: 0.1
   releaseJitterDegrees: 12
   autopilot: 1

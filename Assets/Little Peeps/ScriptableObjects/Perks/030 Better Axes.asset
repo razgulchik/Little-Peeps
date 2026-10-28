@@ -15,8 +15,9 @@ MonoBehaviour:
   id: better_axes
   title: Better Axes
   description: +100% WOOD
-  icon: {fileID: 21300000, guid: 2d26c400e5623bf4c81189df6b9911ee, type: 3}
+  icon: {fileID: 21300000, guid: 6c363b886dd66fd4ebe90d12b3ce2991, type: 3}
   grade: 0
+  rarity: 1
   weight: 1
   minAge: 0
   requires: {fileID: 0}

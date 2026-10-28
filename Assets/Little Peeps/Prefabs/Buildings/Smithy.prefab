@@ -409,7 +409,7 @@ Transform:
   m_Children:
   - {fileID: 4840215506709025147}
   - {fileID: 2591294782569688436}
-  m_Father: {fileID: 5378558355796777515}
+  m_Father: {fileID: 7334775659915286873}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4099877344906552177
 GameObject:
@@ -599,6 +599,7 @@ GameObject:
   - component: {fileID: 4224157785750937982}
   - component: {fileID: 924163572890424882}
   - component: {fileID: 5048821319037612963}
+  - component: {fileID: -640800865841665020}
   m_Layer: 0
   m_Name: Smithy
   m_TagString: Untagged
@@ -620,6 +621,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5378558355796777515}
+  - {fileID: 8135140974681441538}
   - {fileID: 692371220754233493}
   - {fileID: 7450329643176518056}
   m_Father: {fileID: 0}
@@ -663,6 +665,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58ec610a4c2e2bb4085258c454557616, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 7d4b6b31160de7d4cae6cbdfc4fd8856, type: 2}
 --- !u!114 &4224157785750937982
 MonoBehaviour:
@@ -788,6 +791,55 @@ MonoBehaviour:
     m_RotationOrder: 4
   sparks: {fileID: 6018754256048595197}
   sparksPerHit: 6
+--- !u!114 &-640800865841665020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7501885316365535831}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a85ba6bef8242fc4c9f31af72c948dfa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  squashTarget: {fileID: 5378558355796777515}
+  squashHeight:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.94
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.35
+      value: 1.03
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  widthFollows: 1
+  squashDuration: 0.2
+  minInterval: 0.15
 --- !u!1 &8174730359364412869
 GameObject:
   m_ObjectHideFlags: 0
@@ -849,7 +901,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2426410886746007876}
-  - {fileID: 8135140974681441538}
   - {fileID: 4058438610703662143}
   - {fileID: 8499655863429487855}
   - {fileID: 8914007332985829798}

@@ -58,6 +58,17 @@ namespace LittlePeeps
             emitter.Emit(count);
         }
 
+        // The same, with every particle of this emission turned `rotation` degrees — an effect drawn for one
+        // direction and turned per use (the bump wave). Particle rotation runs CLOCKWISE, the opposite of a
+        // Transform's Z. Rotation is the only thing overridden: the position is still the emitter's, so the
+        // Shape module and every other setting of the prefab apply as above.
+        public static void EmitAt(ParticleSystem emitter, Vector3 position, int count, float rotation)
+        {
+            if (emitter == null || count <= 0) return;
+            emitter.transform.position = position;
+            emitter.Emit(new ParticleSystem.EmitParams { rotation = rotation }, count);
+        }
+
         private static bool Validate(ParticleSystem prefab, ParticleSystem fx, string label, string countSetting, bool pausedPlay)
         {
             var main = fx.main;

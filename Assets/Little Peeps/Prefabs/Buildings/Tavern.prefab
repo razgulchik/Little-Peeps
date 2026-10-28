@@ -217,6 +217,7 @@ GameObject:
   - component: {fileID: 3442869824636118119}
   - component: {fileID: 3357912009212520022}
   - component: {fileID: 4312878979005921452}
+  - component: {fileID: -1299089377883837941}
   m_Layer: 0
   m_Name: Tavern
   m_TagString: Untagged
@@ -281,6 +282,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58ec610a4c2e2bb4085258c454557616, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
 --- !u!114 &4312878979005921452
 MonoBehaviour:
@@ -296,7 +298,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   capacity: 5
   stayDuration: 5
-  payout: 1
   coinSource: {fileID: 11400000, guid: cc0ba8f5393f5f94184bcb0e08035617, type: 2}
   fxAnchor: {fileID: 6218793812256843068}
   drunkDuration: 10
@@ -306,6 +307,55 @@ MonoBehaviour:
   autopilot: 1
   enterSound: {fileID: 11400000, guid: 7fb97fd2e6a4482db78fc02ce9ca86e1, type: 2}
   exitSound: {fileID: 11400000, guid: a577be8e35a041749d0365a60ec8ec70, type: 2}
+--- !u!114 &-1299089377883837941
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2603376487552531715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a85ba6bef8242fc4c9f31af72c948dfa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  squashTarget: {fileID: 3717784755494331762}
+  squashHeight:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.94
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.35
+      value: 1.03
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  widthFollows: 1
+  squashDuration: 0.2
+  minInterval: 0.15
 --- !u!1 &3660868618199599061
 GameObject:
   m_ObjectHideFlags: 0

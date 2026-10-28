@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4475399193972936943}
   - component: {fileID: 341156709457610043}
   - component: {fileID: 4314701166638441387}
+  - component: {fileID: 3586528354513735923}
   m_Layer: 0
   m_Name: Rack_lumberjack
   m_TagString: Untagged
@@ -436,3 +437,23 @@ Transform:
   - {fileID: 3525689260355347565}
   m_Father: {fileID: 624315485844873439}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3586528354513735923
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 831909280926080680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb9c93e3f5bf4f20aa40ae5ec9d85082, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  leanTarget: {fileID: 3936104942616605764}
+  maxTilt: 8
+  maxStretch: 0.06
+  squatOnly: 0
+  frequency: 3
+  damping: 0.3
+  blockedLean: 0.6
+  uselessLean: 0.6

@@ -830,6 +830,7 @@ GameObject:
   - component: {fileID: 236949920}
   - component: {fileID: 236949919}
   - component: {fileID: 236949918}
+  - component: {fileID: 1919184281}
   m_Layer: 0
   m_Name: Ground
   m_TagString: Untagged
@@ -3163,6 +3164,7 @@ Transform:
   - {fileID: 274669771}
   - {fileID: 1485223155}
   - {fileID: 1290306031}
+  - {fileID: 2130608358}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1015335230
@@ -33435,6 +33437,75 @@ MonoBehaviour:
     coefficient: 0
     exponent: 0.5
   upgrades: {fileID: 11400000, guid: 52944b4d8af824b4cacc77647a46758f, type: 2}
+--- !u!1 &2130608357
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2130608358}
+  - component: {fileID: 2130608359}
+  m_Layer: 0
+  m_Name: BumpVfxSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2130608358
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2130608357}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1009994986}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2130608359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2130608357}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44381f776c697cd48b231b40e5f8302d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  usefulWave: {fileID: 8980289643981497851, guid: cfccbbbf2f1c4002860463541336147b, type: 3}
+  blockedWave: {fileID: 8980289643981497851, guid: b66f27aeff85e654fa2a01cf73699a7d, type: 3}
+  uselessWave: {fileID: 0}
+  coastRipple: {fileID: 8980289643981497851, guid: b853341152574dae9e0cb6968021068d, type: 3}
+  viewCamera: {fileID: 0}
+  offscreenMargin: 0.1
+  pixelsPerUnit: 16
+--- !u!114 &1919184281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236949914}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbda7edf9e234c089580eb831fa20510, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  southOutline: 4
+  sideOutline: 1
+  northOutline: 0
+  pixelsPerUnit: 16
+  minDistance: 0.75
+  minInterval: 0.25
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

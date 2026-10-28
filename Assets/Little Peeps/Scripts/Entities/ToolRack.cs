@@ -48,18 +48,23 @@ namespace LittlePeeps
             ApplyStateVisual();
         }
 
+        // ICollisionEffect — whom a rack is for: whoever may take a tool, an Unassigned worker, the stand full
+        // or empty. So an empty stand refuses one (Blocked); an equipped worker never takes one (Useless).
+        public bool Serves(Unit unit) => unit != null && unit.Type == UnitType.Unassigned;
+
         // ICollisionEffect — a WORKING unit crossed the rack (a tired one never gets here; it is on
         // its way home and CollisionTarget stops it before the effects). Only an Unassigned worker
         // takes the tool: one tool per outing, and an equipped worker passes every other rack without
         // taking or swapping. An empty stand is no effect at all — the unit just walks through.
-        public void OnHit(Unit unit, CollisionTarget target)
+        public HitOutcome OnHit(Unit unit, CollisionTarget target)
         {
-            if (Holder != null || profession == null || unit == null) return;
-            if (unit.Type != UnitType.Unassigned) return;
+            if (Holder != null || profession == null || unit == null) return HitOutcome.None;
+            if (unit.Type != UnitType.Unassigned) return HitOutcome.None;
 
             Holder = unit;
             unit.Equip(profession, this);
             ApplyStateVisual();
+            return HitOutcome.Worked;
         }
 
         // The tool comes home — called by Unit.Unequip, the one return path. Only the holder can

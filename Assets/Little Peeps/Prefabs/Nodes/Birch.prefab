@@ -8,6 +8,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 516542361290453558, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.125
+      objectReference: {fileID: 0}
+    - target: {fileID: 516542361290453558, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.875
+      objectReference: {fileID: 0}
     - target: {fileID: 1346494078730204555, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
       propertyPath: m_Name
       value: Birch
@@ -20,6 +28,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 41f867ba6421de94ead662ec7b87ad94, type: 3}
+    - target: {fileID: 3209520274984462309, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.375
+      objectReference: {fileID: 0}
     - target: {fileID: 3386386342387541676, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
       propertyPath: m_Name
       value: Tree_Birch
@@ -31,6 +43,10 @@ PrefabInstance:
     - target: {fileID: 4148876988465624626, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
       propertyPath: m_IsActive
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4397935584344865524, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.125
       objectReference: {fileID: 0}
     - target: {fileID: 5286831532999077229, guid: cca6c60d938b225499c00483dace1e6e, type: 3}
       propertyPath: def

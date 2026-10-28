@@ -11,8 +11,14 @@ namespace LittlePeeps
     // TryEnter decides and takes the unit in one step, like IHitGate.TryConsume: true = the unit is off the
     // field by the time it returns. A refusal is a plain bounce. Implemented by Spawner (the house) and
     // Tavern.
+    //
+    // Serves is the door rule's WHO without its WHETHER, for the hit's verdict (CollisionTarget.Resolve): a
+    // house is for the tired and the drunk, full or not; a tavern for every worker it lists, drunk or sober,
+    // a seat free or not. Refused by a building that is for it, a unit's hit reads Blocked; by one that
+    // never is, Useless.
     public interface IEntrance
     {
+        bool Serves(Unit unit);
         bool TryEnter(Unit unit);
     }
 }

@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 8981859993466142291}
   - component: {fileID: 3817901228356043415}
   - component: {fileID: 8288233495915602467}
+  - component: {fileID: 8917266979846417742}
   m_Layer: 0
   m_Name: RicePaddy
   m_TagString: Untagged
@@ -78,6 +79,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58ec610a4c2e2bb4085258c454557616, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 93d7be75fac17d04faacfe380f522199, type: 2}
 --- !u!114 &8981859993466142291
 MonoBehaviour:
@@ -172,6 +174,55 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   swapAt: 0.6
+--- !u!114 &8917266979846417742
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 831909280926080680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a85ba6bef8242fc4c9f31af72c948dfa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  squashTarget: {fileID: 0}
+  squashHeight:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.94
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.35
+      value: 1.03
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  widthFollows: 1
+  squashDuration: 0.2
+  minInterval: 0.15
 --- !u!1 &2004390709917734993
 GameObject:
   m_ObjectHideFlags: 0

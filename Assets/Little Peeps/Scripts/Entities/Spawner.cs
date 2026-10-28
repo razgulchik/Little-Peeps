@@ -216,6 +216,10 @@ namespace LittlePeeps
             }
         }
 
+        // IEntrance — whom the house is for: a tired unit, a drunk one or both, a slot free or not (TryEnter
+        // adds the slot). So a tired unit at a full house reads Blocked, a working sober one Useless.
+        public bool Serves(Unit unit) => unit != null && (unit.IsTired || unit.IsDrunk);
+
         // IEntrance — CollisionTarget.HandleHit asks this for EVERY unit that hits THIS structure, working
         // or tired. The house's door rule (design doc): a unit that is tired, drunk or both comes in; one
         // that is neither bounces off, which is what keeps a unit that was just launched from ducking
@@ -227,7 +231,7 @@ namespace LittlePeeps
         // unit bounces on toward another structure.
         public bool TryEnter(Unit unit)
         {
-            bool entered = unit != null && (unit.IsTired || unit.IsDrunk) && TryShelter(unit);
+            bool entered = Serves(unit) && TryShelter(unit);
             if (entered) AimProbe.Entered(this, unit);
             return entered;
         }

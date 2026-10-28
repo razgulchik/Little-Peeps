@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 341156709457610043}
   - component: {fileID: 6350096946007942276}
   - component: {fileID: 2314539906349611202}
+  - component: {fileID: 4664728934719892645}
   m_Layer: 0
   m_Name: Rock
   m_TagString: Untagged
@@ -35,6 +36,7 @@ Transform:
   m_Children:
   - {fileID: 3936104942616605764}
   - {fileID: 4086530885395306959}
+  - {fileID: 8433027812468745111}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &4475399193972936943
@@ -76,6 +78,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58ec610a4c2e2bb4085258c454557616, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 94eabf670b9c3c04f9ae21a5046eea2f, type: 2}
 --- !u!114 &6350096946007942276
 MonoBehaviour:
@@ -91,68 +94,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: c0b09ed682d196e409fcb989f9b36e02, type: 2}
   resourceSystem: {fileID: 0}
-  fxAnchor: {fileID: 3936104942616605764}
-  readyRoot: {fileID: 4924945041359699940}
-  harvestedRoot: {fileID: 7757070926767666809}
-  swapStateVisuals: 0
-  fadeOutTime: 0.4
-  fadeCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: -1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: -1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  fadeScaleY:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0.85
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 0.5
-      value: 1.15
-      inSlope: 0.16538215
-      outSlope: 0.16538215
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
+  fxAnchor: {fileID: 8433027812468745111}
 --- !u!114 &2314539906349611202
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -512,6 +454,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mirrorOffsetPixels: {x: 0, y: 0}
+--- !u!1 &5508957048357018144
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8433027812468745111}
+  m_Layer: 0
+  m_Name: Fx_Anchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8433027812468745111
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5508957048357018144}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.5625, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 624315485844873439}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6706689938150038557
 GameObject:
   m_ObjectHideFlags: 0
@@ -893,3 +866,55 @@ Transform:
   - {fileID: 3525689260355347565}
   m_Father: {fileID: 624315485844873439}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4664728934719892645
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 831909280926080680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a85ba6bef8242fc4c9f31af72c948dfa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  squashTarget: {fileID: 3936104942616605764}
+  squashHeight:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.94
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.35
+      value: 1.03
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  widthFollows: 1
+  squashDuration: 0.2
+  waves: 0
+  blockedSquash: 0.5
+  uselessSquash: 0.35
+  minInterval: 0.15

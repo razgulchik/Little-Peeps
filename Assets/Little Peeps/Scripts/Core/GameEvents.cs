@@ -27,6 +27,24 @@ namespace LittlePeeps
         public Vector3 Position;
     }
 
+    // Published by BumpView when a unit bounces off a structure that shows its bumps; BumpVfxSystem runs the
+    // wave of arcs out of it — the one it keeps for the hit's verdict. Side is the face that was hit, as its
+    // outward axis — one of up, down, left, right: footprints are boxes on the grid, and the wave's pixel art
+    // may only turn by quarter turns.
+    public struct BumpedEvent
+    {
+        public Vector3 Position;
+        public Vector2Int Side;
+        public HitVerdict Verdict;
+    }
+
+    // Published by CoastBump when a unit bounces off the island's edge; BumpVfxSystem runs a ripple over the water
+    // from it. Position is already on the waterline — past the outline the art draws outside the land.
+    public struct CoastBumpedEvent
+    {
+        public Vector3 Position;
+    }
+
     public struct AgeStartedEvent
     {
         public int Age;

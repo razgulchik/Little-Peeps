@@ -137,6 +137,10 @@ namespace LittlePeeps
         public Collider2D Body => bodyCollider;
         public Vector2 BodyCenter => (Vector2)transform.position + BodyOffset;
 
+        // Where the unit is heading and how fast, world units per second — zero off the field. What a field it
+        // crosses bends along (LeanView): a trigger never turns the unit, so on entry this is its path.
+        public Vector2 Velocity => rb != null ? rb.linearVelocity : Vector2.zero;
+
         // For AimProbe, the autopilot diagnostics.
         public int BouncesSinceRelease => bouncesSinceRelease;
         public bool IsHeld => holder != null;

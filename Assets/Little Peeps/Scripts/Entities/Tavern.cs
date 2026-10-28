@@ -113,6 +113,11 @@ namespace LittlePeeps
                 Debug.LogError($"Tavern on '{name}' has no ResourceSystem — it pays nothing.", this);
         }
 
+        // IEntrance — whom the tavern is for: every worker the coin source lists, drunk or sober, a seat free
+        // or not (TryEnter adds those). So a drunk guest or a full tavern reads Blocked, an unlisted worker
+        // Useless.
+        public bool Serves(Unit unit) => unit != null && coinSource != null && coinSource.TryGetYield(unit.Type, out _);
+
         // IEntrance — asked for every unit that hits the tavern. The door rule: sober, served (listed in the
         // coin source) and a seat free. Anyone else is refused and simply bounces (the door animation hangs
         // here later). Without grid context there would be no way back out, so nobody comes in at all.

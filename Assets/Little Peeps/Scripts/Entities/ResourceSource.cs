@@ -89,6 +89,10 @@ namespace LittlePeeps
         // settles it.
         public bool Accepts(UnitType type) => def != null && state == State.Ready && def.TryGetYield(type, out _);
 
+        // ICollisionEffect — whom this source is for: every worker the def lists, ready or not. Accepts adds
+        // the "now"; this is what tells a tired lumberjack's hit on a tree (Blocked) from a farmer's (Useless).
+        public bool Serves(Unit unit) => unit != null && def != null && def.TryGetYield(unit.Type, out _);
+
         private void Start()
         {
             if (def == null)
@@ -102,11 +106,12 @@ namespace LittlePeeps
                                "a den's animals; use Regrow here.", this);
         }
 
-        // ICollisionEffect — dispatched by CollisionTarget.HandleHit when a unit hits the host.
-        public void OnHit(Unit unit, CollisionTarget target)
+        // ICollisionEffect — dispatched by CollisionTarget.HandleHit when a unit hits the host. UsedUp on the
+        // hit that depletes or despawns the source: that hit shows as the reap, not as a bump.
+        public HitOutcome OnHit(Unit unit, CollisionTarget target)
         {
-            if (state == State.Harvested || def == null || resourceSystem == null || unit == null) return;
-            if (!def.TryGetYield(unit.Type, out float amount)) return;
+            if (state == State.Harvested || def == null || resourceSystem == null || unit == null) return HitOutcome.None;
+            if (!def.TryGetYield(unit.Type, out float amount)) return HitOutcome.None;
 
             // Add-on scales (ForgeHeat) multiply the BASE amount, so they sit under the run's modifiers
             // exactly like a bigger authored yield would — see IYieldScale.
@@ -119,8 +124,8 @@ namespace LittlePeeps
             Paid?.Invoke();
             unit.MakeSound(def.hitSound);
 
-            if (def.depletion == Depletion.Never) return;
-            if (--hitsLeft > 0) return;
+            if (def.depletion == Depletion.Never) return HitOutcome.Worked;
+            if (--hitsLeft > 0) return HitOutcome.Worked;
 
             unit.MakeSound(def.depleteSound);
 
@@ -128,6 +133,7 @@ namespace LittlePeeps
             // outlives the node; the den hears about the loss from Animal.OnDestroy.
             if (def.depletion == Depletion.Despawn) Destroy(gameObject);
             else Deplete();
+            return HitOutcome.UsedUp;
         }
 
         // Where harvest feedback leaves from. Authored in the prefab so art decides it, not code.

@@ -239,6 +239,7 @@ GameObject:
   - component: {fileID: 2082146619350531297}
   - component: {fileID: 3153068728728520038}
   - component: {fileID: 3330575695431461344}
+  - component: {fileID: -2499882109650888530}
   m_Layer: 0
   m_Name: Stable
   m_TagString: Untagged
@@ -302,6 +303,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58ec610a4c2e2bb4085258c454557616, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: a06bb28de174e25439af0e07e34f6e06, type: 2}
 --- !u!114 &3330575695431461344
 MonoBehaviour:
@@ -321,3 +323,54 @@ MonoBehaviour:
   maxAnimals: 2
   spawnCooldown: 5
   territoryRadiusCells: 2
+  releaseGap: 0.3
+  releaseJitterDegrees: 12
+--- !u!114 &-2499882109650888530
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8159405365616838660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a85ba6bef8242fc4c9f31af72c948dfa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  squashTarget: {fileID: 4452199087457140683}
+  squashHeight:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.94
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.35
+      value: 1.03
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  widthFollows: 1
+  squashDuration: 0.2
+  minInterval: 0.15

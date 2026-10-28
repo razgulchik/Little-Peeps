@@ -1,5 +1,7 @@
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace LittlePeeps.Tests
 {
@@ -26,6 +28,10 @@ namespace LittlePeeps.Tests
         private static MetaUpgradesState Build(StateMachine fsm, PlayingState playing) =>
             new MetaUpgradesState(fsm, null, null, null, playing);
 
+        // Every test here enters with no screen, which the state reports as a wiring error — expected here.
+        private static void ExpectNoScreenError() =>
+            LogAssert.Expect(LogType.Error, new Regex("no MetaUpgradesUI"));
+
         [Test]
         public void WithNoScreen_ItHandsControlBackToPlaying()
         {
@@ -33,6 +39,7 @@ namespace LittlePeeps.Tests
             var playing = new PlayingState();
             var meta = Build(fsm, playing);
 
+            ExpectNoScreenError();
             fsm.ChangeState(meta);
             Assert.That(fsm.Current, Is.SameAs(meta), "Enter must not change state from inside itself.");
 
@@ -48,6 +55,7 @@ namespace LittlePeeps.Tests
             var fsm = new StateMachine();
             var playing = new PlayingState();
 
+            ExpectNoScreenError();
             fsm.ChangeState(Build(fsm, playing));
             Assert.That(Time.timeScale, Is.EqualTo(1f), "Enter froze the game with no screen to press Play on.");
 
@@ -61,6 +69,7 @@ namespace LittlePeeps.Tests
             var fsm = new StateMachine();
             var playing = new PlayingState();
 
+            ExpectNoScreenError();
             fsm.ChangeState(Build(fsm, playing));
             Time.timeScale = 0f;            // as if the screen had gone up normally
 

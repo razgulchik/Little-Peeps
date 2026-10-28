@@ -15,7 +15,13 @@ namespace LittlePeeps.Tests
         private readonly List<Rect> rects = new();
 
         [SetUp]
-        public void SetUp() => grid = new IslandGrid(Cell);
+        public void SetUp()
+        {
+            grid = new IslandGrid(Cell);
+            // NUnit keeps one fixture instance for all its tests: without this, cells left by the test
+            // before would count in the next one.
+            rects.Clear();
+        }
 
         [Test]
         public void CellRects_ARectFootprint_CoversEveryCell()

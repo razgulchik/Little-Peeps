@@ -15,7 +15,8 @@ MonoBehaviour:
   id: peep_talk
   title: Peep Talk
   description: +1 TAP BOOST
-  icon: {fileID: 21300000, guid: fe7937c146fe2424cad4cf61a0d9b6de, type: 3}
+  icon: {fileID: 21300000, guid: f6339f9ab67fb7b4094f950b136f79d1, type: 3}
+  smallIcon: {fileID: 21300000, guid: fe7937c146fe2424cad4cf61a0d9b6de, type: 3}
   grade: 0
   rarity: 1
   weight: 1

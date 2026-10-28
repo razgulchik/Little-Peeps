@@ -12,8 +12,8 @@ namespace LittlePeeps
     // The root's Image is the raycast target that catches the pointer.
     public class PerkSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
-        [Tooltip("The perk's picture. Switched off while the perk has no icon — an Image without a sprite " +
-                 "draws a white box — so such a cell shows the bare frame.")]
+        [Tooltip("The perk's small picture (PerkDef.smallIcon). Switched off while the perk has none — an " +
+                 "Image without a sprite draws a white box — so such a cell shows the bare frame.")]
         [SerializeField] private Image icon;
 
         private readonly HintContent hint = new();
@@ -26,7 +26,7 @@ namespace LittlePeeps
             Perk = perk;
             if (icon != null)
             {
-                Sprite sprite = perk != null ? perk.icon : null;
+                Sprite sprite = perk != null ? perk.smallIcon : null;
                 icon.sprite = sprite;
                 icon.enabled = sprite != null;
             }

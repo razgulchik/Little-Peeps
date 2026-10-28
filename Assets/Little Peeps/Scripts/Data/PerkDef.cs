@@ -33,8 +33,14 @@ namespace LittlePeeps
         // UnlockStructurePerkDef override.
         public virtual string GeneratedDescription => string.Empty;
 
-        [Tooltip("Shown on the selection card. Optional — a card with no icon just leaves the slot empty.")]
+        [Tooltip("The large picture (icon_blessings_*, 29×29), shown on the selection card. Optional — a " +
+                 "card with no icon just leaves the slot empty.")]
         public Sprite icon;
+
+        [Tooltip("The small picture (icon_blessing_xs_*, 20×20), shown in the HUD perk panel once the perk " +
+                 "is taken. A separate drawing, not the large one scaled down. Optional — a cell with no " +
+                 "small icon shows the bare frame.")]
+        public Sprite smallIcon;
 
         [Tooltip("Which pool the perk is rolled from. Common: every ordinary offering and the start-of-run " +
                  "pick. Special: only the special cycles' offerings (every N-th, set on the Offering " +

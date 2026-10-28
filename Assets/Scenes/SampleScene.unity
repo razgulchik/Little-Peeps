@@ -3150,7 +3150,6 @@ Transform:
   m_Children:
   - {fileID: 1088972180}
   - {fileID: 1945904890}
-  - {fileID: 321352747}
   - {fileID: 596618326}
   - {fileID: 2118373958}
   - {fileID: 669469168}
@@ -3164,6 +3163,7 @@ Transform:
   - {fileID: 274669771}
   - {fileID: 1485223155}
   - {fileID: 1290306031}
+  - {fileID: 321352747}
   - {fileID: 2130608358}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -4431,6 +4431,28 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1919184281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236949914}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbda7edf9e234c089580eb831fa20510, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  southOutline: 4
+  sideOutline: 1
+  northOutline: 0
+  pixelsPerUnit: 16
+  minDistance: 0.75
+  minInterval: 0.25
+  bulgePixels: 2
+  bulgeReach: 2
+  bulgeFrequency: 8
+  bulgeDamping: 0.35
 --- !u!1 &1945904889
 GameObject:
   m_ObjectHideFlags: 0
@@ -33488,24 +33510,6 @@ MonoBehaviour:
   viewCamera: {fileID: 0}
   offscreenMargin: 0.1
   pixelsPerUnit: 16
---- !u!114 &1919184281
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 236949914}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bbda7edf9e234c089580eb831fa20510, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  southOutline: 4
-  sideOutline: 1
-  northOutline: 0
-  pixelsPerUnit: 16
-  minDistance: 0.75
-  minInterval: 0.25
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

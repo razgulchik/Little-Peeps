@@ -18,7 +18,9 @@
 > UI03 (рамка эпохи с бонусом или «NO BONUS», цены, кнопка Expand Island; кольцо вокруг иконки цены, которой не хватает;
 > вариант ResourceUnit для цены эпохи), сверено с `Canvas.prefab`. Своё окно конца цикла по макету Gods Blessing
 > (`Screens/OfferingWindow` вместо `ConfirmDialog`, кнопка кары удержанием, весь текст на целых пикселях —
-> `PixelSnapText`) и тень текста на панели эпохи пресетами шрифтов: **2026-10-23**, сверено с `Canvas.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> `PixelSnapText`) и тень текста на панели эпохи пресетами шрифтов: **2026-10-23**, сверено с `Canvas.prefab`. Отклик
+> на удары (`Systems/BumpVfxSystem`, `CoastBump` на `Ground`, `BumpView` / `LeanView` на префабах, `FX_Bump*` и
+> `FX_Coast_Ripple`): **2026-10-28**, сверено со сценой и префабами. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -52,6 +54,7 @@ SampleScene
 ├── Systems
 │   ├── AgeSystem               → AgeSystem          (каталог эпох + CanAdvance)
 │   ├── AgeSequencer            → AgeSequencer
+│   ├── BumpVfxSystem           → BumpVfxSystem      (волны ударов и рябь у берега; эмиттеры становятся его детьми)
 │   ├── HarvestVfxSystem        → HarvestVfxSystem + HarvestNumbers   (эффекты сбора; эмиттеры и цифры становятся его детьми)
 │   ├── OfferingSystem          → OfferingSystem     (цикл подношений: часы, квота, оплата из запасов)
 │   ├── PerkSystem              → PerkSystem
@@ -70,7 +73,8 @@ SampleScene
 ├── Island                      → IslandSystem
 │   ├── Grid                    → Grid (компонент)   ← все тайлмапы под ним — на слое сортировки Island
 │   │   ├── Ground              → Tilemap + TilemapRenderer + Rigidbody2D (Static) + TilemapCollider2D
-│   │   │                          + CompositeCollider2D   ← суша и граница острова
+│   │   │                          + CompositeCollider2D + CoastBump   ← суша и граница острова (CoastBump —
+│   │   │                          рябь на воде, когда юнит отскакивает от берега)
 │   │   ├── TrimHorizontal      → Tilemap + TilemapRenderer   ← горизонтальная кромка берега — полосы под сушей (Order 0);
 │   │   │                          лежит на клетках ВОДЫ, поэтому без коллайдера
 │   │   ├── TrimVertical        → Tilemap + TilemapRenderer   ← вертикальная кромка — столбики по бокам суши, поверх полос;
@@ -289,6 +293,12 @@ SampleScene
 | | | motion | `ScriptableObjects/HarvestNumberMotionDef/Harvest Number Motion` — вся подгонка ощущения: lifetime (0.9 с), travel (0, 0.8), кривые полёта/масштаба/альфы, spawnOffset, spawnJitter (0.15, 0.1) |
 | | | viewCamera, offscreenMargin | как выше |
 | | | maxConcurrent | 60 (дефолт) — потолок живых цифр; сверх него перерабатывается ближайшая к смерти |
+| Systems/BumpVfxSystem | BumpVfxSystem | usefulWave | `Prefabs/FX/FX_Bump` — белые дуги удара, который сработал. Пусто = без волны |
+| | | blockedWave | `Prefabs/FX/FX_Bump_Blocked` — тонкие янтарные молнии: объект для этого юнита, но мешает (устал, дом полон, кузница перегрета, рынок снаружи) |
+| | | uselessWave | пусто (дефолт) — у бесполезного удара волны нет, хватает сквоша |
+| | | coastRipple | `Prefabs/FX/FX_Coast_Ripple` — рябь на воде у берега. Пусто = без ряби |
+| | | viewCamera, offscreenMargin | пусто (= `Camera.main` в `Awake`) и 0.1 — как у HarvestVfxSystem |
+| | | pixelsPerUnit | 16 — центр волны снапится к пиксельной сетке арта, чтобы линии в 1 px ложились на целые пиксели; 0 = без снапа |
 | Systems/WaterSystem | **WaterSystem** | **waterPrefab** | `Prefabs/DontTouch/Water` (Modern 2D Water — весь вид моря в префабе) |
 | | | coastTilemaps | `Ground`, `TrimHorizontal`, `TrimVertical` — их контур становится берегом, о который бьётся вода (по столбикам вертикальной кромки идёт боковая пена). `Decor` и `Borders*` сюда НЕ добавлять: форму берега они не меняют |
 | | | foamMinPixels, foamMaxPixels, foamPeriod, foamWholePixels | пена под южным берегом: толщина в арт-пикселях от/до, период пульса (сек), шаг целыми пикселями. В сцене 1 / 2 / 5 / выкл |
@@ -310,6 +320,9 @@ SampleScene
 | | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → `TileSet/Brdr Set Meadow` → `Grid/BordersMeadow`; `Forest` → `TileSet/Brdr Set Forest` → `Grid/BordersForest`. Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / обеими кромками), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / кромки — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
 | | | **structureSystem** | StructureSystem — через неё зона получает природное содержимое (деревья, реки, стартовый дом) |
 | | | cellSize, previewSeed | 1; сид для редакторского превью «Generate Island» (контекстное меню). Забег берёт сид из StartConfig |
+| Island/Grid/Ground | CoastBump | southOutline, sideOutline, northOutline | 4 / 1 / 0 — на сколько арт-пикселей сдвинуть точку удара к воде: кромка берега нарисована на клетках воды (полоса под южным краем, столбик у восточного и западного, на севере ничего) |
+| | | pixelsPerUnit | 16 |
+| | | minDistance, minInterval | 0.75 и 0.25 с — рябь ближе этого к показанной меньше этого назад пропускается. Троттлинг по МЕСТУ, а не по объекту: берег — один объект на весь остров |
 | Island/GridOverlay | **GridOverlay** | **islandSystem** | Island. Сетка — **пятно у курсора**, и только пока в руке карточка или Sell; весь остров она не покрывает |
 | | | lineColor, lineWidth | в сцене синий (0.08, 0.41, 0.80) α0.64; 0.04 (дефолт — белый α0.6) |
 | | | occupiedColor | заливка занятых клеток (территория структур), белый α0.12 (дефолт) |
@@ -466,13 +479,17 @@ Root          → Rigidbody2D (Dynamic, Gravity Scale 0, Continuous, Freeze Rota
 
 ### Постройки (Structure)
 ```
-Root          → Rigidbody2D (Static) + Structure  [+ компоненты поведения, таблица ниже]
-├── Visual
+Root          → Rigidbody2D (Static) + Structure  [+ компоненты поведения, таблица ниже] [+ BumpView или LeanView]
+├── Visual    (origin у основания — от него сквош и наклон)
 │   └── Model → SpriteRenderer (пивот у основания) + SpriteShadow + WaterReflection   (+ декор детьми)
+├── Fx_Anchor (пустышка: откуда вылетает отклик сбора — у источников, см. fxAnchor)
 └── Physics   → Collider2D (Box / Circle / Polygon — по форме)
 ```
 - Rigidbody2D всегда на ROOT, чтобы `OnCollisionEnter2D`/`OnTriggerEnter2D` доходили до скрипта.
   Препятствие (отскок) или проходимая (триггер) — решает только флаг **Is Trigger** на коллайдере.
+- **`Visual` — всё, что сквошится или наклоняется** (`BumpView` / `LeanView` двигают именно его, не корень — иначе
+  поехали бы коллайдеры). Что должно стоять на месте — полоска нагрева кузницы (`HeatBar`), `Fx_Anchor` у того, что
+  сквошится, — кладётся на корень, вне `Visual`.
 - **SpriteShadow** — тень строится из спрайта в `Start`, руками ничего не рисуется: castShadow, offsetPixels (0, 1),
   alpha (30/255). У госта стройки тени нет by design.
 - **WaterReflection** — отражение в воде. На префабы ставить ЕГО, а не `Reflector` пакета воды (тот работает в
@@ -489,7 +506,7 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 | | launchSpeedMultiplier, launchBoostDuration, launchGap, launchJitterDegrees | параметры вылета (2.5, 1, 0.1, 12°) |
 | **ResourceSource** (платит ресурс за удар) | def | ResourceSourceDef |
 | | resourceSystem | ResourceSystem *(или впрыснется в рантайме)* |
-| | fxAnchor | пустышка-ребёнок, откуда вылетают колосок и цифра (пусто = корень). У пшеницы ≈ `Y 0.5` — верхний край поля |
+| | fxAnchor | пустышка-ребёнок, откуда вылетают колосок и цифра (пусто = корень). У того, что сквошится (`BumpView`), — `Fx_Anchor` на корне, не внутри `Visual`: источник, который не кончается (рынок, кузница, мельница), платит прямо во время сквоша. У пшеницы и куста (только наклон, а на сборе наклон гаснет) — сам `Visual` |
 | **ResourceSourceView** (вид ноды: готова / собрана) | readyRoot, harvestedRoot | дочерние визуалы двух состояний (см. ниже) |
 | | swapStateVisuals | вкл — показывать строго один из двух рутов |
 | | fadeOutTime, fadeCurve, fadeScaleY | как тает Ready-визуал при сборе (0.2 с, прямая 1→0, масштаб по Y). **На префабе, а не в дефе** — поле и дерево вправе исчезать с разной скоростью |
@@ -511,6 +528,15 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 | **RicePaddy** (рисовое поле) | growTime | 30 с роста; растёт, только пока на поле никого нет |
 | **VisitZone** (проход рынка) | hitsPerVisit | 3 засчитанных удара за заход — база, стат `MarketVisitHits` сверху |
 | **Pier** | — | маркер без полей (см. «Пирс») |
+| **BumpView** (отклик на отскок: сквош + волна) | squashTarget | `Visual`. Пусто = без сквоша, только волна (так у Pier и RicePaddy) |
+| | squashHeight, widthFollows, squashDuration | кривая высоты сквоша от удара (0) до покоя (1): 0.94 → 1.03 → 1; ширина следует за высотой (1 — площадь сохраняется); 0.2 с |
+| | waves | вкл (дефолт) — волна из задетой грани через `BumpVfxSystem`. **Выкл у BaseTree и Rock**: у ресурсов только тряска, лес в дугах — шум |
+| | blockedSquash, uselessSquash | 0.5 и 0.35 — доля сквоша у удара Blocked (для этого юнита, но мешает) и Useless (не для него) |
+| | minInterval | 0.15 с — удары внутри интервала после показанного пропускаются, но более сильный вердикт проходит всегда |
+| **LeanView** (наклон проходимого за юнитом: BaseWheat, Bush, пять `Rack_*`) | leanTarget | `Visual` (origin на линии земли) |
+| | maxTilt, maxStretch, squatOnly | 8°, 0.06 высоты, выкл — наклон вбок, вытягивание вверх по экрану / приседание вниз; squatOnly — только приседание |
+| | frequency, damping | 3 Гц, 0.3 — пружина: качается и успокаивается |
+| | blockedLean, uselessLean | 0.6 и 0.6 — доля наклона у прохода Blocked / Useless |
 
 > Природные источники (дерево, пшеница, камень) — это `Structure` + `ResourceSource` (+ `ResourceSourceView`) **без** `Spawner`.
 > Юниты появятся только если у `Spawner` заполнены `spawnSystem` + `unitDef` (цикл стартует в `Spawner.Start()`).
@@ -608,6 +634,28 @@ Root → TextMeshPro (МИРОВОЙ, НЕ TextMeshProUGUI)
   Код его не затирает — `scaleCurve` умножает масштаб префаба, а не заменяет его.
 - Шрифт, размер, цвет и обводка — целиком дело префаба. Движение и тайминги — в ассете
   `Harvest Number Motion` (HarvestNumberMotionDef), чтобы ощущение пережило смену рендерера (см. ARCHITECTURE).
+
+### FX_Bump, FX_Bump_Blocked, FX_Coast_Ripple (волны ударов и рябь у берега)
+Префаб с одной `ParticleSystem`: одна частица на удар — пиксельный флипбук. Кладутся в поля
+`Systems/BumpVfxSystem` (см. чек-лист), не в сцену и не в префабы построек: система делает по одному общему эмиттеру
+на вердикт и на рябь (в плеймоде — дети `BumpVfxSystem`: `BumpWaveUseful`, `BumpWaveBlocked`, `CoastRipple`).
+Три требования те же, что у `FX_Pickup_*` (World, Looping, Emission 0), система так же проверяет их и пишет в консоль.
+
+| Префаб | Материал → лист | Кадры | Lifetime | Слой, Order |
+|--------|-----------------|-------|----------|-------------|
+| `FX_Bump` (Useful) | `M_Bump_Wave` → `fx_bump_wave` — белые дуги | 7 | 0.35 | Overlay, 0 |
+| `FX_Bump_Blocked` | `M_Bump_Blocked` → `fx_bump_blocked` — три тонкие молнии, янтарь `E08C25` | 6 | 0.28 | Overlay, 0 |
+| `FX_Coast_Ripple` | `M_Coast_Ripple` → `fx_coast_ripple` — кольцо | 6 | 0.42 | **Island, −10** |
+
+- **Texture Sheet Animation:** Grid, Tiles = кадры × 1. Кадр 32×32 при PPU 16, поэтому **Start Size 2** — один
+  арт-пиксель на пиксель. Листы — в `Sprites/GamePlay/Misc/Bump`, Filter Mode Point.
+- **Цвет запечён в лист**, Start Color белый. Обводки нет: линии в 1 px.
+- **Волна удара нарисована под ВЕРХНЮЮ грань**: дуги (молнии) начинаются в центре кадра и идут вверх. Для остальных
+  граней систему поворачивает код четвертями оборота — арт рисовать только в этой ориентации и не масштабировать.
+- **Рябь не поворачивается** — кольцо вокруг центра кадра. Слой Island с Order −10: над водой, но под тайлами
+  острова, поэтому суша прячет половину кольца, которая легла бы на неё. В YAML рендерера ID слоя Island знаковый
+  (`m_SortingLayerID: -661730883`, `m_SortingLayer: -2`).
+- Листы — заглушки, сгенерированные скриптом; художник перерисует их в той же раскладке.
 
 ### BaseFence / заборы (Structure на РЕБРЕ грида)
 Забор не занимает клетку — он стоит на **ребре** (границе между двумя клетками). Это один префаб с

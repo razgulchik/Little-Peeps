@@ -6,7 +6,8 @@
 > widgets, one owner per state, and the HUD perk panel on 2026-10-19; the working time strip — time in
 > segments, years, the offering tooltip, no early offering — on 2026-10-20; the age panel as one panel
 > after the UI03 mockup — the age and its bonus, the price, the Expand Island button — on 2026-10-22; the
-> end-of-cycle window of its own after the Gods Blessing mockup, every label on whole pixels, on 2026-10-23): the run loop is closed
+> end-of-cycle window of its own after the Gods Blessing mockup, every label on whole pixels, on 2026-10-23; the hit
+> feedback on 2026-10-28): the run loop is closed
 > end to end in code. **Building happens in the running game** — there is no build mode:
 > the palette is up for the whole of normal play, Place / Sell tools, a paid placement goes up as a
 > **construction site** that becomes the building once nobody stands on its spot, a sale settles
@@ -23,7 +24,9 @@
 > the run ends, and the **meta screen** spends prestige points on meta perks (levels, free re-spend)
 > before Play starts the next run with them — stat bonuses, starting resources, a perk pick at the
 > start, or a start some ages in (the skipped zones grow at once).
-> **Animals** (mobile resource nodes) and **harvest feedback** (particles + floating numbers) are in.
+> **Animals** (mobile resource nodes) and **harvest feedback** (particles + floating numbers) are in, and so
+> is **hit feedback**: every hit is judged Useful / Blocked / Useless and shown by its verdict — a squash and
+> a wave on what units bounce off, a lean on what they walk through, a ripple where they hit the coast.
 > **Stamina** is aligned to the design doc: an outing is a stamina clock, only a house refills it,
 > a tired unit moves slower and a house takes in only the tired and the drunk. **Professions** come
 > from tool racks. The **tavern** serves a drink, holds its guest and lets it out **Drunk**; a tired
@@ -57,7 +60,8 @@
 │   ResourceSystem · StructureSystem · SpawnSystem · UnitSystem ·    │
 │   TapSystem · AgeSystem · AgeSequencer · IslandRisePlayer ·        │
 │   PerkSystem · OfferingSystem · PrestigeSystem · WaterSystem ·     │
-│   CameraController · PlacementController + tools · Harvest* · …)   │
+│   CameraController · PlacementController + tools · Harvest* ·      │
+│   BumpVfxSystem · …)                                               │
 │  Rendering  (IslandBend · UnscaledShaderTimeFeature)               │
 └──────┬──────────────────────────────────────────┬──────────────────┘
        │ uses                                     │ routes each hit to, by unit state
@@ -73,7 +77,9 @@
 │  IStructureSpawner (contract)   │    │  Yield (IYieldScale impls): │
 │  ConstructionSite               │    │  ForgeHeat · Mill           │
 │  + their views on the root      │    │                             │
-│    (ResourceSourceView, …)      │    │                             │
+│    (ResourceSourceView,         │    │                             │
+│    BumpView, LeanView, …)       │    │                             │
+│  CoastBump (on the coast)       │    │                             │
 └──────┬──────────────────────────┘    └─────────────────────────────┘
        │ uses
 ┌──────▼─────────────────────────────────────────────────────────────┐
@@ -151,7 +157,8 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
   grid-row parity — the caller decides), `WaterSideVisual` (one of three roots, plus the south one
   mirrored: a watermill by the side its river runs along), `RiverVisual` (one of three pieces, turned
   to join the river cells beside it), `TiredView`, `ProfessionView`, `ResourceSourceView`,
-  `ForgeHeatView`, `RicePaddyView`.
+  `ForgeHeatView`, `RicePaddyView`, and the hit feedback's `BumpView` and `LeanView` (*Hit feedback*
+  below).
 
 **One payer, add-ons around it, a view per kind.** Everything a hit pays for pays through its
 `ResourceSource`: the def (who, how much, the pickup effect), the credit through `AddHarvest`, the
@@ -197,6 +204,57 @@ so a lumberjack bouncing off never heats the forge), `Mill` (refuses on an empty
 they hold is settled on the source's own events once the hit has really paid, so they never count as
 a rationing gate. The per-visit number lives on the component, not in `ResourceSourceDef`, and is the
 `MarketVisitHits` stat, resolved on entry — a unit already inside finishes the budget it came in with.
+
+**Hit feedback — one verdict per hit.** Every way through `HandleHit` (and `HitFromRange`) ends in
+`CollisionTarget.Resolve`, which raises the target's C# event `HitResolved` with a `HitReport`. The hit is
+judged there and nowhere else, because only there is all of it in view: a view listening to the physics
+would see the bounce but not what it did, and the hit itself changes what there is to see (a tree stops
+being ready, a forge overheats on this very hit). The verdict (`HitVerdict`) takes two questions. Did it
+work — an entrance took the unit in, or an effect's `OnHit` returned `HitOutcome.Worked` / `UsedUp`? →
+**Useful**. If not: is anything on the target FOR this unit at all, the moment aside — `IEntrance.Serves` /
+`ICollisionEffect.Serves` (a house: the tired and the drunk, full or not; a tavern: every worker its coin
+source lists; a source: every worker its def lists, ready or not; a rack: an Unassigned worker, the stand
+full or empty)? → **Blocked** (tired, a full house, an overheated forge, the market from outside), else
+**Useless** (a house wall to a working unit, a tree to a farmer). Gates never take part: they say whether
+now, never whom for. `UsedUp` — the hit that depletes or despawns its source — sets `Final`: that hit shows
+as the reap, not as a bump. The report also says how the unit got there (`HitContact`): `Bounce`, with the
+contact `Point` and the struck face as `Side` (`CollisionTarget.FaceOf`: the larger axis of the contact
+normal, turned outward); `Pass` through a trigger, with `Point` = the middle of the trigger crossed;
+`Ranged`, with neither. When a unit leaves one of its triggers the target raises `PassEnded` (looked up only
+while someone listens). The verdicts run weakest to strongest, so a throttle can let a stronger one through
+a weaker one's cooldown and never the reverse. Views hang off the event, opt-in per prefab and presentation
+only:
+- `BumpView` — what units bounce off. Squashes its `squashTarget` (the prefab's `Visual`, scaled from its
+  origin at the base — never the root, the colliders would scale too) along `squashHeight`, the width
+  following (`widthFollows`), by verdict: the whole curve for Useful, `blockedSquash` / `uselessSquash` of
+  it otherwise. A bump inside `minInterval` of the last one shown is skipped unless its verdict is
+  stronger. With `waves` on and a face to run from, it publishes `BumpedEvent`. A `Final` hit cuts the
+  squash short and shows nothing; a `Pass` shows nothing. On every building; the resource nodes (tree,
+  rock) keep the squash with `waves` off — a forest full of arcs is only noise.
+- `LeanView` — what units walk through (fields, bushes, racks). The top of `leanTarget` is dragged along
+  the unit's path while the base stays — sideways a tilt, up the screen a stretch, down it a squat — and
+  springs back. Each crossing kicks once: when the unit is past the middle (moving away from the report's
+  `Point` — the middle for a field of any size, no timing), or on `PassEnded` if it leaves sooner. Kicks
+  add up (capped), and the damped spring (`frequency`, `damping`) is solved exactly per step, so it swings
+  the same at any frame rate — a tween would return to where it started and jump when kicked mid-swing.
+  `Final` (the farmer reaping the wheat) bends nothing and drops the crossings still waiting.
+- `BumpVfxSystem` draws the wave of every `BumpedEvent`: one `SharedEmitter` per verdict (`usefulWave` —
+  white arcs; `blockedWave` — thin amber bolts, shorter; `uselessWave` — none by default, the squash alone
+  says it). Each is a pixel-art flipbook drawn ONCE for a top face and turned by quarter turns for the other
+  three (`TurnFor`, through `SharedEmitter.EmitAt` with a rotation), its centre snapped to the art's pixel
+  grid so the one-pixel lines land on whole pixels; a bump off screen is skipped.
+- `CoastBump` — the island's edge as a bumper, on the `Ground` tilemap's object (its composite outline IS
+  the coast). Not a `CollisionTarget`: nothing there pays, lets a unit in or shakes, and `SoundSystem`
+  tells a coast bounce by exactly that. The contact is stepped out to where the art's water starts (the
+  outline is drawn on the water cells: `southOutline` / `sideOutline` / `northOutline` pixels) and
+  throttled per PLACE rather than per object — the coast is one object round the whole island — then
+  `CoastBumpedEvent` has `BumpVfxSystem` play its `coastRipple`, sorted above the water and under the
+  island's tiles, so the land hides the half of the ring that would lie on it.
+
+The prefab convention that comes with it: `Visual` holds everything that squashes or bends, its origin at
+the base; whatever must keep still — the forge's heat bar, and on anything that squashes the `fxAnchor` a
+harvest number leaves from (a source that never runs out pays while it squashes) — sits on the root,
+outside `Visual`.
 
 **Stamina and Tired** (design doc: *Stamina and Tired*, *Population and identity*). An outing is a
 stamina clock: `UnitDef.stamina` seconds of field work (× `UnitStamina`), ticking in
@@ -760,6 +818,8 @@ group can be authored as "visible in THESE modes"; an event always carries exact
 | `RunStartedEvent` (`Run`) | `RunManager.StartNewRun`, as its LAST step | `AgeSystem`, `OfferingSystem`, `TapSystem`, `AgeAdvancePanel`, `AgeCostPanel`, `BuildPaletteUI`, `PerkPanel` (rebuilds from the new run's `perksChosen`), `CameraController` (re-reads the new island's bounds and cuts to the start view) — every MonoBehaviour that caches the run re-binds here. On the very first run it reaches nobody (their `OnEnable` has not run yet), which is why `GameBootstrap` still injects by hand (`AgeSystem` / `OfferingSystem` directly; the Canvas elements read the first run off `RunManager.CurrentRun`, which `UIServices` hands them) |
 | `ResourceChangedEvent` (`ResourceType`, `NewValue`) | `ResourceSystem.AddResource` | `AgeAdvancePanel`, `AgeCostPanel`, `OfferingTooltip` (red / plain amounts while it is up), `BuildPaletteUI` (affordability — the game harvests under the open palette; the palette folds a burst into one refresh per frame). The resource bar does NOT use it — `ResourcePanel` binds each row to the type's `ReactiveValue`, which is why `ResourceSystem.Initialize` must REUSE those objects across runs rather than replace them |
 | `HarvestedEvent` (`Source`, `Type`, `Amount`, `Position`) | `ResourceSystem.AddHarvest` — the production gateway itself, NOT its callers | `HarvestVfxSystem` (pickup particles), `HarvestNumbers` (the "+1.2k"). Published from inside the gateway on purpose: any future production path gets its feedback for free. Carries the whole `ResourceSourceDef` because Wheat/Boar/Fox are all Food and Alpaka/Market are both Coins. `Amount` is the CREDITED figure, after both multipliers |
+| `BumpedEvent` (`Position`, `Side`, `Verdict`) | `BumpView`, for a bounce it shows that has a face (outside its throttle, not `Final`, `waves` on) | `BumpVfxSystem` — the verdict's wave out of `Position`, turned to `Side` (the struck face's outward axis — up, down, left or right: footprints are boxes on the grid, and the art may only turn by quarter turns). On the bus because one system draws every structure's wave; the hit itself stays local (`CollisionTarget.HitResolved`) |
+| `CoastBumpedEvent` (`Position`) | `CoastBump` (on `Ground`), throttled per place | `BumpVfxSystem` — the coast ripple. `Position` is already on the waterline |
 | `AgeStartedEvent` (`Age`) | `AgeSequencer` (banner step, after the rise) | `CameraController` (re-clamp bounds), `AgeAdvancePanel`, `AgeCostPanel`, `BuildPaletteUI` (unlock cards by `requiredAge`) |
 | `AgeAdvanceRequestedEvent` | `AgeAdvancePanel` (Expand Island button) | `GameplayContainerState` — enters `ZoneSelectionState` only from `PlayingState` and only if affordable |
 | `ZoneSelectedEvent` (`Offer`) | `ZoneSelectionUI` (a zone card clicked; every card locks at once) | `ZoneSelectionState` — records the pick; its next `Tick` hands the offer to a new `AgeTransitionState`. Same split as the perk pick: the UI shows and reports, the state acts |
@@ -778,7 +838,8 @@ group can be authored as "visible in THESE modes"; an event always carries exact
 | `HintHideEvent` (`Owner`) | The same source, when the pointer leaves or the source is disabled | `HintView` — closes only if that owner's hint is up or waiting, so the element just left cannot close the next one's |
 
 > **No events for:** unit spawn/despawn (`SpawnSystem` calls `UnitSystem.Add/Remove` directly — single
-> consumer), collisions (`CollisionTarget` dispatches to its own `ICollisionEffect`s), structure
+> consumer), collisions (`CollisionTarget` dispatches to its own `ICollisionEffect`s, and its hit report is a
+> C# event, `HitResolved`, heard only by the views on the same prefab), structure
 > place/remove (callers use the `StructureSystem` return values), unit boosts. The skeleton's
 > `CollisionEvent` / `Structure*Event` / `UnitBoostedEvent` were removed as dead.
 
@@ -952,7 +1013,8 @@ path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)`
 offered first to each `IEntrance.TryEnter` on the root (the first that takes it in ends the hit);
 past them a TIRED unit stops, and a WORKING unit goes through every `IHitGate.TryConsume(unit)` on
 the target (root + children; the first refusal ends the hit as a plain bounce) →
-`effect.OnHit(...)` for each `ICollisionEffect` component on the root. `Structure :
+`effect.OnHit(...)` for each `ICollisionEffect` component on the root. Every path ends in `Resolve` →
+`HitResolved` (see *Hit feedback*); `OnTriggerExit2D` only raises `PassEnded`. `Structure :
 CollisionTarget` adds `def`. The Rigidbody2D sits on the root so callbacks fire there; the colliders
 may live on children (fetched via `GetComponentsInChildren`) — except a `VisitZone`'s trigger, which
 brings its own body precisely so its events do NOT reach the root (see the table).
@@ -1003,13 +1065,17 @@ a dead Pay, the quota's rows) and the hold-to-confirm button, the meta
 screen (its refusal paths), the confirm dialog (a greyed Yes included), meta perk spending and levels,
 perk roll (the two pools and the fallback), perk state + card,
 the modifier card text, placement target (a site turning into its building is a new target), house
-capacity, a construction site's area (`ConstructionArea`), the animals' blocking rule (a site refuses
+capacity, the hit's verdict cell by cell (house, tavern, forge, mill, market, tree, wheat, paddy, rack,
+fence, an arrow), the bump's face, turn and throttle, the lean's spring (the same swing at any frame rate)
+and pose, the coast's waterline and per-place throttle, `BumpView` and `LeanView` on a real
+`CollisionTarget`'s report, a construction site's area (`ConstructionArea`), the animals' blocking rule (a site refuses
 newcomers, never one already on it), the island's shape rules (with a seed
 sweep, so tuned rules can never fail in play), island content, zone offers, the zone pick state, the
 island rise's schedule and notes, the coast painter (tile-by-tile repaint must equal a full repaint at every step, a zone of
 another biome too; a bay's corner is the band of the land above plus the column of its wall), the
 border painter (the same promise, plus the cascade itself and the generator never needing a two-sided piece) and the
-drawing's border sorting (`IslandDrawingTests` — real tilemaps, so Unity's Test Runner only).
+drawing's border sorting (`IslandDrawingTests` — real tilemaps, so Unity's Test Runner only; so are
+`HitVerdictTests`, `BumpViewTests` and `LeanViewTests`, which build real GameObjects).
 Two shared fixtures keep them free of assets: `TestIsland` (a rectangle of cells, for the grid and
 exit geometry) and `TestBiomes` (the prototype's biome profiles, built in code). Physics casts (the
 autopilot's `BilliardAim`) have no Edit Mode test: they need a live physics scene. **Edit Mode runs
@@ -1040,7 +1106,7 @@ belongs in a PlayMode assembly (none yet).
 | `IslandRise` | Plain C# | Plays a schedule on an `IslandDrawing`: pooled stand-in sprites for tiles in flight (swapped for the real tile as each settles), drying via tile colour, standing neighbours bounce, the new zone breathes — the land bending as one sheet (`IslandBend`), the old island pinned, what stands on it riding up by the height under its root and a den's animals by the height under their feet — structures pop by root scale (a den's animals with it), effects / notes / camera kick on forward play only. `Tick` (forward) / `Seek` (any time, both ways) / `SpeedUp` / `SkipToFinale` / `Finish`. The SAME code runs in the game and in the tuning window |
 | `IslandRisePlayer` | MB | The game's driver of `IslandRise`: `Play(section, content, onDone)` on unscaled time, capped per frame by the profile's slow-frame setting; the tap's `SpeedUp` / `SkipToFinale`; finishes whatever cuts it short (nothing is ever left hidden). With a `WaterSystem` the tiles in the air push on the water. `[ContextMenu] Replay Last Zone` for Play Mode tuning |
 | `IslandRiseProfile` | SO | Every knob of the rise: `timing` (plain `IslandRiseTiming`: wave, tile phases, act 2, river, finale + breath) and the looks (depth scale/tint, hop, squash, wetness, pops + per-`StructureDef` overrides, bounce, breath, pixel snap, water, effect/sound slots, shake, tap speed-up, slow frames). Read live — game and window alike |
-| `SharedEmitter` | static | The one-shared-ParticleSystem-per-effect rule (World space, looping, no self-emission; `pausedPlay` also demands Use Unscaled Time): `Create` validates loudly and refuses, `EmitAt` moves + emits. Used by `HarvestVfxSystem` and the rise |
+| `SharedEmitter` | static | The one-shared-ParticleSystem-per-effect rule (World space, looping, no self-emission; `pausedPlay` also demands Use Unscaled Time): `Create` validates loudly and refuses, `EmitAt` moves + emits; its overload with a rotation turns every particle of that one emission (clockwise — the opposite of a Transform's Z), for art drawn in one direction. Used by `HarvestVfxSystem`, `BumpVfxSystem` and the rise |
 | `WaterSystem` | MB | The sea: Modern 2D Water spawned from a prefab at run time (never a scene object — the package's edit-mode code would churn the scene); the coast copied into the water's obstruction layer after every `IslandRepaintedEvent`; the south foam sized in art pixels and pulsing on real time; side foam along the east and west edges; coast copies that bend with the land during a rise. `HasWater` for the rise |
 | `UnscaledShaderTimeFeature` | URP renderer feature | Shader time from unscaled time — always, since switching at a pause would jump every wave's phase — for every camera on the 2D renderer, so the sea keeps moving through the picks and the age transition |
 | `StructureSystem` | MB | Place / Sell / Remove for BOTH cell and edge structures (two parallel paths, addressed by cell or by `Edge`). `PlaceStructure` / `PlaceEdgeStructure` validate (spot, limit, price), spend and put up a construction site that is registered at once (grid, run, count); `CompleteSite` / `CompleteEdgeSite` swap it for the building on the same instance. `PlaceInitial` is the free, instant path for generated content (zone content, the starting house) and the pier — still validated, it warns and skips a blocked cell; returns the created instance (the island keeps a zone's content by it). `RemoveStructure` settles the occupants first (`ReleaseOccupants`: tavern guests out, den animals puffed, spawners torn down, `SpawnSystem.TrimSurplus`); `ClearAll` sweeps the run's registries on `EndRun`. `Recount` is the one writer of `run.standing`. `ApplyPlacementVisual` = the look a structure takes from where it lands (a forest's row, a watermill's river side, a river cell's piece), shared with the placement ghost and a site's blueprint; water landing or leaving re-dresses everything beside it (`RefreshBesideWater`). Holds the sites' look (`ConstructionSiteLook`) |
@@ -1069,11 +1135,16 @@ belongs in a PlayMode assembly (none yet).
 | `HarvestVfxSystem` | MB | Pickup particles for every harvest. **One shared emitter per `ResourceSourceDef`** (the `SharedEmitter` rule), made from `def.pickupFx` on first harvest and reused (one system emitting many particles = one draw call). Moves the emitter and `Emit`s — deliberately not `EmitParams`, so the authored Shape module keeps working. **Validates instead of silently fixing** a prefab that isn't World-space/looping. Skips off-screen harvests |
 | `HarvestNumbers` | MB | The floating "+1.2k" — universal, one prefab and one set of curves for every resource. Pooled world-space `TextMeshPro`, driven by one flat loop over a fixed-size array (no coroutine, no MonoBehaviour per popup); `SetText` overloads format in place, nothing lands on the GC. Cap + recycle-nearest-death. This owns the plumbing; **the feel lives in `HarvestNumberMotionDef`**, an asset shared with the `HarvestFeedbackWindow` |
 | `HarvestFade` / `HarvestNumberFormat` | static | One implementation each of a reaped node's fade + squash and of the number's spelling ("+1", "+2.5", "+1.2k"), shared by the game and the `HarvestFeedbackWindow` so the preview cannot drift |
-| `CollisionTarget` | MB (base) | Collision callbacks → `IEntrance` (root) for every unit, the first that takes it in ends the hit → a tired unit stops there → working: `IHitGate` check (root + children) → `ICollisionEffect` dispatch (root); `SetColliderEnabled` toggles every collider under it, a `VisitZone` trigger included |
+| `CollisionTarget` | MB (base) | Collision callbacks → `IEntrance` (root) for every unit, the first that takes it in ends the hit → a tired unit stops there → working: `IHitGate` check (root + children) → `ICollisionEffect` dispatch (root) → `Resolve`: the hit's verdict, raised as `HitResolved` (`HitReport`); `PassEnded` when a unit leaves one of its triggers; `FaceOf` (the struck face from a contact normal, shared with `CoastBump`); `SetColliderEnabled` toggles every collider under it, a `VisitZone` trigger included |
+| `HitReport` / `HitVerdict` / `HitOutcome` / `HitContact` | plain C# | One hit once `CollisionTarget` has run it: the unit, the verdict (Useless < Blocked < Useful), `Final`, how it got there (Bounce / Pass / Ranged), `Point`, `Side`. `HitOutcome` (None < Worked < UsedUp) is what one effect did; the hit counts as the most any of them did |
+| `BumpView` | MB | A bounce's squash of `squashTarget` (`Visual`) by verdict — `squashHeight` curve, `widthFollows`, `squashDuration`, `blockedSquash` / `uselessSquash` — throttled by `minInterval` (a stronger verdict always gets through), and its wave announced as `BumpedEvent` unless `waves` is off. Listens to the nearest `CollisionTarget` on it or above it; `Final` and `Pass` show nothing. LitMotion for the squash |
+| `LeanView` | MB | A walk-through object bending after a unit crossing it: tilt / stretch / squat of `leanTarget` (`Visual`) from a damped spring of its own (`frequency`, `damping`, solved exactly per step), kicked once per crossing — past the middle, or on `PassEnded` if sooner — by verdict (`blockedLean`, `uselessLean`); kicks add up to a cap. `maxTilt`, `maxStretch`, `squatOnly` |
+| `BumpVfxSystem` | MB | Every `BumpedEvent` → the wave of its verdict (`usefulWave` / `blockedWave` / `uselessWave`, empty = none), every `CoastBumpedEvent` → `coastRipple`. One shared emitter each; the art is drawn for a top face and turned by quarter turns (`TurnFor`), its centre snapped to `pixelsPerUnit`; skips off-screen bumps (`viewCamera`, `offscreenMargin`) |
+| `CoastBump` | MB | On the `Ground` tilemap: a unit bouncing off the coast → `CoastBumpedEvent` at the waterline (`Waterline`: the contact stepped out by the art's outline, `southOutline` / `sideOutline` / `northOutline` px), throttled per place (`RecentPlaces`: `minDistance`, `minInterval`) |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (`StructureDef`) |
-| `IEntrance` | interface | `TryEnter(unit)` — a building a unit can go INTO; decides by its own door rule and takes the unit off the field in one call, asked for every unit before anything else. Implemented by `Spawner` (tired or drunk) and `Tavern` (sober, served, seat free) |
+| `IEntrance` | interface | `TryEnter(unit)` — a building a unit can go INTO; decides by its own door rule and takes the unit off the field in one call, asked for every unit before anything else. `Serves(unit)` — whom the building is for, full or not; it decides nothing, it only tells a Blocked hit from a Useless one. Implemented by `Spawner` (tired or drunk) and `Tavern` (sober, served, seat free) |
 | `IHitGate` | interface | `TryConsume(unit)` — decides AND spends in one call; asked before any effect, one refusal = plain bounce. Effect-agnostic, so a gate composes onto any target; one rationing gate per target. Implemented by `VisitZone` and `ForgeHeat` (rationing), `Mill` and `RicePaddy` (plain looks that spend nothing) |
-| `ICollisionEffect` | interface | `OnHit(unit, target)` — what a hit by a WORKING unit does once every gate let it through; the worker check lives inside. Implemented by `ResourceSource` and `ToolRack` |
+| `ICollisionEffect` | interface | `OnHit(unit, target)` — what a hit by a WORKING unit does once every gate let it through, returned as a `HitOutcome`; the worker check lives inside. `Serves(unit)` — whom the effect is for, the moment aside (for the verdict only). Implemented by `ResourceSource` and `ToolRack` |
 | `IYieldScale` | interface | `Factor(unit)` — a per-hit multiplier on what a `ResourceSource` pays, UNDER the run's modifiers; asked only for a hit that pays, must not mutate. Implemented by `ForgeHeat` and `Mill` |
 | `VisitZone` | MB, `IHitGate` | Per-visit hit ration (`hitsPerVisit` on the component, not in a def): `Dictionary<Unit,int>` filled on trigger enter, debited per hit, dropped on exit. Sits on its own child with the trigger AND a Static Rigidbody2D so its trigger events stay off the root; `Reset()` sets both up, `Awake` errors if the collider isn't a trigger |
 | `ForgeHeat` | MB, `IHitGate`, `IYieldScale` | The smithy's heat: every paying hit adds heat (only hits the source actually pays for); reaching the cap OVERHEATS it — plain bounces until it has cooled all the way to zero; cooling never stops. Hot yield = `ForgeHotYield` (×1 until a perk) shaped by the `hotness` curve, sampled after the hit's own heat. All four numbers are stats, resolved at use; `HitPaid` for presentation |

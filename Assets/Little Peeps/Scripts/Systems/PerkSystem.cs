@@ -11,8 +11,9 @@ namespace LittlePeeps
     {
         [SerializeField] private PerkCatalogueDef catalogue;
 
-        [Tooltip("How many perks the player picks between. Fewer are offered when fewer are eligible.")]
-        [SerializeField] private int choicesOffered = 3;
+        [Tooltip("How many perks the player picks between. Fewer are offered when fewer are eligible. " +
+                 "Capped by the perk window, which is laid out for three cards.")]
+        [Range(1, PerkSelectionUI.MaxCards)] [SerializeField] private int choicesOffered = 3;
 
         private void Start()
         {

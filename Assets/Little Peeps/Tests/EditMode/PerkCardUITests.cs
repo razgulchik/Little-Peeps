@@ -219,6 +219,63 @@ namespace LittlePeeps.Tests
             Assert.That(highlight.activeSelf, Is.False);
         }
 
+        // --- the rest of the lit look ---
+        //
+        // The claim button follows the same hover as the frame, and nothing else. (The title colour does
+        // too; this assembly does not reference TextMesh Pro, so it is left to the eye.)
+
+        [Test]
+        public void HoveringLightsTheClaimButton_AndLeavingPutsItBack()
+        {
+            var texture = new Texture2D(2, 2);
+            var plain = Sprite.Create(texture, new Rect(0, 0, 2, 2), Vector2.zero);
+            var lit = Sprite.Create(texture, new Rect(0, 0, 2, 2), Vector2.zero);
+            var claim = new GameObject("Claim", typeof(RectTransform)).AddComponent<UnityEngine.UI.Image>();
+            claim.transform.SetParent(go.transform);
+
+            var so = new SerializedObject(card);
+            so.FindProperty("claimImage").objectReferenceValue = claim;
+            so.FindProperty("claimSprite").objectReferenceValue = plain;
+            so.FindProperty("hoverClaimSprite").objectReferenceValue = lit;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            try
+            {
+                Arrange(holdDuration: 1f);
+                Assert.That(claim.sprite, Is.SameAs(plain));
+
+                card.OnPointerEnter(Pointer());
+                Assert.That(claim.sprite, Is.SameAs(lit));
+
+                card.OnPointerExit(Pointer());
+                Assert.That(claim.sprite, Is.SameAs(plain));
+            }
+            finally
+            {
+                Object.DestroyImmediate(plain);
+                Object.DestroyImmediate(lit);
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        // The prefab authors the FULL fill; a fresh card must show none of it.
+        [Test]
+        public void TheFillIsEmptyAtRest()
+        {
+            var fill = new GameObject("Fill", typeof(RectTransform)).GetComponent<RectTransform>();
+            fill.SetParent(go.transform);
+            fill.anchorMin = fill.anchorMax = fill.pivot = new Vector2(0f, 1f);
+            fill.sizeDelta = new Vector2(70f, 9f);
+
+            var so = new SerializedObject(card);
+            so.FindProperty("fill").objectReferenceValue = fill;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            Arrange(holdDuration: 1f);
+
+            Assert.That(fill.rect.width, Is.Zero);
+        }
+
         // --- press response ---
         //
         // The scale belongs to the PRESS. Every path back out of a press has to restore it, because a

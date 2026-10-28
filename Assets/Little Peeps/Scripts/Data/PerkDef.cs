@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LittlePeeps
@@ -41,6 +42,10 @@ namespace LittlePeeps
                  "special one is left to offer.")]
         public PerkGrade grade = PerkGrade.Common;
 
+        [Tooltip("The colour of the card's icon frame. Only a look: how often the perk is offered is its " +
+                 "Weight, set by hand.")]
+        public PerkRarity rarity = PerkRarity.Normal;
+
         [Tooltip("Relative roll weight against the other eligible perks. 0 takes it out of the pool " +
                  "without removing it from the catalogue.")]
         public float weight = 1f;
@@ -55,6 +60,39 @@ namespace LittlePeeps
                  "condition. The levels stack, so this perk's modifiers are the STEP, not the total.")]
         public PerkDef requires;
 
+        // Far beyond any chain anyone authors. Only a Requires loop reaches it, and PerkSystem already
+        // reports a loop at startup — the cap is what keeps the card from hanging on one meanwhile.
+        private const int LevelCap = 50;
+
+        // The perk's place in its chain, as the card's numeral shows it: 1 with nothing required, one more
+        // for every perk `requires` leads through (Peer Pressure II requires I, so it is 2).
+        public int Level
+        {
+            get
+            {
+                int level = 1;
+                for (var step = requires; step != null && level < LevelCap; step = step.requires) level++;
+                return level;
+            }
+        }
+
+        // The resources this perk acts on, read from its data — the card's icon row. Each once, in
+        // ResourceType order, so the row does not depend on which modifier happened to name a resource
+        // first. Empty for a perk that touches no resource (stamina, speed, a house slot).
+        public void GetResources(List<ResourceType> into)
+        {
+            into.Clear();
+            AddResources(into);
+            into.Sort();
+
+            for (int i = into.Count - 1; i > 0; i--)
+                if (into[i] == into[i - 1]) into.RemoveAt(i);
+        }
+
+        // Add whatever the perk's data names — repeats and order do not matter, GetResources sorts them
+        // out. The base perk has no data to read. StatPerkDef and UnlockStructurePerkDef override.
+        protected virtual void AddResources(List<ResourceType> into) { }
+
         // Apply this perk's permanent effect to the current run state
         public abstract void ApplyPerk(RunContext context);
     }
@@ -64,5 +102,19 @@ namespace LittlePeeps
     {
         Common,
         Special,
+    }
+
+    // The frame colours, lowest to highest — the usual rarity ladder (grey, white, green, blue, purple,
+    // orange, red), with Pure in the blue place. Assets store the number, so reordering or inserting one
+    // quietly shifts the rarity of every perk already set.
+    public enum PerkRarity
+    {
+        Normal,
+        Common,
+        Uncommon,
+        Pure,
+        Epic,
+        Legendary,
+        Mythic,
     }
 }

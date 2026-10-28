@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LittlePeeps
@@ -17,6 +18,16 @@ namespace LittlePeeps
         // "UNLOCKS RICE PADDY" — the player-facing name, falling back to the asset's when it is blank.
         public override string GeneratedDescription =>
             structure != null ? "UNLOCKS " + structure.ShownName.ToUpperInvariant() : string.Empty;
+
+        // What the building pays, when it pays anything: Rice Paddy → Food. A paying building carries its
+        // ResourceSource on the prefab root; a house carries none and names nothing.
+        protected override void AddResources(List<ResourceType> into)
+        {
+            if (structure == null || structure.prefab == null) return;
+
+            var source = structure.prefab.GetComponent<ResourceSource>();
+            if (source != null && source.Def != null) into.Add(source.Def.resource);
+        }
 
         public override void ApplyPerk(RunContext context)
         {

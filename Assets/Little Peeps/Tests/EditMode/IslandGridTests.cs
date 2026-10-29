@@ -302,6 +302,93 @@ namespace LittlePeeps.Tests
             Assert.IsTrue(grid.CanPlace(C(0, 0), big, null, border: 1), "the same L must be placeable again");
         }
 
+        // --- fences and structures -----------------------------------------------------------------
+        // One rule from both sides: an edge whose two cells belong to the same structure is inside it. A
+        // fence never goes up there, and a structure never goes up over a fence standing there. The
+        // outline and the line between two different structures stay free for fences.
+
+        private static Edge H(int x, int y) => new Edge(C(x, y), true);
+        private static Edge V(int x, int y) => new Edge(C(x, y), false);
+
+        // Def null → the grid reads border 0; no ScriptableObject needed.
+        private static StructureInstance Bare(Vector2Int cell) => new StructureInstance { Cell = cell };
+
+        private static void PutFence(IslandGrid grid, Edge edge) => grid.PlaceEdge(edge, new EdgeInstance { Edge = edge });
+
+        [Test]
+        public void CanPlaceEdge_False_InsideAStructure()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            grid.Place(C(-2, -2), R(2, 2), Bare(C(-2, -2)));   // cells x -2..-1, y -2..-1
+
+            Assert.IsFalse(grid.CanPlaceEdge(V(-1, -2)), "the vertical line through the middle");
+            Assert.IsFalse(grid.CanPlaceEdge(H(-2, -1)), "the horizontal line through the middle");
+        }
+
+        [Test]
+        public void CanPlaceEdge_True_AlongAStructuresOutline()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            grid.Place(C(-2, -2), R(2, 2), Bare(C(-2, -2)));
+
+            Assert.IsTrue(grid.CanPlaceEdge(V(0, -2)), "east side");
+            Assert.IsTrue(grid.CanPlaceEdge(H(-2, 0)), "north side");
+            Assert.IsTrue(grid.CanPlaceEdge(V(-2, -2)), "west side, on the shore");
+        }
+
+        [Test]
+        public void CanPlaceEdge_True_BetweenTwoDifferentStructures()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            grid.Place(C(-1, -1), R(1, 1), Bare(C(-1, -1)));
+            grid.Place(C(0, -1), R(1, 1), Bare(C(0, -1)));
+
+            Assert.IsTrue(grid.CanPlaceEdge(V(0, -1)));
+        }
+
+        [Test]
+        public void CanPlaceEdge_True_OnTheShoreBesideAStructure()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            grid.Place(C(2, 2), R(1, 1), Bare(C(2, 2)));
+
+            Assert.IsTrue(grid.CanPlaceEdge(V(3, 2)), "one side is the structure, the other is sea");
+        }
+
+        [Test]
+        public void CanPlace_False_OverAFenceInsideTheFootprint()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            PutFence(grid, V(-1, -2));
+
+            Assert.IsFalse(grid.CanPlace(C(-2, -2), R(2, 2), null), "a vertical fence through the middle");
+
+            var other = TestIsland.Square(-2, 2);
+            PutFence(other, H(-2, -1));
+            Assert.IsFalse(other.CanPlace(C(-2, -2), R(2, 2), null), "a horizontal fence through the middle");
+        }
+
+        [Test]
+        public void CanPlace_True_WithFencesAllAroundTheOutline()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            foreach (var edge in new[] { H(-2, -2), H(-1, -2), H(-2, 0), H(-1, 0), V(-2, -2), V(-2, -1), V(0, -2), V(0, -1) })
+                PutFence(grid, edge);
+
+            Assert.IsTrue(grid.CanPlace(C(-2, -2), R(2, 2), null), "a fenced pen holds a building");
+        }
+
+        [Test]
+        public void CanPlace_Shaped_IgnoresAFenceAlongTheNotch()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            // The L at (0,0) leaves (1,1) out; the edges between the notch and the L are its outline.
+            PutFence(grid, V(1, 1));   // between (0,1) and the notch
+            PutFence(grid, H(1, 1));   // between (1,0) and the notch
+
+            Assert.IsTrue(grid.CanPlace(C(0, 0), L, null));
+        }
+
         // --- coordinate round-trips ----------------------------------------------------------------
 
         [Test]

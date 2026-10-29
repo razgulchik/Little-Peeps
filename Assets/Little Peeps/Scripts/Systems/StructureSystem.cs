@@ -70,6 +70,18 @@ namespace LittlePeeps
         // Whether the NEXT one can be paid: its price grows with how many already stand.
         public bool CanAfford(StructureDef def) => resourceSystem.CanAfford(def, run != null ? run.CountOf(def) : 0);
 
+        // The same two questions for several built in a row (a drawn fence): how many of the next `wanted`
+        // fit under the build limit, and how many of those the player can pay for, each at its own growing
+        // price. The two apart, because only running out of money is reported (BuildDeniedEvent).
+        public int RoomUnderLimit(StructureDef def, int wanted)
+        {
+            if (!def.HasLimit || run == null) return wanted;
+            return Mathf.Clamp(def.LimitIn(run) - run.CountOf(def), 0, wanted);
+        }
+
+        public int AffordableCount(StructureDef def, int wanted) =>
+            resourceSystem.AffordableCount(def, run != null ? run.CountOf(def) : 0, wanted);
+
         // Free placement for generated structures (a zone's natural content, the pier): no cost, but
         // still validated. Returns the placed instance, or null when the cell is blocked — the generator
         // keeps its own cells clear, so a failure here is a data error (a def's terrain or border rule
@@ -78,7 +90,7 @@ namespace LittlePeeps
         {
             if (!islandSystem.Grid.CanPlace(cell, def))
             {
-                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, border overlap, or no side along water) — skipped.", this);
+                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, border overlap, a fence across it, or no side along water) — skipped.", this);
                 return null;
             }
             return Build(def, cell);

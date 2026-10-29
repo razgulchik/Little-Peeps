@@ -80,9 +80,23 @@ namespace LittlePeeps
                     if (cell.occupant != null) return false;   // occupied (footprint or claimed border)
 
                     if (footprint.Contains(x, y) && !IsTerrainAllowed(cell.terrain, allowedTerrain)) return false;
+                    if (HasFenceInside(origin, footprint, border, x, y)) return false;
                 }
             }
             return true;
+        }
+
+        // True when a fence stands on the east or north side of claimed cell (x, y) AND the cell across
+        // that side is claimed too — a fence the structure would stand on. East and north only, so each
+        // inner edge is asked once over the sweep; the outline is never asked, a fence may run along it.
+        // The same rule as CanPlaceEdge's "inside" from the other direction.
+        private bool HasFenceInside(Vector2Int origin, Footprint footprint, int border, int x, int y)
+        {
+            if (edges.Count == 0) return false;
+            Vector2Int cell = new Vector2Int(origin.x + x, origin.y + y);
+            if (footprint.Claims(x + 1, y, border) && edges.ContainsKey(new Edge(new Vector2Int(cell.x + 1, cell.y), false)))
+                return true;
+            return footprint.Claims(x, y + 1, border) && edges.ContainsKey(new Edge(new Vector2Int(cell.x, cell.y + 1), true));
         }
 
         // The whole placement rule for `def` at origin: the cell rule above, plus what the def adds on top —
@@ -236,17 +250,50 @@ namespace LittlePeeps
         }
 
         // A fence fits an edge if the edge is free AND at least one bordering cell is land — this lets
-        // the player fence along the shoreline, not just interior boundaries.
+        // the player fence along the shoreline, not just interior boundaries — AND the edge is not inside
+        // a structure: both bordering cells held by the same one. A fence may run along a structure's
+        // outline or between two different structures, never through one. CanPlace keeps the same rule
+        // from the other side, so a structure never goes up over a fence either.
         public bool CanPlaceEdge(Edge edge)
         {
             if (edges.ContainsKey(edge)) return false;
             var (a, b) = EdgeCells(edge);
-            return GetCell(a) != null || GetCell(b) != null;
+            var cellA = GetCell(a);
+            var cellB = GetCell(b);
+            if (cellA == null && cellB == null) return false;
+            return cellA?.occupant == null || cellA.occupant != cellB?.occupant;
         }
+
+        // --- Lattice nodes (cell corners) — what a drawn fence stroke walks along ----------------------
+        // Node (x,y) is the corner at world (x*cs, y*cs): the same lattice Edge anchors live on, so the
+        // segment between two neighbouring nodes IS an edge (Edge.Between).
+
+        // The node nearest a world position.
+        public Vector2Int WorldToNode(Vector2 worldPos)
+        {
+            return new Vector2Int(
+                Mathf.RoundToInt(worldPos.x / cellSize),
+                Mathf.RoundToInt(worldPos.y / cellSize)
+            );
+        }
+
+        public Vector2 NodeToWorld(Vector2Int node) => new Vector2(node.x * cellSize, node.y * cellSize);
 
         public void PlaceEdge(Edge edge, EdgeInstance instance) => edges[edge] = instance;
 
         public void RemoveEdge(Edge edge) => edges.Remove(edge);
+
+        // Distance from a world point to an edge's SEGMENT, ends included — not to its endless line, so an
+        // edge far along the same line is far. What "how near is the cursor to this edge" means for the
+        // fence ghost's hold (EdgeAim) and for picking a fence to sell (PlacementTarget).
+        public float DistanceToEdge(Edge edge, Vector2 worldPos)
+        {
+            Vector2 a = NodeToWorld(edge.anchor);
+            Vector2 b = NodeToWorld(edge.End);
+            Vector2 ab = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(worldPos - a, ab) / ab.sqrMagnitude);
+            return (worldPos - (a + t * ab)).magnitude;
+        }
 
         // World midpoint of an edge's line segment — where the fence sprite is centered.
         public Vector2 EdgeToWorld(Edge edge)

@@ -9,9 +9,11 @@ namespace LittlePeeps
     //
     // Split out of PlacementController so the tools decide WHAT is targeted and this class decides how it
     // LOOKS — no tool touches a SpriteRenderer. It owns three visual subjects:
-    //   - the GHOST: a neutralised clone of the real prefab that follows the cursor before anything is built;
+    //   - the GHOST: a neutralised clone of the real prefab that follows the cursor before anything is built
+    //     (a fence stroke being drawn shows one such clone per segment instead);
     //   - the TERRITORY halo: one quad per cell of the footprint+border the ghost would claim;
-    //   - the HOVER tint: a real structure already in the scene, recoloured and then restored.
+    //   - the HOVER tint: a real structure already in the scene, recoloured and then restored (and the
+    //     SALE MARKS: the same tint on every fence a sell stroke runs over).
     // Ghost and halo are objects this class creates and destroys; the hover target is NOT — it is
     // borrowed, so its original colours are remembered and put back. Drop shadows (SpriteShadow) follow
     // one rule throughout: a shadow belongs to what stands on the ground. The ghost never has one, and no
@@ -40,6 +42,12 @@ namespace LittlePeeps
         private GameObject ghost;
         private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
         private DualVisual ghostVisual;                // non-null when the ghost is an edge structure (fence)
+        private StructureDef ghostDef;                 // what the ghost is a copy of — the stroke's ghosts are copies too
+
+        // One fence ghost per segment of a drawn stroke, pooled: a stroke grows and shrinks every few
+        // frames, and backing up along it would otherwise destroy and re-create the same copies. Shown
+        // instead of the cursor ghost while a stroke has segments.
+        private readonly List<FenceGhost> strokeGhosts = new();
 
         // Faint tiles showing the footprint+border the ghost would claim: one quad per
         // claimed cell under a common parent, pooled — a shaped footprint needs the halo to follow its
@@ -51,6 +59,9 @@ namespace LittlePeeps
         // The structure OR fence currently tinted as the hover target. A cell structure and a fence are
         // never both hovered (the edge wins by precedence), so one target covers both.
         private readonly TintTarget hoverTint = new();
+
+        // The fences a sell stroke runs over, each tinted like the hover target. Borrowed, as the hover is.
+        private readonly List<TintTarget> saleMarks = new();
 
         public bool HasGhost => ghost != null;
 
@@ -68,6 +79,7 @@ namespace LittlePeeps
             ClearGhost();
             if (def == null || def.prefab == null) return;
 
+            ghostDef = def;
             if (def.placement == PlacementKind.Edge) BuildEdgeGhost(def);
             else BuildCellGhost(def);
         }
@@ -76,14 +88,14 @@ namespace LittlePeeps
         // (PoseCellGhost), where it also takes the look of the spot — a forest's row, a watermill's side.
         private void BuildCellGhost(StructureDef def)
         {
-            ghost = SpawnGhost(def);
+            ghost = SpawnGhost(def, out ghostRenderers);
         }
 
         // Edge ghost (fence): the neutralised prefab (SpawnGhost), both poses collected for the tint; the
         // active pose and position are set every frame in PoseEdgeGhost.
         private void BuildEdgeGhost(StructureDef def)
         {
-            ghost = SpawnGhost(def);
+            ghost = SpawnGhost(def, out ghostRenderers);
             ghostVisual = ghost.GetComponent<DualVisual>();
         }
 
@@ -95,7 +107,7 @@ namespace LittlePeeps
         // Starts, so whatever a view builds at Start — a SpriteShadow's shadow, for one — is simply absent
         // from the ghost. DualVisual.Show still works on a disabled component, so the pose switch is
         // unaffected. Collects every renderer (inactive poses included) for the tint.
-        private GameObject SpawnGhost(StructureDef def)
+        private static GameObject SpawnGhost(StructureDef def, out SpriteRenderer[] renderers)
         {
             var go = UnityEngine.Object.Instantiate(def.prefab);
             go.name = "PlacementGhost";
@@ -104,8 +116,8 @@ namespace LittlePeeps
             foreach (var col in go.GetComponentsInChildren<Collider2D>(true)) col.enabled = false;
             foreach (var rb in go.GetComponentsInChildren<Rigidbody2D>(true)) rb.simulated = false;
 
-            ghostRenderers = go.GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var r in ghostRenderers) r.sortingOrder += 1;   // draw above the placed structures
+            renderers = go.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (var r in renderers) r.sortingOrder += 1;   // draw above the placed structures
             return go;
         }
 
@@ -121,11 +133,14 @@ namespace LittlePeeps
             TintGhost(valid);
         }
 
-        // Put the edge ghost on `edge`'s midpoint, show the matching pose, and tint it by validity.
+        // Put the edge ghost on `edge`'s midpoint, show the matching pose, and tint it by validity. Takes
+        // over from a stroke's ghosts, if any were up.
         public void PoseEdgeGhost(IslandGrid grid, Edge edge, bool valid)
         {
             if (ghost == null) return;
 
+            HideEdgeStroke();
+            ghost.SetActive(true);
             ghost.transform.position = grid.EdgeToWorld(edge);
             if (ghostVisual != null) ghostVisual.Show(edge.horizontal);
             TintGhost(valid);
@@ -133,13 +148,53 @@ namespace LittlePeeps
 
         private void TintGhost(bool valid) => Tint(ghostRenderers, valid ? validColor : invalidColor);
 
-        // Destroy the ghost and hide the halo that goes with it.
+        // A drawn fence stroke: one ghost per segment of the plan, green for what will go up and red for
+        // what won't. The cursor ghost steps aside meanwhile.
+        public void ShowEdgeStroke(IslandGrid grid, List<StrokeSegment> plan)
+        {
+            if (ghost == null) return;
+            ghost.SetActive(false);
+
+            for (int i = 0; i < plan.Count; i++)
+            {
+                var g = StrokeGhost(i);
+                Edge edge = plan[i].Edge;
+                g.Root.SetActive(true);
+                g.Root.transform.position = grid.EdgeToWorld(edge);
+                if (g.Visual != null) g.Visual.Show(edge.horizontal);
+                Tint(g.Renderers, plan[i].State == StrokeSegmentState.Build ? validColor : invalidColor);
+            }
+            for (int i = plan.Count; i < strokeGhosts.Count; i++) strokeGhosts[i].Root.SetActive(false);
+        }
+
+        public void HideEdgeStroke()
+        {
+            for (int i = 0; i < strokeGhosts.Count; i++) strokeGhosts[i].Root.SetActive(false);
+        }
+
+        // The i-th pooled stroke ghost, made on first use as the same neutralised copy the cursor ghost is.
+        private FenceGhost StrokeGhost(int i)
+        {
+            while (strokeGhosts.Count <= i)
+            {
+                var go = SpawnGhost(ghostDef, out var renderers);
+                go.name = "PlacementStrokeGhost";
+                strokeGhosts.Add(new FenceGhost(go, renderers, go.GetComponent<DualVisual>()));
+            }
+            return strokeGhosts[i];
+        }
+
+        // Destroy the ghost — the stroke's too — and hide the halo that goes with it.
         public void ClearGhost()
         {
             if (ghost != null) UnityEngine.Object.Destroy(ghost);
             ghost = null;
             ghostRenderers = null;
             ghostVisual = null;
+            ghostDef = null;
+            foreach (var g in strokeGhosts)
+                if (g.Root != null) UnityEngine.Object.Destroy(g.Root);
+            strokeGhosts.Clear();
             HideTerritory();
         }
 
@@ -224,6 +279,30 @@ namespace LittlePeeps
         // Put the hover target's real colours back and forget it.
         public void ClearHover() => hoverTint.Restore();
 
+        // --- sale marks (the fences a sell stroke runs over) -------------------------------------------
+
+        // Tint every one of `roots` as "will be sold", replacing the previous marks (put back first).
+        // Callers only do this when the set CHANGES — each mark captures its renderers.
+        public void MarkForSale(List<Structure> roots)
+        {
+            ClearSaleMarks();
+            foreach (var root in roots)
+            {
+                if (root == null) continue;
+                var mark = new TintTarget();
+                mark.Capture(root);
+                mark.Retint(sellHoverColor);
+                saleMarks.Add(mark);
+            }
+        }
+
+        // Put the marked fences' real colours back (a destroyed one is skipped).
+        public void ClearSaleMarks()
+        {
+            foreach (var mark in saleMarks) mark.Restore();
+            saleMarks.Clear();
+        }
+
         // Drop the hover target WITHOUT restoring — for when it is being destroyed (Sell), so there is
         // nothing left to colour back.
         public void ForgetHover() => hoverTint.Forget();
@@ -236,6 +315,21 @@ namespace LittlePeeps
             if (renderers == null) return;
             for (int i = 0; i < renderers.Length; i++)
                 if (renderers[i] != null) renderers[i].color = color;
+        }
+
+        // One pooled ghost of a drawn stroke: its root, every renderer for the tint, and the pose switch.
+        private readonly struct FenceGhost
+        {
+            public readonly GameObject Root;
+            public readonly SpriteRenderer[] Renderers;
+            public readonly DualVisual Visual;
+
+            public FenceGhost(GameObject root, SpriteRenderer[] renderers, DualVisual visual)
+            {
+                Root = root;
+                Renderers = renderers;
+                Visual = visual;
+            }
         }
 
         // One tinted structure — the hover target — bundling its renderers with the colors they had before

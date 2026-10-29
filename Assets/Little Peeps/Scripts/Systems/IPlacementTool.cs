@@ -20,12 +20,17 @@ namespace LittlePeeps
         // Per-frame preview at the cursor.
         void Tick(Vector2 cursor);
 
-        // Left click in the world (already filtered: never fires over UI).
-        void Click(Vector2 world);
+        // Left button down in the world (already filtered: never fires over UI).
+        void Press(Vector2 world);
 
-        // Right click. True = the tool had an action in progress and consumed the click. False = nothing
-        // to cancel, so the controller clears back to the empty hand. (No tool has a multi-click action
-        // since moving went away; the hook stays for the next one that does.)
+        // That button back up — wherever the cursor is by then, the panel included. Comes only after a
+        // Press, but not always to the tool that got it (a card picked mid-hold swaps the tool), so a tool
+        // with nothing under way ignores it.
+        void Release(Vector2 world);
+
+        // Right click. True = the tool had an action in progress and consumed the click (a fence stroke
+        // being drawn is dropped). False = nothing to cancel, so the controller clears back to the empty
+        // hand.
         bool Cancel();
     }
 

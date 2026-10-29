@@ -25,6 +25,20 @@ namespace LittlePeeps
             this.horizontal = horizontal;
         }
 
+        // The far end of the segment: one node east of the anchor, or one north. The near end is the anchor.
+        public Vector2Int End => anchor + (horizontal ? Vector2Int.right : Vector2Int.up);
+
+        // The edge joining two NEIGHBOURING lattice nodes (cell corners, IslandGrid.WorldToNode), in
+        // either order. Anything but a unit step is a caller bug — there is no single edge between them.
+        public static Edge Between(Vector2Int a, Vector2Int b)
+        {
+            if (Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y) != 1)
+                throw new ArgumentException($"Nodes {a} and {b} are not neighbours.");
+            return a.y == b.y
+                ? new Edge(new Vector2Int(Mathf.Min(a.x, b.x), a.y), true)
+                : new Edge(new Vector2Int(a.x, Mathf.Min(a.y, b.y)), false);
+        }
+
         public bool Equals(Edge other) => anchor == other.anchor && horizontal == other.horizontal;
         public override bool Equals(object obj) => obj is Edge other && Equals(other);
         public override int GetHashCode() => (anchor.GetHashCode() * 397) ^ (horizontal ? 1 : 0);

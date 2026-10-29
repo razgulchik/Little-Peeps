@@ -13,14 +13,20 @@ namespace LittlePeeps
     // never also boosts the people under it or places a building through it. The other two are left
     // unfiltered on purpose: OnAnyClick is a tap anywhere on the screen (the age transition's skip, whose
     // banner IS UI), and OnRightClick is cancel, which means the same wherever the cursor is.
+    // OnWorldRelease closes an OnWorldClick: it fires when the button that pressed on the world comes up,
+    // wherever the cursor is by then — like the camera's drag, a hold that started on the world may cross
+    // the panel without letting go. A press over UI gets no release.
     // CameraController polls the mouse itself and asks IsPointerOverUI for the same rule.
     public class InputHandler : MonoBehaviour
     {
         [SerializeField] private Camera mainCamera;
 
         public event Action<Vector2> OnWorldClick;
+        public event Action<Vector2> OnWorldRelease;
         public event Action OnAnyClick;
         public event Action<Vector2> OnRightClick;
+
+        private bool worldPressHeld;   // the left button went down on the world and is not up yet
 
         // Current mouse position in world space, refreshed every frame. HasMouse is false when no
         // pointer device is present (don't trust WorldMousePosition then). Consumers that need to
@@ -45,7 +51,16 @@ namespace LittlePeeps
             if (mouse.leftButton.wasPressedThisFrame)
             {
                 OnAnyClick?.Invoke();
-                if (!IsPointerOverUI()) OnWorldClick?.Invoke(WorldMousePosition);
+                if (!IsPointerOverUI())
+                {
+                    worldPressHeld = true;
+                    OnWorldClick?.Invoke(WorldMousePosition);
+                }
+            }
+            if (worldPressHeld && !mouse.leftButton.isPressed)
+            {
+                worldPressHeld = false;
+                OnWorldRelease?.Invoke(WorldMousePosition);
             }
             if (mouse.rightButton.wasPressedThisFrame) OnRightClick?.Invoke(WorldMousePosition);
         }

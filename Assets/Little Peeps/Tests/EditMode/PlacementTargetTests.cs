@@ -139,17 +139,17 @@ namespace LittlePeeps.Tests
             var house = PutStructure(grid, Cell);
             var fence = PutFence(grid, SouthEdge);
 
-            // The grab zone is 0.3 of a cell; 0.25 is inside it and 0.35 is outside. The exact boundary is
+            // The grab zone is 0.35 of a cell; 0.3 is inside it and 0.4 is outside. The exact boundary is
             // left alone on purpose — pinning float equality there would test the rounding, not the rule.
-            Assert.AreSame(fence, PlacementTarget.Resolve(grid, AboveSouthEdge(0.25f)).Fence, "inside the grab zone");
-            Assert.AreSame(house, PlacementTarget.Resolve(grid, AboveSouthEdge(0.35f)).Instance, "outside the grab zone");
+            Assert.AreSame(fence, PlacementTarget.Resolve(grid, AboveSouthEdge(0.3f)).Fence, "inside the grab zone");
+            Assert.AreSame(house, PlacementTarget.Resolve(grid, AboveSouthEdge(0.4f)).Instance, "outside the grab zone");
         }
 
         [Test]
         public void Resolve_ScalesTheGrabDistanceWithTheCellSize()
         {
             // The same 0.2 world units from the edge line means different things on different grids,
-            // because the grab zone is a FRACTION of a cell: 0.3 on a 1.0 cell, but 0.15 on a 0.5 cell.
+            // because the grab zone is a FRACTION of a cell: 0.35 on a 1.0 cell, but 0.175 on a 0.5 cell.
             var wide = Island(1f);
             PutStructure(wide, Cell);
             var wideFence = PutFence(wide, SouthEdge);
@@ -178,6 +178,62 @@ namespace LittlePeeps.Tests
 
             Assert.AreSame(fence, target.Fence);
             Assert.AreEqual(westEdge, target.Edge);
+        }
+
+        [Test]
+        public void Resolve_FindsTheFence_NearACorner_WhereAnEmptySideIsNearer()
+        {
+            var grid = Island();
+            var house = PutStructure(grid, Cell);
+            var westEdge = new Edge(new Vector2Int(-3, -2), false);
+            var fence = PutFence(grid, westEdge);
+
+            // By the cell's south-west corner: the empty south side is 0.05 away, the fenced west side
+            // 0.08. The fence is still right under the cursor and must win over the building.
+            var target = PlacementTarget.Resolve(grid, new Vector2(-3f + 0.08f, -2f + 0.05f));
+
+            Assert.AreSame(fence, target.Fence);
+            Assert.AreNotSame(house, target.Instance);
+        }
+
+        [Test]
+        public void Resolve_FindsAFence_RunningOnFromTheCellsCorner()
+        {
+            var grid = Island();
+            // The horizontal edge LEFT of the cell's south-west corner — a side of the neighbouring cell,
+            // not of the cell under the cursor.
+            var runOn = new Edge(new Vector2Int(-4, -2), true);
+            var fence = PutFence(grid, runOn);
+
+            var target = PlacementTarget.Resolve(grid, new Vector2(-3f + 0.05f, -2f + 0.05f));
+
+            Assert.AreSame(fence, target.Fence);
+            Assert.AreEqual(runOn, target.Edge);
+        }
+
+        [Test]
+        public void Resolve_PicksTheNearerOfTwoFences()
+        {
+            var grid = Island();
+            PutFence(grid, SouthEdge);
+            var westEdge = new Edge(new Vector2Int(-3, -2), false);
+            var west = PutFence(grid, westEdge);
+
+            // By the south-west corner, nearer the west fence (0.05) than the south one (0.1).
+            Assert.AreSame(west, PlacementTarget.Resolve(grid, new Vector2(-3f + 0.05f, -2f + 0.1f)).Fence);
+        }
+
+        [Test]
+        public void Resolve_KeepsTheMiddleOfAFencedInCell_ForTheBuilding()
+        {
+            var grid = Island();
+            var house = PutStructure(grid, Cell);
+            PutFence(grid, SouthEdge);
+            PutFence(grid, new Edge(new Vector2Int(-3, -1), true));
+            PutFence(grid, new Edge(new Vector2Int(-3, -2), false));
+            PutFence(grid, new Edge(new Vector2Int(-2, -2), false));
+
+            Assert.AreSame(house, PlacementTarget.Resolve(grid, CellCentre + new Vector2(0.1f, 0.1f)).Instance);
         }
 
         // --- identity ---------------------------------------------------------------------------------

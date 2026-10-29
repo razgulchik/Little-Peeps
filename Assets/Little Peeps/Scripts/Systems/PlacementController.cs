@@ -59,12 +59,14 @@ namespace LittlePeeps
         private void OnEnable()
         {
             inputHandler.OnWorldClick += OnWorldClick;
+            inputHandler.OnWorldRelease += OnWorldRelease;
             inputHandler.OnRightClick += OnRightClick;
         }
 
         private void OnDisable()
         {
             inputHandler.OnWorldClick -= OnWorldClick;
+            inputHandler.OnWorldRelease -= OnWorldRelease;
             inputHandler.OnRightClick -= OnRightClick;
         }
 
@@ -162,7 +164,13 @@ namespace LittlePeeps
         private void OnWorldClick(Vector2 worldPos)
         {
             if (!active) return;
-            tool.Click(worldPos);
+            tool.Press(worldPos);
+        }
+
+        private void OnWorldRelease(Vector2 worldPos)
+        {
+            if (!active) return;
+            tool.Release(worldPos);
         }
 
         // Right-click = cancel the current action, like any strategy game. The tool gets first refusal:
@@ -189,7 +197,8 @@ namespace LittlePeeps
             public void Enter() { }
             public void Exit() { }
             public void Tick(Vector2 cursor) { }
-            public void Click(Vector2 world) { }
+            public void Press(Vector2 world) { }
+            public void Release(Vector2 world) { }
             public bool Cancel() => false;
         }
     }

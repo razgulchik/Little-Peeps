@@ -12,10 +12,11 @@ namespace LittlePeeps
     // Pure C# over IslandGrid — no MonoBehaviour, no scene — so the precedence rule is directly testable.
     public readonly struct PlacementTarget : IEquatable<PlacementTarget>
     {
-        // How close to an edge's line the cursor has to be, as a fraction of a cell, to count as aiming at
-        // the fence rather than at the cell beside it. A fraction, not an absolute distance, so the grab
-        // zone keeps its feel if the cell size ever changes.
-        private const float EdgeGrabFraction = 0.3f;
+        // How close to a fence the cursor has to be, as a fraction of a cell, to count as aiming at the
+        // fence rather than at the cell beside it — measured to the fence's segment. Under half a cell, so
+        // the middle of a fenced-in 1x1 building still answers as the building. A fraction, not an absolute
+        // distance, so the grab zone keeps its feel if the cell size ever changes.
+        private const float FenceReachFraction = 0.35f;
 
         public readonly EdgeInstance Fence;         // non-null → the cursor is on this fence
         public readonly Edge Edge;                  // the edge Fence sits on; meaningless when Fence is null
@@ -53,26 +54,48 @@ namespace LittlePeeps
         // then refuses.
         public bool CanSell => Def != null && Def.canSell;
 
-        // Resolve what the cursor is on. A fence WINS over the cell beneath it when the cursor is right on
-        // the edge line — otherwise a fence running along a structure's cell would be unreachable, because
-        // the cell underneath would always be hit first.
+        // Resolve what the cursor is on. A fence within reach WINS over the cell beneath it — otherwise a
+        // fence running along a structure's cell would be unreachable, because the cell underneath would
+        // always be hit first.
         public static PlacementTarget Resolve(IslandGrid grid, Vector2 world)
         {
-            Edge edge = grid.WorldToEdge(world);
-            var fence = grid.GetEdge(edge);
-            if (fence != null && IsAimedAtEdge(grid, world, edge)) return new PlacementTarget(fence, edge);
+            var fence = NearestFence(grid, world, out Edge edge);
+            if (fence != null) return new PlacementTarget(fence, edge);
 
             var occupant = grid.GetCell(grid.WorldToGrid(world))?.occupant;
             return occupant != null ? new PlacementTarget(occupant) : default;
         }
 
-        // True when the cursor is within EdgeGrabFraction of a cell of the edge's line, measured
-        // perpendicular to it.
-        private static bool IsAimedAtEdge(IslandGrid grid, Vector2 world, Edge edge)
+        // The nearest FENCE within FenceReachFraction of the cursor, or null. Fences are searched for
+        // directly, not "the nearest side of the cell, then is there a fence on it": near a corner another,
+        // empty side can be a hair nearer, and the fence right under the cursor would be missed. Every edge
+        // that can come within reach of a point in a cell — its four sides and the eight that run on from
+        // its corners — is anchored in the 3x3 cells around it.
+        private static EdgeInstance NearestFence(IslandGrid grid, Vector2 world, out Edge edge)
         {
-            Vector2 mid = grid.EdgeToWorld(edge);
-            float perp = edge.horizontal ? Mathf.Abs(world.y - mid.y) : Mathf.Abs(world.x - mid.x);
-            return perp <= grid.CellSize * EdgeGrabFraction;
+            edge = default;
+            if (grid.Edges.Count == 0) return null;
+
+            float reach = grid.CellSize * FenceReachFraction;
+            Vector2Int cell = grid.WorldToGrid(world);
+            EdgeInstance best = null;
+            float bestDistance = float.MaxValue;
+
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int h = 0; h < 2; h++)
+                    {
+                        var candidate = new Edge(new Vector2Int(cell.x + dx, cell.y + dy), h == 0);
+                        var fence = grid.GetEdge(candidate);
+                        if (fence == null) continue;
+
+                        float distance = grid.DistanceToEdge(candidate, world);
+                        if (distance > reach || distance >= bestDistance) continue;
+                        best = fence;
+                        bestDistance = distance;
+                        edge = candidate;
+                    }
+            return best;
         }
 
         // Identity is the thing targeted, so a tool can ask "still the same target?" with one compare and

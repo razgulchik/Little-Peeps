@@ -193,6 +193,28 @@ namespace LittlePeeps
             return true;
         }
 
+        // How many of the next `wanted` the stock pays for if they are bought one after another — each at
+        // the price its own place in the count gives it (standing, standing + 1, ...), all from the same
+        // purse. Every cost entry is run out on its own, and the scarcest one decides.
+        public int AffordableCount(StructureDef def, int standing, int wanted)
+        {
+            if (def.cost == null) return wanted;
+            int count = wanted;
+            for (int i = 0; i < def.cost.Count; i++)
+            {
+                float left = GetResource(def.cost[i].resourceType);
+                int n = 0;
+                while (n < count)
+                {
+                    left -= def.CostAt(i, standing + n);
+                    if (left < 0f) break;
+                    n++;
+                }
+                count = n;
+            }
+            return count;
+        }
+
         public void Spend(StructureDef def, int standing)
         {
             if (def.cost == null) return;

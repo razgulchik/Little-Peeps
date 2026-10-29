@@ -5,8 +5,9 @@ namespace LittlePeeps.Tests
 {
     // EdgeAim is the fence ghost's hold on its edge. In the middle of a cell all four sides are nearly
     // equally near, and without the hold a one-pixel twitch flips the ghost between them — the jitter the
-    // player complained about. Pinned here: a twitch changes nothing, a clear lean does, and the hold lets
-    // go once the cursor is in another cell.
+    // player complained about. Pinned here: the middle of a cell is a dead zone, the ghost moves when the
+    // cursor comes up to another line, holds on a corner while the cursor is still at its own, and lets go
+    // once the cursor is far from it.
     //
     // cellSize 1. Cell (-3,-2) spans x -3..-2, y -2..-1; its centre is (-2.5,-1.5). Negative coordinates
     // throughout: the island is centred on the world origin.
@@ -64,7 +65,41 @@ namespace LittlePeeps.Tests
             aim.Update(grid, new Vector2(-2.5f, -1.9f));
             aim.Update(grid, new Vector2(-2.5f, -1.5f));
 
-            Assert.AreEqual(Top, aim.Update(grid, new Vector2(-2.5f, -1.25f)));
+            Assert.AreEqual(Top, aim.Update(grid, new Vector2(-2.5f, -1.1f)));
+        }
+
+        [Test]
+        public void Update_HoldsAcrossTheCell_UntilTheCursorIsAtTheFarLine()
+        {
+            var grid = Island();
+            var aim = new EdgeAim();
+            aim.Update(grid, new Vector2(-2.5f, -1.9f));
+
+            // Well past the centre, nearer the top by far, but not at its line yet.
+            Assert.AreEqual(Bottom, aim.Update(grid, new Vector2(-2.5f, -1.4f)));
+            Assert.AreEqual(Bottom, aim.Update(grid, new Vector2(-2.5f, -1.32f)));
+        }
+
+        [Test]
+        public void Update_HoldsOnACorner_WhileTheCursorIsStillAtItsOwnLine()
+        {
+            var grid = Island();
+            var aim = new EdgeAim();
+            aim.Update(grid, new Vector2(-2.5f, -1.9f));
+
+            // At the right side's line, and still within reach of the bottom's.
+            Assert.AreEqual(Bottom, aim.Update(grid, new Vector2(-2.05f, -1.9f)));
+        }
+
+        [Test]
+        public void Update_TakesTheNearest_OnceTheCursorIsFarFromTheHeldEdge()
+        {
+            var grid = Island();
+            var aim = new EdgeAim();
+            aim.Update(grid, new Vector2(-2.5f, -1.9f));
+
+            // A jump into the cell diagonally up and right, near its bottom, without crossing a line on the way.
+            Assert.AreEqual(new Edge(new Vector2Int(-2, -1), true), aim.Update(grid, new Vector2(-1.5f, -0.9f)));
         }
 
         [Test]
@@ -112,17 +147,38 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
-        public void Update_TurnsAtTheEnd_WhenTheCursorIsBesideIt()
+        public void Update_CarriesTheWallOn_WhenTheCursorCrossesIntoTheNextCellAboveTheLine()
         {
-            Assert.AreEqual(EastUp, new EdgeAim().Update(OneFenceWall(), new Vector2(-2.05f, -1.6f)));
+            // Just past the corner and a little above the wall: the turn is nearer, the wall goes on anyway.
+            Assert.AreEqual(NextBottom, new EdgeAim().Update(OneFenceWall(), new Vector2(-1.95f, -1.75f)));
+        }
+
+        [Test]
+        public void Update_TurnsAtTheEnd_WhenTheCursorIsWellOffTheWallsLine()
+        {
+            Assert.AreEqual(EastUp, new EdgeAim().Update(OneFenceWall(), new Vector2(-2.05f, -1.4f)));
+            Assert.AreEqual(EastDown, new EdgeAim().Update(OneFenceWall(), new Vector2(-2.05f, -2.6f)));
+        }
+
+        [Test]
+        public void Update_TurnsFromTheWallCarriedOn_OnlyUpTheTurnsLine()
+        {
+            var grid = OneFenceWall();
+            var aim = new EdgeAim();
+            aim.Update(grid, new Vector2(-1.6f, -1.9f));
+
+            // Well above the wall, but in the middle of the next cell: still the wall carried on.
+            Assert.AreEqual(NextBottom, aim.Update(grid, new Vector2(-1.5f, -1.4f)));
+            // Up at the turn's line: the turn.
+            Assert.AreEqual(EastUp, aim.Update(grid, new Vector2(-1.98f, -1.3f)));
         }
 
         [Test]
         public void Update_KeepsTheGhostOnTheEnd_WhileTheCursorIsACellAway()
         {
-            // By the far side of the next cell, 1.03 from the end: the plain nearest would be that cell's
+            // By the far side of the next cell, 0.98 from the end: the plain nearest would be that cell's
             // right side, but the ghost stays on the wall, carrying it on.
-            Assert.AreEqual(NextBottom, new EdgeAim().Update(OneFenceWall(), new Vector2(-1.1f, -1.5f)));
+            Assert.AreEqual(NextBottom, new EdgeAim().Update(OneFenceWall(), new Vector2(-1.1f, -1.6f)));
         }
 
         [Test]
@@ -132,12 +188,12 @@ namespace LittlePeeps.Tests
             var aim = new EdgeAim();
             Assert.AreEqual(FarRight, aim.Update(grid, new Vector2(-0.6f, -1.5f)));   // out of reach
 
-            // Into reach (1.21 from the end), still nearest the held edge: the end pulls anyway.
-            Assert.AreEqual(NextBottom, aim.Update(grid, new Vector2(-0.9f, -1.5f)));
+            // Into reach (1.17 from the end), still nearest the held edge: the end pulls anyway.
+            Assert.AreEqual(NextBottom, aim.Update(grid, new Vector2(-0.9f, -1.6f)));
         }
 
         [Test]
-        public void Update_StepsOffTheFence_OntoTheEndsNearestFreeEdge()
+        public void Update_StepsOffTheFence_OntoTheWallCarriedOn()
         {
             var grid = Island();
             var middle = new Edge(new Vector2Int(-4, -2), true);
@@ -148,8 +204,9 @@ namespace LittlePeeps.Tests
 
             // On the middle fence, 1.5 from either end: plain nearest — the fence itself.
             Assert.AreEqual(middle, aim.Update(grid, new Vector2(-3.5f, -1.95f)));
-            // Near the east end: off the fence and onto the end, hold or not.
-            Assert.AreEqual(EastUp, aim.Update(grid, new Vector2(-2.15f, -1.95f)));
+            // Near the east end: off the fence and onto the end, hold or not — the turn is nearer, but the
+            // cursor is on the wall's line.
+            Assert.AreEqual(NextBottom, aim.Update(grid, new Vector2(-2.15f, -1.95f)));
         }
 
         [Test]
@@ -159,7 +216,7 @@ namespace LittlePeeps.Tests
             var aim = new EdgeAim();
             Assert.AreEqual(NextBottom, aim.Update(grid, new Vector2(-1.7f, -1.95f)));
 
-            // On the corner itself the turn is a hair nearer — not enough to leave the held edge.
+            // On the corner itself the turn is a hair nearer — the cursor is on the wall's line, it stays.
             Assert.AreEqual(NextBottom, aim.Update(grid, new Vector2(-1.98f, -1.9f)));
         }
 

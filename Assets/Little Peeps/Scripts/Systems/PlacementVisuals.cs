@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using LitMotion;
 using UnityEngine;
 
 namespace LittlePeeps
@@ -29,6 +30,27 @@ namespace LittlePeeps
         [SerializeField] private Color invalidColor = new Color(1f, 0.4f, 0.4f, 0.6f);
         [SerializeField] private Color sellHoverColor = new Color(1f, 0.4f, 0.4f, 0.6f);   // tint of the structure under the cursor in Sell mode
 
+        // A fence ghost does not jump between edges: it comes unstuck (shrinks a touch), travels, and snaps
+        // onto the new edge (a short scale pop). A stroke's new segment appears with the same snap.
+        [Header("Fence ghost motion")]
+        [Tooltip("Seconds the fence ghost takes to travel to a new edge. 0 = it jumps, and still snaps.")]
+        [SerializeField, Min(0f)] private float glideDuration = 0.07f;
+
+        [Tooltip("How the travel eases: fast off the old edge, soft onto the new one.")]
+        [SerializeField] private Ease glideEase = Ease.OutCubic;
+
+        [Tooltip("Scale of the fence ghost while it travels — it comes unstuck and flies light. 1 = off.")]
+        [SerializeField, Range(0.5f, 1f)] private float flightScale = 0.9f;
+
+        [Tooltip("Scale of a fence ghost over the snap onto its edge, from the landing (0) to rest (1): a " +
+                 "travelled ghost on arrival, a stroke's new segment as it appears. Keep the last key at 1, or " +
+                 "the ghost stays resized.")]
+        [SerializeField] private AnimationCurve snapScale = new(
+            new Keyframe(0f, 1.12f), new Keyframe(0.4f, 0.97f), new Keyframe(1f, 1f));
+
+        [Tooltip("Seconds the snap takes. 0 = no snap.")]
+        [SerializeField, Min(0f)] private float snapDuration = 0.12f;
+
         [Header("Territory halo (ghost)")]
         [SerializeField] private Color territoryValidColor = new Color(0.4f, 1f, 0.4f, 0.18f);
         [SerializeField] private Color territoryInvalidColor = new Color(1f, 0.4f, 0.4f, 0.18f);
@@ -41,7 +63,7 @@ namespace LittlePeeps
 
         private GameObject ghost;
         private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
-        private DualVisual ghostVisual;                // non-null when the ghost is an edge structure (fence)
+        private FenceGhost edgeGhost;                  // the same ghost seen as a fence — non-null when it is an edge structure
         private StructureDef ghostDef;                 // what the ghost is a copy of — the stroke's ghosts are copies too
 
         // One fence ghost per segment of a drawn stroke, pooled: a stroke grows and shrinks every few
@@ -92,11 +114,13 @@ namespace LittlePeeps
         }
 
         // Edge ghost (fence): the neutralised prefab (SpawnGhost), both poses collected for the tint; the
-        // active pose and position are set every frame in PoseEdgeGhost.
+        // active pose and position are set every frame in PoseEdgeGhost. Hidden until then, so its first
+        // pose puts it straight on its edge instead of travelling from wherever it was made.
         private void BuildEdgeGhost(StructureDef def)
         {
             ghost = SpawnGhost(def, out ghostRenderers);
-            ghostVisual = ghost.GetComponent<DualVisual>();
+            edgeGhost = new FenceGhost(ghost, ghostRenderers, ghost.GetComponent<DualVisual>());
+            ghost.SetActive(false);
         }
 
         // Instantiate the real prefab so the preview matches the placed structure 1:1 — including any
@@ -133,38 +157,99 @@ namespace LittlePeeps
             TintGhost(valid);
         }
 
-        // Put the edge ghost on `edge`'s midpoint, show the matching pose, and tint it by validity. Takes
-        // over from a stroke's ghosts, if any were up.
+        // Stand the edge ghost on `edge`'s midpoint in the matching pose, and tint it by validity. Takes
+        // over from a stroke's ghosts, if any were up. Called every frame: a new edge sends it travelling
+        // there (Travel), the same edge leaves it be — mid-travel included. A ghost that was out of sight
+        // (just made, or a stroke had the stage) has nothing to travel from and stands there at once.
         public void PoseEdgeGhost(IslandGrid grid, Edge edge, bool valid)
         {
-            if (ghost == null) return;
+            if (edgeGhost == null) return;
 
             HideEdgeStroke();
-            ghost.SetActive(true);
-            ghost.transform.position = grid.EdgeToWorld(edge);
-            if (ghostVisual != null) ghostVisual.Show(edge.horizontal);
+            if (!ghost.activeSelf)
+            {
+                ghost.SetActive(true);
+                Place(edgeGhost, grid, edge);
+            }
+            else if (!edge.Equals(edgeGhost.Edge)) Travel(edgeGhost, grid, edge);
             TintGhost(valid);
         }
 
         private void TintGhost(bool valid) => Tint(ghostRenderers, valid ? validColor : invalidColor);
 
         // A drawn fence stroke: one ghost per segment of the plan, green for what will go up and red for
-        // what won't. The cursor ghost steps aside meanwhile.
+        // what won't. The cursor ghost steps aside meanwhile. A segment that was not up last frame snaps in
+        // as it appears — except the one the cursor ghost was standing on when the stroke took over: that
+        // fence was already in sight.
         public void ShowEdgeStroke(IslandGrid grid, List<StrokeSegment> plan)
         {
-            if (ghost == null) return;
+            if (edgeGhost == null) return;
+            bool handOver = ghost.activeSelf;
             ghost.SetActive(false);
 
             for (int i = 0; i < plan.Count; i++)
             {
                 var g = StrokeGhost(i);
                 Edge edge = plan[i].Edge;
-                g.Root.SetActive(true);
-                g.Root.transform.position = grid.EdgeToWorld(edge);
-                if (g.Visual != null) g.Visual.Show(edge.horizontal);
+                if (!g.Root.activeSelf || !edge.Equals(g.Edge))
+                {
+                    g.Root.SetActive(true);
+                    Place(g, grid, edge);
+                    if (!(handOver && edge.Equals(edgeGhost.Edge))) Snap(g);
+                }
                 Tint(g.Renderers, plan[i].State == StrokeSegmentState.Build ? validColor : invalidColor);
             }
             for (int i = plan.Count; i < strokeGhosts.Count; i++) strokeGhosts[i].Root.SetActive(false);
+        }
+
+        // --- fence ghost motion -----------------------------------------------------------------------
+
+        // Straight onto `edge`, at rest: no travel, no snap, anything still running cut.
+        private static void Place(FenceGhost g, IslandGrid grid, Edge edge)
+        {
+            g.Stop();
+            g.Edge = edge;
+            g.Root.transform.position = grid.EdgeToWorld(edge);
+            if (g.Visual != null) g.Visual.Show(edge.horizontal);
+        }
+
+        // Come unstuck and travel to `edge`, then snap onto it. Starts from where the ghost is NOW, so a new
+        // edge mid-travel turns it without a jump and it never trails the cursor by more than one
+        // glideDuration; a far edge takes as long as a near one. The pose turns at the start — a fence
+        // has no in-between pose.
+        private void Travel(FenceGhost g, IslandGrid grid, Edge edge)
+        {
+            g.Stop();
+            g.Edge = edge;
+            if (g.Visual != null) g.Visual.Show(edge.horizontal);
+
+            Vector3 to = grid.EdgeToWorld(edge);
+            if (glideDuration <= 0f)
+            {
+                g.Root.transform.position = to;
+                Snap(g);
+                return;
+            }
+
+            // Unscaled time, like the UI's motion: this answers the mouse, not the simulation.
+            g.Root.transform.localScale = g.RestScale * flightScale;
+            g.Glide = LMotion.Create(g.Root.transform.position, to, glideDuration)
+                .WithEase(glideEase)
+                .WithScheduler(MotionScheduler.InitializationIgnoreTimeScale)
+                .WithOnComplete(() => Snap(g))
+                .Bind(p => g.Root.transform.position = p);
+        }
+
+        // The snap onto the edge: the scale follows snapScale from the landing back to rest. Leaves the
+        // travel alone — the snap is what the travel's own completion starts.
+        private void Snap(FenceGhost g)
+        {
+            g.StopSnap();
+            if (snapDuration <= 0f) return;
+
+            g.Snap = LMotion.Create(0f, 1f, snapDuration)
+                .WithScheduler(MotionScheduler.InitializationIgnoreTimeScale)
+                .Bind(t => g.Root.transform.localScale = g.RestScale * snapScale.Evaluate(t));
         }
 
         public void HideEdgeStroke()
@@ -184,16 +269,21 @@ namespace LittlePeeps
             return strokeGhosts[i];
         }
 
-        // Destroy the ghost — the stroke's too — and hide the halo that goes with it.
+        // Destroy the ghost — the stroke's too — and hide the halo that goes with it. A fence ghost's
+        // motion is cut first: it would go on writing to a destroyed transform.
         public void ClearGhost()
         {
+            edgeGhost?.Stop();
             if (ghost != null) UnityEngine.Object.Destroy(ghost);
             ghost = null;
             ghostRenderers = null;
-            ghostVisual = null;
+            edgeGhost = null;
             ghostDef = null;
             foreach (var g in strokeGhosts)
+            {
+                g.Stop();
                 if (g.Root != null) UnityEngine.Object.Destroy(g.Root);
+            }
             strokeGhosts.Clear();
             HideTerritory();
         }
@@ -317,18 +407,39 @@ namespace LittlePeeps
                 if (renderers[i] != null) renderers[i].color = color;
         }
 
-        // One pooled ghost of a drawn stroke: its root, every renderer for the tint, and the pose switch.
-        private readonly struct FenceGhost
+        // One fence ghost — the cursor's, or a pooled one of a drawn stroke: its root, every renderer for the
+        // tint, the pose switch, and its motion — the edge it stands on (or is travelling to), the travel
+        // and the snap under way, and the scale both return it to.
+        private sealed class FenceGhost
         {
             public readonly GameObject Root;
             public readonly SpriteRenderer[] Renderers;
             public readonly DualVisual Visual;
+            public readonly Vector3 RestScale;
+
+            public Edge Edge;
+            public MotionHandle Glide;
+            public MotionHandle Snap;
 
             public FenceGhost(GameObject root, SpriteRenderer[] renderers, DualVisual visual)
             {
                 Root = root;
                 Renderers = renderers;
                 Visual = visual;
+                RestScale = root.transform.localScale;
+            }
+
+            // Cut the travel and the snap, the ghost back at rest scale where it stands.
+            public void Stop()
+            {
+                if (Glide.IsActive()) Glide.Cancel();
+                StopSnap();
+            }
+
+            public void StopSnap()
+            {
+                if (Snap.IsActive()) Snap.Cancel();
+                if (Root != null) Root.transform.localScale = RestScale;
             }
         }
 

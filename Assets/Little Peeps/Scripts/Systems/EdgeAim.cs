@@ -4,13 +4,19 @@ namespace LittlePeeps
 {
     // Which grid edge the fence ghost stands on, with a hold and a pull. IslandGrid.WorldToEdge alone
     // answers "the nearest side of the cell under the cursor", and in the middle of a cell all four sides
-    // are nearly equally near — a one-pixel move flips the ghost between them. So the ghost keeps the edge
-    // it is on until another one is nearer by a clear margin; only a deliberate lean towards a side moves
-    // it.
+    // are nearly equally near — a one-pixel move flips the ghost between them. So the ghost moves only
+    // when the cursor comes up to another LINE (within the capture distance of it) having left its own;
+    // the middle of a cell is a dead zone where it stays put, however the cursor wanders — as a stroke's
+    // head waits between nodes (EdgeStroke). Inside its own capture zone it stays too, so on a corner, where
+    // two lines' zones overlap, it does not flicker. Cursor gone far from the held edge (a jump, or a move
+    // too fast to touch a line on the way) — the hold is pointless there, and the ghost takes the nearest.
     //
     // The pull: near the END of a wall — a cell corner where exactly one fence stops — the ghost goes to
-    // that end, onto whichever of its free edges is nearest the cursor: ahead of the wall it carries the
-    // wall on, beside the end it turns. Nothing else competes there, so a new wall (and a stroke, which
+    // that end, and by default carries the wall on straight: a cursor led along the wall, a little above or
+    // below its line, keeps being offered the next straight piece — the turn's edge starts right at the
+    // corner and would otherwise win the moment the cursor crosses into the next cell. It turns only with
+    // the cursor clearly off the wall's line (TurnFraction), to that side. Nothing else competes there, so
+    // a new wall (and a stroke, which
     // starts on the ghost's edge) joins the old one without having to find the corner by hand. A hold
     // elsewhere, or on the fence itself, gives way at once; among the end's own edges the hold still
     // applies, so the ghost does not flicker on the corner. The middle of a wall and its joints do not
@@ -23,9 +29,15 @@ namespace LittlePeeps
     // answer (PlaceTool), so a click builds the edge the ghost showed.
     public sealed class EdgeAim
     {
-        // How much nearer, as a fraction of a cell, another edge has to be before the ghost leaves the one
-        // it holds. A fraction, so the hold keeps its feel if the cell size ever changes.
-        private const float SwitchMarginFraction = 0.15f;
+        // How near another edge's line, as a fraction of a cell, the cursor has to come for the ghost to go
+        // there. Fractions, so the hold keeps its feel if the cell size ever changes.
+        private const float CaptureFraction = 0.15f;
+
+        // How far from the held edge, as a fraction of a cell, the cursor has to go for the hold to give
+        // way to the nearest edge wherever it is. Past 1 - CaptureFraction on purpose: across its own cell
+        // the ghost must hold all the way to the far side's capture zone, or the release would take it
+        // there first and shrink the dead zone.
+        private const float ReleaseFraction = 0.85f;
 
         // How near a wall end, as a fraction of a cell, the cursor has to come to be pulled to it. Over a
         // cell on purpose: within a cell of a corner the nearest edge mostly leaves from that corner anyway,
@@ -33,6 +45,11 @@ namespace LittlePeeps
         // felt when the ghost stays on the wall's end while the cursor is a cell away, in the cells around
         // it, middles included.
         private const float WallEndPullFraction = 1.25f;
+
+        // How far off a wall's line, as a fraction of a cell, the cursor has to go for its end to offer the
+        // turn instead of the wall carried on. With the hold on top, the ghost actually turns once the
+        // cursor is past this AND at the turn's line — led up the turn, not just drifting above the wall.
+        private const float TurnFraction = 0.5f;
 
         private bool holding;
 
@@ -59,8 +76,10 @@ namespace LittlePeeps
                 return Current;
             }
 
-            float margin = grid.CellSize * SwitchMarginFraction;
-            if (grid.DistanceToEdge(nearest, world) + margin < grid.DistanceToEdge(Current, world)) Current = nearest;
+            float capture = grid.CellSize * CaptureFraction;
+            float held = grid.DistanceToEdge(Current, world);
+            bool atAnotherLine = held >= capture && grid.DistanceToEdge(nearest, world) < capture;
+            if (atAnotherLine || held > grid.CellSize * ReleaseFraction) Current = nearest;
             return Current;
         }
 
@@ -96,11 +115,13 @@ namespace LittlePeeps
         }
 
         // Exactly one fence meets at `node`, and a fence can go on at least one of the other three edges
-        // there — `free` is the one of those nearest `world`.
+        // there. `free` is the one the end offers (Offered); if a fence can't go there — the coast, a
+        // building — the free edge nearest `world` instead.
         private static bool IsWallEnd(IslandGrid grid, Vector2Int node, Vector2 world, out Edge free)
         {
             free = default;
             int fences = 0;
+            int wall = -1;
             float nearest = float.MaxValue;
 
             for (int i = 0; i < 4; i++)
@@ -109,6 +130,7 @@ namespace LittlePeeps
                 if (grid.GetEdge(edge) != null)
                 {
                     fences++;
+                    wall = i;
                     continue;
                 }
                 if (!grid.CanPlaceEdge(edge)) continue;
@@ -118,7 +140,25 @@ namespace LittlePeeps
                 nearest = distance;
                 free = edge;
             }
-            return fences == 1 && nearest < float.MaxValue;
+            if (fences != 1 || nearest == float.MaxValue) return false;
+
+            Edge offered = EdgeAt(node, Offered(grid, node, world, wall));
+            if (grid.CanPlaceEdge(offered)) free = offered;
+            return true;
+        }
+
+        // Which of the four edges at a wall's end (`wall` is the fence's) the end offers: straight on,
+        // opposite the wall — or, with the cursor off the wall's line by more than TurnFraction, the turn
+        // on the cursor's side.
+        private static int Offered(IslandGrid grid, Vector2Int node, Vector2 world, int wall)
+        {
+            Vector2 off = world - grid.NodeToWorld(node);
+            bool alongX = wall % 2 == 0;   // east or west: a horizontal wall
+            float across = alongX ? off.y : off.x;
+
+            if (Mathf.Abs(across) <= grid.CellSize * TurnFraction) return (wall + 2) % 4;
+            if (alongX) return across > 0f ? 1 : 3;
+            return across > 0f ? 0 : 2;
         }
 
         // The four edges that meet at a node: east, north, west, south.

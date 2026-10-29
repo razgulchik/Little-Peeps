@@ -20,7 +20,7 @@ MonoBehaviour:
   grade: 0
   rarity: 2
   weight: 1
-  minAge: 0
+  minAge: 4
   requires: {fileID: 0}
   levels: 1
   modifiers:

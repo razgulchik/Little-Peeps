@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: plentiful_harvest
   title: Plentiful harvest
-  description: 
+  description: +50% WHEAT GROW SPEED
   icon: {fileID: 21300000, guid: 692b44d525582384db9c02eb473bb738, type: 3}
   smallIcon: {fileID: 21300000, guid: dc8888a0014b22b4cb8184e7ab9ee997, type: 3}
   grade: 0

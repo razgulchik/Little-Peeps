@@ -20,9 +20,9 @@ MonoBehaviour:
   grade: 0
   rarity: 1
   weight: 1
-  minAge: 0
+  minAge: 3
   requires: {fileID: 0}
-  levels: 2
+  levels: 1
   modifiers:
   - id: 9
     unitScope: 0
@@ -32,5 +32,4 @@ MonoBehaviour:
     structureScope: {fileID: 0}
     kind: 1
     steps:
-    - 0.5
     - 0.5

@@ -20,7 +20,8 @@
 > (`Screens/OfferingWindow` вместо `ConfirmDialog`, кнопка кары удержанием, весь текст на целых пикселях —
 > `PixelSnapText`) и тень текста на панели эпохи пресетами шрифтов: **2026-10-23**, сверено с `Canvas.prefab`. Отклик
 > на удары (`Systems/BumpVfxSystem`, `CoastBump` на `Ground`, `BumpView` / `LeanView` на префабах, `FX_Bump*` и
-> `FX_Coast_Ripple`): **2026-10-28**, сверено со сценой и префабами. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> `FX_Coast_Ripple`): **2026-10-28**, сверено со сценой и префабами. Уровни перков и мета-перков внутри одного
+> ассета, Flat / Percent выбором, цифра уровня в ячейке `PerkSlot`: **2026-10-29**, сверено с кодом и `PerkSlot.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -752,14 +753,15 @@ Layout Group, которая управляет размером детей (Cos
 ### PerkSlot (ячейка взятого перка; инстанцирует PerkPanel в рантайме)
 ```
 Root      → Image (perk_place, Simple, 20×20, Raycast ВКЛ — ловит наведение) + PerkSlotUI
-├── Icon  → Image 16×16 по центру, Preserve Aspect   (компонент выключен: Image без спрайта рисует белый квадрат,
+├── Icon  → Image 20×20 по центру, Preserve Aspect   (компонент выключен: Image без спрайта рисует белый квадрат,
 │                                                      включает PerkSlotUI, когда у перка есть иконка)
 └── Label → TMP_Text, Micro5 11, Right + Baseline    (цифра в правом нижнем углу, базовая линия на рамке;
-                                                      пока всегда «1» из префаба — функции у неё ещё нет)
+                                                      уровень перка — пишет PerkSlotUI)
 ```
-Поля `PerkSlotUI`: icon → `Icon`. Иконка — та же `PerkDef.icon`, что на карточке выбора (40×40, ужимается в 16×16).
+Поля `PerkSlotUI`: icon → `Icon`, levelLabel → `Label`. Иконка — `PerkDef.smallIcon` (`icon_blessing_xs_*`, 20×20) —
+отдельный рисунок, не большая `icon` с карточки. Один перк — одна ячейка: следующий уровень меняет цифру, а не добавляет ячейку.
 Micro5 размера 11 — пиксель шрифта на пиксель Канваса: цифры 3×5, как на макете; цвет — как у чисел ресурсов.
-Label стоит после Icon — цифра рисуется поверх картинки. Подсказка (название + описание) — слева от ячейки.
+Label стоит после Icon — цифра рисуется поверх картинки. Подсказка (название + описание взятого уровня) — слева от ячейки.
 
 ### Пирс (Pier)
 Пирс — обычная **Structure**, но ставит его не игрок, а `IslandSystem`: на каждом забеге из `StartConfig.pier`,
@@ -789,11 +791,11 @@ Label стоит после Icon — цифра рисуется поверх к
 | **IslandTileSet** | LittlePeeps/IslandTileSet | тайлы земли (светлые/тёмные клетки), углы суши, кромка — полосы под сушей (горизонтальная) и столбики по бокам (вертикальная); слотов внутренних углов нет: угол залива собирается из полосы и столбика; **decorLight / decorDark** (декор для светлых / тёмных клеток) и decorChance (доля клеток с декором, 0.3) |
 | **TerrainBorderSet** | LittlePeeps/TerrainBorderSet | граница одного биома, кладётся тайлмапом из строки `IslandSystem.borders`. **edgeAllRound** — край по всему краю биома (и к биомам выше, и к воде), а не только к тем, что он накрывает; **overSea** — кайма и на клетки воды вдоль берега. На биом выше кайма не ложится никогда — это его граница. 8 слотов **Over** — кайма на клетке нижнего биома (4 стороны + 4 вогнутых угла); 8 слотов **Edge** — край на своей клетке. В подсказке слота — имя файла художника. Спрайты: **Pivot = Center**, иначе граница съезжает (с Bottom Center — на полклетки вверх). В проекте: `TileSet/Brdr Set Forest` и `TileSet/Brdr Set Meadow` (у обоих обе галочки включены), тайлы в `Tiles/BordersForest` и `Tiles/BordersMeadow` |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | tabs: вкладки нижней панели, у каждой name, icon, structures (список StructureDef). Порядок вкладок = порядок кнопок и цифр 1–9, порядок structures = порядок карточек; пустая вкладка кнопку не получает. Группировка живёт здесь, на StructureDef категории нет |
-| **AgeDef** | LittlePeeps/AgeDef | title (только в лог — на баннере номер римскими цифрами), resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи), bonusOverride (текст вместо сгенерированного описания). Порядок задаётся списком `AgeSystem.ages`, начиная с Age II |
-| **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, **grade** (Common — обычные подношения и стартовый выбор; Special — только подношения особых циклов; наборы не смешиваются, а если особых не осталось, особый цикл даёт обычные), weight (шанс выпасть), minAge (с какой эпохи предлагается), requires (предыдущий уровень — цепочки уровней). Stat Perk — modifiers[]; Unlock Structure Perk — structure (снимает `lockedUntilPerk`). Особые сейчас: Good rest, Bigger Houses, Unl Rice Paddy |
+| **AgeDef** | LittlePeeps/AgeDef | title (только в лог — на баннере номер римскими цифрами), resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи: стат, скоупы, Kind Flat / Percent и одно значение), bonusOverride (текст вместо сгенерированного описания). Порядок задаётся списком `AgeSystem.ages`, начиная с Age II |
+| **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, **grade** (Common — обычные подношения и стартовый выбор; Special — только подношения особых циклов; наборы не смешиваются, а если особых не осталось, особый цикл даёт обычные), weight (шанс выпасть), minAge (с какой эпохи предлагается), requires (перк, который должен быть взят хоть на уровне 1, — один перк открывает другой; не для уровней). Stat Perk — **levels** (сколько раз берётся за забег; взял — тот же перк выпадает следующим уровнем, пока не взят последний) и modifiers[]: стат, скоупы, Kind (Flat / Percent) и строка **Level N** на каждый уровень — сколько добавляет ИМЕННО этот уровень, не итог (0 — на нём не растёт; число строк следует за levels, новый уровень повторяет последний шаг). Карточка пишет шаг и итог: `+20% TAP RADIUS [TOTAL +40%]`; ручное description у перка с уровнями не ставить — оно одно на все уровни (инспектор предупредит и покажет тексты уровней II+). Unlock Structure Perk — structure (снимает `lockedUntilPerk`), один уровень. Особые сейчас: Good rest, Bigger Houses, Unlock Rice Paddy |
 | **Offering Schedule** | LittlePeeps/Offering Schedule | цикл подношений, для `OfferingSystem.schedule`: segmentSeconds (длина одного отрезка-«года» в секундах игры, одна на весь забег — лента всегда едет с одной скоростью; пауза не идёт), cycles[] (по порядку, первый элемент = цикл 1: segments — сколько отрезков длится цикл, не меньше одного; resources — квота; ресурс эпохой не проверяется — не просить его раньше, чем обычный игрок до неё дойдёт), growthPastEnd (после списка повторяется последний цикл: квота ×рост за каждый лишний цикл, округление вверх, длина — как есть), specialEvery (каждый N-й цикл особый, 0 = нет). В проекте `OfferingDef/Offering Schedule Def`, **тестовые** значения: 10 с × 6 отрезков = 60 с на цикл, дерево 10 → дерево 20 → еда 10, ×1.25, каждый 3-й; настоящие числа — за Даниилом |
 | **PerkCatalogueDef** | LittlePeeps/Perk Catalogue | perks — список перков для `PerkSystem.catalogue` |
-| **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Start Age | общее: id, title, description, maxLevel. Stat Upgrade — modifiers[]; Start Resources — resources; Start Age — zoneBiome (каким биомом растут пропущенные эпохи) |
+| **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Start Age | общее: id, title, description, **levels** (сколько уровней покупается — 3 в «1/3»; то же имя, что у Stat Perk). Stat Upgrade — modifiers[] как у Stat Perk: Kind и строка Level N на уровень (шаг), уровень N даёт шаги 1…N; строка мета-экрана — что даст следующий `[+]` (`+50% ALL PRODUCTION [TOTAL +75%]`), на максимуме — итог; Start Resources — resources; Start Age — zoneBiome (каким биомом растут пропущенные эпохи) |
 | **GlobalUpgradeCatalogueDef** | LittlePeeps/Meta/Upgrade Catalogue | upgrades — мета-перки в порядке мета-экрана, для `PrestigeSystem.upgrades` |
 | Island Rise Profile | LittlePeeps/Island Rise Profile | все ручки подъёма острова: тайминги, кривые прыжка и сплющивания, эффекты, звуки, тряска |
 | Harvest Number Motion | LittlePeeps/Harvest Number Motion | полёт всплывающей цифры: lifetime, travel, кривые, разброс |
@@ -913,7 +915,8 @@ Script Execution Order настраивать **не нужно** (это кос
 ## Бонусы (RunStats) — коротко
 
 Прибавки к параметрам (`ProductionGlobal`, `ResourceYield`, `UnitSpeed`, `HouseCapacity`, `TapRadius`, …) задаются списками
-`StatModifier`: в `AgeDef.modifiers`, `StartConfig.startingModifiers`, в Stat-перках и в Stat-мета-перках. Слой живёт в
+`StatModifier` (Kind Flat / Percent + значение): в `AgeDef.modifiers`, `StartConfig.startingModifiers`; в Stat-перках и
+Stat-мета-перках — `LevelledModifier`, те же поля с шагом на каждый уровень. Слой живёт в
 `RunContext.stats` и сбрасывается на престиже. База — в конфигах и компонентах (`UnitDef.speed`, `ResourceSourceDef.workerYields`,
 `Spawner.capacity` …), бонус — отдельным слоем. Подробности для дизайнера: **BONUS_SYSTEM_GUIDE.md**.
 

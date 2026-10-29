@@ -39,11 +39,11 @@ namespace LittlePeeps
         [Header("Harvest VFX")]
         [Tooltip("Pickup effect fired at the harvest point on every credited hit: the ear of wheat " +
                  "leaving a reaped field, a log, a coin. A self-contained ParticleSystem prefab — every " +
-                 "curve, the sprite and the sorting layer are the artist's. Empty = this source has no " +
-                 "pickup effect (only the floating number).")]
+                 "curve, the sprite and the sorting layer are the artist's. Empty = the resource's own " +
+                 "effect from the ResourceIconSet; fill it only where this source should differ.")]
         public ParticleSystem pickupFx;
 
-        [Tooltip("Particles emitted per harvest hit.")]
+        [Tooltip("Particles emitted per harvest hit. Used with this def's own Pickup Fx only.")]
         [Min(1)] public int pickupFxCount = 1;
 
         [Header("Sound")]
@@ -98,7 +98,8 @@ namespace LittlePeeps
         //
         // `pickupFx` is the exception and belongs here rather than in the prefab, because it answers
         // "what was harvested", not "what does this object look like" — the same question the yield
-        // modifiers ask, and they are scoped by this def for the same reason. Keying it on ResourceType
-        // instead would fly an ear of wheat out of a boar: both are Food.
+        // modifiers ask, and they are scoped by this def for the same reason. It OVERRIDES the resource's
+        // own effect (ResourceIconSet), which is what lets a boar drop meat where wheat flies an ear —
+        // both are Food — while a source that looks like its resource leaves the field empty.
     }
 }

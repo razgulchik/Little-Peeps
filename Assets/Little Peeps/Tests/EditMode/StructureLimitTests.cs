@@ -156,6 +156,30 @@ namespace LittlePeeps.Tests
             Assert.That(StatModifierText.Describe(Limit(house, flat: 1f)), Is.EqualTo("+1 STRAW HUT LIMIT"));
         }
 
+        [Test]
+        public void ThePerBuildingYieldText_NamesTheResourceAndTheBuilding()
+        {
+            var m = new StatModifier
+            {
+                id = StatId.YieldPerStructure, resourceScope = ResourceType.Food, structureScope = house,
+                kind = ModifierKind.Percent, value = 0.05f,
+            };
+
+            Assert.That(StatModifierText.Describe(m), Is.EqualTo("+5% FOOD PER HOUSE"));
+        }
+
+        [Test]
+        public void TheExtraPerHitText_NamesTheResourceAndTheBuilding()
+        {
+            var m = new StatModifier
+            {
+                id = StatId.AdditionalResourcePerHit, resourceScope = ResourceType.Coins, structureScope = house,
+                kind = ModifierKind.Flat, value = 0.1f,
+            };
+
+            Assert.That(StatModifierText.Describe(m), Is.EqualTo("+0.1 COINS PER HOUSE HIT"));
+        }
+
         // --- the count -------------------------------------------------------------------------------
 
         [Test]

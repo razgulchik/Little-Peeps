@@ -13,9 +13,10 @@ namespace LittlePeeps
     // so no source can ever ship without its feedback. Consumed by HarvestVfxSystem (pickup
     // particles) and, later, by the floating number — neither of which the gameplay side knows about.
     //
-    // Key visuals on `Source`, NOT on `Type`: Wheat, Boar and Fox are all Food, and Alpaka and Market
-    // are both Coins, so a per-type table would fly an ear of wheat out of a boar. Same reason
-    // AddHarvest itself takes the whole def rather than the ResourceType.
+    // Key visuals on `Source` FIRST, then on `Type`: Wheat and Boar are both Food, so the def may bring a
+    // look of its own, and only where it brings none is the resource's own used (ResourceIconSet).
+    // `Source` is null for a gain that comes from no source — a resource a building pays on top
+    // (AdditionalResourcePerHit) — which then has only the resource's look.
     //
     // `Amount` is what actually reached the wallet, after the yield and production modifiers — the
     // number that floats up must be the number the player got.

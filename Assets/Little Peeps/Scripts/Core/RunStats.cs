@@ -146,9 +146,29 @@ namespace LittlePeeps
         // formula runs ONCE, so percents from all of them still stack additively — running the formula
         // per bucket would multiply them instead, and "+50% from trees" alongside "+50% from anything"
         // would come out as x2.25.
+        //
+        // `extraPercent` is a percent the caller worked out itself and that belongs in the SAME sum — the
+        // per-building yield bonus, which depends on what stands on the island and so cannot be a bucket
+        // here. Passing it in rather than multiplying the result is what keeps it additive with the rest.
         public float Apply(float baseValue, StatId id, UnitType unit = default,
                            ResourceType res = default, ResourceSourceDef source = null,
-                           StructureDef structure = null)
+                           StructureDef structure = null, float extraPercent = 0f)
+        {
+            Sum(id, unit, res, source, structure, out float flat, out float percent);
+            return (baseValue + flat) * (1f + percent + extraPercent);
+        }
+
+        // The summed percent of a stat's buckets alone, no base and no flat: for a stat that is not a
+        // value of its own but a percent the caller hands on to another one (YieldPerStructure).
+        public float PercentOf(StatId id, UnitType unit = default, ResourceType res = default,
+                               ResourceSourceDef source = null, StructureDef structure = null)
+        {
+            Sum(id, unit, res, source, structure, out _, out float percent);
+            return percent;
+        }
+
+        private void Sum(StatId id, UnitType unit, ResourceType res, ResourceSourceDef source,
+                         StructureDef structure, out float flat, out float percent)
         {
             var key = MakeKey(id, unit, false, res, source, structure);
 
@@ -160,11 +180,10 @@ namespace LittlePeeps
             bool anySource = !ReferenceEquals(key.src, null);
             bool anyUnit = (StatMeta.ScopeOf(id) & StatScope.Unit) != 0;
 
-            float flat = 0f, percent = 0f;
+            flat = 0f;
+            percent = 0f;
             CollectAround(key, key.st, anySource, anyUnit, ref flat, ref percent);
             if (!ReferenceEquals(key.st, null)) CollectAround(key, null, anySource, anyUnit, ref flat, ref percent);
-
-            return (baseValue + flat) * (1f + percent);
         }
 
         // The unit × source buckets around one structure value (the queried one, or null = any).

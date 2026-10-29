@@ -291,6 +291,44 @@ namespace LittlePeeps.Tests
                         Is.EqualTo(4f).Within(Tolerance), "stamina is one number for every villager");
         }
 
+        // The bow's radius is keyed by profession too. Fails if ShootRadius ever loses its ScopeOf line:
+        // the `_ => None` default would hand "hunters see further" to every profession.
+        [Test]
+        public void ShootRadius_IsScopedToItsProfession()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.ShootRadius, percent: 0.5f, unit: UnitType.Hunter));
+
+            Assert.That(stats.Apply(3f, StatId.ShootRadius, UnitType.Hunter), Is.EqualTo(4.5f).Within(Tolerance));
+            Assert.That(stats.Apply(3f, StatId.ShootRadius, UnitType.Farmer), Is.EqualTo(3f).Within(Tolerance),
+                        "another profession is left alone");
+        }
+
+        // A percent the caller worked out (the per-building yield bonus) joins the stat's own percents and
+        // is taken off the base with them: 2 × (1 + 0.5 + 0.15), not 2 × 1.5 × 1.15.
+        [Test]
+        public void ExtraPercent_IsSummedWithTheStatsOwn_NotMultipliedOnTop()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.ResourceYield, percent: 0.5f, unit: UnitType.Farmer, res: ResourceType.Food));
+
+            Assert.That(stats.Apply(2f, StatId.ResourceYield, UnitType.Farmer, ResourceType.Food, extraPercent: 0.15f),
+                        Is.EqualTo(3.3f).Within(Tolerance));
+        }
+
+        [Test]
+        public void PercentOf_ReadsThePercentAlone_AndKeepsTheResourceScope()
+        {
+            var stats = new RunStats();
+            stats.Add(Mod(StatId.YieldPerStructure, percent: 0.05f, res: ResourceType.Food));
+            stats.Add(Mod(StatId.YieldPerStructure, flat: 1f, res: ResourceType.Food));
+
+            Assert.That(stats.PercentOf(StatId.YieldPerStructure, res: ResourceType.Food),
+                        Is.EqualTo(0.05f).Within(Tolerance), "the flat value is not a percent and is not read");
+            Assert.That(stats.PercentOf(StatId.YieldPerStructure, res: ResourceType.Wood),
+                        Is.EqualTo(0f).Within(Tolerance), "another resource is left alone");
+        }
+
         // --- Changed ---------------------------------------------------------------------------------
         //
         // The one push in an otherwise pull-only layer: HouseCapacity is materialised into slots at

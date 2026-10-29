@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
+  m_Name: 160 Taxes
+  m_EditorClassIdentifier: 
+  id: taxes
+  title: Taxes
+  description: 
+  icon: {fileID: 21300000, guid: f959140c5c30b0246aa3c5aeccf45aac, type: 3}
+  smallIcon: {fileID: 21300000, guid: 42b5c52cffa410b46a6e7fea37023960, type: 3}
+  grade: 1
+  rarity: 3
+  weight: 1
+  minAge: 0
+  requires: {fileID: 0}
+  levels: 1
+  modifiers:
+  - id: 18
+    unitScope: 0
+    anyProfession: 0
+    resourceScope: 4
+    sourceScope: {fileID: 0}
+    structureScope: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
+    kind: 0
+    steps:
+    - 0.1

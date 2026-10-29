@@ -1565,6 +1565,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   viewCamera: {fileID: 519420031}
   offscreenMargin: 0.033
+  resources: {fileID: 11400000, guid: a8b6247b3cd9d1a58b1b4d63f81e733d, type: 2}
 --- !u!4 &321352747
 Transform:
   m_ObjectHideFlags: 0

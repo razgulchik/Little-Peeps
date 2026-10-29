@@ -99,11 +99,23 @@ namespace LittlePeeps
             StatId.DenCapacity      => ("ANIMALS PER DEN", StatScope.None),
             StatId.TapRadius        => ("TAP RADIUS", StatScope.None),
             StatId.TapBoostMultiplier => ("TAP BOOST", StatScope.None),
+            StatId.ShootRadius      => ("SHOOT RADIUS", StatScope.None),
 
             // The building is the subject ("+1 HOUSE LIMIT"); empty = every limited building.
             StatId.StructureLimit   => (m.structureScope != null
                                             ? Upper(m.structureScope.ShownName) + " LIMIT"
                                             : "BUILD LIMIT", StatScope.Structure),
+
+            // Both scopes are the subject ("+5% FOOD PER MILL"); empty = every building.
+            StatId.YieldPerStructure => (Upper(m.resourceScope.ToString()) + " PER "
+                                         + (m.structureScope != null ? Upper(m.structureScope.ShownName) : "BUILDING"),
+                                         StatScope.Resource | StatScope.Structure),
+
+            // "+0.1 COINS PER HOUSE HIT"; empty = every building.
+            StatId.AdditionalResourcePerHit => (Upper(m.resourceScope.ToString()) + " PER "
+                                                + (m.structureScope != null ? Upper(m.structureScope.ShownName) : "BUILDING")
+                                                + " HIT",
+                                                StatScope.Resource | StatScope.Structure),
 
             // A stat added to the enum but not named here falls back to its own name. Visibly ugly on
             // the card, which is the right failure: it asks for a name instead of hiding the bonus.

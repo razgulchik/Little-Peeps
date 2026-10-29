@@ -206,6 +206,10 @@ namespace LittlePeeps
         // injection), so a speed bonus gained mid-run applies from the unit's next launch onward.
         public void SetStats(RunStats runStats) => stats = runStats;
 
+        // The run's stat sheet, for what this unit carries that resolves its own numbers (an ability's
+        // radius). Null for a unit nobody spawned — callers fall back to their base value.
+        public RunStats Stats => stats;
+
         // Injected by SpawnSystem on spawn: where the autopilot finds the houses.
         public void SetSpawns(SpawnSystem spawnSystem) => spawns = spawnSystem;
 

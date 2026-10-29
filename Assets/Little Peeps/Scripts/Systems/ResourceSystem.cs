@@ -26,11 +26,16 @@ namespace LittlePeeps
         // the totals reset with it — nothing here has to remember to zero anything.
         private Dictionary<ResourceType, float> harvested;
 
+        // How many of each building stand (RunContext.standing), for the per-building yield bonus. Bound
+        // like `harvested`: it belongs to the run, and StructureSystem keeps it.
+        private Dictionary<StructureDef, int> standing;
+
         // Populate ReactiveValues from RunContext starting amounts (one per ResourceType)
         public void Initialize(RunContext context)
         {
             stats = context.stats;
             harvested = context.harvested;
+            standing = context.standing;
 
             foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
             {
@@ -83,10 +88,22 @@ namespace LittlePeeps
         public void AddHarvest(ResourceSourceDef source, UnitType worker, float baseAmount, Vector3 position)
         {
             if (source == null) return;
+            Credit(source.resource, source, worker, baseAmount, position);
+        }
 
-            ResourceType type = source.resource;
+        // The same gateway for a gain that comes from NO source: a resource a building pays on top of its
+        // own (AdditionalResourcePerHit — a house's tax). Only the source-agnostic yield bonuses can reach
+        // it, which is exactly right: a bonus scoped to the market is not a bonus on taxes. Its pickup
+        // effect is the resource's own (HarvestVfxSystem).
+        public void AddHarvest(ResourceType type, UnitType worker, float baseAmount, Vector3 position)
+            => Credit(type, null, worker, baseAmount, position);
+
+        private void Credit(ResourceType type, ResourceSourceDef source, UnitType worker, float baseAmount,
+                            Vector3 position)
+        {
             float amount = stats != null
-                ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type, source),
+                ? stats.Apply(stats.Apply(baseAmount, StatId.ResourceYield, worker, type, source,
+                                          extraPercent: PerStructurePercent(type)),
                               StatId.ProductionGlobal)
                 : baseAmount;
 
@@ -107,6 +124,21 @@ namespace LittlePeeps
                 Amount   = amount,
                 Position = position,
             });
+        }
+
+        // The YieldPerStructure bonus for one resource: each kind of building standing, times its count.
+        // Asked on every harvest rather than pushed on build and sell, so a mill counts from the moment it
+        // is put up and stops the moment it is gone. The loop is over kinds of building, not buildings —
+        // a couple of dozen entries at most.
+        private float PerStructurePercent(ResourceType type)
+        {
+            if (standing == null) return 0f;
+
+            float percent = 0f;
+            foreach (var pair in standing)
+                if (pair.Value > 0)
+                    percent += pair.Value * stats.PercentOf(StatId.YieldPerStructure, res: type, structure: pair.Key);
+            return percent;
         }
 
         // Debug: print the changed resource plus all current totals to the console.

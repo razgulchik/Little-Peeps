@@ -8,12 +8,14 @@ namespace LittlePeeps
     //
     // Driven by HarvestedEvent, which ResourceSystem.AddHarvest publishes on the single production
     // gateway — so this class never has to be wired to anything that harvests, and nothing that
-    // harvests can forget to tell it. Which effect to play is keyed by the harvested
-    // ResourceSourceDef (see HarvestedEvent for why not by ResourceType).
+    // harvests can forget to tell it. Which effect to play: the harvested ResourceSourceDef's own when it
+    // has one, else the resource's (ResourceIconSet) — see HarvestedEvent. A gain from no source (a
+    // house's tax) takes the resource's.
     //
-    // ONE SHARED EMITTER PER DEF (see SharedEmitter for why, and what that asks of the prefab), created
-    // on that def's first harvest and reused for the rest of the session. The effect is authored as a
-    // self-contained prefab (def.pickupFx); this class only decides WHERE and HOW MANY.
+    // ONE SHARED EMITTER PER EFFECT PREFAB (see SharedEmitter for why, and what that asks of the prefab),
+    // created on that effect's first use and reused for the rest of the session — wheat, the mill and a
+    // boar flying the same ear share one. The effect is authored as a self-contained prefab; this class
+    // only decides WHERE and HOW MANY.
     //
     // Place on a GameObject in the gameplay scene; it needs no wiring beyond the camera (and that is
     // optional). Emitters are parented under it, so the hierarchy shows exactly which effects are live.
@@ -26,9 +28,13 @@ namespace LittlePeeps
                  "view still plays instead of popping in. 0.1 = a tenth of the screen on each side.")]
         [SerializeField, Range(0f, 0.5f)] private float offscreenMargin = 0.1f;
 
-        // def → its shared emitter. A def whose prefab was rejected is cached as a null entry, so the
+        [Tooltip("Each resource's own pickup effect, for whatever pays it without one of its own on the " +
+                 "ResourceSourceDef. Empty = only the defs' own effects play.")]
+        [SerializeField] private ResourceIconSet resources;
+
+        // effect prefab → its shared emitter. A prefab that was rejected is cached as a null entry, so the
         // error is logged once rather than once per hit for the rest of the run.
-        private readonly Dictionary<ResourceSourceDef, ParticleSystem> emitters = new();
+        private readonly Dictionary<ParticleSystem, ParticleSystem> emitters = new();
 
         private void Awake()
         {
@@ -40,25 +46,40 @@ namespace LittlePeeps
 
         private void OnHarvested(HarvestedEvent e)
         {
-            if (e.Source == null || e.Source.pickupFx == null) return;   // no effect authored for it
+            if (!TryPick(e, out var fx, out int count)) return;   // no effect authored for it
             if (!IsOnScreen(e.Position)) return;
 
-            var emitter = Resolve(e.Source);
+            var emitter = Resolve(fx);
             if (emitter == null) return;
 
-            SharedEmitter.EmitAt(emitter, e.Position, Mathf.Max(1, e.Source.pickupFxCount));
+            SharedEmitter.EmitAt(emitter, e.Position, count);
         }
 
-        // The def's shared emitter, created on first use. The result is cached either way: a null entry
-        // means the prefab was rejected and must not be re-tested — or re-logged — on every later hit.
-        private ParticleSystem Resolve(ResourceSourceDef def)
+        // The source's own effect, else the resource's.
+        private bool TryPick(HarvestedEvent e, out ParticleSystem fx, out int count)
         {
-            if (emitters.TryGetValue(def, out var cached)) return cached;
+            if (e.Source != null && e.Source.pickupFx != null)
+            {
+                fx = e.Source.pickupFx;
+                count = Mathf.Max(1, e.Source.pickupFxCount);
+                return true;
+            }
 
-            var instance = SharedEmitter.Create(def.pickupFx, transform, $"PickupFx_{def.name}",
-                                                $"HarvestVfxSystem: '{def.pickupFx.name}' (pickupFx of '{def.name}')",
-                                                "ResourceSourceDef.pickupFxCount");
-            emitters[def] = instance;
+            fx = null;
+            count = 0;
+            return resources != null && resources.TryGetPickupFx(e.Type, out fx, out count);
+        }
+
+        // The prefab's shared emitter, created on first use. The result is cached either way: a null entry
+        // means the prefab was rejected and must not be re-tested — or re-logged — on every later hit.
+        private ParticleSystem Resolve(ParticleSystem fx)
+        {
+            if (emitters.TryGetValue(fx, out var cached)) return cached;
+
+            var instance = SharedEmitter.Create(fx, transform, $"PickupFx_{fx.name}",
+                                                $"HarvestVfxSystem: pickup effect '{fx.name}'",
+                                                "pickupFxCount (ResourceSourceDef / ResourceIconSet)");
+            emitters[fx] = instance;
             return instance;
         }
 

@@ -11,6 +11,10 @@ namespace LittlePeeps
     //
     // The list is ordered on purpose: ResourcePanel draws the bar straight from it, so an entry's
     // position here is its position on screen, and adding an entry adds it to the bar.
+    //
+    // The pickup effect is part of the same answer: the coin that flies out of anything that pays coins.
+    // A ResourceSourceDef may still bring its own (ResourceSourceDef.pickupFx) — meat out of a boar where
+    // wheat flies an ear — and a gain with no source at all (a house's tax) has only this one.
     [CreateAssetMenu(menuName = "LittlePeeps/ResourceIconSet")]
     public class ResourceIconSet : ScriptableObject
     {
@@ -19,6 +23,14 @@ namespace LittlePeeps
         {
             public ResourceType type;
             public Sprite icon;
+
+            [Tooltip("What flies out of whatever pays this resource, unless its ResourceSourceDef has a " +
+                     "Pickup Fx of its own. A self-contained ParticleSystem prefab, as on the def. " +
+                     "Empty = no pickup effect (only the floating number).")]
+            public ParticleSystem pickupFx;
+
+            [Tooltip("Particles emitted per harvest hit. Below 1 reads as 1.")]
+            public int pickupFxCount;
         }
 
         [Tooltip("One entry per ResourceType, in the order the resource bar should show them. " +
@@ -33,6 +45,21 @@ namespace LittlePeeps
             for (int i = 0; i < icons.Count; i++)
                 if (icons[i].type == type) return icons[i].icon;
             return null;
+        }
+
+        // The resource's own pickup effect; false for a type with no entry or none authored.
+        public bool TryGetPickupFx(ResourceType type, out ParticleSystem fx, out int count)
+        {
+            for (int i = 0; i < icons.Count; i++)
+            {
+                if (icons[i].type != type || icons[i].pickupFx == null) continue;
+                fx = icons[i].pickupFx;
+                count = Mathf.Max(1, icons[i].pickupFxCount);
+                return true;
+            }
+            fx = null;
+            count = 0;
+            return false;
         }
     }
 }

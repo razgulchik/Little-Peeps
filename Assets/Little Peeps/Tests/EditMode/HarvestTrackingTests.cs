@@ -26,6 +26,10 @@ namespace LittlePeeps.Tests
         private ResourceSourceDef stoneSource;
         private ResourceSourceDef woodSource;
 
+        // Buildings for the per-building yield bonus, which counts what stands in RunContext.standing.
+        private StructureDef mill;
+        private StructureDef house;
+
         // Non-zero on purpose: Stone is not ResourceType 0 and Miner is not UnitType 0, so a per-type
         // ledger that ignored its key would still fail these. Same reasoning as RunStatsTests.
         private const ResourceType Harvested = ResourceType.Stone;
@@ -42,6 +46,9 @@ namespace LittlePeeps.Tests
             woodSource = ScriptableObject.CreateInstance<ResourceSourceDef>();
             woodSource.resource = ResourceType.Wood;
 
+            mill = ScriptableObject.CreateInstance<StructureDef>();
+            house = ScriptableObject.CreateInstance<StructureDef>();
+
             run = new RunContext();
             resourceSystem.Initialize(run);
         }
@@ -52,6 +59,8 @@ namespace LittlePeeps.Tests
             if (systemsGo != null) Object.DestroyImmediate(systemsGo);
             if (stoneSource != null) Object.DestroyImmediate(stoneSource);
             if (woodSource != null) Object.DestroyImmediate(woodSource);
+            if (mill != null) Object.DestroyImmediate(mill);
+            if (house != null) Object.DestroyImmediate(house);
 
             // AddResource publishes on a static bus; don't leave this test's traffic wired to the next.
             EventBus<ResourceChangedEvent>.Clear();
@@ -81,6 +90,63 @@ namespace LittlePeeps.Tests
             resourceSystem.AddHarvest(stoneSource, Worker, 3f, Vector3.zero);
 
             Assert.That(Ledger(Harvested), Is.EqualTo(6f).Within(1e-4f));
+        }
+
+        // "+5% per mill" with three mills standing is +15%, summed with the worker's own +50% and taken off
+        // the base: 2 × (1 + 0.5 + 0.15). Houses standing alongside count for nothing, and a resource the
+        // bonus does not name is left alone.
+        [Test]
+        public void AddHarvest_AddsThePerBuildingBonus_ForEachBuildingStanding()
+        {
+            run.standing[mill] = 3;
+            run.standing[house] = 5;
+            run.stats.Add(new StatModifier
+            {
+                id = StatId.YieldPerStructure, resourceScope = Harvested, structureScope = mill,
+                kind = ModifierKind.Percent, value = 0.05f,
+            });
+            run.stats.Add(new StatModifier
+            {
+                id = StatId.ResourceYield, unitScope = Worker, resourceScope = Harvested,
+                kind = ModifierKind.Percent, value = 0.5f,
+            });
+
+            resourceSystem.AddHarvest(stoneSource, Worker, 2f, Vector3.zero);
+            resourceSystem.AddHarvest(woodSource, Worker, 2f, Vector3.zero);
+
+            Assert.That(resourceSystem.GetResource(Harvested), Is.EqualTo(3.3f).Within(1e-4f));
+            Assert.That(resourceSystem.GetResource(ResourceType.Wood), Is.EqualTo(2f).Within(1e-4f));
+        }
+
+        // A gain from no source (a house's tax) goes through the same gateway: wallet, ledger, the event —
+        // with no source on it — and the bonuses that name no source. One scoped to a source does not
+        // reach it: a market bonus is not a tax bonus.
+        [Test]
+        public void AddHarvest_WithNoSource_CreditsAndBooksLikeAnyHarvest()
+        {
+            run.stats.Add(new StatModifier
+            {
+                id = StatId.ResourceYield, unitScope = Worker, resourceScope = Harvested,
+                kind = ModifierKind.Percent, value = 0.5f,
+            });
+            run.stats.Add(new StatModifier
+            {
+                id = StatId.ResourceYield, unitScope = Worker, sourceScope = stoneSource,
+                kind = ModifierKind.Percent, value = 1f,
+            });
+
+            HarvestedEvent seen = default;
+            int published = 0;
+            void Record(HarvestedEvent e) { seen = e; published++; }
+            EventBus<HarvestedEvent>.Subscribe(Record);
+
+            resourceSystem.AddHarvest(Harvested, Worker, 2f, Vector3.zero);
+
+            Assert.That(resourceSystem.GetResource(Harvested), Is.EqualTo(3f).Within(1e-4f), "2 × (1 + 0.5), the source's +100% left out");
+            Assert.That(Ledger(Harvested), Is.EqualTo(3f).Within(1e-4f));
+            Assert.That(published, Is.EqualTo(1));
+            Assert.That(seen.Source, Is.Null);
+            Assert.That(seen.Type, Is.EqualTo(Harvested));
         }
 
         [Test]

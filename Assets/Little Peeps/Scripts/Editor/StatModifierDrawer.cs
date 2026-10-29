@@ -475,6 +475,9 @@ namespace LittlePeeps.EditorTools
             StatId.StructureLimit => "Build limit",
             StatId.TapRadius => "Radius",
             StatId.TapBoostMultiplier => "Boost multiplier",
+            StatId.ShootRadius => "Shoot radius",
+            StatId.YieldPerStructure => "Yield per building",
+            StatId.AdditionalResourcePerHit => "Extra per building hit",
             _ => ObjectNames.NicifyVariableName(id.ToString()),
         };
 
@@ -505,6 +508,9 @@ namespace LittlePeeps.EditorTools
                 StatId.StructureLimit => "How many of a building may stand at once (its Max Count). Never limits a building left at Max Count 0. Structure empty = every limited building. Rounds DOWN - author Flat +1 for one more.",
                 StatId.TapRadius => "Radius of the tap boost circle (and the cursor ring), in world units. Flat adds units, percent scales the radius.",
                 StatId.TapBoostMultiplier => "Speed multiplier a tapped unit leaves at, easing back over the boost duration. Percent scales the whole multiplier (+50% turns x2 into x3); never drops below x1.",
+                StatId.ShootRadius => "How far a unit with a bow (the Hunter) sees a target, in world units, from its feet to the animal's. Flat adds units, percent scales the radius.",
+                StatId.YieldPerStructure => "Yield bonus to the resource for EVERY such building standing (construction sites count): +5% with 3 mills = +15%, added to the other yield percents, all taken off the base. PERCENT ONLY - a Flat value does nothing. Structure empty = every building.",
+                StatId.AdditionalResourcePerHit => "Resource every working hit on the building pays ON TOP of whatever it pays already (a house pays nothing). Base is 0: author Flat for the amount; a percent only scales that flat. Not paid when the hit is refused (overheated forge, spent market visit) or by a construction site. Structure empty = every building.",
                 _ => "",
             };
 

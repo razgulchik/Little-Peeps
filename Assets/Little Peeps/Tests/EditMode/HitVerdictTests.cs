@@ -76,6 +76,60 @@ namespace LittlePeeps.Tests
         [Test]
         public void House_WorkingSoberUnit_Useless() => Expect(HitVerdict.Useless, MakeHouse(1), Worker(UnitType.Farmer));
 
+        // --- a building's extra resource (AdditionalResourcePerHit: the house's tax) -------------------
+
+        [Test]
+        public void TaxedHouse_WorkingUnit_PaysTheTax_Useful()
+        {
+            var house = TaxedHouse(1);
+
+            Expect(HitVerdict.Useful, house, Worker(UnitType.Farmer));
+            Assert.That(resources.GetResource(ResourceType.Coins), Is.EqualTo(0.1f).Within(1e-4f));
+        }
+
+        // Going in to rest is a door, not a hit: no tax.
+        [Test]
+        public void TaxedHouse_TiredUnitGoingIn_PaysNoTax()
+        {
+            Expect(HitVerdict.Useful, TaxedHouse(1), Tired(UnitType.Farmer));
+            Assert.That(resources.GetResource(ResourceType.Coins), Is.EqualTo(0f));
+        }
+
+        // A drunk worker the full house turns away is a working hit like any other.
+        [Test]
+        public void TaxedFullHouse_DrunkWorker_PaysTheTax()
+        {
+            var house = TaxedHouse(1);
+            Expect(HitVerdict.Useful, house, Tired(UnitType.Farmer));   // takes the only slot
+
+            Expect(HitVerdict.Useful, house, Drunk(UnitType.Miner));
+            Assert.That(resources.GetResource(ResourceType.Coins), Is.EqualTo(0.1f).Within(1e-4f));
+        }
+
+        // The tax names the house, so another building stays the wall it was.
+        [Test]
+        public void TaxOnTheHouse_LeavesAFence_Useless()
+        {
+            TaxedHouse(1);
+            var fence = MakeFence();
+            ((Structure)fence).Initialize(resources);
+
+            Expect(HitVerdict.Useless, fence, Worker(UnitType.Farmer));
+            Assert.That(resources.GetResource(ResourceType.Coins), Is.EqualTo(0f));
+        }
+
+        // A building nobody put up — a construction site — is never given the ResourceSystem.
+        [Test]
+        public void TaxedHouse_NotPutUp_PaysNothing()
+        {
+            var house = (Structure)MakeHouse(1);
+            house.def = Keep(ScriptableObject.CreateInstance<StructureDef>());
+            Tax(house.def);
+
+            Expect(HitVerdict.Useless, house, Worker(UnitType.Farmer));
+            Assert.That(resources.GetResource(ResourceType.Coins), Is.EqualTo(0f));
+        }
+
         // --- tavern ---------------------------------------------------------------------------------
 
         [Test]
@@ -410,6 +464,22 @@ namespace LittlePeeps.Tests
             house.Warmup();
             return Build(go);
         }
+
+        // A house put up the way StructureSystem does it, with "+0.1 coin a hit" on its def.
+        private CollisionTarget TaxedHouse(int capacity)
+        {
+            var house = (Structure)MakeHouse(capacity);
+            house.def = Keep(ScriptableObject.CreateInstance<StructureDef>());
+            house.Initialize(resources);
+            Tax(house.def);
+            return house;
+        }
+
+        private void Tax(StructureDef def) => resources.Stats.Add(new StatModifier
+        {
+            id = StatId.AdditionalResourcePerHit, resourceScope = ResourceType.Coins, structureScope = def,
+            kind = ModifierKind.Flat, value = 0.1f,
+        });
 
         private CollisionTarget MakeTavern(int capacity, params UnitType[] served)
         {

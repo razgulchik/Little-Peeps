@@ -109,6 +109,7 @@ namespace LittlePeeps
             var go = Instantiate(def.prefab, worldPos, Quaternion.identity);
             var structure = go.GetComponent<Structure>();
             structure.def = def;
+            structure.Initialize(resourceSystem);
 
             // A prefab can't serialize scene-system references, so inject them before the new components'
             // Start runs. The instance is the authoritative record of the structure's grid origin; a spawner
@@ -321,6 +322,7 @@ namespace LittlePeeps
             var go = Instantiate(instance.Def.prefab, islandSystem.Grid.EdgeToWorld(instance.Edge), Quaternion.identity);
             var structure = go.GetComponent<Structure>();
             structure.def = instance.Def;
+            structure.Initialize(resourceSystem);
             if (go.TryGetComponent<DualVisual>(out var visual)) visual.Show(instance.Edge.horizontal);
             return structure;
         }

@@ -41,12 +41,16 @@ namespace LittlePeeps
 
         // The nearest animal within radius that pays this unit's profession right now; false = none.
         // Measured feet to feet, from the transforms. Distance first, the components only for the few in
-        // range — the list is every animal on the island.
+        // range — the list is every animal on the island. The radius is the run's ShootRadius on top of
+        // the asset's, resolved on every search and never written back: this asset is shared by every
+        // hunter, and a Play Mode write would stay in it.
         private bool TryFindTarget(Unit unit, out CollisionTarget target)
         {
             target = null;
             Vector2 from = unit.transform.position;
-            float best = radius * radius;
+            var stats = unit.Stats;
+            float range = stats != null ? stats.Apply(radius, StatId.ShootRadius, unit.Type) : radius;
+            float best = range * range;
 
             var animals = AnimalWander.Alive;
             for (int i = 0; i < animals.Count; i++)

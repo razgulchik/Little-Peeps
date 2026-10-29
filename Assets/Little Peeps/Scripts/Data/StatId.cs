@@ -62,6 +62,27 @@ namespace LittlePeeps
         TapRadius,          // no scope — radius of the boost circle, world units (base: TapSystem.tapRadius)
         TapBoostMultiplier, // no scope — speed multiplier a tapped unit leaves at (base: TapSystem.boostSpeedMultiplier)
 
+        // The bow (ArcherAbility). Scoped by profession like UnitSpeed: a unit only shoots while out
+        // working, so it always has one, and "hunters see further" must not reach a future second archer
+        // profession. Read on every target search, so a perk needs no push.
+        ShootRadius,        // scope: profession — how far a unit sees a target, world units (base: ArcherAbility.radius)
+
+        // A bonus to a resource's yield for every building of a kind that stands (ResourceSystem.AddHarvest:
+        // "+5% food per mill"). It has no base of its own: its PERCENT, times the count standing, joins
+        // ResourceYield's percents in the one sum, so it is taken off the base like every other yield bonus
+        // and never compounds on top of them. Percent only — a flat value here is never read. Counted from
+        // the construction site on (RunContext.CountOf), like the build limit. Empty structure = every
+        // building of every kind.
+        YieldPerStructure,  // scope: (ResourceType, structure) — yield percent per standing building
+
+        // A resource a building pays on top of whatever it pays already, for every working hit on it
+        // (Structure.OnHit: "houses pay 0.1 coin a hit"). The base is 0 everywhere — no building pays extra
+        // on its own — so Flat sets the amount and a percent only scales that flat. Paid after the hit's
+        // gates, so an overheated forge or a spent market visit pays no extra either; credited through
+        // AddHarvest with no source, so yield and production bonuses on that resource reach it. A
+        // construction site pays nothing. Empty structure = every building.
+        AdditionalResourcePerHit, // scope: (ResourceType, structure) — extra amount one working hit pays
+
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
     }
@@ -101,6 +122,7 @@ namespace LittlePeeps
         {
             StatId.ResourceYield    => StatScope.Unit | StatScope.Resource | StatScope.Source,
             StatId.UnitSpeed        => StatScope.Unit,
+            StatId.ShootRadius      => StatScope.Unit,
 
             // Deliberately NOT Unit, although each has a unit in hand at the point of use: the house
             // and the launch happen before any profession exists (see the StatId comments).
@@ -118,6 +140,13 @@ namespace LittlePeeps
             StatId.DenCapacity      => StatScope.Source,
 
             StatId.StructureLimit   => StatScope.Structure,
+
+            // The resource it pays into and the building it counts. No Source: it reaches every source of
+            // that resource, which is the point of "+5% food per mill".
+            StatId.YieldPerStructure => StatScope.Resource | StatScope.Structure,
+
+            // What is paid and where. No Unit: every working unit pays the same tax.
+            StatId.AdditionalResourcePerHit => StatScope.Resource | StatScope.Structure,
 
             // Listed although they fall through to None anyway, so the choice reads as made rather than
             // forgotten: the one forge needs no Source axis, and "the forge" is not a resource either.

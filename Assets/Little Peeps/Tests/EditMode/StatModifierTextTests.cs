@@ -50,6 +50,31 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void ShootRadius_NamesItsProfession()
+        {
+            Assert.That(StatModifierText.Describe(Mod(StatId.ShootRadius, percent: 0.5f, unit: UnitType.Hunter)),
+                        Is.EqualTo("+50% SHOOT RADIUS (HUNTER)"));
+        }
+
+        // An empty building is every building. The named form needs a real StructureDef and lives in
+        // StructureLimitTests.
+        [Test]
+        public void YieldPerStructure_WithNoBuilding_ReadsAsPerBuilding()
+        {
+            Assert.That(StatModifierText.Describe(Mod(StatId.YieldPerStructure, percent: 0.05f)),
+                        Is.EqualTo("+5% FOOD PER BUILDING"));
+        }
+
+        [Test]
+        public void AdditionalResourcePerHit_WithNoBuilding_ReadsAsPerBuildingHit()
+        {
+            var m = Mod(StatId.AdditionalResourcePerHit, flat: 0.1f);
+            m.resourceScope = ResourceType.Coins;
+
+            Assert.That(StatModifierText.Describe(m), Is.EqualTo("+0.1 COINS PER BUILDING HIT"));
+        }
+
+        [Test]
         public void List_GivesOneLinePerModifier()
         {
             // The second modifier carries a unit scope its stat does not use (house slots are not per

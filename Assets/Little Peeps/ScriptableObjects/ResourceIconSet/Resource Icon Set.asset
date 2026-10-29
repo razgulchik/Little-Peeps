@@ -15,11 +15,21 @@ MonoBehaviour:
   icons:
   - type: 0
     icon: {fileID: 21300000, guid: 571bd0bdf0c73394dab8b2625abd6070, type: 3}
+    pickupFx: {fileID: 4737561740087932183, guid: 17dd9b64cda166c4fba8ff8ea6076dbf, type: 3}
+    pickupFxCount: 0
   - type: 1
     icon: {fileID: 21300000, guid: b6644d41bae78b4408324d5b12df0abf, type: 3}
+    pickupFx: {fileID: 4371847270752138857, guid: a285e262118a29846bc987227ea4bb18, type: 3}
+    pickupFxCount: 0
   - type: 2
     icon: {fileID: 21300000, guid: 40e36202bf3327548b5d448dc4774b9d, type: 3}
+    pickupFx: {fileID: 3137257105596504295, guid: b55387ca2ac67db4b8c5643b02125d68, type: 3}
+    pickupFxCount: 0
   - type: 3
     icon: {fileID: 21300000, guid: bca67df0faec0894bba1a3e34f9614c8, type: 3}
+    pickupFx: {fileID: 3137257105596504295, guid: 73ebf0e938632254b99cf0fa6a1d9ac4, type: 3}
+    pickupFxCount: 0
   - type: 4
     icon: {fileID: 21300000, guid: ef4d65db1c156a1489d6bbad4fb53cc9, type: 3}
+    pickupFx: {fileID: 1316142203753392457, guid: e895b80a6ceda93419f8ff05bb7929cb, type: 3}
+    pickupFxCount: 0

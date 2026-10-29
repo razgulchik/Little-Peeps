@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   segmentSeconds: 10
   cycles:
-  - segments: 1
+  - segments: 9
     resources:
     - resourceType: 0
       amount: 0

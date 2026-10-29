@@ -28,6 +28,6 @@ MonoBehaviour:
     anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
-    flat: 0
-    percent: 0.1
+    kind: 1
+    value: 0.1
   bonusOverride: +10% ALL PRODUCTION

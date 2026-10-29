@@ -27,7 +27,19 @@ namespace LittlePeeps
         public const int FirstAge = 1;
         public int currentAge = FirstAge;
 
+        // Every perk level taken this run, in the order taken: a perk at level 3 stands here three times.
+        // The one record of perks — the level and the first-taken order are both read off it, so nothing
+        // beside it can disagree, and replaying it in order rebuilds the run's perks.
         public List<PerkDef> perksChosen = new();
+
+        // How many levels of `perk` the run has taken: 0 = not taken.
+        public int PerkLevel(PerkDef perk)
+        {
+            int level = 0;
+            for (int i = 0; i < perksChosen.Count; i++)
+                if (ReferenceEquals(perksChosen[i], perk)) level++;
+            return level;
+        }
 
         // The offering cycle (OfferingSystem): the cycle the run is in (1-based) and the seconds of play it
         // has run for. Plain numbers, kept here rather than on the system so a save can carry them like the

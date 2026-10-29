@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // One meta perk on the meta screen: its name, its one-level description under it, and "[-] 1/3 [+]".
+    // One meta perk on the meta screen: its name, what the next level brings under it, and "[-] 1/3 [+]".
     // Draws what it is told and forwards the clicks; whether a click may spend or refund a point is
     // PrestigeSystem's call, made by MetaUpgradesUI, which then redraws every row — one point moving
     // changes what every other [+] may do.
@@ -32,11 +32,13 @@ namespace LittlePeeps
             this.onLower = onLower;
 
             if (titleText != null) titleText.text = def != null ? def.title : string.Empty;
-            if (descriptionText != null) descriptionText.text = def != null ? def.DescriptionText : string.Empty;
         }
 
+        // The description moves with the level: it says what the next [+] brings, or — at the top — what
+        // every level gives (GlobalUpgradeDef.ScreenText).
         public void Refresh(int level, int maxLevel, bool canRaise, bool canLower)
         {
+            if (descriptionText != null) descriptionText.text = Def != null ? Def.ScreenText(level) : string.Empty;
             if (levelText != null)
                 levelText.text = levelFormat.Replace("{0}", level.ToString()).Replace("{1}", maxLevel.ToString());
 

@@ -50,7 +50,8 @@ namespace LittlePeeps
 
         [SerializeField] private List<RarityFrame> rarityFrames = new();
 
-        [Tooltip("The perk's level in its chain, in roman numerals — always shown, I for a perk on its own.")]
+        [Tooltip("The level this card offers, in roman numerals — always shown, I for a perk taken the " +
+                 "first time or one with a single level.")]
         [SerializeField] private TMP_Text levelLabel;
 
         [Header("Resources")]
@@ -140,8 +141,9 @@ namespace LittlePeeps
 
         // Fill in the card and say where a confirmed pick goes. The callback rather than an event: this
         // is card to panel, the same internal wiring BuildCardUI and BuildPaletteUI use. Leaving the panel
-        // to publish keeps one publisher of PerkSelectedEvent instead of three.
-        public void Init(PerkDef def, Action<PerkDef> onConfirmed)
+        // to publish keeps one publisher of PerkSelectedEvent instead of three. `level` is the one the card
+        // offers: what it describes and what its numeral says.
+        public void Init(PerkDef def, int level, Action<PerkDef> onConfirmed)
         {
             perk = def;
             this.onConfirmed = onConfirmed;
@@ -153,8 +155,8 @@ namespace LittlePeeps
 
             if (titleLabel != null) titleLabel.text = def != null ? def.title : string.Empty;
             if (descriptionLabel != null)
-                descriptionLabel.text = def != null ? HighlightNumbers(def.DescriptionText, numberColor) : string.Empty;
-            if (levelLabel != null) levelLabel.text = def != null ? RomanNumeral.From(def.Level) : string.Empty;
+                descriptionLabel.text = def != null ? HighlightNumbers(def.DescriptionAt(level), numberColor) : string.Empty;
+            if (levelLabel != null) levelLabel.text = def != null ? RomanNumeral.From(level) : string.Empty;
 
             // Hidden rather than left showing whatever the prefab was authored with: an unset sprite
             // would otherwise print the placeholder art as though it belonged to this perk.

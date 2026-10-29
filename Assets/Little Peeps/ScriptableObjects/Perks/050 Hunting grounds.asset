@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: hunting_grounds
   title: Hunting grounds
-  description: x2 CREATURES IN THE WOODS
+  description: 
   icon: {fileID: 21300000, guid: fe2061e6eb0f43a4688f7eca3b2d24e6, type: 3}
   smallIcon: {fileID: 21300000, guid: 2985d55c3ef3ca348938c692e9e8f75c, type: 3}
   grade: 0
@@ -22,6 +22,7 @@ MonoBehaviour:
   weight: 1
   minAge: 0
   requires: {fileID: 0}
+  levels: 1
   modifiers:
   - id: 12
     unitScope: 0
@@ -29,13 +30,15 @@ MonoBehaviour:
     resourceScope: 0
     sourceScope: {fileID: 11400000, guid: e0054fbed09707348934a51a09164497, type: 2}
     structureScope: {fileID: 0}
-    flat: 0
-    percent: 1
+    kind: 1
+    steps:
+    - 1
   - id: 12
     unitScope: 0
     anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 11400000, guid: f375d82bc4766d14ca6b20f304f37ba6, type: 2}
     structureScope: {fileID: 0}
-    flat: 0
-    percent: 1
+    kind: 1
+    steps:
+    - 1

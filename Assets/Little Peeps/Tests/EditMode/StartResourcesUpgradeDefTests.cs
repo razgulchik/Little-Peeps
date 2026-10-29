@@ -86,7 +86,7 @@ namespace LittlePeeps.Tests
         [Test]
         public void Description_OneLinePerResource()
         {
-            Assert.That(upgrade.GeneratedDescription, Is.EqualTo("+20 FOOD\n+20 WOOD"));
+            Assert.That(upgrade.GeneratedDescription(1), Is.EqualTo("+20 FOOD\n+20 WOOD"));
         }
 
         [Test]
@@ -94,7 +94,14 @@ namespace LittlePeeps.Tests
         {
             upgrade.resources[1].amount = 0f;
 
-            Assert.That(upgrade.GeneratedDescription, Is.EqualTo("+20 FOOD"));
+            Assert.That(upgrade.GeneratedDescription(1), Is.EqualTo("+20 FOOD"));
+        }
+
+        // Every level is the same step, so the total at the top of the meta screen is the step times the levels.
+        [Test]
+        public void Total_IsTheStepTimesTheLevels()
+        {
+            Assert.That(upgrade.GeneratedTotal(3), Is.EqualTo("+60 FOOD\n+60 WOOD"));
         }
     }
 }

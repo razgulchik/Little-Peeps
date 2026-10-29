@@ -20,7 +20,10 @@ namespace LittlePeeps
                  "IslandSystem's Biomes list, so its tiles are known. Empty = the skipped ages grow no land.")]
         public BiomeDef zoneBiome;
 
-        public override string GeneratedDescription => "+1 STARTING AGE";
+        // Every level is one age more.
+        public override string GeneratedDescription(int level) => "+1 STARTING AGE";
+
+        public override string GeneratedTotal(int level) => $"+{level} STARTING AGE";
 
         public override void ApplyToRun(RunContext run, int level)
         {
@@ -34,7 +37,7 @@ namespace LittlePeeps
         // the Age IV.
         private void Reset()
         {
-            maxLevel = 2;
+            levels = 2;
         }
     }
 }

@@ -46,8 +46,9 @@ namespace LittlePeeps
         // Fill the screen with one card per offered perk. Never called with an empty list: PerkSelection-
         // State skips the whole step instead, so there is no "and if there are none" state to draw. It
         // does not reveal anything: the state published UIMode.PerkPick first, so the panel is already
-        // up. This owns the CONTENT of the screen, not the screen.
-        public void Show(List<PerkDef> perks)
+        // up. This owns the CONTENT of the screen, not the screen. The run says which level each card is:
+        // the one after what it has taken.
+        public void Show(List<PerkDef> perks, RunContext run)
         {
             ClearCards();
 
@@ -74,7 +75,8 @@ namespace LittlePeeps
             for (int i = 0; i < count; i++)
             {
                 var card = Instantiate(cardPrefab, cardContainer);
-                card.Init(perks[i], OnCardConfirmed);
+                int level = (run != null ? run.PerkLevel(perks[i]) : 0) + 1;
+                card.Init(perks[i], level, OnCardConfirmed);
                 cards.Add(card);
             }
 

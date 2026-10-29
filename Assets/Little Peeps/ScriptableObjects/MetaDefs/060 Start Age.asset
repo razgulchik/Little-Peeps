@@ -15,5 +15,5 @@ MonoBehaviour:
   id: start_age
   title: Fast Forward
   description: 
-  maxLevel: 2
+  levels: 2
   zoneBiome: {fileID: 11400000, guid: 4f21f855bab55c3e046b6636a9901d93, type: 2}

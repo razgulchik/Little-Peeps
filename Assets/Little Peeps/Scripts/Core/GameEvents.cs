@@ -196,10 +196,12 @@ namespace LittlePeeps
     }
 
     // Published by PerkSystem.ApplyPerk once the perk has taken effect and stands in RunContext.perksChosen —
-    // the one place a perk enters a run, whichever way it was picked. The HUD's perk panel adds a cell on it.
-    // Not PerkSelectedEvent: that one is a request, and the panel would hear it before the perk is applied.
+    // the one place a perk enters a run, whichever way it was picked. The HUD's perk panel adds a cell on it,
+    // or raises the cell's level. Not PerkSelectedEvent: that one is a request, and the panel would hear it
+    // before the perk is applied.
     public struct PerkAppliedEvent
     {
         public PerkDef Perk;
+        public int Level;   // the level just taken, 1 the first time
     }
 }

@@ -78,7 +78,7 @@ namespace LittlePeeps.Tests
             so.FindProperty("releaseDuration").floatValue = 0f;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            card.Init(perk, p => { confirmCount++; confirmedWith = p; });
+            card.Init(perk, 1, p => { confirmCount++; confirmedWith = p; });
         }
 
         private static PointerEventData Pointer() => new PointerEventData(EventSystem.current);

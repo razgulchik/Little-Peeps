@@ -127,7 +127,7 @@ namespace LittlePeeps.Tests
         }
 
         private StatPerkDef Perk(string id, float weight = 1f, int minAge = 0, PerkDef requires = null,
-                                 PerkGrade grade = PerkGrade.Common)
+                                 PerkGrade grade = PerkGrade.Common, int levels = 1)
         {
             var perk = ScriptableObject.CreateInstance<StatPerkDef>();
             perk.id = id;
@@ -135,6 +135,7 @@ namespace LittlePeeps.Tests
             perk.minAge = minAge;
             perk.requires = requires;
             perk.grade = grade;
+            perk.levels = levels;
             created.Add(perk);
             catalogue.perks.Add(perk);
             return perk;
@@ -206,39 +207,51 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
-        public void RollPerks_WithholdsTheNextLevel_UntilThePreviousIsTaken()
+        public void RollPerks_WithholdsAPerk_UntilTheOneItRequiresIsTaken()
         {
-            var level1 = Perk("pressure-1");
-            Perk("pressure-2", requires: level1);
+            var opener = Perk("opener");
+            Perk("opened", requires: opener);
             Configure();
 
-            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { level1 }),
-                        "level 2 must not share an offer with the level it builds on");
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { opener }),
+                        "a perk must not share an offer with the one that opens it");
         }
 
         [Test]
-        public void RollPerks_OffersTheNextLevel_OnceThePreviousIsTaken()
+        public void RollPerks_OffersAPerk_OnceTheOneItRequiresIsTaken_AtAnyLevel()
         {
-            var level1 = Perk("pressure-1");
-            var level2 = Perk("pressure-2", requires: level1);
-            Perk("pressure-3", requires: level2);
+            var opener = Perk("opener", levels: 3);
+            var opened = Perk("opened", requires: opener);
             Configure();
 
-            system.ApplyPerk(level1, run);
+            system.ApplyPerk(opener, run);
 
-            // One step at a time: taking level 1 opens level 2 only, never level 3 past it.
-            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { level2 }));
+            // Level 1 of three is enough; the opener itself stays in the pool for its next level.
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { opener, opened }));
         }
 
         [Test]
-        public void RollPerks_WithholdsAChainedPerk_WithoutARunContext()
+        public void RollPerks_WithholdsARequiringPerk_WithoutARunContext()
         {
-            var level1 = Perk("pressure-1");
-            Perk("pressure-2", requires: level1);
+            var opener = Perk("opener");
+            Perk("opened", requires: opener);
             Configure();
 
             // Same reading as RollPerks_SurvivesANullRunContext: no run means nothing taken.
-            Assert.That(system.RollPerks(0, null), Is.EquivalentTo(new[] { level1 }));
+            Assert.That(system.RollPerks(0, null), Is.EquivalentTo(new[] { opener }));
+        }
+
+        [Test]
+        public void RollPerks_OffersALevelledPerkAgain_UntilItsLastLevelIsTaken()
+        {
+            var pressure = Perk("pressure", levels: 2);
+            Configure();
+
+            system.ApplyPerk(pressure, run);
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { pressure }), "level 2 is still to come");
+
+            system.ApplyPerk(pressure, run);
+            Assert.That(system.RollPerks(0, run), Is.Empty, "both levels taken");
         }
 
         [Test]
@@ -283,9 +296,13 @@ namespace LittlePeeps.Tests
         public void ApplyPerk_AppliesTheEffectAndRecordsTheChoice()
         {
             var perk = Perk("speedy");
-            perk.modifiers = new List<StatModifier>
+            perk.modifiers = new List<LevelledModifier>
             {
-                new StatModifier { id = StatId.UnitSpeed, unitScope = UnitType.Miner, percent = 0.5f },
+                new LevelledModifier
+                {
+                    id = StatId.UnitSpeed, unitScope = UnitType.Miner, kind = ModifierKind.Percent,
+                    steps = new List<float> { 0.5f },
+                },
             };
             Configure();
 
@@ -294,6 +311,43 @@ namespace LittlePeeps.Tests
             Assert.That(run.stats.Apply(2f, StatId.UnitSpeed, UnitType.Miner),
                         Is.EqualTo(3f).Within(1e-4f), "a StatPerkDef is nothing but its modifiers");
             Assert.That(run.perksChosen, Does.Contain(perk));
+        }
+
+        // Each level brings its own step only — the levels before it are already in the run. Steps of
+        // +10% then +20% hold +30% after both, not +10% + (10% + 20%).
+        [Test]
+        public void ApplyPerk_AddsTheStepOfTheLevelTaken()
+        {
+            var perk = Perk("pressure", levels: 2);
+            perk.modifiers = new List<LevelledModifier>
+            {
+                new LevelledModifier { id = StatId.TapRadius, kind = ModifierKind.Percent, steps = new List<float> { 0.1f, 0.2f } },
+            };
+            Configure();
+
+            system.ApplyPerk(perk, run);
+            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(11f).Within(1e-4f));
+
+            system.ApplyPerk(perk, run);
+            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(13f).Within(1e-4f));
+            Assert.That(run.PerkLevel(perk), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ApplyPerk_PastTheLastLevel_ChangesNothing()
+        {
+            var perk = Perk("once");
+            perk.modifiers = new List<LevelledModifier>
+            {
+                new LevelledModifier { id = StatId.TapRadius, kind = ModifierKind.Flat, steps = new List<float> { 1f } },
+            };
+            Configure();
+
+            system.ApplyPerk(perk, run);
+            system.ApplyPerk(perk, run);
+
+            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(11f).Within(1e-4f));
+            Assert.That(run.PerkLevel(perk), Is.EqualTo(1));
         }
 
         [Test]
@@ -328,11 +382,13 @@ namespace LittlePeeps.Tests
             Configure();
 
             var heard = new List<PerkDef>();
+            var levels = new List<int>();
             bool listedWhenHeard = false;
             System.Action<PerkAppliedEvent> handler = e =>
             {
                 heard.Add(e.Perk);
-                listedWhenHeard = run.perksChosen.Contains(e.Perk);
+                levels.Add(e.Level);
+                listedWhenHeard = run.PerkLevel(e.Perk) == e.Level;
             };
 
             EventBus<PerkAppliedEvent>.Subscribe(handler);
@@ -347,6 +403,7 @@ namespace LittlePeeps.Tests
             }
 
             Assert.That(heard, Is.EqualTo(new[] { perk }), "one event per perk taken, none for a null one");
+            Assert.That(levels, Is.EqualTo(new[] { 1 }));
             Assert.That(listedWhenHeard, Is.True);
         }
 

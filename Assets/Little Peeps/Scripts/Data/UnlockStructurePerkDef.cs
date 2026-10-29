@@ -16,7 +16,7 @@ namespace LittlePeeps
         public StructureDef structure;
 
         // "UNLOCKS RICE PADDY" — the player-facing name, falling back to the asset's when it is blank.
-        public override string GeneratedDescription =>
+        public override string GeneratedDescription(int level) =>
             structure != null ? "UNLOCKS " + structure.ShownName.ToUpperInvariant() : string.Empty;
 
         // What the building pays, when it pays anything: Rice Paddy → Food. A paying building carries its
@@ -29,7 +29,8 @@ namespace LittlePeeps
             if (source != null && source.Def != null) into.Add(source.Def.resource);
         }
 
-        public override void ApplyPerk(RunContext context)
+        // One level: a building is either open or not.
+        public override void ApplyPerk(RunContext context, int level)
         {
             if (context != null && structure != null) context.unlockedStructures.Add(structure);
         }

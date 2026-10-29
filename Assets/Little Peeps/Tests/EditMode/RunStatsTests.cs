@@ -26,8 +26,8 @@ namespace LittlePeeps.Tests
                 unitScope = unit,
                 anyProfession = anyProfession,
                 resourceScope = res,
-                flat = flat,
-                percent = percent,
+                kind = percent != 0f ? ModifierKind.Percent : ModifierKind.Flat,
+                value = percent != 0f ? percent : flat,
             };
 
         // --- the formula ---------------------------------------------------------------------------
@@ -44,7 +44,8 @@ namespace LittlePeeps.Tests
         public void Apply_AddsFlatBeforeApplyingPercent()
         {
             var stats = new RunStats();
-            stats.Add(Mod(StatId.ProductionGlobal, flat: 2f, percent: 0.5f));
+            stats.Add(Mod(StatId.ProductionGlobal, flat: 2f));
+            stats.Add(Mod(StatId.ProductionGlobal, percent: 0.5f));
 
             // (10 + 2) * 1.5 = 18. The other reading, 10 * 1.5 + 2 = 17, is the bug this pins.
             Assert.That(stats.Apply(10f, StatId.ProductionGlobal), Is.EqualTo(18f).Within(Tolerance));
@@ -54,8 +55,10 @@ namespace LittlePeeps.Tests
         public void Add_AccumulatesSeveralModifiersIntoOneKey()
         {
             var stats = new RunStats();
-            stats.Add(Mod(StatId.ProductionGlobal, flat: 1f, percent: 0.1f));
-            stats.Add(Mod(StatId.ProductionGlobal, flat: 3f, percent: 0.4f));
+            stats.Add(Mod(StatId.ProductionGlobal, flat: 1f));
+            stats.Add(Mod(StatId.ProductionGlobal, percent: 0.1f));
+            stats.Add(Mod(StatId.ProductionGlobal, flat: 3f));
+            stats.Add(Mod(StatId.ProductionGlobal, percent: 0.4f));
 
             // Percents stack ADDITIVELY into one bucket: (10 + 4) * (1 + 0.5) = 21, not
             // (10 + 4) * 1.1 * 1.4 = 21.56.
@@ -218,7 +221,8 @@ namespace LittlePeeps.Tests
         public void AnyProfession_IsNotCountedTwice_OnAStatWithoutAUnitDimension(StatId id)
         {
             var stats = new RunStats();
-            stats.Add(Mod(id, flat: 1f, percent: 1f, anyProfession: true));
+            stats.Add(Mod(id, flat: 1f, anyProfession: true));
+            stats.Add(Mod(id, percent: 1f, anyProfession: true));
 
             // (3 + 1) * 2 = 8. Read twice it would be (3 + 2) * 3 = 15.
             Assert.That(stats.Apply(3f, id), Is.EqualTo(8f).Within(Tolerance));
@@ -443,8 +447,8 @@ namespace LittlePeeps.Tests
                 unitScope = Worker,
                 resourceScope = Res,
                 sourceScope = source,
-                flat = flat,
-                percent = percent,
+                kind = percent != 0f ? ModifierKind.Percent : ModifierKind.Flat,
+                value = percent != 0f ? percent : flat,
             };
 
         [Test]
@@ -483,7 +487,7 @@ namespace LittlePeeps.Tests
                 // (quarry.resource, quarry) — bought, saved, and silently dead.
                 resourceScope = ResourceType.Coins,
                 sourceScope = quarry,
-                percent = 1f,
+                kind = ModifierKind.Percent, value = 1f,
             });
 
             Assert.That(stats.Apply(2f, StatId.ResourceYield, Worker, Res, quarry),
@@ -513,7 +517,8 @@ namespace LittlePeeps.Tests
         public void ModifierWithNoSource_IsNotCountedTwice_WhenTheQueryHasNoSourceEither()
         {
             var stats = new RunStats();
-            stats.Add(Yield(flat: 1f, percent: 0.5f));
+            stats.Add(Yield(flat: 1f));
+            stats.Add(Yield(percent: 0.5f));
 
             // With no source in the query, the exact key and the "any source" key are the SAME key, so
             // a naive "always read both buckets" adds this modifier to itself: (1+2) * 2 = 6, not 3.
@@ -544,7 +549,8 @@ namespace LittlePeeps.Tests
         {
             var stats = new RunStats();
             stats.Add(Yield(flat: 1f));
-            stats.Add(Yield(flat: 2f, percent: 0.5f, source: quarry));
+            stats.Add(Yield(flat: 2f, source: quarry));
+            stats.Add(Yield(percent: 0.5f, source: quarry));
 
             // (10 + 1 + 2) * 1.5 = 19.5
             Assert.That(stats.Apply(10f, StatId.ResourceYield, Worker, Res, quarry),
@@ -563,7 +569,7 @@ namespace LittlePeeps.Tests
                 // fixes its resource. If Resource were in the mask, authoring just the source would key
                 // the modifier under Food (the enum's zero) and it would never be found again.
                 resourceScope = ResourceType.Metal,
-                percent = -0.5f,
+                kind = ModifierKind.Percent, value = -0.5f,
             });
 
             Assert.That(stats.Apply(4f, StatId.SourceRespawn, source: quarry),
@@ -576,7 +582,7 @@ namespace LittlePeeps.Tests
         public void SourceRespawn_WithNoSource_SpeedsUpEverything()
         {
             var stats = new RunStats();
-            stats.Add(new StatModifier { id = StatId.SourceRespawn, percent = -0.5f });
+            stats.Add(new StatModifier { id = StatId.SourceRespawn, kind = ModifierKind.Percent, value = -0.5f });
 
             Assert.That(stats.Apply(4f, StatId.SourceRespawn, source: quarry),
                         Is.EqualTo(2f).Within(Tolerance));
@@ -613,7 +619,7 @@ namespace LittlePeeps.Tests
         public void DenCapacity_IsScopedToItsAnimal()
         {
             var stats = new RunStats();
-            stats.Add(new StatModifier { id = StatId.DenCapacity, sourceScope = quarry, flat = 1f });
+            stats.Add(new StatModifier { id = StatId.DenCapacity, sourceScope = quarry, kind = ModifierKind.Flat, value = 1f });
 
             Assert.That(stats.ApplyCount(1, StatId.DenCapacity, source: quarry), Is.EqualTo(2));
             Assert.That(stats.ApplyCount(1, StatId.DenCapacity, source: cave), Is.EqualTo(1),
@@ -624,7 +630,7 @@ namespace LittlePeeps.Tests
         public void DenCapacity_WithNoSource_ReachesEveryDen()
         {
             var stats = new RunStats();
-            stats.Add(new StatModifier { id = StatId.DenCapacity, percent = 1f });
+            stats.Add(new StatModifier { id = StatId.DenCapacity, kind = ModifierKind.Percent, value = 1f });
 
             Assert.That(stats.ApplyCount(1, StatId.DenCapacity, source: quarry), Is.EqualTo(2));
             Assert.That(stats.ApplyCount(2, StatId.DenCapacity, source: cave), Is.EqualTo(4));
@@ -641,7 +647,7 @@ namespace LittlePeeps.Tests
                 id = StatId.UnitSpeed,
                 unitScope = Worker,
                 sourceScope = quarry,
-                percent = 0.5f,
+                kind = ModifierKind.Percent, value = 0.5f,
             });
 
             Assert.That(stats.Apply(2f, StatId.UnitSpeed, Worker), Is.EqualTo(3f).Within(Tolerance));

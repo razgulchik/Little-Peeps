@@ -91,20 +91,20 @@ namespace LittlePeeps
             def != null && metaContext != null ? metaContext.GetUpgradeLevel(def.id) : 0;
 
         public bool CanRaise(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.CanRaise(def.id, def.maxLevel);
+            def != null && metaContext != null && metaContext.CanRaise(def.id, def.MaxLevel);
 
         public bool CanLower(GlobalUpgradeDef def) =>
             def != null && metaContext != null && metaContext.CanLower(def.id);
 
         public bool TryRaise(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.TryRaise(def.id, def.maxLevel);
+            def != null && metaContext != null && metaContext.TryRaise(def.id, def.MaxLevel);
 
         public bool TryLower(GlobalUpgradeDef def) =>
             def != null && metaContext != null && metaContext.TryLower(def.id);
 
         // Put every bought level into a run that is being built. Called by RunManager.StartNewRun next to the
         // start config's modifiers — a meta perk is a run-start bonus, in the sheet before any system reads
-        // it. Clamped to maxLevel, so lowering a maximum in the asset can never apply more than it allows.
+        // it. Clamped to MaxLevel, so lowering a maximum in the asset can never apply more than it allows.
         public void ApplyUpgrades(RunContext run)
         {
             if (run == null || metaContext == null) return;
@@ -115,7 +115,7 @@ namespace LittlePeeps
                 var def = list[i];
                 if (def == null) continue;
 
-                int level = Mathf.Min(metaContext.GetUpgradeLevel(def.id), def.maxLevel);
+                int level = Mathf.Min(metaContext.GetUpgradeLevel(def.id), def.MaxLevel);
                 if (level > 0) def.ApplyToRun(run, level);
             }
         }

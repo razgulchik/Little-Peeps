@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: better_axes
   title: Better Axes
-  description: +100% WOOD
+  description: 
   icon: {fileID: 21300000, guid: 4ec13fafb2074aa479a14f176f7dd7c4, type: 3}
   smallIcon: {fileID: 21300000, guid: 6c363b886dd66fd4ebe90d12b3ce2991, type: 3}
   grade: 0
@@ -22,6 +22,7 @@ MonoBehaviour:
   weight: 1
   minAge: 0
   requires: {fileID: 0}
+  levels: 1
   modifiers:
   - id: 1
     unitScope: 0
@@ -29,5 +30,6 @@ MonoBehaviour:
     resourceScope: 1
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
-    flat: 0
-    percent: 1
+    kind: 1
+    steps:
+    - 1

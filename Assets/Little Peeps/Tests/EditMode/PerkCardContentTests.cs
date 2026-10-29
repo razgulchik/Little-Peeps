@@ -127,8 +127,8 @@ namespace LittlePeeps.Tests
         }
     }
 
-    // Level and the resource row on real perk assets. ScriptableObject.CreateInstance needs the Editor,
-    // so these run in Unity's Test Runner only.
+    // Levels, the card text and the resource row on real perk assets. ScriptableObject.CreateInstance
+    // needs the Editor, so these run in Unity's Test Runner only.
     public class PerkDataTests
     {
         private readonly List<Object> created = new();
@@ -148,49 +148,72 @@ namespace LittlePeeps.Tests
             return made;
         }
 
-        private StatPerkDef Perk(PerkDef requires = null, params StatModifier[] modifiers)
+        private StatPerkDef Perk(params StatModifier[] modifiers)
         {
             var perk = Make<StatPerkDef>();
-            perk.requires = requires;
-            perk.modifiers = new List<StatModifier>(modifiers);
+            perk.modifiers = new List<LevelledModifier>();
+            for (int i = 0; i < modifiers.Length; i++) perk.modifiers.Add(OneLevel(modifiers[i]));
             return perk;
         }
 
+        // A one-level bonus: the modifier's value as its only step.
+        private static LevelledModifier OneLevel(StatModifier m) => new LevelledModifier
+        {
+            id = m.id,
+            unitScope = m.unitScope,
+            anyProfession = m.anyProfession,
+            resourceScope = m.resourceScope,
+            sourceScope = m.sourceScope,
+            structureScope = m.structureScope,
+            kind = m.kind,
+            steps = new List<float> { m.value },
+        };
+
         private static StatModifier Yield(ResourceType resource) =>
-            new StatModifier { id = StatId.ResourceYield, resourceScope = resource, percent = 0.5f };
+            new StatModifier { id = StatId.ResourceYield, resourceScope = resource, kind = ModifierKind.Percent, value = 0.5f };
 
         [Test]
-        public void APerkOnItsOwnIsLevelOne()
+        public void AStatPerkCanBeTakenAsOftenAsItHasLevels()
         {
-            Assert.That(Perk().Level, Is.EqualTo(1));
+            var perk = Perk();
+            Assert.That(perk.MaxLevel, Is.EqualTo(1));
+
+            perk.levels = 3;
+            Assert.That(perk.MaxLevel, Is.EqualTo(3));
+
+            // A zero typed past the inspector's [Min] still leaves one level, never a perk nobody can take.
+            perk.levels = 0;
+            Assert.That(perk.MaxLevel, Is.EqualTo(1));
         }
 
         [Test]
-        public void EachRequiredPerkAddsALevel()
+        public void ACodePerkHasOneLevel()
         {
-            var first = Perk();
-            var second = Perk(first);
-            var third = Perk(second);
-
-            Assert.That(second.Level, Is.EqualTo(2));
-            Assert.That(third.Level, Is.EqualTo(3));
+            Assert.That(Make<UnlockStructurePerkDef>().MaxLevel, Is.EqualTo(1));
         }
 
-        // PerkSystem reports a loop at startup; until it is fixed the card must still draw, not hang.
         [Test]
-        public void ARequiresLoopStillGivesALevel()
+        public void TheCardOfALevel_ShowsItsStepAndTheTotal()
         {
-            var a = Perk();
-            var b = Perk(a);
-            a.requires = b;
+            var perk = Perk();
+            perk.levels = 3;
+            perk.modifiers.Add(new LevelledModifier
+            {
+                id = StatId.TapRadius, kind = ModifierKind.Percent, steps = new List<float> { 0.1f, 0.1f, 0.2f },
+            });
 
-            Assert.That(a.Level, Is.GreaterThan(1));
+            Assert.That(perk.DescriptionAt(1), Is.EqualTo("+10% TAP RADIUS"));
+            Assert.That(perk.DescriptionAt(3), Is.EqualTo("+20% TAP RADIUS [TOTAL +40%]"));
+
+            // A hand-worded card is the same on every level — the reason a levelled perk is left to its data.
+            perk.description = "BIGGER TAPS";
+            Assert.That(perk.DescriptionAt(3), Is.EqualTo("BIGGER TAPS"));
         }
 
         [Test]
         public void ResourcesComeOnceEach_InResourceTypeOrder()
         {
-            var perk = Perk(null, Yield(ResourceType.Coins), Yield(ResourceType.Wood), Yield(ResourceType.Coins));
+            var perk = Perk(Yield(ResourceType.Coins), Yield(ResourceType.Wood), Yield(ResourceType.Coins));
             var resources = new List<ResourceType> { ResourceType.Metal };   // stale, must be cleared
 
             perk.GetResources(resources);
@@ -204,7 +227,7 @@ namespace LittlePeeps.Tests
         {
             var wheat = Make<ResourceSourceDef>();
             wheat.resource = ResourceType.Food;
-            var perk = Perk(null, new StatModifier { id = StatId.SourceRespawn, sourceScope = wheat, percent = -0.3f });
+            var perk = Perk(new StatModifier { id = StatId.SourceRespawn, sourceScope = wheat, kind = ModifierKind.Percent, value = -0.3f });
 
             var resources = new List<ResourceType>();
             perk.GetResources(resources);
@@ -215,7 +238,7 @@ namespace LittlePeeps.Tests
         [Test]
         public void APerkWithoutResourcesShowsAnEmptyRow()
         {
-            var perk = Perk(null, new StatModifier { id = StatId.UnitStamina, flat = 1f });
+            var perk = Perk(new StatModifier { id = StatId.UnitStamina, kind = ModifierKind.Flat, value = 1f });
 
             var resources = new List<ResourceType>();
             perk.GetResources(resources);

@@ -4,7 +4,9 @@ using UnityEngine;
 
 namespace LittlePeeps.EditorTools
 {
-    // Inspector for one StatModifier.
+    // Inspector for one StatModifier, and for one LevelledModifier — the same stat and scopes with a step
+    // per level (perk or meta upgrade) in place of the single value. The two share their field names, so
+    // everything below but the value rows is one drawing.
     //
     // The problem it solves: a modifier's six fields are never all meaningful at once. Which scope
     // dimensions a stat actually uses is declared in StatMeta.ScopeOf, and RunStats.MakeKey silently
@@ -17,11 +19,12 @@ namespace LittlePeeps.EditorTools
     // reads: add a stat or change its scope mask and the inspector follows, with no second place to
     // update and nothing that can drift.
     [CustomPropertyDrawer(typeof(StatModifier))]
+    [CustomPropertyDrawer(typeof(LevelledModifier))]
     public class StatModifierDrawer : PropertyDrawer
     {
         // One entry per line the drawer puts on screen. Height measurement and drawing walk this same
         // list, which is what stops a conditional row from desynchronising the two.
-        private enum Row { Stat, Hint, Unit, Resource, ResourceFromSource, Source, Structure, Flat, Percent, NoEffect, Junk }
+        private enum Row { Stat, Hint, Unit, Resource, ResourceFromSource, Source, Structure, Kind, Value, Steps, NoEffect, Junk }
 
         private static readonly StatId[] AllIds = (StatId[])System.Enum.GetValues(typeof(StatId));
         private static readonly ResourceType[] AllRes =
@@ -32,10 +35,11 @@ namespace LittlePeeps.EditorTools
         private static float Box => EditorGUIUtility.singleLineHeight * 2f;
 
         // The struct's fields, resolved once per pass. Invalid if this drawer is ever pointed at
-        // something that only looks like a StatModifier -- see the guard in OnGUI.
+        // something that only looks like a StatModifier -- see the guard in OnGUI. Exactly one of value
+        // (StatModifier) and steps (LevelledModifier) is there.
         private readonly struct Fields
         {
-            public readonly SerializedProperty id, unit, anyUnit, res, src, st, flat, percent;
+            public readonly SerializedProperty id, unit, anyUnit, res, src, st, kind, value, steps;
 
             public Fields(SerializedProperty p)
             {
@@ -45,12 +49,38 @@ namespace LittlePeeps.EditorTools
                 res = p.FindPropertyRelative("resourceScope");
                 src = p.FindPropertyRelative("sourceScope");
                 st = p.FindPropertyRelative("structureScope");
-                flat = p.FindPropertyRelative("flat");
-                percent = p.FindPropertyRelative("percent");
+                kind = p.FindPropertyRelative("kind");
+                value = p.FindPropertyRelative("value");
+                steps = p.FindPropertyRelative("steps");
             }
 
             public bool Valid => id != null && unit != null && anyUnit != null && res != null
-                              && src != null && st != null && flat != null && percent != null;
+                              && src != null && st != null && kind != null && (value != null || steps != null);
+
+            public bool Percent => kind.enumValueIndex == (int)ModifierKind.Percent;
+
+            // Every value the modifier carries: its one value, or each level's step.
+            public IEnumerable<float> Values
+            {
+                get
+                {
+                    if (value != null)
+                    {
+                        yield return value.floatValue;
+                        yield break;
+                    }
+                    for (int i = 0; i < steps.arraySize; i++) yield return steps.GetArrayElementAtIndex(i).floatValue;
+                }
+            }
+
+            public bool NoEffect
+            {
+                get
+                {
+                    foreach (float v in Values) if (v != 0f) return false;
+                    return true;
+                }
+            }
         }
 
         // ---------------------------------------------------------------- layout
@@ -66,7 +96,7 @@ namespace LittlePeeps.EditorTools
             BuildRows(f, rows);
 
             float h = Line;
-            foreach (var row in rows) h += Gap + HeightOf(row);
+            foreach (var row in rows) h += Gap + HeightOf(row, f);
             return h;
         }
 
@@ -89,15 +119,17 @@ namespace LittlePeeps.EditorTools
             if ((scope & StatScope.Source) != 0) rows.Add(Row.Source);
             if ((scope & StatScope.Structure) != 0) rows.Add(Row.Structure);
 
-            rows.Add(Row.Flat);
-            rows.Add(Row.Percent);
+            rows.Add(Row.Kind);
+            rows.Add(f.value != null ? Row.Value : Row.Steps);
 
-            if (f.flat.floatValue == 0f && f.percent.floatValue == 0f) rows.Add(Row.NoEffect);
+            if (f.NoEffect) rows.Add(Row.NoEffect);
             if (JunkText(scope, f) != null) rows.Add(Row.Junk);
         }
 
-        private static float HeightOf(Row row) => row switch
+        private static float HeightOf(Row row, Fields f) => row switch
         {
+            // One line per level, none while the perk has not sized its steps yet.
+            Row.Steps => Mathf.Max(0f, f.steps.arraySize * (Line + Gap) - Gap),
             Row.NoEffect => Box,
             Row.Junk => Box + Gap + Line,
             _ => Line,
@@ -134,7 +166,7 @@ namespace LittlePeeps.EditorTools
                 foreach (var row in rows)
                 {
                     r.y += r.height + Gap;
-                    r.height = HeightOf(row);
+                    r.height = HeightOf(row, f);
                     Draw(r, row, property, f, id, scope);
                 }
                 EditorGUI.indentLevel--;
@@ -225,20 +257,37 @@ namespace LittlePeeps.EditorTools
                                                     "affect every building this stat applies to."));
                     break;
 
-                case Row.Flat:
-                    EditorGUI.PropertyField(r, f.flat,
-                        new GUIContent("Flat", "Added to the base value, before percents."));
+                case Row.Kind:
+                    EditorGUI.PropertyField(r, f.kind,
+                        new GUIContent("Kind", "Flat is added to the base value, before percents. Percent: " +
+                                               "0.1 = +10%; percents from every source add up first, then " +
+                                               "multiply once: final = (base + flat) * (1 + percent)."));
                     break;
 
-                case Row.Percent:
-                    EditorGUI.PropertyField(r, f.percent,
-                        new GUIContent("Percent", "0.1 = +10%. Percents from every source add up first, " +
-                                                  "then multiply once: final = (base + flat) * (1 + percent)."));
+                case Row.Value:
+                    EditorGUI.PropertyField(r, f.value,
+                        new GUIContent(f.Percent ? "Percent" : "Flat", ValueTip(f)));
                     break;
+
+                case Row.Steps:
+                {
+                    // The elements only, not the list: how many there are is the owner's Levels.
+                    var line = new Rect(r.x, r.y, r.width, Line);
+                    for (int i = 0; i < f.steps.arraySize; i++)
+                    {
+                        EditorGUI.PropertyField(line, f.steps.GetArrayElementAtIndex(i),
+                            new GUIContent("Level " + (i + 1), "What taking level " + (i + 1) + " ADDS, " +
+                                           "not the total so far. 0 = no growth on this level. " + ValueTip(f)));
+                        line.y += Line + Gap;
+                    }
+                    break;
+                }
 
                 case Row.NoEffect:
                     EditorGUI.HelpBox(EditorGUI.IndentedRect(r),
-                        "Flat and Percent are both 0 -- this modifier does nothing.",
+                        f.value != null
+                            ? "The value is 0 -- this modifier does nothing."
+                            : "Every level's step is 0 -- this modifier does nothing.",
                         MessageType.Warning);
                     break;
 
@@ -350,16 +399,19 @@ namespace LittlePeeps.EditorTools
                 who.Add(st == null ? "any building" : st.name);
             }
 
+            // A perk's steps in level order: "+10% / +10% / +20%".
             var value = new List<string>();
-            if (f.flat.floatValue != 0f)
-                value.Add(f.flat.floatValue.ToString("+0.##;-0.##"));
-            if (f.percent.floatValue != 0f)
-                value.Add((f.percent.floatValue * 100f).ToString("+0.##;-0.##") + "%");
+            foreach (float v in f.Values)
+                value.Add(f.Percent ? (v * 100f).ToString("+0.##;-0.##;0") + "%" : v.ToString("+0.##;-0.##;0"));
 
             return (who.Count > 0 ? string.Join(" / ", who) + " - " : "")
                  + Label(id) + " "
-                 + (value.Count > 0 ? string.Join(", ", value) : "no effect");
+                 + (f.NoEffect ? "no effect" : string.Join(" / ", value));
         }
+
+        private static string ValueTip(Fields f) => f.Percent
+            ? "0.1 = +10%."
+            : "Added to the base value, before percents.";
 
         // Where a stat sits in the picker. Two kinds of home: a stat that belongs to a THING (a building's
         // own numbers) is filed under that thing by hand in Group, because no scope mask can say "this is

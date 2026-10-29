@@ -15,4 +15,4 @@ MonoBehaviour:
   id: start_perk_pickup
   title: Lucky Start
   description: Pick an additional perk at the start of every run
-  maxLevel: 1
+  levels: 1

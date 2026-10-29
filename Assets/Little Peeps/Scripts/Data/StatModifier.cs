@@ -10,8 +10,11 @@ namespace LittlePeeps
     // not by the default inspector: the drawer reads that same mask and shows only the fields that
     // survive it, so nothing on screen is a value the runtime will throw away.
     //
-    //   flat    — added to the base value.
-    //   percent — added into the additive percent bucket (0.10 = +10%).
+    //   Flat    — value is added to the base value.
+    //   Percent — value is added into the additive percent bucket (0.10 = +10%).
+    //
+    // One kind per modifier: a bonus that needs both is two modifiers. No authored modifier ever set both
+    // numbers, and a choice reads in the inspector as the single bonus it is.
     [Serializable]
     public struct StatModifier
     {
@@ -40,7 +43,19 @@ namespace LittlePeeps
         [Tooltip("Which building this applies to (House, Stable, ...). Leave empty for ANY building.")]
         public StructureDef structureScope;
 
-        public float flat;
-        public float percent;
+        public ModifierKind kind;
+        public float value;
+
+        // The value as each bucket of the formula sees it: the other bucket gets nothing.
+        public float Flat => kind == ModifierKind.Flat ? value : 0f;
+        public float Percent => kind == ModifierKind.Percent ? value : 0f;
+    }
+
+    // Which bucket of the formula a modifier's value goes into. Assets store the number, so reordering
+    // these flips every authored modifier.
+    public enum ModifierKind
+    {
+        Flat,
+        Percent,
     }
 }

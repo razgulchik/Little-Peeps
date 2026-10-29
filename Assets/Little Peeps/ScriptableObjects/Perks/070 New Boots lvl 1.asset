@@ -10,24 +10,29 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
-  m_Name: 082 Peer Pressure
+  m_Name: 070 New Boots lvl 1
   m_EditorClassIdentifier: 
-  id: peer_pressure_lvl_2
-  title: Peer Pressure lvl 2
-  description: +0.2 TAP RADIUS
-  icon: {fileID: 21300000, guid: 9506894920ee0ee4787456a7bcd79b85, type: 3}
-  smallIcon: {fileID: 21300000, guid: b1f9512e006b81149b66acab48c35e2d, type: 3}
+  id: new_boots
+  title: New Boots
+  description: 
+  icon: {fileID: 21300000, guid: 6ed39871920b48b4899517d3b2dd7686, type: 3}
+  smallIcon: {fileID: 21300000, guid: 67c5fe2a1fdad6a4b9c7efb2f698aa0c, type: 3}
   grade: 0
-  rarity: 1
+  rarity: 2
   weight: 1
   minAge: 0
-  requires: {fileID: 11400000, guid: 0777513f9fe830c45a3a83709bea8981, type: 2}
+  requires: {fileID: 0}
+  levels: 4
   modifiers:
-  - id: 14
+  - id: 2
     unitScope: 0
-    anyProfession: 0
+    anyProfession: 1
     resourceScope: 0
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
-    flat: 0.15
-    percent: 0
+    kind: 1
+    steps:
+    - 0.25
+    - 0.25
+    - 0.25
+    - 0.25

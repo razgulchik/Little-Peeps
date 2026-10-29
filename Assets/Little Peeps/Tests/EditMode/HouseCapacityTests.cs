@@ -63,7 +63,7 @@ namespace LittlePeeps.Tests
         // No unit scope: HouseCapacity has none (a house is type-agnostic — it rests and launches
         // whoever comes home), so the modifier is authored the way an asset would be.
         private static StatModifier Capacity(float flat = 0f, float percent = 0f)
-            => new StatModifier { id = StatId.HouseCapacity, flat = flat, percent = percent };
+            => new StatModifier { id = StatId.HouseCapacity, kind = percent != 0f ? ModifierKind.Percent : ModifierKind.Flat, value = percent != 0f ? percent : flat };
 
         // --- resolve at warmup -----------------------------------------------------------------------
 
@@ -80,7 +80,7 @@ namespace LittlePeeps.Tests
         {
             // An old asset or an inspector slip may still carry a profession on a house stat. It is not
             // a filter: RunStats normalises it away, and the house resolves the same number for everyone.
-            run.stats.Add(new StatModifier { id = StatId.HouseCapacity, unitScope = Other, flat = 1f });
+            run.stats.Add(new StatModifier { id = StatId.HouseCapacity, unitScope = Other, kind = ModifierKind.Flat, value = 1f });
 
             Assert.That(MakeSpawner(1).SlotCount, Is.EqualTo(2), "house slots are not per profession");
         }

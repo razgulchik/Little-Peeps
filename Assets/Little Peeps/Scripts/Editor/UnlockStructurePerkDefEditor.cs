@@ -13,7 +13,7 @@ namespace LittlePeeps.EditorTools
         protected override string Noun => "perk";
 
         protected override string Generated(Object target) =>
-            ((UnlockStructurePerkDef)target).GeneratedDescription;
+            ((UnlockStructurePerkDef)target).GeneratedDescription(1);
 
         protected override bool HasModifiers(Object target) =>
             ((UnlockStructurePerkDef)target).structure != null;

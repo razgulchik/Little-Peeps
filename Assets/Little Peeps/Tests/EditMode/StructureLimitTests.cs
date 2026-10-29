@@ -39,7 +39,7 @@ namespace LittlePeeps.Tests
         }
 
         private static StatModifier Limit(StructureDef def, float flat = 0f, float percent = 0f) =>
-            new StatModifier { id = StatId.StructureLimit, structureScope = def, flat = flat, percent = percent };
+            new StatModifier { id = StatId.StructureLimit, structureScope = def, kind = percent != 0f ? ModifierKind.Percent : ModifierKind.Flat, value = percent != 0f ? percent : flat };
 
         // --- the limit -------------------------------------------------------------------------------
 

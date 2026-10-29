@@ -4,11 +4,12 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // The HUD's column of taken perks, top-right under the resource bar: one PerkSlotUI per perk in
-    // RunContext.perksChosen, in the order they were taken. Cells appear as perks are taken — no empty
-    // places; the Grid Layout Group on this object lays them out and the Content Size Fitter grows it down.
+    // RunContext.perksChosen, in the order they were first taken. Cells appear as perks are taken — no
+    // empty places; the Grid Layout Group on this object lays them out and the Content Size Fitter grows
+    // it down. A perk's next level raises the number on its cell instead of adding one.
     //
-    // The run's list is the truth: built from it at boot and on every new run, then one cell per
-    // PerkAppliedEvent (PerkSystem publishes it once the perk stands in the list).
+    // The run's list is the truth: built from it at boot and on every new run, then one cell or one level
+    // per PerkAppliedEvent (PerkSystem publishes it once the level stands in the list).
     //
     // Cells are kept, not destroyed: a new run switches the extras off and the next perks reuse them —
     // a layout group skips inactive children.
@@ -48,27 +49,41 @@ namespace LittlePeeps
             Rebuild();
         }
 
-        private void OnPerkApplied(PerkAppliedEvent e) => Add(e.Perk);
+        private void OnPerkApplied(PerkAppliedEvent e) => Show(e.Perk, e.Level);
 
+        // A perk stands in the list once per level, so every entry after its first just binds the same
+        // cell to the same level again.
         private void Rebuild()
         {
             shown = 0;
             if (run != null)
                 for (int i = 0; i < run.perksChosen.Count; i++)
-                    Add(run.perksChosen[i]);
+                    Show(run.perksChosen[i], run.PerkLevel(run.perksChosen[i]));
 
             for (int i = shown; i < slots.Count; i++) slots[i].gameObject.SetActive(false);
         }
 
-        private void Add(PerkDef perk)
+        // The perk's one cell at `level`: the cell it already has, or a new one after the last.
+        private void Show(PerkDef perk, int level)
         {
             if (perk == null || slotPrefab == null) return;
 
-            if (shown == slots.Count) slots.Add(Instantiate(slotPrefab, transform));
+            PerkSlotUI slot = SlotOf(perk);
+            if (slot == null)
+            {
+                if (shown == slots.Count) slots.Add(Instantiate(slotPrefab, transform));
 
-            PerkSlotUI slot = slots[shown++];
-            slot.gameObject.SetActive(true);
-            slot.Bind(perk);
+                slot = slots[shown++];
+                slot.gameObject.SetActive(true);
+            }
+            slot.Bind(perk, level);
+        }
+
+        private PerkSlotUI SlotOf(PerkDef perk)
+        {
+            for (int i = 0; i < shown; i++)
+                if (slots[i].Perk == perk) return slots[i];
+            return null;
         }
     }
 }

@@ -4,9 +4,10 @@ using UnityEngine;
 
 namespace LittlePeeps.Tests
 {
-    // A level repeats the step: the asset authors ONE level, and level N must come out as N of them — for
-    // flat and percent alike, through the one RunStats formula. ScriptableObjects, so these run in the Test
-    // Runner only; the offline harness skips them.
+    // Levels as a Stat Perk has them: one step per level on every modifier, and level N in the run is the
+    // steps 1 to N — for flat and percent alike, through the one RunStats formula. The meta screen's line
+    // shows what the next level brings, or the total once every level is bought. ScriptableObjects, so
+    // these run in the Test Runner only; the offline harness skips them.
     public class StatUpgradeDefTests
     {
         private StatUpgradeDef upgrade;
@@ -24,39 +25,53 @@ namespace LittlePeeps.Tests
             if (upgrade != null) Object.DestroyImmediate(upgrade);
         }
 
-        private void Step(float flat, float percent) =>
-            upgrade.modifiers = new List<StatModifier>
-            {
-                new StatModifier { id = StatId.TapRadius, flat = flat, percent = percent },
-            };
-
-        [Test]
-        public void Level3_IsThreeSteps_Flat()
+        private void Steps(StatId id, ModifierKind kind, params float[] steps)
         {
-            Step(flat: 1f, percent: 0f);
-            var run = new RunContext();
-
-            upgrade.ApplyToRun(run, 3);
-
-            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(13f).Within(1e-4f));
+            upgrade.levels = steps.Length;
+            upgrade.modifiers = new List<LevelledModifier>
+            {
+                new LevelledModifier { id = id, kind = kind, steps = new List<float>(steps) },
+            };
         }
 
-        // Percents stay additive: three +10% steps are +30%, not ×1.1³.
         [Test]
-        public void Level3_IsThreeSteps_Percent()
+        public void Level3_IsTheFirstThreeSteps_Flat()
         {
-            Step(flat: 0f, percent: 0.1f);
+            Steps(StatId.TapRadius, ModifierKind.Flat, 1f, 1f, 2f);
             var run = new RunContext();
 
             upgrade.ApplyToRun(run, 3);
 
-            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(13f).Within(1e-4f));
+            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(14f).Within(1e-4f));
+        }
+
+        // Percents stay additive: +10%, +10%, +20% are +40%, not ×1.1 × 1.1 × 1.2.
+        [Test]
+        public void Level3_IsTheFirstThreeSteps_Percent()
+        {
+            Steps(StatId.TapRadius, ModifierKind.Percent, 0.1f, 0.1f, 0.2f);
+            var run = new RunContext();
+
+            upgrade.ApplyToRun(run, 3);
+
+            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(14f).Within(1e-4f));
+        }
+
+        [Test]
+        public void ALowerLevel_LeavesTheLaterStepsOut()
+        {
+            Steps(StatId.TapRadius, ModifierKind.Flat, 1f, 5f);
+            var run = new RunContext();
+
+            upgrade.ApplyToRun(run, 1);
+
+            Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(11f).Within(1e-4f));
         }
 
         [Test]
         public void LevelZero_ChangesNothing()
         {
-            Step(flat: 1f, percent: 0.5f);
+            Steps(StatId.TapRadius, ModifierKind.Percent, 0.5f);
             var run = new RunContext();
 
             upgrade.ApplyToRun(run, 0);
@@ -74,16 +89,44 @@ namespace LittlePeeps.Tests
             Assert.That(run.stats.Apply(10f, StatId.TapRadius), Is.EqualTo(10f));
         }
 
-        // The screen's text is for ONE level and follows the data unless someone wrote it by hand.
         [Test]
         public void Description_FollowsTheDataUnlessOverridden()
         {
-            Step(flat: 1f, percent: 0f);
-            Assert.That(upgrade.DescriptionText, Is.EqualTo(upgrade.GeneratedDescription));
-            Assert.That(upgrade.DescriptionText, Is.Not.Empty);
+            Steps(StatId.TapRadius, ModifierKind.Flat, 1f);
+            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo(upgrade.GeneratedDescription(1)));
+            Assert.That(upgrade.DescriptionAt(1), Is.Not.Empty);
 
             upgrade.description = "Bigger taps";
-            Assert.That(upgrade.DescriptionText, Is.EqualTo("Bigger taps"));
+            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo("Bigger taps"));
+        }
+
+        // The line under the title: what the next [+] brings — then, with nothing left to buy, the total.
+        [Test]
+        public void ScreenText_ShowsTheNextLevel_ThenTheTotalAtTheTop()
+        {
+            Steps(StatId.ProductionGlobal, ModifierKind.Percent, 0.25f, 0.5f);
+
+            Assert.That(upgrade.ScreenText(0), Is.EqualTo("+25% ALL PRODUCTION"));
+            Assert.That(upgrade.ScreenText(1), Is.EqualTo("+50% ALL PRODUCTION [TOTAL +75%]"));
+            Assert.That(upgrade.ScreenText(2), Is.EqualTo("+75% ALL PRODUCTION"));
+        }
+
+        [Test]
+        public void ScreenText_IsTheHandWrittenDescription_OnEveryLevel()
+        {
+            Steps(StatId.ProductionGlobal, ModifierKind.Percent, 0.25f, 0.5f);
+            upgrade.description = "Busy hands";
+
+            Assert.That(upgrade.ScreenText(0), Is.EqualTo("Busy hands"));
+            Assert.That(upgrade.ScreenText(2), Is.EqualTo("Busy hands"));
+        }
+
+        [Test]
+        public void MaxLevel_IsNeverBelowOne()
+        {
+            upgrade.levels = 0;
+
+            Assert.That(upgrade.MaxLevel, Is.EqualTo(1));
         }
     }
 }

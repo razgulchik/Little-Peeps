@@ -36,6 +36,28 @@ namespace LittlePeeps.EditorTools
         // An optional line under the buttons. Null for none.
         protected virtual string Note(Object target) => null;
 
+        // The note of an asset bought in levels (Stat Perk, Stat Upgrade): the preview above is level I, so
+        // the other levels' texts are listed here and the totals can be checked without playing — with a
+        // warning when a hand-written description would hide them. Null for a single level.
+        protected static string LevelsNote(string description, int maxLevel, System.Func<int, string> textAt)
+        {
+            if (maxLevel <= 1) return null;
+
+            var sb = new System.Text.StringBuilder();
+            if (!string.IsNullOrWhiteSpace(description))
+                sb.Append("The hand-written description shows on EVERY level, with the same numbers. " +
+                          "Leave it empty for each level to show its own step and total.\n\n");
+
+            sb.Append("Above is level I. The others:");
+            for (int level = 2; level <= maxLevel; level++)
+            {
+                string text = textAt(level);
+                sb.Append("\n\n").Append(RomanNumeral.From(level)).Append(":\n")
+                  .Append(text.Length > 0 ? text : "(adds nothing)");
+            }
+            return sb.ToString();
+        }
+
         // A button press is recorded here and applied AFTER the property walk below: writing to the
         // serialized object while its iterator is live would invalidate the iterator mid-draw.
         private bool hasPendingWrite;
@@ -98,9 +120,9 @@ namespace LittlePeeps.EditorTools
             {
                 if (string.IsNullOrEmpty(generated))
                 {
-                    EditorGUILayout.HelpBox("The modifiers change nothing — flat and percent are zero " +
-                                            "on every one the card speaks for, so there is no bonus to " +
-                                            "describe.", MessageType.Warning);
+                    EditorGUILayout.HelpBox("The modifiers change nothing — the value is zero on every " +
+                                            "one the card speaks for, so there is no bonus to describe.",
+                                            MessageType.Warning);
                 }
                 else
                 {

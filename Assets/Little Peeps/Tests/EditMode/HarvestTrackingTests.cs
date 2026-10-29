@@ -76,7 +76,7 @@ namespace LittlePeeps.Tests
             // A village built well enough to double its output is worth double the prestige — that is
             // the design decision this pins. Booking baseAmount instead would make the payout measure
             // how many times a worker walked, and no perk or age would ever move it.
-            run.stats.Add(new StatModifier { id = StatId.ProductionGlobal, percent = 1f });
+            run.stats.Add(new StatModifier { id = StatId.ProductionGlobal, kind = ModifierKind.Percent, value = 1f });
 
             resourceSystem.AddHarvest(stoneSource, Worker, 3f, Vector3.zero);
 

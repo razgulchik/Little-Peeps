@@ -15,7 +15,7 @@ MonoBehaviour:
   id: start_resources
   title: Care Package
   description: 
-  maxLevel: 2
+  levels: 2
   resources:
   - resourceType: 0
     amount: 25

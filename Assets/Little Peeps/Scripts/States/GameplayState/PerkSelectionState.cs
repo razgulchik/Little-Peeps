@@ -98,7 +98,7 @@ namespace LittlePeeps
             EventBus<UIModeChangedEvent>.Publish(new UIModeChangedEvent { Mode = UIMode.PerkPick });
 
             EventBus<PerkSelectedEvent>.Subscribe(OnPerkSelected);
-            ui.Show(offer);
+            ui.Show(offer, run);
         }
 
         public void Exit()
@@ -151,7 +151,7 @@ namespace LittlePeeps
                 return false;
             }
 
-            ui.Show(offer);
+            ui.Show(offer, run);
             return true;
         }
     }

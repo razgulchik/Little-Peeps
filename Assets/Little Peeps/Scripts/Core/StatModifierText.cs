@@ -17,32 +17,55 @@ namespace LittlePeeps
     // Naming one of them "REGROW SPEED" would silently invert the meaning of every sign under it.
     public static class StatModifierText
     {
-        // Empty for a modifier that changes nothing (both buckets zero) — a card shows nothing rather
-        // than "+0%", and the AgeDef inspector flags it as the authoring mistake it almost always is.
+        // Empty for a modifier that changes nothing (a zero value) — a card shows nothing rather than
+        // "+0%", and the AgeDef inspector flags it as the authoring mistake it almost always is.
         public static string Describe(StatModifier m)
         {
-            string magnitude = Magnitude(m);
-            if (magnitude == null) return string.Empty;
+            if (Mathf.Approximately(m.value, 0f)) return string.Empty;
 
             (string text, StatScope spoken) subject = Subject(m);
             string scope = Scope(m, subject.spoken);
 
             return scope.Length > 0
-                ? $"{magnitude} {subject.text} ({scope})"
-                : $"{magnitude} {subject.text}";
+                ? $"{Magnitude(m)} {subject.text} ({scope})"
+                : $"{Magnitude(m)} {subject.text}";
         }
 
         // One line per modifier, for a card with room for more than one (a perk's description). A
         // modifier that changes nothing is skipped rather than left as a blank line, so an empty result
         // means the whole list changes nothing — the same signal the single form gives. Null-safe.
-        public static string Describe(IReadOnlyList<StatModifier> modifiers)
-        {
-            if (modifiers == null || modifiers.Count == 0) return string.Empty;
+        public static string Describe(IReadOnlyList<StatModifier> modifiers) =>
+            Lines(modifiers?.Count ?? 0, i => Describe(modifiers[i]));
 
+        // A levelled bonus (perk or meta upgrade) on the card of one level: what that level adds, then — when
+        // the run already holds some of it — what it comes to: "+20% TAP RADIUS [TOTAL +40%]". Level 1 is the
+        // step alone, since the two are the same number. Square brackets, because the parentheses already
+        // belong to the scope. Empty when the level adds nothing to this bonus: the card says what changes.
+        public static string Describe(LevelledModifier m, int level)
+        {
+            string line = Describe(m.With(m.StepAt(level)));
+            if (line.Length == 0) return line;
+
+            float total = m.TotalAt(level);
+            return Mathf.Approximately(total, m.StepAt(level))
+                ? line
+                : $"{line} [TOTAL {Magnitude(m.With(total))}]";
+        }
+
+        public static string Describe(IReadOnlyList<LevelledModifier> modifiers, int level) =>
+            Lines(modifiers?.Count ?? 0, i => Describe(modifiers[i], level));
+
+        // What levels 1 to `level` give together, as one plain line per bonus: "+75% ALL PRODUCTION". For a
+        // meta upgrade bought to its last level, where there is no next step left to show.
+        public static string DescribeTotal(IReadOnlyList<LevelledModifier> modifiers, int level) =>
+            Lines(modifiers?.Count ?? 0, i => Describe(modifiers[i].With(modifiers[i].TotalAt(level))));
+
+        private static string Lines(int count, System.Func<int, string> lineAt)
+        {
             var sb = new System.Text.StringBuilder();
-            for (int i = 0; i < modifiers.Count; i++)
+            for (int i = 0; i < count; i++)
             {
-                string line = Describe(modifiers[i]);
+                string line = lineAt(i);
                 if (line.Length == 0) continue;
                 if (sb.Length > 0) sb.Append('\n');
                 sb.Append(line);
@@ -50,17 +73,8 @@ namespace LittlePeeps
             return sb.ToString();
         }
 
-        // flat and percent are independent buckets on the one formula, so an author may set both and
-        // both are then shown — dropping one would understate the bonus.
-        private static string Magnitude(StatModifier m)
-        {
-            bool hasFlat = !Mathf.Approximately(m.flat, 0f);
-            bool hasPercent = !Mathf.Approximately(m.percent, 0f);
-
-            if (!hasFlat && !hasPercent) return null;
-            if (hasFlat && hasPercent) return $"{Signed(m.flat)}, {Signed(m.percent * 100f)}%";
-            return hasFlat ? Signed(m.flat) : $"{Signed(m.percent * 100f)}%";
-        }
+        private static string Magnitude(StatModifier m) =>
+            m.kind == ModifierKind.Percent ? $"{Signed(m.value * 100f)}%" : Signed(m.value);
 
         // The noun the magnitude applies to, plus the scope dimension that noun already spoke — kept
         // together so the parenthetical below can never repeat it, and so a stat whose subject IS one

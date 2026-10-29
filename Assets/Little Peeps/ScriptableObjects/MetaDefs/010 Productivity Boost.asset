@@ -15,7 +15,7 @@ MonoBehaviour:
   id: productivity_boost
   title: Productivity Boost
   description: 
-  maxLevel: 2
+  levels: 2
   modifiers:
   - id: 0
     unitScope: 0
@@ -23,5 +23,7 @@ MonoBehaviour:
     resourceScope: 0
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
-    flat: 0
-    percent: 0.25
+    kind: 1
+    steps:
+    - 0.25
+    - 0.25

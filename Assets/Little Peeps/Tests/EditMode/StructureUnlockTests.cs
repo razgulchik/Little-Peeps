@@ -109,7 +109,7 @@ namespace LittlePeeps.Tests
             paddy.lockedUntilPerk = true;
             var run = new RunContext();
 
-            perk.ApplyPerk(run);
+            perk.ApplyPerk(run, 1);
 
             Assert.That(paddy.LockState(RunContext.FirstAge, run), Is.EqualTo(StructureLock.None));
             Assert.That(paddy.LockState(RunContext.FirstAge, new RunContext()), Is.EqualTo(StructureLock.Perk),
@@ -122,20 +122,20 @@ namespace LittlePeeps.Tests
             perk.structure = null;
             var run = new RunContext();
 
-            Assert.DoesNotThrow(() => perk.ApplyPerk(run));
-            Assert.DoesNotThrow(() => perk.ApplyPerk(null));
+            Assert.DoesNotThrow(() => perk.ApplyPerk(run, 1));
+            Assert.DoesNotThrow(() => perk.ApplyPerk(null, 1));
             Assert.That(run.unlockedStructures, Is.Empty);
-            Assert.That(perk.GeneratedDescription, Is.Empty);
+            Assert.That(perk.GeneratedDescription(1), Is.Empty);
         }
 
         [Test]
         public void ThePerk_NamesItsStructure_ByDisplayName_ElseByAsset()
         {
-            Assert.That(perk.GeneratedDescription, Is.EqualTo("UNLOCKS RICEPADDY"));
+            Assert.That(perk.GeneratedDescription(1), Is.EqualTo("UNLOCKS RICEPADDY"));
 
             paddy.displayName = "Rice Paddy";
-            Assert.That(perk.GeneratedDescription, Is.EqualTo("UNLOCKS RICE PADDY"));
-            Assert.That(perk.DescriptionText, Is.EqualTo("UNLOCKS RICE PADDY"), "an empty override follows it");
+            Assert.That(perk.GeneratedDescription(1), Is.EqualTo("UNLOCKS RICE PADDY"));
+            Assert.That(perk.DescriptionAt(1), Is.EqualTo("UNLOCKS RICE PADDY"), "an empty override follows it");
         }
     }
 }

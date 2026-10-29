@@ -73,7 +73,7 @@ namespace LittlePeeps
         public int FreePoints => Math.Max(0, prestigePoints - PointsInvested);
 
         // Plain ids and limits rather than GlobalUpgradeDef, so the rules stay testable without a
-        // ScriptableObject. PrestigeSystem passes the def's id and maxLevel.
+        // ScriptableObject. PrestigeSystem passes the def's id and MaxLevel.
         public bool CanRaise(string id, int maxLevel) =>
             !string.IsNullOrEmpty(id) && FreePoints > 0 && GetUpgradeLevel(id) < maxLevel;
 

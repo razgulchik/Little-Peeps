@@ -132,8 +132,8 @@ namespace LittlePeeps
         {
             var key = MakeKey(m.id, m.unitScope, m.anyProfession, m.resourceScope, m.sourceScope, m.structureScope);
             mods.TryGetValue(key, out var a);
-            a.flat += m.flat;
-            a.percent += m.percent;
+            a.flat += m.Flat;
+            a.percent += m.Percent;
             mods[key] = a;
             // TODO(perf): if a dirty-flag value cache is added later, invalidate it here.
         }

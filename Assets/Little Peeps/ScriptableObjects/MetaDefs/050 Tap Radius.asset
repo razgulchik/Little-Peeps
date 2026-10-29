@@ -15,7 +15,7 @@ MonoBehaviour:
   id: tap_radius
   title: Tap Radius
   description: 
-  maxLevel: 1
+  levels: 1
   modifiers:
   - id: 14
     unitScope: 0
@@ -23,5 +23,6 @@ MonoBehaviour:
     resourceScope: 0
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
-    flat: 0.4
-    percent: 0
+    kind: 0
+    steps:
+    - 0.4

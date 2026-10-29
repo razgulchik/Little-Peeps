@@ -18,20 +18,25 @@ namespace LittlePeeps
 
         [Tooltip("Shown on the selection card. Leave EMPTY to let the perk describe itself from its " +
                  "data — a Stat Perk lists its modifiers, one per line — so a balance pass can never " +
-                 "leave a stale line behind. Fill it only to word this card by hand. A code perk with " +
-                 "no data to speak from shows only this field.")]
+                 "leave a stale line behind. Fill it only to word this card by hand; it is then the same " +
+                 "on every level, so a perk with levels is best left to its data. A code perk with no " +
+                 "data to speak from shows only this field.")]
         [TextArea] public string description;
 
-        // What the card shows: the hand-written description when there is one, else whatever the perk
-        // can say about itself from its data. Same rule as AgeDef.BonusText, for the same reason —
-        // only a card someone worded on purpose can go stale.
-        public string DescriptionText =>
-            !string.IsNullOrWhiteSpace(description) ? description : GeneratedDescription;
+        // What the card of `level` shows: the hand-written description when there is one, else whatever
+        // the perk can say about that level from its data. Same rule as AgeDef.BonusText, for the same
+        // reason — only a card someone worded on purpose can go stale.
+        public string DescriptionAt(int level) =>
+            !string.IsNullOrWhiteSpace(description) ? description : GeneratedDescription(level);
 
-        // The text the perk's data alone would put on the card. Empty here: the base perk has no data
-        // to speak from, which makes the field above its only voice. StatPerkDef and
+        // The text the perk's data alone would put on the card of `level`. Empty here: the base perk has
+        // no data to speak from, which makes the field above its only voice. StatPerkDef and
         // UnlockStructurePerkDef override.
-        public virtual string GeneratedDescription => string.Empty;
+        public virtual string GeneratedDescription(int level) => string.Empty;
+
+        // How many times the perk can be taken in one run, each time as the next level. 1 here: only a
+        // perk whose data has levels (StatPerkDef) can grow.
+        public virtual int MaxLevel => 1;
 
         [Tooltip("The large picture (icon_blessings_*, 29×29), shown on the selection card. Optional — a " +
                  "card with no icon just leaves the slot empty.")]
@@ -61,26 +66,10 @@ namespace LittlePeeps
                  "0 or 1 = from the very first offering.")]
         [Min(0)] public int minAge;
 
-        [Tooltip("A perk that must already be taken this run before this one can be offered — the " +
-                 "previous level of a chain (Peer Pressure II requires Peer Pressure I). Empty = no " +
-                 "condition. The levels stack, so this perk's modifiers are the STEP, not the total.")]
+        [Tooltip("A perk that must already be taken this run, at any level, before this one can be " +
+                 "offered — one perk opening another. Empty = no condition. Not for levels: those live " +
+                 "inside one perk (Levels on a Stat Perk).")]
         public PerkDef requires;
-
-        // Far beyond any chain anyone authors. Only a Requires loop reaches it, and PerkSystem already
-        // reports a loop at startup — the cap is what keeps the card from hanging on one meanwhile.
-        private const int LevelCap = 50;
-
-        // The perk's place in its chain, as the card's numeral shows it: 1 with nothing required, one more
-        // for every perk `requires` leads through (Peer Pressure II requires I, so it is 2).
-        public int Level
-        {
-            get
-            {
-                int level = 1;
-                for (var step = requires; step != null && level < LevelCap; step = step.requires) level++;
-                return level;
-            }
-        }
 
         // The resources this perk acts on, read from its data — the card's icon row. Each once, in
         // ResourceType order, so the row does not depend on which modifier happened to name a resource
@@ -99,8 +88,9 @@ namespace LittlePeeps
         // out. The base perk has no data to read. StatPerkDef and UnlockStructurePerkDef override.
         protected virtual void AddResources(List<ResourceType> into) { }
 
-        // Apply this perk's permanent effect to the current run state
-        public abstract void ApplyPerk(RunContext context);
+        // Apply what taking `level` (1 = the first time) adds to the current run state, for the rest of
+        // the run. Each level brings only its own step: the levels before it are already in the run.
+        public abstract void ApplyPerk(RunContext context, int level);
     }
 
     // The two perk pools: what an ordinary offering earns, and what a special cycle's offering earns.

@@ -100,7 +100,7 @@ namespace LittlePeeps
             for (int i = 0; i < rows.Count; i++)
             {
                 var def = rows[i].Def;
-                rows[i].Refresh(prestige != null ? prestige.LevelOf(def) : 0, def.maxLevel,
+                rows[i].Refresh(prestige != null ? prestige.LevelOf(def) : 0, def.MaxLevel,
                                 prestige != null && prestige.CanRaise(def),
                                 prestige != null && prestige.CanLower(def));
             }

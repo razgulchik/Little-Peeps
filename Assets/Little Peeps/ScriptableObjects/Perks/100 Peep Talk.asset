@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: peep_talk
   title: Peep Talk
-  description: +1 TAP BOOST
+  description: 
   icon: {fileID: 21300000, guid: f6339f9ab67fb7b4094f950b136f79d1, type: 3}
   smallIcon: {fileID: 21300000, guid: fe7937c146fe2424cad4cf61a0d9b6de, type: 3}
   grade: 0
@@ -22,6 +22,7 @@ MonoBehaviour:
   weight: 1
   minAge: 0
   requires: {fileID: 0}
+  levels: 3
   modifiers:
   - id: 15
     unitScope: 0
@@ -29,5 +30,8 @@ MonoBehaviour:
     resourceScope: 0
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
-    flat: 1
-    percent: 0
+    kind: 1
+    steps:
+    - 0.5
+    - 0.5
+    - 0.5

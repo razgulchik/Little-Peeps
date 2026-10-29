@@ -6,23 +6,23 @@ namespace LittlePeeps
     // gives, before anything else happens on the fresh island. Extra — the picks the offerings earn stay as
     // they are, and a perk taken here is not offered again this run.
     //
-    // Bought ONCE, no levels (the user's call): maxLevel is held at 1. The perk only owes the run a pick
+    // Bought ONCE, no levels (the user's call): levels is held at 1. The perk only owes the run a pick
     // (RunContext.perkPicksOwed); GameplayContainerState sees it from normal play and opens the pick.
     [CreateAssetMenu(menuName = "LittlePeeps/Meta/Start Perk Pick")]
     public class StartPerkPickUpgradeDef : GlobalUpgradeDef
     {
-        public override string GeneratedDescription => "START WITH A PERK PICK";
+        public override string GeneratedDescription(int level) => "START WITH A PERK PICK";
 
         public override void ApplyToRun(RunContext run, int level)
         {
             if (run != null && level > 0) run.perkPicksOwed++;
         }
 
-        // One purchase: a second level would have nothing to add. ApplyUpgrades clamps to maxLevel, so a
+        // One purchase: a second level would have nothing to add. ApplyUpgrades clamps to MaxLevel, so a
         // level saved before this rule can never apply more.
         private void OnValidate()
         {
-            maxLevel = 1;
+            levels = 1;
         }
     }
 }

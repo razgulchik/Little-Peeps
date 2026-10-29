@@ -28,6 +28,6 @@ MonoBehaviour:
     anyProfession: 1
     resourceScope: 0
     sourceScope: {fileID: 0}
-    flat: 0
-    percent: 0.2
+    kind: 1
+    value: 0.2
   bonusOverride: +20% SPEED

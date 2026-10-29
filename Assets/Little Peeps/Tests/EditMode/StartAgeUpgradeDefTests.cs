@@ -24,7 +24,7 @@ namespace LittlePeeps.Tests
             age = ScriptableObject.CreateInstance<AgeDef>();
             age.modifiers = new List<StatModifier>
             {
-                new StatModifier { id = StatId.TapRadius, flat = 1f },
+                new StatModifier { id = StatId.TapRadius, kind = ModifierKind.Flat, value = 1f },
             };
         }
 
@@ -84,11 +84,17 @@ namespace LittlePeeps.Tests
         [Test]
         public void Description_FollowsTheDataUnlessOverridden()
         {
-            Assert.That(upgrade.DescriptionText, Is.EqualTo(upgrade.GeneratedDescription));
-            Assert.That(upgrade.DescriptionText, Is.Not.Empty);
+            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo(upgrade.GeneratedDescription(1)));
+            Assert.That(upgrade.DescriptionAt(1), Is.Not.Empty);
 
             upgrade.description = "Late bloomer";
-            Assert.That(upgrade.DescriptionText, Is.EqualTo("Late bloomer"));
+            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo("Late bloomer"));
+        }
+
+        [Test]
+        public void Total_CountsTheAges()
+        {
+            Assert.That(upgrade.GeneratedTotal(2), Is.EqualTo("+2 STARTING AGE"));
         }
     }
 }

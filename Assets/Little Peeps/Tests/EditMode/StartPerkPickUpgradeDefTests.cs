@@ -53,11 +53,11 @@ namespace LittlePeeps.Tests
         [Test]
         public void Description_FollowsTheDataUnlessOverridden()
         {
-            Assert.That(upgrade.DescriptionText, Is.EqualTo(upgrade.GeneratedDescription));
-            Assert.That(upgrade.DescriptionText, Is.Not.Empty);
+            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo(upgrade.GeneratedDescription(1)));
+            Assert.That(upgrade.DescriptionAt(1), Is.Not.Empty);
 
             upgrade.description = "A head start";
-            Assert.That(upgrade.DescriptionText, Is.EqualTo("A head start"));
+            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo("A head start"));
         }
     }
 }

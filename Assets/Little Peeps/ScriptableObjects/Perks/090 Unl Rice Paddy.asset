@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: unl_rice_paddy
   title: Unl Rice Paddy
-  description: UNLOCKS RICE PADDY
+  description: 
   icon: {fileID: 21300000, guid: 9506894920ee0ee4787456a7bcd79b85, type: 3}
   smallIcon: {fileID: 21300000, guid: b1f9512e006b81149b66acab48c35e2d, type: 3}
   grade: 1

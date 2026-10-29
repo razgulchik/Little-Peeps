@@ -17,27 +17,30 @@ namespace LittlePeeps
                  "60 Food at 3/3. Added to the start config's amounts.")]
         public List<ResourceCost> resources = new();
 
-        // "+20 FOOD", one line per resource — the grammar of a stat line on a perk card.
-        public override string GeneratedDescription
+        // "+20 FOOD", one line per resource — the grammar of a stat line on a perk card. Every level is the
+        // same step; the total is that step times the levels.
+        public override string GeneratedDescription(int level) => Describe(1);
+
+        public override string GeneratedTotal(int level) => Describe(level);
+
+        private string Describe(int times)
         {
-            get
+            if (resources == null) return string.Empty;
+
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < resources.Count; i++)
             {
-                if (resources == null) return string.Empty;
+                var r = resources[i];
+                if (r == null || Mathf.Approximately(r.amount, 0f)) continue;
 
-                var sb = new System.Text.StringBuilder();
-                for (int i = 0; i < resources.Count; i++)
-                {
-                    var r = resources[i];
-                    if (r == null || Mathf.Approximately(r.amount, 0f)) continue;
-
-                    if (sb.Length > 0) sb.Append('\n');
-                    sb.Append(r.amount > 0f ? "+" : "")
-                      .Append(r.amount.ToString("0.##", CultureInfo.InvariantCulture))
-                      .Append(' ')
-                      .Append(r.resourceType.ToString().ToUpperInvariant());
-                }
-                return sb.ToString();
+                float amount = r.amount * times;
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append(amount > 0f ? "+" : "")
+                  .Append(amount.ToString("0.##", CultureInfo.InvariantCulture))
+                  .Append(' ')
+                  .Append(r.resourceType.ToString().ToUpperInvariant());
             }
+            return sb.ToString();
         }
 
         // The step added `level` times. A type the config left out is absent from the dictionary and starts

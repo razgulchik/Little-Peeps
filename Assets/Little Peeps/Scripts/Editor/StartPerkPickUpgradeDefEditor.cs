@@ -12,7 +12,7 @@ namespace LittlePeeps.EditorTools
         protected override string Noun => "upgrade";
 
         protected override string Generated(Object target) =>
-            ((StartPerkPickUpgradeDef)target).GeneratedDescription;
+            ((StartPerkPickUpgradeDef)target).GeneratedDescription(1);
 
         protected override bool HasModifiers(Object target) => true;
 

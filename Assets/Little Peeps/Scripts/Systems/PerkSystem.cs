@@ -54,7 +54,7 @@ namespace LittlePeeps
                 if (string.IsNullOrEmpty(perk.title))
                     Debug.LogWarning($"Perk '{perk.name}' has no title — its card will read empty.", perk);
 
-                // A chain that can never be walked is a perk that silently never appears, which is
+                // A requirement that can never be met is a perk that silently never appears, which is
                 // exactly the failure nobody notices in play.
                 if (perk.requires != null && !catalogue.perks.Contains(perk.requires))
                     Debug.LogWarning($"Perk '{perk.name}' requires '{perk.requires.name}', which is not in " +
@@ -142,25 +142,30 @@ namespace LittlePeeps
             if (perk.grade != grade) return false;        // the pools never mix
             if (perk.weight <= 0f) return false;          // deliberate off-switch, not a roll of zero
             if (currentAge < perk.minAge) return false;
-            if (context != null && context.perksChosen.Contains(perk)) return false;
 
-            // The next level of a chain waits for the one before it. No run = nothing taken yet, so it
-            // waits then too.
+            // Offered again as its next level until the last one is taken.
+            if (context != null && context.PerkLevel(perk) >= perk.MaxLevel) return false;
+
+            // A perk another one opens waits for it. No run = nothing taken yet, so it waits then too.
             if (perk.requires != null && (context == null || !context.perksChosen.Contains(perk.requires)))
                 return false;
 
             return true;
         }
 
-        // Apply the perk effect and record it so it can't be rolled again this run. Announced only after
-        // both, so a listener reading perksChosen already finds the perk there.
+        // Apply the perk's next level and record it, so the roll moves on to the level after — or drops the
+        // perk once its last level is taken. Announced only after both, so a listener reading perksChosen
+        // already finds the level there. A perk already at its last level is left alone: nothing offers it.
         public void ApplyPerk(PerkDef perk, RunContext context)
         {
             if (perk == null || context == null) return;
 
-            perk.ApplyPerk(context);
+            int level = context.PerkLevel(perk) + 1;
+            if (level > perk.MaxLevel) return;
+
+            perk.ApplyPerk(context, level);
             context.perksChosen.Add(perk);
-            EventBus<PerkAppliedEvent>.Publish(new PerkAppliedEvent { Perk = perk });
+            EventBus<PerkAppliedEvent>.Publish(new PerkAppliedEvent { Perk = perk, Level = level });
         }
 
         // Index of the weighted pick for a roll in [0, 1], or -1 when nothing is rollable.

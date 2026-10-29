@@ -32,6 +32,10 @@ namespace LittlePeeps
             ages = ageSystem;
         }
 
+        // Another start config for every run from the next StartNewRun on (TestMode). Changes only this
+        // play session: the scene keeps the real one.
+        public void UseStartConfig(StartConfigDef config) => startConfig = config;
+
         // Create a fresh RunContext and re-generate the island.
         // Also the prestige entry point: it tears the previous run down FIRST, so there is exactly one
         // way to start a run and it can never be the one that leaks. On the very first call (from

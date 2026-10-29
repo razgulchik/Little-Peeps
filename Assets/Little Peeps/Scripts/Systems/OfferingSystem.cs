@@ -26,6 +26,14 @@ namespace LittlePeeps
 
         public void Initialize(RunContext context) => run = context;
 
+        // Another schedule for this play session (TestMode); the scene keeps the real one. Drops the cached
+        // quota, which was built from the old schedule.
+        public void UseSchedule(OfferingScheduleDef def)
+        {
+            schedule = def;
+            quotaRun = null;
+        }
+
         // Re-bind on every run after the first, AgeSystem's reason: a prestige must not leave the clock
         // running on the finished run's cycle.
         private void OnEnable()  => EventBus<RunStartedEvent>.Subscribe(OnRunStarted);

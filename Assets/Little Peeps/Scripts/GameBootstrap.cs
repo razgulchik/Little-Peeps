@@ -54,6 +54,11 @@ namespace LittlePeeps
         [Header("Building")]
         [SerializeField] private PlacementController placementController;
 
+        [Header("Debug")]
+        [Tooltip("Test presets, used only while the menu switch Little Peeps → Test Mode is on (per machine, " +
+                 "editor only). Empty = no test mode in this scene.")]
+        [SerializeField] private TestMode testMode;
+
         private MetaContext metaContext;
         private StateMachine appStateMachine;
 
@@ -75,6 +80,15 @@ namespace LittlePeeps
             //    Every run starts with the meta perks bought so far, so RunManager learns where they come
             //    from before it builds the first one — and the age list, for the ages a perk skips.
             runManager.Initialize(prestigeSystem, ageSystem);
+
+            //    Test mode swaps its presets in before the first run, so the first island is already the
+            //    test one; they hold for every run of this play session.
+            if (TestMode.IsOn)
+            {
+                if (testMode != null) testMode.Apply(runManager, offeringSystem);
+                else Debug.LogWarning("[GameBootstrap] test mode is on (Little Peeps → Test Mode), but no " +
+                                      "TestMode is assigned — the real presets are used.", this);
+            }
 
             // 3. Start the first run: RunManager creates the RunContext, seeds resources
             //    (via ResourceSystem.Initialize) and asks IslandSystem to generate the island.

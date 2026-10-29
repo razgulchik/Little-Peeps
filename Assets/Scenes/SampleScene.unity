@@ -500,7 +500,7 @@ MonoBehaviour:
     groundColor: {r: 1, g: 0.85, b: 0.55, a: 0.25}
     groundSortingLayer: Ground
     groundSortingOrder: 1000
-    fenceThickness: 0.25
+    fenceThickness: 0.3
 --- !u!1 &55594375
 GameObject:
   m_ObjectHideFlags: 0

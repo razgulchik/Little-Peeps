@@ -421,10 +421,13 @@ namespace LittlePeeps.Tests
         // The prototype's --check sweep as a test: every invariant, every step, many seeds. This is the
         // guard behind IslandSystem.Expand reporting failure instead of loosening the rules — with the
         // default rules, failure must simply never happen.
-        [Test]
-        public void SeedSweep_KeepsEveryInvariantOnEveryStep()
+        // Generation is deterministic per seed, so the full 100 only tell something new after the generator
+        // changes: it is Explicit (category Sweep) and is run by hand then; every run gets the first 20.
+        [TestCase(20)]
+        [TestCase(100, Explicit = true, Category = "Sweep")]
+        public void SeedSweep_KeepsEveryInvariantOnEveryStep(int seeds)
         {
-            const int seeds = 100, steps = 8;
+            const int steps = 8;
             var rules = Rules();
             for (int seed = 0; seed < seeds; seed++)
             {

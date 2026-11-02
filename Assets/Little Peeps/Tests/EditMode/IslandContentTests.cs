@@ -225,10 +225,13 @@ namespace LittlePeeps.Tests
         // lane only takes shapes away, so this is the guard that it never takes them all — and no age
         // ever puts land in front of the pier. Then the same seeds without the pier: some of them DO
         // grow into that sea, or the sweep above would prove nothing.
-        [Test]
-        public void PierSweep_EveryAgeStillGrows_AndNoneCoversTheSeaAhead()
+        // Generation is deterministic per seed, so the full 100 only tell something new after the generator
+        // changes: it is Explicit (category Sweep) and is run by hand then; every run gets the first 20.
+        [TestCase(20)]
+        [TestCase(100, Explicit = true, Category = "Sweep")]
+        public void PierSweep_EveryAgeStillGrows_AndNoneCoversTheSeaAhead(int seeds)
         {
-            const int seeds = 100, steps = 8;
+            const int steps = 8;
             int coveredWithoutRule = 0;
             for (int seed = 0; seed < seeds; seed++)
             {

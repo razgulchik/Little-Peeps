@@ -161,6 +161,14 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void Update_CarriesTheWallOn_WellAheadOfItsEnd_EvenOffTheLine()
+        {
+            // 0.85 past the end and 0.6 above the wall: further off its line than a turn needs beside the
+            // wall, but nearer the wall carried on than the turn back at the corner.
+            Assert.AreEqual(NextBottom, new EdgeAim().Update(OneFenceWall(), new Vector2(-1.15f, -1.4f)));
+        }
+
+        [Test]
         public void Update_TurnsFromTheWallCarriedOn_OnlyUpTheTurnsLine()
         {
             var grid = OneFenceWall();
@@ -246,6 +254,47 @@ namespace LittlePeeps.Tests
 
             // In the gap, nearer the second wall's end: the ghost reaches back from it to close the gap.
             Assert.AreEqual(new Edge(new Vector2Int(-1, -2), true), new EdgeAim().Update(grid, new Vector2(-0.6f, -1.9f)));
+        }
+
+        // --- a one-cell gap ----------------------------------------------------------------------------
+        // A pen fenced on three sides around cell (-3,-2) — Left, Top, EastUp — open at Bottom. Both bottom
+        // corners are wall ends, the open side is the turn at each, and its middle is half a cell off both
+        // walls' lines.
+
+        private static readonly Edge WestDown = new Edge(new Vector2Int(-3, -3), false);   // the west wall carried on
+
+        private static IslandGrid Pen()
+        {
+            var grid = Island();
+            PutFence(grid, Left);
+            PutFence(grid, Top);
+            PutFence(grid, EastUp);
+            return grid;
+        }
+
+        [Test]
+        public void Update_ClosesTheGap_FromTheMiddleOfItsOpenSide()
+        {
+            Assert.AreEqual(Bottom, new EdgeAim().Update(Pen(), new Vector2(-2.5f, -2f)));
+            // Just inside, on the east half: the same edge, now as the east wall's turn.
+            Assert.AreEqual(Bottom, new EdgeAim().Update(Pen(), new Vector2(-2.4f, -1.95f)));
+        }
+
+        [Test]
+        public void Update_CarriesAWallOn_ByItsLineInTheGap()
+        {
+            Assert.AreEqual(WestDown, new EdgeAim().Update(Pen(), new Vector2(-2.85f, -2f)));
+        }
+
+        [Test]
+        public void Update_TurnsIntoTheGap_FromTheWallCarriedOn()
+        {
+            var grid = Pen();
+            var aim = new EdgeAim();
+            Assert.AreEqual(WestDown, aim.Update(grid, new Vector2(-2.9f, -2.3f)));
+
+            // Along the open side, past TurnFraction from the west wall's line.
+            Assert.AreEqual(Bottom, aim.Update(grid, new Vector2(-2.6f, -2f)));
         }
     }
 }

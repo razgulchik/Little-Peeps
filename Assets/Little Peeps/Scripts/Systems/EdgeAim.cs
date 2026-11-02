@@ -14,13 +14,13 @@ namespace LittlePeeps
     // The pull: near the END of a wall — a cell corner where exactly one fence stops — the ghost goes to
     // that end, and by default carries the wall on straight: a cursor led along the wall, a little above or
     // below its line, keeps being offered the next straight piece — the turn's edge starts right at the
-    // corner and would otherwise win the moment the cursor crosses into the next cell. It turns only with
-    // the cursor clearly off the wall's line (TurnFraction), to that side. Nothing else competes there, so
-    // a new wall (and a stroke, which
-    // starts on the ghost's edge) joins the old one without having to find the corner by hand. A hold
-    // elsewhere, or on the fence itself, gives way at once; among the end's own edges the hold still
-    // applies, so the ghost does not flicker on the corner. The middle of a wall and its joints do not
-    // pull — a fence laid alongside a wall must stay possible.
+    // corner and would otherwise win the moment the cursor crosses into the next cell. It turns with the
+    // cursor clearly off the wall's line (TurnFraction; ahead of the end, further off), to that side.
+    // Nothing else competes there, so a new wall (and a stroke, which starts on the ghost's edge) joins
+    // the old one without having to find the corner by hand. A hold elsewhere, or on the fence itself,
+    // gives way at once; among the end's own edges the hold still applies, so the ghost does not flicker
+    // on the corner. The middle of a wall and its joints do not pull — a fence laid alongside a wall must
+    // stay possible.
     //
     // Distances are to the edge's SEGMENT, not its endless line, so the held edge lets go naturally once
     // the cursor has moved on to another cell — its segment is then simply far away.
@@ -47,9 +47,13 @@ namespace LittlePeeps
         private const float WallEndPullFraction = 1.25f;
 
         // How far off a wall's line, as a fraction of a cell, the cursor has to go for its end to offer the
-        // turn instead of the wall carried on. With the hold on top, the ghost actually turns once the
-        // cursor is past this AND at the turn's line — led up the turn, not just drifting above the wall.
-        private const float TurnFraction = 0.5f;
+        // turn instead of the wall carried on — beside the wall and level with its end. Ahead of the end the
+        // margin grows by however far ahead the cursor is: there it is nearer the wall carried on than the
+        // turn, which starts back at the corner. Under half a cell on purpose: the middle of a one-cell gap
+        // between two walls' ends (the open side of a pen fenced on three sides) is half a cell off either
+        // wall's line, and with 0.5 it could never be aimed at — each end offered its own wall carried on.
+        // With the hold on top, the ghost actually turns once the cursor is past this AND at the turn's line.
+        private const float TurnFraction = 0.3f;
 
         private bool holding;
 
@@ -148,15 +152,17 @@ namespace LittlePeeps
         }
 
         // Which of the four edges at a wall's end (`wall` is the fence's) the end offers: straight on,
-        // opposite the wall — or, with the cursor off the wall's line by more than TurnFraction, the turn
-        // on the cursor's side.
+        // opposite the wall — or, with the cursor off the wall's line by more than TurnFraction plus however
+        // far it is ahead of the end, the turn on the cursor's side.
         private static int Offered(IslandGrid grid, Vector2Int node, Vector2 world, int wall)
         {
             Vector2 off = world - grid.NodeToWorld(node);
             bool alongX = wall % 2 == 0;   // east or west: a horizontal wall
             float across = alongX ? off.y : off.x;
+            float ahead = alongX ? off.x : off.y;
+            if (wall < 2) ahead = -ahead;   // the wall runs east or north from its end: ahead is west or south
 
-            if (Mathf.Abs(across) <= grid.CellSize * TurnFraction) return (wall + 2) % 4;
+            if (Mathf.Abs(across) <= grid.CellSize * TurnFraction + Mathf.Max(0f, ahead)) return (wall + 2) % 4;
             if (alongX) return across > 0f ? 1 : 3;
             return across > 0f ? 0 : 2;
         }

@@ -32,9 +32,9 @@ namespace LittlePeeps
 
         [Header("Stuck")]
         [Tooltip("A unit that never gets further than this (world units) from where it stood at the start " +
-                 "of a window is STUCK — pinned inside a regrown tree, wedged, sealed into a pocket — and " +
-                 "SpawnSystem takes it home. Sized so bouncing alone never trips it: a free unit crosses " +
-                 "this disc in a fraction of a second.")]
+                 "of a window is STUCK — wedged, sealed into a pocket or a pen — and SpawnSystem takes it " +
+                 "home once it is tired. Sized so bouncing alone never trips it: a free unit crosses this " +
+                 "disc in a fraction of a second.")]
         [SerializeField, Min(0f)] private float stuckRadius = 1f;
 
         [Tooltip("Length of one such window in seconds; the verdict lands between one and two windows " +
@@ -104,9 +104,8 @@ namespace LittlePeeps
         private float drunkTimer;
         private float drunkSpeedMultiplier = 1f;
 
-        // Whether the unit has stopped getting anywhere (see StuckWatch): it cannot free itself — a
-        // tired one can't chop, a farmer never could — so SpawnSystem sweeps for this flag and takes
-        // the unit into a house. Ticked in FixedUpdate on the field only; every way off the field
+        // Whether the unit has stopped getting anywhere (see StuckWatch). A tired one cannot get home from
+        // there, so SpawnSystem sweeps for this flag and takes a tired unit into a house. Ticked in FixedUpdate on the field only; every way off the field
         // (EnterRest, EnterHold) and back onto it (Launch, Resume) resets it, so a building never sees
         // the verdict that brought the unit there.
         public bool IsStuck => stuckWatch.IsStuck;

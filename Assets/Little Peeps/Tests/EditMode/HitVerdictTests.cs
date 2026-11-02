@@ -560,7 +560,7 @@ namespace LittlePeeps.Tests
             go.AddComponent<BoxCollider2D>().isTrigger = trigger;
             var source = go.AddComponent<ResourceSource>();   // [RequireComponent] pulls in the CollisionTarget
             SetField(source, "def", def);
-            source.Initialize(resources);
+            source.Initialize(resources, null, null);   // no regrow here — nobody and no cells for one to wait on
             return go;
         }
 

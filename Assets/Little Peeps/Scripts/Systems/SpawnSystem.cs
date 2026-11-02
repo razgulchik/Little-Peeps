@@ -27,9 +27,9 @@ namespace LittlePeeps
         [SerializeField] private SoundSystem soundSystem;
 
         [Header("Stuck units")]
-        [Tooltip("How often the live units are swept for ones that report themselves stuck (Unit.IsStuck) " +
-                 "and taken into the nearest house with a free slot. A unit that finds none stays where it " +
-                 "is and is tried again on the next sweep.")]
+        [Tooltip("How often the live units are swept for tired ones that report themselves stuck " +
+                 "(Unit.IsStuck), which are taken into the nearest house with a free slot. A unit that finds " +
+                 "none stays where it is and is tried again on the next sweep.")]
         [SerializeField, Min(0.05f)] private float stuckSweepInterval = 0.5f;
         private float stuckSweepTimer;
 
@@ -114,20 +114,21 @@ namespace LittlePeeps
             RescueStuckUnits();
         }
 
-        // A stuck unit — pinned inside a regrown tree, wedged, sealed into a pocket; the unit itself
-        // decides, see StuckWatch — cannot free itself, so it goes home: into the nearest house with a
-        // free slot — the same slot a tired unit walks into, but past the door rule, since a stuck unit
-        // may still have stamina — so it rests and comes back out launched with full stamina. Houses hold no units of their own, so any house will do, and the
-        // nearest reads as the unit having walked into it. No house free (every slot taken): the unit
-        // stays put and the next sweep tries again. Sheltering
-        // keeps the unit active, so the list is safe to walk in place.
+        // A stuck unit — wedged, sealed into a pocket or a pen; the unit itself decides, see StuckWatch —
+        // that is TIRED cannot get home, so it is taken there: into the nearest house with a free slot,
+        // the same slot it would have walked into, so it rests and comes back out launched with full
+        // stamina. Only a tired one: a working unit loses nothing it needs by being shut in — a lumberjack
+        // chops its way out, anyone else bounces out the rest of its outing — and is taken home once it
+        // tires there. Houses hold no units of their own, so any house will do, and the nearest reads as
+        // the unit having walked into it. No house free (every slot taken): the unit stays put and the
+        // next sweep tries again. Sheltering keeps the unit active, so the list is safe to walk in place.
         private void RescueStuckUnits()
         {
             var units = unitSystem.ActiveUnits;
             for (int i = 0; i < units.Count; i++)
             {
                 var unit = units[i];
-                if (!unit.IsStuck) continue;
+                if (!unit.IsStuck || !unit.IsTired) continue;
 
                 var house = NearestHouseWithFreeSlot(unit.transform.position);
                 if (house != null) house.TryShelter(unit);

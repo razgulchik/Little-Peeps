@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace LittlePeeps
 {
     // A placed structure — anything that stands on the grid. Collision handling + effect dispatch
@@ -57,6 +59,30 @@ namespace LittlePeeps
         {
             var stats = resourceSystem != null ? resourceSystem.Stats : null;
             return stats != null ? stats.Apply(0f, StatId.AdditionalResourcePerHit, res: type, structure: def) : 0f;
+        }
+
+        // Debug: fell or regrow every source of this structure at once — all the trees of a forest cell, when
+        // picked on the forest itself (right-click the component header, Play Mode). One source at a time is
+        // ResourceSource's own menu; this only runs it over the lot.
+        [ContextMenu("Deplete Sources")]
+        private void DebugDepleteSources()
+        {
+            if (!DebugInPlayMode()) return;
+            foreach (var source in GetComponentsInChildren<ResourceSource>()) source.DepleteForDebug();
+        }
+
+        [ContextMenu("Regrow Sources")]
+        private void DebugRegrowSources()
+        {
+            if (!DebugInPlayMode()) return;
+            foreach (var source in GetComponentsInChildren<ResourceSource>()) source.RegrowForDebug();
+        }
+
+        private bool DebugInPlayMode()
+        {
+            if (Application.isPlaying) return true;
+            Debug.LogWarning($"Structure '{name}': the debug menu works in Play Mode only.", this);
+            return false;
         }
     }
 }

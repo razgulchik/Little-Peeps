@@ -127,9 +127,17 @@ namespace LittlePeeps
             // Start runs. The instance is the authoritative record of the structure's grid origin; a spawner
             // holds it to read its Cell when choosing a launch direction. GetComponentsInChildren (not
             // TryGetComponent) so composite prefabs work too: a forest is a root Structure whose child trees
-            // each carry a ResourceSource — inject every one, at any depth.
+            // each carry a ResourceSource — inject every one, at any depth. The sources also get the
+            // structure's cells, the same rects a construction site is made of: a regrow waits for nobody to
+            // be on them, as a building does (see ResourceSource). One list, shared by every source.
             foreach (var spawner in go.GetComponentsInChildren<Spawner>(true)) spawner.Initialize(spawnSystem, grid, instance);
-            foreach (var source in go.GetComponentsInChildren<ResourceSource>(true)) source.Initialize(resourceSystem);
+            var sources = go.GetComponentsInChildren<ResourceSource>(true);
+            if (sources.Length > 0)
+            {
+                var cells = new List<Rect>();
+                ConstructionArea.CellRects(grid, cell, def.Footprint, cells);
+                foreach (var source in sources) source.Initialize(resourceSystem, spawnSystem, cells);
+            }
             foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
             foreach (var tavern in go.GetComponentsInChildren<Tavern>(true)) tavern.Initialize(resourceSystem, grid, instance);
 

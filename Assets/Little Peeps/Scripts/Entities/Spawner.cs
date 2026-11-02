@@ -239,7 +239,8 @@ namespace LittlePeeps
         // Take `unit` in to rest in the first free slot; false when every slot is occupied. The one
         // way in from the field, whether the unit came through the door (TryEnter) or SpawnSystem
         // brought it here because it was stuck — the house takes either the same way, and sends it back
-        // out launched after its rest. No door rule here: a stuck unit may still have stamina.
+        // out launched after its rest. No door rule here: TryEnter applies it before calling this, and the
+        // stuck rescue picks its own units.
         public bool TryShelter(Unit unit)
         {
             if (slots == null || unit == null) return false;

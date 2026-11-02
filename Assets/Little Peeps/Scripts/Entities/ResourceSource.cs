@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LittlePeeps
@@ -14,7 +15,15 @@ namespace LittlePeeps
     //   Ready     — ripe/grown, harvestable.
     //   Harvested — used up, regrowing. Its colliders are off unless the def keeps the body (a shorn
     //               alpaca still bumps into units, it just pays nothing). After def.regrowTime it
-    //               returns to Ready.
+    //               returns to Ready — on the first frame no unit's body touches the cells its structure
+    //               stands on.
+    //
+    // The cells, not the source's own collider: the same rule a building goes up by (a construction site
+    // waits for nobody on its cells), so whatever turns solid on the island waits for one and the same
+    // thing. Every source of a structure asks about the same cells, so no tree of a forest cell grows
+    // while a unit is anywhere in it — none can close a clearing around it — and every tree that is due
+    // comes back the moment the unit has left. A game convention, deliberately: a collider that sticks out
+    // of its cells is not covered, and a unit pinned there is StuckWatch's to rescue.
     //
     // What the states LOOK like is not this component's business: each kind of source has its own view
     // next to it — ResourceSourceView for nodes (ready and harvested roots, the reap fade), ForgeHeatView
@@ -35,6 +44,7 @@ namespace LittlePeeps
 
         [SerializeField] private ResourceSourceDef def;
         [SerializeField] private ResourceSystem resourceSystem; // scene ref — can't live in the SO
+        [SerializeField] private SpawnSystem spawnSystem;       // scene ref — the units a regrow waits for
 
         [Header("Harvest VFX")]
         [Tooltip("Where the pickup effect and the floating number leave from. Empty = this transform. " +
@@ -47,6 +57,7 @@ namespace LittlePeeps
         private int hitsLeft;
         private State state = State.Ready;
         private float respawnTimer;
+        private IReadOnlyList<Rect> cells;   // the structure's, in the world; null = none (an animal)
 
         // A hit has just paid — after the credit, before any depletion. What an add-on settles its own
         // state on (the mill empties its store), since only here is it certain the hit paid.
@@ -74,9 +85,13 @@ namespace LittlePeeps
 
         // Optional runtime injection (StructureSystem calls this when placing a structure at runtime,
         // since a prefab can't serialize a reference to a scene system). Mirrors Spawner.Initialize.
-        public void Initialize(ResourceSystem system)
+        // `cells`: the world rects of the cells the structure stands on (ConstructionArea.CellRects), shared
+        // by all its sources; null for a source that stands on none — an animal.
+        public void Initialize(ResourceSystem system, SpawnSystem spawns, IReadOnlyList<Rect> cells)
         {
             resourceSystem = system;
+            spawnSystem = spawns;
+            this.cells = cells;
         }
 
         // The run's stat sheet, for add-ons on this source that resolve their own numbers (ForgeHeat).
@@ -104,6 +119,11 @@ namespace LittlePeeps
                 Debug.LogError($"ResourceSource on '{name}': '{def.name}' is set to Despawn, but this is a " +
                                "structure — destroying it would leave its grid cells taken. Despawn is for " +
                                "a den's animals; use Regrow here.", this);
+
+            if (def != null && def.depletion == Depletion.Regrow && !def.keepBodyWhileDepleted &&
+                (spawnSystem == null || cells == null))
+                Debug.LogError($"ResourceSource on '{name}' gives its body up while regrowing but was given no " +
+                               "SpawnSystem or no cells — it will regrow onto units standing on it.", this);
         }
 
         // ICollisionEffect — dispatched by CollisionTarget.HandleHit when a unit hits the host. UsedUp on the
@@ -144,7 +164,23 @@ namespace LittlePeeps
             if (state != State.Harvested) return;
 
             respawnTimer -= Time.deltaTime;
-            if (respawnTimer <= 0f) Respawn();
+            if (respawnTimer <= 0f && !SomeoneOnTheCells()) Respawn();
+        }
+
+        // Whether a unit's body touches the structure's cells — the same test a construction site takes
+        // its insiders by (ConstructionArea). Only a source that gave its body up has anything to wait for.
+        private bool SomeoneOnTheCells()
+        {
+            if (def.keepBodyWhileDepleted || cells == null || spawnSystem == null) return false;
+
+            var units = spawnSystem.ActiveUnits;
+            for (int i = 0; i < units.Count; i++)
+            {
+                var unit = units[i];
+                if (unit != null && unit.IsOnField && ConstructionArea.Overlaps(cells, unit.BodyCenter, unit.BodyRadius))
+                    return true;
+            }
+            return false;
         }
 
         // Regrow delay with the run modifier applied. The stats sheet is asked for at the point of use,
@@ -176,6 +212,43 @@ namespace LittlePeeps
             hitsLeft = def.hitsToDeplete;
             if (!def.keepBodyWhileDepleted) host.SetColliderEnabled(true);
             Regrown?.Invoke();
+        }
+
+        // Debug: set up what happens around a regrow without waiting on workers (right-click the component
+        // header, Play Mode). Deplete fells the source as its last paying hit would, minus the payout and
+        // the sound; Regrow only ends the timer, so the regrow itself still runs from Update by the same
+        // rule as a real one — it waits for its cells to be clear. A unit on a stump at regrow: pause, drag
+        // a unit onto the stump in the Scene view, Regrow Now, unpause. Every source of a structure at once
+        // (a whole forest cell) is the Structure's own menu.
+        [ContextMenu("Deplete Now")]
+        private void DebugDeplete()
+        {
+            if (DebugInPlayMode()) DepleteForDebug();
+        }
+
+        [ContextMenu("Regrow Now")]
+        private void DebugRegrow()
+        {
+            if (DebugInPlayMode()) RegrowForDebug();
+        }
+
+        private bool DebugInPlayMode()
+        {
+            if (Application.isPlaying) return true;
+            Debug.LogWarning($"ResourceSource on '{name}': the debug menu works in Play Mode only.", this);
+            return false;
+        }
+
+        // Only a ready Regrow source has anything to fell; Depleted still fires, so the view shows the stump.
+        internal void DepleteForDebug()
+        {
+            if (def == null || def.depletion != Depletion.Regrow || state != State.Ready) return;
+            Deplete();
+        }
+
+        internal void RegrowForDebug()
+        {
+            if (state == State.Harvested) respawnTimer = 0f;
         }
     }
 }

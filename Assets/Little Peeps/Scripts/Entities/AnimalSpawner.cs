@@ -164,8 +164,9 @@ namespace LittlePeeps
 
             animal.Initialize(this);
             // Same injection StructureSystem gives a placed structure's sources.
+            // An animal stands on no cells — nothing for a regrow to wait on.
             foreach (var source in go.GetComponentsInChildren<ResourceSource>(true))
-                source.Initialize(resourceSystem);
+                source.Initialize(resourceSystem, spawnSystem, null);
             foreach (var wander in go.GetComponentsInChildren<AnimalWander>(true))
                 wander.Initialize(this, dir);
 

@@ -15,7 +15,7 @@ MonoBehaviour:
   profile:
     id: forest
     terrain: 1
-    openPercent: 0
+    openPercent: 70
     mountainPercent: 0
     riverPercent: 5
     objectPercent: 25
@@ -49,5 +49,5 @@ MonoBehaviour:
       clustered: 1
   tileSet: {fileID: 11400000, guid: 8e532edb1f18b314385ff38a7bf8e21a, type: 2}
   displayName: Forest
-  icon: {fileID: 21300000, guid: 62f54a55acb13474ea6850b35ee959a7, type: 3}
+  icon: {fileID: -1010017149, guid: 102b5ce8fcecd3e46b34d2c291336a20, type: 3}
   previewColor: {r: 1, g: 1, b: 1, a: 1}

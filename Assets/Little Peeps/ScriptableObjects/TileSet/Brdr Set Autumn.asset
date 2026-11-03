@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc940ad464f07e14b9b2c7510c624f33, type: 3}
+  m_Name: Brdr Set Autumn
+  m_EditorClassIdentifier: 
+  edgeAllRound: 1
+  overSea: 1
+  overNorth: {fileID: 11400000, guid: c4353d9d33489c7429336e210a877f30, type: 2}
+  overSouth: {fileID: 11400000, guid: c8989022f1b042640bd8947e3f45be90, type: 2}
+  overWest: {fileID: 11400000, guid: 3ad0dc69319b89747aa24fc3d24a4ac0, type: 2}
+  overEast: {fileID: 11400000, guid: b26e53b5fb7ec7d48805e7b3b7c3dc60, type: 2}
+  overNorthWest: {fileID: 11400000, guid: 6343475fc2bd3b7488ed37e4f040ece2, type: 2}
+  overNorthEast: {fileID: 11400000, guid: 00a671b3c998a854f9ecb32bbf4040ed, type: 2}
+  overSouthWest: {fileID: 11400000, guid: f0425c83733e8ee41938c9e967fac82b, type: 2}
+  overSouthEast: {fileID: 11400000, guid: f21d9b08340ada44da6b432622706318, type: 2}
+  edgeNorth: {fileID: 11400000, guid: 4b3da396101a00745ada7d5b856f0106, type: 2}
+  edgeSouth: {fileID: 11400000, guid: f8da0e71c76e96b41a959cb6fafb71cb, type: 2}
+  edgeWest: {fileID: 11400000, guid: 23838a9a674e92645b13125bdee13531, type: 2}
+  edgeEast: {fileID: 11400000, guid: 3f51cc3c0027ddd48862e93ad2b2fc1c, type: 2}
+  edgeNorthWest: {fileID: 11400000, guid: 2eb2e824fdc7d1d4f947caa08fde21a1, type: 2}
+  edgeNorthEast: {fileID: 11400000, guid: 7b3651eda661d3045bfdc4b422f1ac85, type: 2}
+  edgeSouthWest: {fileID: 11400000, guid: acb9a9e3ab239d947ba94836d2391052, type: 2}
+  edgeSouthEast: {fileID: 11400000, guid: 0a874181dfddf1f4bb72425809d34293, type: 2}

@@ -47,4 +47,4 @@ MonoBehaviour:
     - resourceType: 3
       amount: 10
   growthPastEnd: 1.25
-  specialEvery: 3
+  specialEvery: 0

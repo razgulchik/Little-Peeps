@@ -17,7 +17,7 @@ MonoBehaviour:
   description: 
   icon: {fileID: 21300000, guid: f959140c5c30b0246aa3c5aeccf45aac, type: 3}
   smallIcon: {fileID: 21300000, guid: 42b5c52cffa410b46a6e7fea37023960, type: 3}
-  grade: 1
+  grade: 0
   rarity: 3
   weight: 1
   minAge: 0

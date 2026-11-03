@@ -15,10 +15,10 @@ MonoBehaviour:
   profile:
     id: forest
     terrain: 1
-    openPercent: 45
+    openPercent: 0
     mountainPercent: 0
-    riverPercent: 10
-    objectPercent: 35
+    riverPercent: 5
+    objectPercent: 25
     riverChance: 0.4
     mountain: {fileID: 11400000, guid: 2cdbe31ff286476458be07a23231e5e0, type: 2}
     river: {fileID: 11400000, guid: 738ed94ecc0c767449790d8c7cfd71f0, type: 2}
@@ -35,7 +35,7 @@ MonoBehaviour:
       maxCount: 1
       weight: 0
       clustered: 0
-    - def: {fileID: 11400000, guid: 42c2b62f2a4f8894ab418aa62750d82f, type: 2}
+    - def: {fileID: 11400000, guid: 5d6d0a1f60b63a3499167e92415ac3e5, type: 2}
       chance: 1
       minCount: 1
       maxCount: 2
@@ -47,7 +47,7 @@ MonoBehaviour:
       maxCount: 0
       weight: 1
       clustered: 1
-  tileSet: {fileID: 11400000, guid: 3c86b121314330b4c8661c3f131dd708, type: 2}
+  tileSet: {fileID: 11400000, guid: 8e532edb1f18b314385ff38a7bf8e21a, type: 2}
   displayName: Forest
   icon: {fileID: 21300000, guid: 62f54a55acb13474ea6850b35ee959a7, type: 3}
   previewColor: {r: 1, g: 1, b: 1, a: 1}

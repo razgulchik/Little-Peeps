@@ -231,6 +231,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Canvas
       objectReference: {fileID: 0}
+    - target: {fileID: 1526235787885847749, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1812978748981694680, guid: df88852aa91dd0844a08d20b3a23b095, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -2926,6 +2930,43 @@ MonoBehaviour:
     validColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
     invalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
     sellHoverColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
+    glideDuration: 0.07
+    glideEase: 8
+    flightScale: 0.9
+    snapScale:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1.12
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.4
+        value: 0.97
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    snapDuration: 0.12
     territoryValidColor: {r: 0.4, g: 1, b: 0.4, a: 0.18}
     territoryInvalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.18}
     territorySortingLayer: Ground
@@ -4424,6 +4465,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   logChanges: 0
+--- !u!1001 &1669708459
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3846643138758623185, guid: a4a0233f94394b6aba5a4f86f907d88c, type: 3}
+      propertyPath: m_Name
+      value: WaterGradient
+      objectReference: {fileID: 0}
+    - target: {fileID: 4259614301055189599, guid: a4a0233f94394b6aba5a4f86f907d88c, type: 3}
+      propertyPath: m_Camera
+      value: 
+      objectReference: {fileID: 519420031}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: a4a0233f94394b6aba5a4f86f907d88c, type: 3}
 --- !u!1 &1766505764
 GameObject:
   m_ObjectHideFlags: 0
@@ -33571,6 +33633,7 @@ SceneRoots:
   - {fileID: 1556966235}
   - {fileID: 619394802}
   - {fileID: 40523889}
+  - {fileID: 1669708459}
   - {fileID: 644132715}
   - {fileID: 1009994986}
   - {fileID: 738684713}

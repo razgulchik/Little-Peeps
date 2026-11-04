@@ -23,5 +23,5 @@ MonoBehaviour:
   depleteSound: {fileID: 0}
   depletion: 0
   hitsToDeplete: 1
-  regrowTime: 30
+  regrowTime: 20
   keepBodyWhileDepleted: 0

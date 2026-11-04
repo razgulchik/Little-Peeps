@@ -94,12 +94,9 @@ namespace LittlePeeps
             water = Instantiate(waterPrefab);
             foamBlock = new MaterialPropertyBlock();
 
-            // Ripples off. The package follows a camera PAN inside its ripple field but never rescales it on
-            // a ZOOM, so every zoom step shifts the whole coast inside the field and it rings with waves —
-            // and nothing in the game moves in the water to need them. (The island rise was to switch them
-            // on for itself; it plays at timeScale 0, where the simulation, stepped in FixedUpdate, cannot
-            // run.) Off here, not in the prefab: the package only builds the ripple field if it is on when
-            // the water enables, so a prefab with it on keeps the way back open.
+            // Ripples stay off: nothing moves in the water to need them, and the island rise plays at
+            // timeScale 0, where the FixedUpdate simulation cannot run. The package now reprojects its
+            // ripple history on camera pan/zoom, should gameplay need to enable it in the future.
             water.enableSimulation.value = false;
         }
 

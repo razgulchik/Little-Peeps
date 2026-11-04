@@ -47,6 +47,12 @@ MonoBehaviour:
       maxCount: 0
       weight: 1
       clustered: 1
+    - def: {fileID: 11400000, guid: 94eabf670b9c3c04f9ae21a5046eea2f, type: 2}
+      chance: 1
+      minCount: 1
+      maxCount: 2
+      weight: 0
+      clustered: 0
   tileSet: {fileID: 11400000, guid: 3c86b121314330b4c8661c3f131dd708, type: 2}
   displayName: Forest
   icon: {fileID: 21300000, guid: 62f54a55acb13474ea6850b35ee959a7, type: 3}

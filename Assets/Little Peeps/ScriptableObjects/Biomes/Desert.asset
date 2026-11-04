@@ -24,9 +24,9 @@ MonoBehaviour:
     river: {fileID: 11400000, guid: 738ed94ecc0c767449790d8c7cfd71f0, type: 2}
     objects:
     - def: {fileID: 11400000, guid: 94eabf670b9c3c04f9ae21a5046eea2f, type: 2}
-      chance: 0
-      minCount: 0
-      maxCount: 0
+      chance: 1
+      minCount: 3
+      maxCount: 4
       weight: 1
       clustered: 1
   tileSet: {fileID: 11400000, guid: c22dd842430b03d4e9ef5113c99a8dca, type: 2}

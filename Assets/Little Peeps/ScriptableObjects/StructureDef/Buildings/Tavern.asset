@@ -22,8 +22,8 @@ MonoBehaviour:
   footprintMask:
     cells: 010001010101
   cost:
-  - resourceType: 2
-    amount: 20
+  - resourceType: 0
+    amount: 30
   requiredAge: 6
   lockedUntilPerk: 0
   allowedTerrain: 000000000100000002000000

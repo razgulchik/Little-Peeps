@@ -22,7 +22,7 @@ MonoBehaviour:
   footprintMask:
     cells: 
   cost:
-  - resourceType: 0
+  - resourceType: 2
     amount: 20
   requiredAge: 0
   lockedUntilPerk: 1

@@ -1,7 +1,8 @@
 Shader "Water2D/Simulations/offset"
 {
     Properties
-    { 
+    {
+        _HistoryTransform ("History UV scale and offset", Vector) = (1, 1, 0, 0)
     }
     SubShader
     {
@@ -32,12 +33,15 @@ Shader "Water2D/Simulations/offset"
             }
             
             uniform sampler2D _tex;
-            uniform float2 delta;
+            uniform float4 _HistoryTransform;
 
-            fixed4 frag (v2f i) : SV_Target
+            float4 frag (v2f i) : SV_Target
             {
-                i.uv += delta;
-                return tex2D(_tex,i.uv);
+                float2 uv = i.uv * _HistoryTransform.xy + _HistoryTransform.zw;
+                // Newly exposed water has no history. Clamping or wrapping would drag old waves
+                // into it when zooming out or panning beyond the previous simulation rectangle.
+                if (any(uv < 0.0) || any(uv > 1.0)) return 0.0;
+                return tex2D(_tex, uv);
             }
 
             ENDCG

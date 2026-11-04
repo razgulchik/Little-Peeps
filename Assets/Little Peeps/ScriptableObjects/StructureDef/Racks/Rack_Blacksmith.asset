@@ -22,8 +22,8 @@ MonoBehaviour:
   footprintMask:
     cells: 
   cost:
-  - resourceType: 1
-    amount: 5
+  - resourceType: 0
+    amount: 8
   requiredAge: 3
   allowedTerrain: 
   sellRefundPercent: 0.5

@@ -22,7 +22,7 @@ MonoBehaviour:
   footprintMask:
     cells: 
   cost:
-  - resourceType: 1
+  - resourceType: 0
     amount: 5
   requiredAge: 2
   allowedTerrain: 

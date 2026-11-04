@@ -14,37 +14,101 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   segmentSeconds: 10
   cycles:
-  - segments: 6
+  - segments: 9
     resources:
     - resourceType: 1
-      amount: 2
-  - segments: 8
-    resources:
-    - resourceType: 1
-      amount: 5
-  - segments: 10
-    resources:
-    - resourceType: 1
-      amount: 10
-  - segments: 10
+      amount: 8
+  - segments: 12
     resources:
     - resourceType: 0
-      amount: 5
+      amount: 8
     - resourceType: 1
-      amount: 10
-  - segments: 10
+      amount: 18
+  - segments: 15
     resources:
     - resourceType: 0
       amount: 15
-    - resourceType: 0
-      amount: 15
-  - segments: 10
-    resources:
     - resourceType: 1
-      amount: 20
-  - segments: 10
+      amount: 30
+    - resourceType: 2
+      amount: 8
+  - segments: 12
     resources:
+    - resourceType: 0
+      amount: 24
+    - resourceType: 1
+      amount: 45
+    - resourceType: 2
+      amount: 15
+  - segments: 12
+    resources:
+    - resourceType: 0
+      amount: 36
+    - resourceType: 1
+      amount: 60
+    - resourceType: 2
+      amount: 25
+    - resourceType: 4
+      amount: 10
+  - segments: 12
+    resources:
+    - resourceType: 0
+      amount: 50
+    - resourceType: 1
+      amount: 80
+    - resourceType: 2
+      amount: 40
     - resourceType: 3
-      amount: 10
-  growthPastEnd: 1.25
+      amount: 15
+    - resourceType: 4
+      amount: 20
+  - segments: 12
+    resources:
+    - resourceType: 0
+      amount: 70
+    - resourceType: 1
+      amount: 110
+    - resourceType: 2
+      amount: 55
+    - resourceType: 3
+      amount: 25
+    - resourceType: 4
+      amount: 35
+  - segments: 12
+    resources:
+    - resourceType: 0
+      amount: 95
+    - resourceType: 1
+      amount: 145
+    - resourceType: 2
+      amount: 75
+    - resourceType: 3
+      amount: 40
+    - resourceType: 4
+      amount: 55
+  - segments: 12
+    resources:
+    - resourceType: 0
+      amount: 125
+    - resourceType: 1
+      amount: 190
+    - resourceType: 2
+      amount: 100
+    - resourceType: 3
+      amount: 60
+    - resourceType: 4
+      amount: 80
+  - segments: 12
+    resources:
+    - resourceType: 0
+      amount: 160
+    - resourceType: 1
+      amount: 240
+    - resourceType: 2
+      amount: 130
+    - resourceType: 3
+      amount: 85
+    - resourceType: 4
+      amount: 110
+  growthPastEnd: 1.3
   specialEvery: 3

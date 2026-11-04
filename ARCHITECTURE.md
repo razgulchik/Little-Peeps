@@ -626,6 +626,93 @@ look at the ages: a resource the player cannot produce yet is demanded all the s
 pace and buying ages is how to keep up — so an entry must not ask for a resource before a normal player
 reaches the age that opens it. Numbers belong to the designer.
 
+**Balance baseline (2026-11-03).** Offerings are the recurring resource sink; ages compete with them
+for investment and give more land, building unlocks and a fixed production bonus. The first offering
+is deliberately gentle. The first stone demand is the expansion checkpoint: reach Age II and use its
+rocks before cycle 3 ends. Coins arrive on cycle 5, metal on cycle 6. Once introduced, every resource
+stays in the quota, including the endless tail, so a successful economy must keep growing.
+
+| Cycle | Length | Deadline from run start | Food | Wood | Stone | Metal | Coins |
+|---|---|---|---:|---:|---:|---:|---:|
+| 1 | 90 s | 1:30 | — | 8 | — | — | — |
+| 2 | 120 s | 3:30 | 8 | 18 | — | — | — |
+| 3 | 150 s | 6:00 | 15 | 30 | 8 | — | — |
+| 4 | 120 s | 8:00 | 24 | 45 | 15 | — | — |
+| 5 | 120 s | 10:00 | 36 | 60 | 25 | — | 10 |
+| 6 | 120 s | 12:00 | 50 | 80 | 40 | 15 | 20 |
+| 7 | 120 s | 14:00 | 70 | 110 | 55 | 25 | 35 |
+| 8 | 120 s | 16:00 | 95 | 145 | 75 | 40 | 55 |
+| 9 | 120 s | 18:00 | 125 | 190 | 100 | 60 | 80 |
+| 10 | 120 s | 20:00 | 160 | 240 | 130 | 85 | 110 |
+
+After cycle 10 the full quota grows by ×1.30 per cycle, rounded up; the period stays at 120 seconds.
+Every third successful offering still rolls the special perk pool. Duplicate resource rows are
+summed before growth/rounding and affordability checks, so two Food rows cannot undercharge a payment.
+
+| Enter age | Food | Wood | Stone | Metal | Coins | Added production |
+|---|---:|---:|---:|---:|---:|---:|
+| II | 20 | 30 | — | — | — | +10% |
+| III | 45 | 65 | 20 | — | — | +10% |
+| IV | 80 | 100 | 40 | 20 | 20 | +10% |
+| V | 120 | 150 | 60 | 40 | 35 | +10% |
+| VI | 180 | 220 | 90 | 65 | 60 | +10% |
+| VII | 260 | 320 | 130 | 100 | 100 | +10% |
+| VIII | 360 | 450 | 185 | 150 | 160 | +10% |
+| IX | 500 | 620 | 260 | 220 | 240 | +20% |
+
+Age production bonuses add together (+90% by Age IX); Age V now grants production rather than speed.
+Age cards use generated bonus text so future tuning cannot leave their labels behind.
+
+The normal start has 10 Wood: exactly one Wheat field, one Farmer rack and one Lumberjack rack.
+Wheat costs 4 Wood (+1 per standing field), no Food, and regrows in 20 seconds instead of 30.
+One continuously harvested field therefore supplies at most 6 Food/minute before bonuses, rather
+than 4; actual output is lower because workers must visit. The starting house is still placed free.
+
+**Each buildable item has a single-resource price.** Food funds population, advanced specialists and
+animal/service businesses; Wood funds the initial tools, Wheat and fences; Stone funds production
+buildings. Ages and offerings retain their multi-resource costs.
+
+| Buildable item | Base price | Existing growth per standing copy |
+|---|---|---|
+| House | 6 Food | +3 Food |
+| Hunter rack | 5 Food | +1 Food |
+| Miner rack | 5 Food | +1 Food |
+| Blacksmith rack | 8 Food | +1 Food |
+| Stable | 20 Food | +5 Food |
+| Tavern | 30 Food | +4 Food |
+| Wheat | 4 Wood | +1 Wood |
+| Farmer rack | 3 Wood | +1 Wood |
+| Lumberjack rack | 3 Wood | +1 Wood |
+| Fence | 1 Wood | +5% of base, rounded |
+| Market | 25 Stone | +5 Stone |
+| Smithy | 30 Stone | +5 Stone |
+| Mill | 20 Stone | +3 Stone |
+| Rice Paddy | 20 Stone | +4 Stone |
+
+The free starting house counts toward price growth, so the first additional house costs 9 Food.
+The initial tools and Wheat can all be bought from the starting Wood, providing a Food source before
+population growth needs Food. Miner racks cost Food, so buying the tools to mine never requires Stone.
+Stone is available after any expansion: Meadow/Forest guarantee 1–2 rocks, Desert guarantees at least
+3 (its weighted fill can add more). Stone is also required by Age III onward and recurring offerings.
+Rice Paddy remains perk-locked; its construction uses Stone, giving surplus mining another use.
+
+This is a first playtest baseline, not measured player pacing. `BalanceAssetTests` loads the real assets
+and checks the opening purchases, escalating pressure, complete offering payment, and 240 generated
+expansions (20 seeds × 3 biomes × 4 expansions). These guard against dead ends, not poor layouts or
+insufficient worker traffic. In playtests, record stocks/production, age and time at each offering,
+especially whether Age II leaves time to mine before 6:00 and Age III leaves time to forge before 12:00.
+Tune those checkpoints before increasing the endless growth multiplier further.
+
+An opening budget with one Wheat field, both starting tool racks, a second house, Age II, a Miner rack
+and the first three offerings needs 86 harvested Wood, 57 Food and 8 Stone after the starting stock.
+Two starting birches have a theoretical specialist ceiling of 32 Wood/minute; two bushes plus that
+field give 18 Food/minute. At an assumed 60% collection efficiency, these budgets take about 4.5 minutes
+of Wood production and 5.3 minutes of Food production, even before build delays. The first Stone
+deadline remains 6:00. Moving the house and Miner rack to Food releases 20 Wood compared with the
+previous baseline, which can fund more fields or other investments. This calculation
+ignores expansion production, perks and initial ripe harvests, but also assumes the producers and
+workers are already operating; it is a budget check, not a prediction of an actual run.
+
 **`OfferingSystem`** holds the schedule and does three things: runs the clock (`Advance`, stopping AT
 the end so it still reads "time's up" when the caller acts), pays the WHOLE quota out of the stock or
 nothing (`CanOffer`, `TryOffer` — through `AddResource`, never the harvest gateway), and turns the

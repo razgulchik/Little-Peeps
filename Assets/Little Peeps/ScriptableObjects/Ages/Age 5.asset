@@ -15,19 +15,21 @@ MonoBehaviour:
   title: Age 5
   resourceCost:
   - resourceType: 0
-    amount: 65
+    amount: 120
   - resourceType: 1
-    amount: 55
+    amount: 150
+  - resourceType: 2
+    amount: 60
   - resourceType: 3
-    amount: 15
+    amount: 40
   - resourceType: 4
-    amount: 25
+    amount: 35
   modifiers:
-  - id: 2
+  - id: 0
     unitScope: 0
-    anyProfession: 1
+    anyProfession: 0
     resourceScope: 0
     sourceScope: {fileID: 0}
     kind: 1
-    value: 0.2
-  bonusOverride: +20% SPEED
+    value: 0.1
+  bonusOverride:

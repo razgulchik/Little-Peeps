@@ -97,14 +97,21 @@ namespace LittlePeeps
             var entry = cycles[index];
             if (entry == null || entry.resources == null) return quota;
 
+            // Combine repeated resource rows before affordability checks or rounding. Otherwise two
+            // rows asking for 15 Food each both pass with only 15 in stock, and the second spend is
+            // silently clamped by ResourceSystem. One resource must have one total demand.
             for (int i = 0; i < entry.resources.Count; i++)
             {
                 var r = entry.resources[i];
                 if (r == null || r.amount <= 0f) continue;
 
-                float amount = past > 0 ? Mathf.Ceil(r.amount * scale) : r.amount;
-                quota.Add(new ResourceCost { resourceType = r.resourceType, amount = amount });
+                var existing = quota.Find(q => q.resourceType == r.resourceType);
+                if (existing != null) existing.amount += r.amount;
+                else quota.Add(new ResourceCost { resourceType = r.resourceType, amount = r.amount });
             }
+
+            if (past > 0)
+                foreach (var r in quota) r.amount = Mathf.Ceil(r.amount * scale);
             return quota;
         }
     }

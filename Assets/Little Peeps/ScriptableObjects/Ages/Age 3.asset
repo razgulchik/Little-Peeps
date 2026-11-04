@@ -15,9 +15,11 @@ MonoBehaviour:
   title: Age 3
   resourceCost:
   - resourceType: 0
-    amount: 25
+    amount: 45
   - resourceType: 1
-    amount: 25
+    amount: 65
+  - resourceType: 2
+    amount: 20
   modifiers:
   - id: 0
     unitScope: 0
@@ -25,5 +27,5 @@ MonoBehaviour:
     resourceScope: 0
     sourceScope: {fileID: 0}
     kind: 1
-    value: 0.05
-  bonusOverride: +5% ALL PRODUCTION
+    value: 0.1
+  bonusOverride:

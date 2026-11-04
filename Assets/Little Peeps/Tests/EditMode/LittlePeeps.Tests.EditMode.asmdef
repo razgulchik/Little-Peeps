@@ -3,6 +3,7 @@
     "rootNamespace": "LittlePeeps.Tests",
     "references": [
         "LittlePeeps.Runtime",
+        "ModernWater2D.Runtime",
         "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

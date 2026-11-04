@@ -80,6 +80,32 @@ namespace LittlePeeps.Tests
         private static OfferingQuota Lasting(int segments) => new OfferingQuota { segments = segments };
 
         [Test]
+        public void RepeatedResources_AreOneFullDemand_WithoutChangingTheAsset()
+        {
+            var cycles = new List<OfferingQuota>
+            {
+                Q((ResourceType.Food, 15), (ResourceType.Wood, 5), (ResourceType.Food, 15)),
+            };
+            var quota = OfferingScheduleDef.QuotaFor(cycles, 1.25f, 1);
+
+            Assert.That(quota.Count, Is.EqualTo(2));
+            Assert.That(quota[0].resourceType, Is.EqualTo(ResourceType.Food));
+            Assert.That(quota[0].amount, Is.EqualTo(30f));
+            Assert.That(quota[1].amount, Is.EqualTo(5f));
+            Assert.That(cycles[0].resources[0].amount, Is.EqualTo(15f));
+        }
+
+        [Test]
+        public void RepeatedResources_GrowAndRoundAfterCombining()
+        {
+            var cycles = new List<OfferingQuota> { Q((ResourceType.Food, 1), (ResourceType.Food, 1)) };
+            var quota = OfferingScheduleDef.QuotaFor(cycles, 1.25f, 2);
+
+            Assert.That(quota.Count, Is.EqualTo(1));
+            Assert.That(quota[0].amount, Is.EqualTo(3f), "ceil(2 x 1.25), not two separately rounded rows");
+        }
+
+        [Test]
         public void EachCycle_LastsItsOwnSegments_AndPastTheList_TheLastLengthRepeats()
         {
             var cycles = new List<OfferingQuota> { Lasting(6), Lasting(10) };

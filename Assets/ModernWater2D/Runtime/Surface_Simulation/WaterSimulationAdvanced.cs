@@ -38,7 +38,10 @@ namespace Water2D
         [SerializeField] private int rainSizeY = 1;
         [SerializeField] private bool enableRain = false;
 
-        private Vector2 lastPos = Vector2.zero;
+        // The world rectangle represented by BOTH height samples in CurrentState. Track it per
+        // simulation step, not per Update: there may be zero or several fixed steps in a frame.
+        private Vector4 stateBounds;
+        private bool hasStateBounds;
 
         const float defaultMarginMlp = 1.5f;
         const float stableMarginMlp = 3f;
@@ -90,22 +93,28 @@ namespace Water2D
             rt.enableRandomWrite = false;
             rt.depth = 24;
             rt.filterMode = FilterMode.Bilinear;
+            rt.wrapMode = TextureWrapMode.Clamp;
             rt.Create();
+            var previous = RenderTexture.active;
+            RenderTexture.active = rt;
+            GL.Clear(true, true, Color.clear);
+            RenderTexture.active = previous;
         }
 
         void Init()
         {
             if (CurrentState != null) CurrentState.Release();
-            if (CurrentState != null) CurrentState.Release();
+            if (Temporary != null) Temporary.Release();
 
             InitTex(out CurrentState);
             InitTex(out Temporary);
+            hasStateBounds = false;
         }
 
         void CreateIfNull()
         {
-            if (CurrentState == null) InitTex(out CurrentState);
-            if (Temporary == null) InitTex(out Temporary);
+            if (CurrentState == null || !CurrentState.IsCreated() || Temporary == null || !Temporary.IsCreated())
+                Init();
         }
 
         Vector4 GetObstructionPositions()
@@ -220,40 +229,48 @@ namespace Water2D
 
         void RenderOffset()
         {
-            Vector2 d = (Vector2)CalculateDeltaUV();
+            Vector4 bounds = GetSimulatedTexturePositions();
+            if (!hasStateBounds)
+            {
+                stateBounds = bounds;
+                hasStateBounds = true;
+                return;
+            }
+            if (bounds == stateBounds) return;
+
+            // For each pixel in the new view, sample the same world position in the old view.
+            // Translation alone handles a pan, but zoom/aspect changes also need a UV scale.
+            float oldWidth = stateBounds.z - stateBounds.x;
+            float oldHeight = stateBounds.w - stateBounds.y;
             offsetShader.SetTexture("_tex", CurrentState);
-            offsetShader.SetVector("delta", d);
+            offsetShader.SetVector("_HistoryTransform", new Vector4(
+                (bounds.z - bounds.x) / oldWidth,
+                (bounds.w - bounds.y) / oldHeight,
+                (bounds.x - stateBounds.x) / oldWidth,
+                (bounds.y - stateBounds.y) / oldHeight));
             RenderUtils.RenderToRT2D(offsetShader, Temporary);
             Graphics.CopyTexture(Temporary, CurrentState);
-        }
-
-        Vector4 TexturePos = Vector4.zero;
-        Vector4 lastTexturePos = Vector4.zero;
-
-        public override void UpdLoop()
-        {
-            lastTexturePos = TexturePos;
-            TexturePos = GetObstructionPositions();
+            stateBounds = bounds;
         }
 
         public Vector4 FutureSight()
         {
-            return TexturePos;
+            return GetObstructionPositions();
         }
 
         public override void Loop()
         {
-            RenderOffset();
-            offsetShader.SetVector("delta", CalculateDeltaUV());
             ObstructionTex = ObstructorManager.instance.layerRenderer.LayerTexture();
+            // The obstruction camera is finalized in LateUpdate (after Cinemachine). An Update
+            // snapshot can still describe the previous zoom, while the texture already uses the new one.
             ObstructionTexPos = GetObstructionPositions();
+            CreateIfNull();
+            RenderOffset();
             waveShader.SetTexture("_ObstructionTex", ObstructionTex);
-            waveShader.SetVector("OstructionTexPos", FutureSight());
+            waveShader.SetVector("OstructionTexPos", ObstructionTexPos);
 
             waveShader.SetVector("OstructionTexRes", new Vector4(ObstructionTex.width, ObstructionTex.height));
-            waveShader.SetVector("texPos", GetSimulatedTexturePositions());
-
-            CreateIfNull();
+            waveShader.SetVector("texPos", stateBounds);
 
             waveShader.SetTexture("_NState", CurrentState);
             waveShader.SetVector("resolution", new Vector4(resolution.x, resolution.y));
@@ -269,7 +286,7 @@ namespace Water2D
 
             waveShader.SetFloat("timeFromStart", Time.timeSinceLevelLoad);
 
-            var cS = GetSimulatedTexturePositions();
+            var cS = stateBounds;
             var cF = GetFullTexturePositions();
             float lx = Mathf.LerpUnclamped(0f, 1f, (cS.x - cF.x) / (cF.z - cF.x));
             float rx = Mathf.LerpUnclamped(0f, 1f, (cS.z - cF.x) / (cF.z - cF.x));
@@ -281,16 +298,6 @@ namespace Water2D
             Profiler.BeginSample("Rendering Water Simulation");
             for (int i = 0; i < iterations; i++) Render();
             Profiler.EndSample();
-        }
-
-        private Vector2 CalculateDeltaUV()
-        {
-            Vector2 wd = (Vector2)mainCam.transform.position - lastPos;
-            Vector4 camPos = GetSimulatedTexturePositions();
-            Vector2 camSize = new Vector2(camPos.z - camPos.x, camPos.w - camPos.y);
-            Vector2 uvd = wd / camSize;
-            lastPos = mainCam.transform.position;
-            return uvd;
         }
 
         public override void Setup(SimulationSettings value)

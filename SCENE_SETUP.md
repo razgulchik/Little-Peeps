@@ -21,7 +21,7 @@
 > `PixelSnapText`) и тень текста на панели эпохи пресетами шрифтов: **2026-10-23**, сверено с `Canvas.prefab`. Отклик
 > на удары (`Systems/BumpVfxSystem`, `CoastBump` на `Ground`, `BumpView` / `LeanView` на префабах, `FX_Bump*` и
 > `FX_Coast_Ripple`): **2026-10-28**, сверено со сценой и префабами. Уровни перков и мета-перков внутри одного
-> ассета, Flat / Percent выбором, цифра уровня в ячейке `PerkSlot`: **2026-10-29**, сверено с кодом и `PerkSlot.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> ассета, Flat / Percent выбором, цифра уровня в ячейке `PerkSlot`: **2026-10-29**, сверено с кодом и `PerkSlot.prefab`. Своя вода (`WaterSystem`, волны, тень острова, `WaterProjection`): **2026-11-04**, сверено со сценой и префабами. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -70,7 +70,7 @@ SampleScene
 │   │                              AudioSource для щелчка тапа TapSystem добавляет себе сам в рантайме)
 │   ├── UnitPool                → UnitPool           (юниты из пула становятся его детьми)
 │   ├── UnitSystem              → UnitSystem
-│   └── WaterSystem             → WaterSystem        (море инстанцирует в рантайме из префаба — в сцену воду НЕ класть)
+│   └── WaterSystem             → WaterSystem        (квад моря `Sea` создаёт сам в рантайме — в сцену воду НЕ класть)
 ├── Island                      → IslandSystem
 │   ├── Grid                    → Grid (компонент)   ← все тайлмапы под ним — на слое сортировки Island
 │   │   ├── Ground              → Tilemap + TilemapRenderer + Rigidbody2D (Static) + TilemapCollider2D
@@ -83,6 +83,12 @@ SampleScene
 │   │   ├── Decor               → Tilemap + TilemapRenderer   ← декор поверх земли (Order 1), без коллайдера
 │   │   ├── BordersForest       → Tilemap + TilemapRenderer   ← мягкая граница леса, без коллайдера
 │   │   ├── BordersMeadow       → Tilemap + TilemapRenderer   ← мягкая граница луга, без коллайдера
+│   │   ├── WaveHorizontal      → Tilemap + TilemapRenderer   ← волны под полосами, без коллайдера;
+│   │   │                          материал, слой и Order ставит код (от TrimHorizontal, −2)
+│   │   ├── WaveVertical        → Tilemap + TilemapRenderer   ← волны у столбиков, поверх горизонтальных, без коллайдера;
+│   │   │                          материал, слой и Order ставит код (−1)
+│   │   ├── CoastShadow         → Tilemap + TilemapRenderer   ← тень острова на воде, без коллайдера;
+│   │   │                          материал, слой и Order ставит код (−5)
 │   │   └── Water (выключен)    → Tilemap + TilemapRenderer
 │   └── GridOverlay             → MeshFilter + MeshRenderer + GridOverlay   (Transform строго 0,0,0, без поворота/масштаба)
 ├── SceneGridGizmo (выключен)   → SceneGridGizmo     (сетка только для Scene view, в игре не участвует)
@@ -278,7 +284,6 @@ SampleScene
 | | | bannerFade, titleHold, bannerTapGrace | 0.5, 2, 0.4 (сек, дефолты): проявление/угасание баннера, сколько он висит, через сколько его можно закрыть тапом |
 | IslandRise | **IslandRisePlayer** | **profile** | ассет `ScriptableObjects/Profiles/Island Rise Profile` — все ручки подъёма (тайминги, кривые, эффекты, звук, тряска) |
 | | | **islandSystem** | Island |
-| | | waterSystem | WaterSystem (опц.; без него тайлы в прыжке не давят на воду) |
 | Systems/TapSystem | **TapSystem** | **inputHandler** | InputHandler |
 | | | radiusVisual | TapRadiusVisual на этом же объекте (ширина, материал и цвет кольца — на его LineRenderer). Кольцо видно, пока игра идёт и рука пуста: с карточкой или Sell в руке клик — стройки, и кольцо прячется |
 | | | tapRadius, boostSpeedMultiplier, boostDuration | 0.5, ×2, 5 с (дефолты). Радиус и множитель — БАЗА: перки растят их статами `TapRadius` / `TapBoostMultiplier` |
@@ -300,10 +305,7 @@ SampleScene
 | | | coastRipple | `Prefabs/FX/FX_Coast_Ripple` — рябь на воде у берега. Пусто = без ряби |
 | | | viewCamera, offscreenMargin | пусто (= `Camera.main` в `Awake`) и 0.1 — как у HarvestVfxSystem |
 | | | pixelsPerUnit | 16 — центр волны снапится к пиксельной сетке арта, чтобы линии в 1 px ложились на целые пиксели; 0 = без снапа |
-| Systems/WaterSystem | **WaterSystem** | **waterPrefab** | `Prefabs/DontTouch/Water` (Modern 2D Water — весь вид моря в префабе) |
-| | | coastTilemaps | `Ground`, `TrimHorizontal`, `TrimVertical` — их контур становится берегом, о который бьётся вода (по столбикам вертикальной кромки идёт боковая пена). `Decor` и `Borders*` сюда НЕ добавлять: форму берега они не меняют |
-| | | foamMinPixels, foamMaxPixels, foamPeriod, foamWholePixels | пена под южным берегом: толщина в арт-пикселях от/до, период пульса (сек), шаг целыми пикселями. В сцене 1 / 2 / 5 / выкл |
-| | | sideFoamShader, sideFoamPixels | шейдер `Little Peeps/Sprite Flat Color` и ширина пены по восточному/западному краю (1 px). Пустой шейдер = без боковой пены |
+| Systems/WaterSystem | **WaterSystem** | **waterMaterial** | `Materials/M_Water` — цвет моря и штрихи. У плитки `Sprites/GamePlay/Water/water_flow` нужен Read/Write, иначе штрихов нет. Пусто = предупреждение в консоли и остров на фоне камеры |
 | Input | **InputHandler** | **mainCamera** | Main Camera |
 | Input | GameHotkeys | buildPanelKey, sellKey, exitToMenuKey | клавиши команд: B — спрятать / показать панель стройки, X — Sell, Esc (дефолты, правятся в инспекторе); цифры 1–9 — вкладки стройки (зашиты в коде) |
 | CameraController | **CameraController** | **cameraTarget, vcam** | пустой `CameraTarget` (его и двигаем); CinemachineCamera — зум = её `Lens > Orthographic Size`, а значение, сохранённое в сцене, = **стартовый зум каждого забега** |
@@ -317,6 +319,9 @@ SampleScene
 | Island | **IslandSystem** | **tilemap, trimHorizontalTilemap** | `Grid/Ground` (суша с коллайдером), `Grid/TrimHorizontal` (горизонтальная кромка — полосы под сушей, без коллайдера) |
 | | | trimVerticalTilemap | `Grid/TrimVertical` — вертикальная кромка: столбики по бокам суши, поверх полос. Внутренний угол залива — полоса плюс столбик, каждый в цвете своего биома, отдельных тайлов для него нет. Материал, слой сортировки и Order код берёт у TrimHorizontal (на один выше). Пусто = столбики ложатся на TrimHorizontal, у внутренних углов пропадает столбик, в консоли предупреждение. Тайлмап должен быть свой |
 | | | decorTilemap | `Grid/Decor` — декор из списков Decor в тайлсетах; пусто = без декора. Тайлмап должен быть свой (не Ground / кромка / тайлмап границы) — иначе ошибка в консоли и декора нет. Слой сортировки Island, Order 1, материал `Materials/BendMaterial`, без коллайдера |
+| | | coastWaves, waveHorizontalTilemap, waveVerticalTilemap | `TileSet/Coast Wave Set` (кадры пены художницы и их тайминг), `Grid/WaveHorizontal`, `Grid/WaveVertical`. Рисуются только в Play Mode. Пусто = без волн |
+| | | coastShadowTile, coastShadowTilemap | `Tiles/Water/water_shadow_island`, `Grid/CoastShadow` — тень острова: один тайл под каждой полосой кромки. Пусто = без тени |
+| | | projectionDark, projectionLight | спрайты `Water/water_shadow_bldngs` и `Water/water_reflect_bldings` — проекции построек на воде, общие для всех. Пивот сверху по центру: от него блок свисает с футпринта. Пусто = без проекций |
 | | | **tileSet, biomes** | `TileSet/Base Tile Set` — тайлы для биома без своего тайлсета; биомы, из которых эпоха предлагает зоны (Meadow, Forest, Desert) |
 | | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → `TileSet/Brdr Set Meadow` → `Grid/BordersMeadow`; `Forest` → `TileSet/Brdr Set Forest` → `Grid/BordersForest`. Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / обеими кромками), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / кромки — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
 | | | **structureSystem** | StructureSystem — через неё зона получает природное содержимое (деревья, реки, стартовый дом) |
@@ -482,7 +487,7 @@ Root          → Rigidbody2D (Dynamic, Gravity Scale 0, Continuous, Freeze Rota
 ```
 Root          → Rigidbody2D (Static) + Structure  [+ компоненты поведения, таблица ниже] [+ BumpView или LeanView]
 ├── Visual    (origin у основания — от него сквош и наклон)
-│   └── Model → SpriteRenderer (пивот у основания) + SpriteShadow + WaterReflection   (+ декор детьми)
+│   └── Model → SpriteRenderer (пивот у основания) + SpriteShadow   (+ декор детьми)
 ├── Fx_Anchor (пустышка: откуда вылетает отклик сбора — у источников, см. fxAnchor)
 └── Physics   → Collider2D (Box / Circle / Polygon — по форме)
 ```
@@ -493,8 +498,10 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
   сквошится, — кладётся на корень, вне `Visual`.
 - **SpriteShadow** — тень строится из спрайта в `Start`, руками ничего не рисуется: castShadow, offsetPixels (0, 1),
   alpha (30/255). У госта стройки тени нет by design.
-- **WaterReflection** — отражение в воде. На префабы ставить ЕГО, а не `Reflector` пакета воды (тот работает в
-  edit mode и мусорит в сцену). Поле mirrorOffsetPixels — сдвиг отражения.
+- **WaterProjection** — на КОРЕНЬ префаба (не на Model): тёмный и светлый блоки на воде перед постройкой, суша закрывает
+  их сама. Спрайты общие (`IslandSystem.projectionDark`, `projectionLight`); поле lightInsetPixels (2) — на сколько
+  арт-пикселей светлый блок уже тёмного с каждой стороны. Стоит на House, Market, Mill, RicePaddy, Smithy, Stable, Tavern
+  и 5 стойках; у пирса, пшеницы, забора и природы его нет. У госта и чертежа стройки проекций нет by design.
 
 Компоненты поведения (на корне, комбинируются):
 
@@ -547,7 +554,7 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 ```
 Root                → Rigidbody2D (Static) + Structure + ResourceSource + ResourceSourceView
 ├── Visual
-│   ├── Model_Ready     → SpriteRenderer (Sorting Layer Entities, пивот у основания) + SpriteShadow + WaterReflection
+│   ├── Model_Ready     → SpriteRenderer (Sorting Layer Entities, пивот у основания) + SpriteShadow
 │   └── Model_Harvested → SpriteRenderer (Sorting Layer Ground — юниты всегда проходят поверх)
 └── Physics         → Collider2D            (гасится, пока нода собрана)
 ```
@@ -909,7 +916,7 @@ Script Execution Order настраивать **не нужно** (это кос
 - **Physics 2D → Layer Collision Matrix:** Unit×Unit **OFF** (юниты проходят сквозь друг друга), Unit×Default **ON**.
 - **Physics 2D → Bounce Threshold = 0.1** (иначе скольжение на малых скоростях).
 - **Y-сортировка:** на URP 2D Renderer-ассете (`Assets/Settings/Renderer2D.asset`) — Transparency Sort Mode = Custom Axis, Axis (0,1,0). Юниты и постройки — на одном Sorting Layer (`Entities`) с равным Order, сортируются по Y динамически.
-- **Sorting Layers** снизу вверх: Water, Island, Ground, Default, Entities, Overlay, Mesh. **Island** — все тайлмапы острова (земля, кайма, декор, границы); **Ground** — то, что лежит на земле (рисовое поле, пни, стерня, щебень, пустые кусты), а ещё превью зоны, подсветка территории госта (Order 1001) и подложка стройплощадки (Order 1000). Сетка стройки — на Mesh, поверх всего. Так лежащее на земле всегда над тайлами, какой бы Order ни стоял у тех и других.
+- **Sorting Layers** снизу вверх: Water, Island, Ground, Default, Entities, Overlay, Mesh. **Island** — все тайлмапы острова (земля, кайма, декор, границы, волны, тень острова; на нём же проекции построек); **Ground** — то, что лежит на земле (рисовое поле, пни, стерня, щебень, пустые кусты), а ещё превью зоны, подсветка территории госта (Order 1001) и подложка стройплощадки (Order 1000). Сетка стройки — на Mesh, поверх всего. Так лежащее на земле всегда над тайлами, какой бы Order ни стоял у тех и других.
 - **Global Light 2D → Target Sorting Layers:** должны быть отмечены все слои, на которых что-то рисуется, Island в том числе. Новый слой сортировки сам туда может не попасть — тогда всё на нём чёрное.
 
 ## Бонусы (RunStats) — коротко

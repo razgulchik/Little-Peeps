@@ -8,8 +8,7 @@
         "UnityEngine.UI",
         "LitMotion",
         "Unity.RenderPipelines.Core.Runtime",
-        "Unity.RenderPipelines.Universal.Runtime",
-        "ModernWater2D.Runtime"
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

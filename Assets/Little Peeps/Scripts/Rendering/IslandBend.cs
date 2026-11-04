@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // The island's land bent like one sheet. A height for every corner of the grid goes to the shaders that
-    // draw the land ("Little Peeps/Sprite Lit Bend"; "Little Peeps/Sprite Flat Color" for the side foam) as a
+    // draw the land ("Little Peeps/Sprite Lit Bend") as a
     // small texture (CornerTexture), and each vertex moves up by the height under it. Neighbouring tiles share
     // their corners, so whatever the heights, the land never comes apart: a tile tilts and bends between its
     // four corners, and a wave crosses the coast as a slope rather than a staircase. A tilemap tile's own matrix

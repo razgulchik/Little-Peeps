@@ -296,7 +296,6 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   popOverrides: []
-  obstructOnProxy: 1
   bubblesFx: {fileID: 0}
   bubblesPerSecond: 4
   splashFx: {fileID: 8980289643981497851, guid: 3a9965573fcaf8a46a1c4f53f379dfa1, type: 3}

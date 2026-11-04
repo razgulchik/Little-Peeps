@@ -99,11 +99,6 @@ namespace LittlePeeps
                  "Anything not listed uses the pop above.")]
         public List<IslandRisePopOverride> popOverrides = new();
 
-        [Header("Water")]
-        [Tooltip("A tile in the air pushes the water the way land does, from breaking the surface until " +
-                 "it settles (the package's Obstructor on the stand-in).")]
-        public bool obstructOnProxy = true;
-
         [Header("Effects")]
         [Tooltip("Bubbles over a tile's cell until it breaks the surface. Every effect here is a " +
                  "ParticleSystem prefab run as one shared emitter: Simulation Space = World, Looping on, " +

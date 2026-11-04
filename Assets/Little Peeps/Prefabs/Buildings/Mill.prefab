@@ -79,7 +79,6 @@ GameObject:
   - component: {fileID: 4242401674306224261}
   - component: {fileID: 3829442638563776061}
   - component: {fileID: 7331995185496478035}
-  - component: {fileID: 6673362594180795324}
   m_Layer: 0
   m_Name: Model
   m_TagString: Untagged
@@ -172,19 +171,6 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 2}
   alpha: 0.13725491
---- !u!114 &6673362594180795324
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 520353451075662624}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &1988411104556470154
 GameObject:
   m_ObjectHideFlags: 0
@@ -283,7 +269,6 @@ GameObject:
   - component: {fileID: 1349161349653662619}
   - component: {fileID: 1408210229323850951}
   - component: {fileID: 1318424780237479774}
-  - component: {fileID: 6192932902666876003}
   m_Layer: 0
   m_Name: Model
   m_TagString: Untagged
@@ -376,19 +361,6 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 2}
   alpha: 0.13725491
---- !u!114 &6192932902666876003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1991485185746984994}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &2603376487552531715
 GameObject:
   m_ObjectHideFlags: 0
@@ -696,7 +668,6 @@ GameObject:
   - component: {fileID: 5156538594579036350}
   - component: {fileID: 4778801655023900281}
   - component: {fileID: 5386520025823992340}
-  - component: {fileID: 8286511087512764705}
   m_Layer: 0
   m_Name: Model
   m_TagString: Untagged
@@ -789,19 +760,6 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 2}
   alpha: 0.13725491
---- !u!114 &8286511087512764705
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3660868618199599061}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &3668580625807612297
 GameObject:
   m_ObjectHideFlags: 0
@@ -846,7 +804,6 @@ GameObject:
   - component: {fileID: 4422154176873112378}
   - component: {fileID: 7728502954158849777}
   - component: {fileID: 290898070861715465}
-  - component: {fileID: 8210018989341566591}
   m_Layer: 0
   m_Name: Model
   m_TagString: Untagged
@@ -939,19 +896,6 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 2}
   alpha: 0.13725491
---- !u!114 &8210018989341566591
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4800816739425504360}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &5041449105414749284
 GameObject:
   m_ObjectHideFlags: 0

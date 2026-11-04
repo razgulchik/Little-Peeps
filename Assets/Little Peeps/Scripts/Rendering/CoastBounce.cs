@@ -5,7 +5,7 @@ namespace LittlePeeps
     // The coast giving under a hit: a push across the screen for every corner of the grid, a second layer on the
     // island's sheet over its bend (IslandBend). It goes to the same shaders as a small texture of its own
     // (CornerTexture), and each vertex of what bends with the land moves by the push under it — the land, its
-    // trims, the side foam and the coast the water sees, so the waterline bulges with the land. Kept apart from
+    // trims, the waves and the shadow's edge, so the waterline bulges with the land. Kept apart from
     // the bend so neither has to know who began the other: the island rises while the game is paused, and the
     // coast is hit while it plays.
     //

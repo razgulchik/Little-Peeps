@@ -231,7 +231,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8025763333712131015}
   - component: {fileID: 2733502921811792167}
-  - component: {fileID: 7135395989259472408}
   m_Layer: 0
   m_Name: Model_Harvested
   m_TagString: Untagged
@@ -309,19 +308,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 1
---- !u!114 &7135395989259472408
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1827955332502405057}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &2245402827759443504
 GameObject:
   m_ObjectHideFlags: 0
@@ -333,7 +319,6 @@ GameObject:
   - component: {fileID: 4117379319066634409}
   - component: {fileID: 6039928592888317081}
   - component: {fileID: 4657910003920475173}
-  - component: {fileID: 676555956282191927}
   m_Layer: 0
   m_Name: Tree_Autumn
   m_TagString: Untagged
@@ -426,19 +411,6 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 1}
   alpha: 0.13725491
---- !u!114 &676555956282191927
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2245402827759443504}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &2548948665812281823
 GameObject:
   m_ObjectHideFlags: 0
@@ -449,7 +421,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8780843578812181539}
   - component: {fileID: 1847986960774914083}
-  - component: {fileID: 1240520329393716594}
   m_Layer: 0
   m_Name: Tree_Standart_01
   m_TagString: Untagged
@@ -527,19 +498,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 1
---- !u!114 &1240520329393716594
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2548948665812281823}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &3306730256981705613
 GameObject:
   m_ObjectHideFlags: 0
@@ -618,7 +576,6 @@ GameObject:
   m_Component:
   - component: {fileID: 9202365391407276694}
   - component: {fileID: 6982932758785052143}
-  - component: {fileID: 8616067541583764074}
   m_Layer: 0
   m_Name: Tree_White_01
   m_TagString: Untagged
@@ -696,19 +653,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 1
---- !u!114 &8616067541583764074
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3386386342387541676}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &3661994846676572551
 GameObject:
   m_ObjectHideFlags: 0
@@ -751,7 +695,6 @@ GameObject:
   - component: {fileID: 3190647105527156011}
   - component: {fileID: 7424859393018115122}
   - component: {fileID: 429739747085434245}
-  - component: {fileID: 2029701918157085625}
   m_Layer: 0
   m_Name: Tree_Skinny_01
   m_TagString: Untagged
@@ -844,19 +787,6 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 1}
   alpha: 0.13725491
---- !u!114 &2029701918157085625
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4148876988465624626}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &5048613695852693745
 GameObject:
   m_ObjectHideFlags: 0
@@ -867,7 +797,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5607037726330357197}
   - component: {fileID: 1499051778936262286}
-  - component: {fileID: 264841164823762156}
   m_Layer: 0
   m_Name: Tree_Streight_01
   m_TagString: Untagged
@@ -945,19 +874,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 1
---- !u!114 &264841164823762156
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5048613695852693745}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1885b0eaa94d0f4ba4ef44193620413, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mirrorOffsetPixels: {x: 0, y: 0}
 --- !u!1 &5941663533957381302
 GameObject:
   m_ObjectHideFlags: 0

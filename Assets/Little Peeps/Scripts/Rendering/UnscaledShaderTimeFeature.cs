@@ -7,17 +7,16 @@ namespace LittlePeeps
 {
     // Shader time that ignores Time.timeScale. URP fills _Time / _TimeParameters from Time.time, so every
     // shader-animated surface stops dead whenever the game pauses by timeScale 0 — the zone pick, the perk
-    // pick, the age transition — and the water (Modern 2D Water: foam, strips, surface scroll are all Time
-    // nodes) is the whole background. Shader animation is ambience, not gameplay, so it runs on real time.
+    // pick, the age transition — and the water, whose strokes run on shader time, is the whole background.
+    // Shader animation is ambience, not gameplay, so it runs on real time.
     //
     // ALWAYS unscaled, not only while paused: scaled and unscaled time drift apart at the first pause, and
     // switching source on the way in or out would jump every wave's phase in a single frame.
     //
     // Where it sits: the 2D renderer sets the time twice per camera (frame init, then again after camera
     // setup) and only then records BeforeRendering passes, so this pass is the last word before anything
-    // draws. Runs for every camera on the renderer — Modern 2D Water's own obstruction / below-water /
-    // reflection cameras included, which keeps them in step with the main one. Edit mode keeps URP's own
-    // choice (realtime since startup), so the Scene view animates as before.
+    // draws. Runs for every camera on the renderer. Edit mode keeps URP's own choice (realtime since startup),
+    // so the Scene view animates as before.
     //
     // Setup: add it to the 2D renderer asset (Renderer2D → Add Renderer Feature). Render Graph path only —
     // the project runs with Compatibility Mode off.

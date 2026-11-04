@@ -59,7 +59,7 @@ namespace LittlePeeps
             var site = instance.RuntimeObject;
             instance.RuntimeObject = CreateStructure(instance);
             instance.UnderConstruction = false;
-            RefreshBesideWater(instance);
+            RefreshNeighbours(instance);
             if (site != null) Destroy(site.gameObject);
         }
 
@@ -164,7 +164,7 @@ namespace LittlePeeps
         {
             islandSystem.Grid.Place(instance.Cell, instance.Def.Footprint, instance);
             run.structures[instance.Cell] = instance;
-            RefreshBesideWater(instance);
+            RefreshNeighbours(instance);
             Recount(instance.Def, +1);
         }
 
@@ -198,9 +198,11 @@ namespace LittlePeeps
         //     correct for negative rows too on the signed grid;
         //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along —
         //     the south art mirrored where the river stops under its wheel;
-        //   - a river cell carries a RiverVisual and shows the piece that joins it to the river cells beside it.
+        //   - a river cell carries a RiverVisual and shows the piece that joins it to the river cells beside it;
+        //   - a mountain cell carries a MountainVisual and shows the piece and the inner corners that join it
+        //     to the mountain cells around it.
         // No-op for structures with none. Shared by Build and the placement ghost (PlacementVisuals), so
-        // the preview shows exactly what lands — and by RefreshBesideWater, since the last two depend on
+        // the preview shows exactly what lands — and by RefreshNeighbours, since the last three depend on
         // the neighbours.
         public static void ApplyPlacementVisual(GameObject go, IslandGrid grid, Vector2Int origin, Footprint footprint)
         {
@@ -208,25 +210,30 @@ namespace LittlePeeps
             if (go.TryGetComponent<WaterSideVisual>(out var sides))
                 sides.Show(WaterSides.Find(grid, origin, footprint), WaterSides.FlipSouth(grid, origin, footprint));
             if (go.TryGetComponent<RiverVisual>(out var river)) river.Show(RiverShapes.At(grid, origin));
+            if (go.TryGetComponent<MountainVisual>(out var mountain)) mountain.Show(MountainShapes.At(grid, origin));
         }
 
-        // Water decides the look of what stands beside it — a river cell's piece, a watermill's side — so
-        // whenever a water structure lands on the grid or leaves it, everything around it takes its look
-        // again. A river laid cell by cell comes out joined whatever the order, and a cell taken out leaves
-        // ends behind. Reads the grid as it is now: call after the Place or Remove. No-op for anything
-        // that isn't water.
-        private void RefreshBesideWater(StructureInstance changed)
+        // Water and mountains decide the look of what stands around them — a river cell's piece and a
+        // watermill's side by the water beside them, a mountain cell's piece and inner corners by the
+        // mountain around it — so whenever one lands on the grid or leaves it, everything around it takes its
+        // look again. A river or a mountain laid cell by cell comes out joined whatever the order, and a cell
+        // taken out leaves edges behind. A mountain reaches its diagonal neighbours too: an inner corner is a
+        // missing diagonal. Reads the grid as it is now: call after the Place or Remove. No-op for anything
+        // else.
+        private void RefreshNeighbours(StructureInstance changed)
         {
-            if (!changed.Def.isWater) return;
+            bool mountain = changed.RuntimeObject != null && changed.RuntimeObject.TryGetComponent<MountainVisual>(out _);
+            if (!changed.Def.isWater && !mountain) return;
 
             var grid = islandSystem.Grid;
             var footprint = changed.Def.Footprint;
+            var around = mountain ? MountainShapes.Around : IslandShape.Dirs;
             for (int x = 0; x < footprint.Size.x; x++)
                 for (int y = 0; y < footprint.Size.y; y++)
                 {
                     if (!footprint.Contains(x, y)) continue;
                     var cell = changed.Cell + new Vector2Int(x, y);
-                    foreach (var d in IslandShape.Dirs)
+                    foreach (var d in around)
                     {
                         var neighbour = grid.GetCell(cell + d)?.occupant;
                         if (neighbour == null || neighbour == changed || neighbour.RuntimeObject == null) continue;
@@ -257,7 +264,7 @@ namespace LittlePeeps
 
             grid.Remove(instance.Cell, instance.Def.Footprint);
             run.structures.Remove(instance.Cell);
-            RefreshBesideWater(instance);
+            RefreshNeighbours(instance);
             Recount(instance.Def, -1);
             ReleaseOccupants(instance.RuntimeObject);
             Destroy(instance.RuntimeObject.gameObject);

@@ -38,6 +38,38 @@ namespace LittlePeeps
                  "Empty: no decor.")]
         [SerializeField] private Tilemap decorTilemap;
 
+        // The waves breaking on the coast: the outline's third layer, under the island, on tilemaps of their own
+        // (no collider). Their tiles are made at run time from the Coast Wave Set, so they are drawn in Play Mode
+        // only — the island's Edit Mode preview has no sea either.
+        [Tooltip("The coast's waves: the artist's foam frames and their timing. Empty: no waves.")]
+        [SerializeField] private CoastWaveSet coastWaves;
+
+        [Tooltip("Waves under the island's bands (its south-facing coast). No collider; material, sorting layer and " +
+                 "order are set from the horizontal trim's — under the whole island.")]
+        [SerializeField] private Tilemap waveHorizontalTilemap;
+
+        [Tooltip("Waves beside its columns (the east- and west-facing coast), over the horizontal waves. No collider; " +
+                 "set up from the horizontal trim like the other.")]
+        [SerializeField] private Tilemap waveVerticalTilemap;
+
+        // The island's shadow on the water: the outline's lowest layer, under the waves, on a tilemap of its own
+        // (no collider). An ordinary tile asset, so unlike the waves it can be painted outside Play Mode too.
+        [Tooltip("The island's shadow on the water: one tile under each band (its south-facing coast), its sprite " +
+                 "hanging two cells down. Empty: no shadow.")]
+        [SerializeField] private TileBase coastShadowTile;
+
+        [Tooltip("The shadow's tilemap. No collider; material, sorting layer and order are set from the horizontal " +
+                 "trim's — under the waves.")]
+        [SerializeField] private Tilemap coastShadowTilemap;
+
+        // What a structure with a WaterProjection throws on the water. The art is the island's, for all of them.
+        [Tooltip("The dark block of a structure's projection on the water, stretched to its footprint's width. A " +
+                 "plain gradient, its pivot top centre: the block hangs from the footprint's bottom edge. Empty: none.")]
+        [SerializeField] private Sprite projectionDark;
+
+        [Tooltip("The light block over it, a little narrower (the prefab's Water Projection says how much). Empty: none.")]
+        [SerializeField] private Sprite projectionLight;
+
         [Tooltip("Tiles for any terrain whose biome has no tile set of its own (and for the editor preview).")]
         [SerializeField] private IslandTileSet tileSet;
 
@@ -80,6 +112,18 @@ namespace LittlePeeps
         public Tilemap TrimVerticalTilemap => trimVerticalTilemap;
         public Tilemap DecorTilemap => decorTilemap;
         public IReadOnlyList<IslandBorderLayer> BorderLayers => borders;
+        public CoastWaveSet CoastWaves => coastWaves;
+        public Tilemap WaveHorizontalTilemap => waveHorizontalTilemap;
+        public Tilemap WaveVerticalTilemap => waveVerticalTilemap;
+        public TileBase CoastShadowTile => coastShadowTile;
+        public Tilemap CoastShadowTilemap => coastShadowTilemap;
+
+        // How this run's structures draw their projections on the water.
+        public WaterProjectionLook ProjectionLook =>
+            Drawing == null ? default : Drawing.ProjectionLook(projectionDark, projectionLight);
+
+        // The waves' tiles, made once in Play Mode for every run's drawing; null without waves.
+        private CoastWaveTiles waveTiles;
 
         // The run's starting house and pier defs, attached to the footprints the start zone keeps for them.
         private StructureDef house;
@@ -216,12 +260,18 @@ namespace LittlePeeps
             return true;
         }
 
-        // Published here, once, on any frame the island was painted: a rising zone lands dozens of tiles in
-        // a couple of seconds, and every IslandRepaintedEvent has WaterSystem copy the whole coast again.
+        private void OnDestroy()
+        {
+            waveTiles?.Dispose();
+            waveTiles = null;
+        }
+
+        // The waves step in real time, so they keep breaking through every pause (the island rise plays at
+        // timeScale 0).
         private void LateUpdate()
         {
-            if (Drawing != null && Drawing.TakeRepainted())
-                EventBus<IslandRepaintedEvent>.Publish(new IslandRepaintedEvent());
+            if (Drawing == null) return;
+            Drawing.ShowWavesAt(Time.unscaledTimeAsDouble);
         }
 
         // Right-click the component in Inspector → Generate Island
@@ -243,6 +293,14 @@ namespace LittlePeeps
                 if (renderer != null) UnityEditor.EditorUtility.SetDirty(renderer);
             }
             if (decorTilemap != null) UnityEditor.EditorUtility.SetDirty(decorTilemap);
+            var shadow = Drawing.CoastShadowTilemap;
+            if (shadow != null)
+            {
+                UnityEditor.EditorUtility.SetDirty(shadow);
+                // The drawing sorted it under the island: keep the scene showing what is actually used.
+                var renderer = shadow.GetComponent<TilemapRenderer>();
+                if (renderer != null) UnityEditor.EditorUtility.SetDirty(renderer);
+            }
             foreach (var layer in borders)
                 if (layer != null && layer.tilemap != null)
                 {
@@ -262,8 +320,11 @@ namespace LittlePeeps
             var clock = Stopwatch.StartNew();
             Grid = new IslandGrid(cellSize);
             var usableBorders = UsableBorders();
+            var waves = WaveTiles(usableBorders);
             Drawing = new IslandDrawing(Grid, TileSetFor(), tilemap, trimHorizontalTilemap, UsableDecor(usableBorders), seed,
-                                        usableBorders, UsableTrimVertical());
+                                        usableBorders, UsableTrimVertical(),
+                                        waves != null ? waveHorizontalTilemap : null, waves != null ? waveVerticalTilemap : null,
+                                        waves, UsableCoastShadow(usableBorders), coastShadowTile);
             Generator = new IslandGenerator(rules, seed);
             var start = Generator.GenerateStart();
 
@@ -433,6 +494,60 @@ namespace LittlePeeps
 
             Debug.LogError($"IslandSystem: the decor is set to draw on '{decorTilemap.name}', which another island " +
                            "layer draws on — give it a tilemap of its own; no decor is drawn.", this);
+            return null;
+        }
+
+        // The waves' tiles for this run's drawing: made the first time a run is built in Play Mode, then kept; null
+        // outside Play Mode (they are no asset — painted into the scene they would be saved as missing tiles), and
+        // when the set or its tilemaps cannot draw, said once per run. Both tilemaps are asked for: a coast whose
+        // columns had no waves would look nearly right and go unnoticed. And each must be the waves' own, since
+        // their repaint clears it.
+        private CoastWaveTiles WaveTiles(IReadOnlyList<IslandBorderLayer> usableBorders)
+        {
+            if (!Application.isPlaying || coastWaves == null) return null;
+
+            if (waveHorizontalTilemap == null || waveVerticalTilemap == null)
+            {
+                Debug.LogWarning("IslandSystem: a Coast Wave Set but not both wave tilemaps — the coast has no waves. " +
+                                 "Give Wave Horizontal and Wave Vertical a tilemap each.", this);
+                return null;
+            }
+            var others = new HashSet<Tilemap> { tilemap, trimHorizontalTilemap, trimVerticalTilemap, decorTilemap };
+            foreach (var layer in usableBorders)
+                if (layer.tilemap != null) others.Add(layer.tilemap);
+            if (waveHorizontalTilemap == waveVerticalTilemap || others.Contains(waveHorizontalTilemap) ||
+                others.Contains(waveVerticalTilemap))
+            {
+                Debug.LogError("IslandSystem: the wave tilemaps share a tilemap with each other or with another island " +
+                               "layer — give each its own; the coast has no waves.", this);
+                return null;
+            }
+
+            return waveTiles ??= CoastWaveTiles.Create(coastWaves);
+        }
+
+        // The shadow's tilemap for this run's drawing; null without a tile, and when it cannot draw, said once per
+        // run. It must be the shadow's own, since its repaint clears it.
+        private Tilemap UsableCoastShadow(IReadOnlyList<IslandBorderLayer> usableBorders)
+        {
+            if (coastShadowTile == null) return null;
+
+            if (coastShadowTilemap == null)
+            {
+                Debug.LogWarning("IslandSystem: a Coast Shadow Tile but no Coast Shadow Tilemap — the island casts no " +
+                                 "shadow on the water.", this);
+                return null;
+            }
+            var others = new HashSet<Tilemap>
+            {
+                tilemap, trimHorizontalTilemap, trimVerticalTilemap, decorTilemap, waveHorizontalTilemap, waveVerticalTilemap
+            };
+            foreach (var layer in usableBorders)
+                if (layer.tilemap != null) others.Add(layer.tilemap);
+            if (!others.Contains(coastShadowTilemap)) return coastShadowTilemap;
+
+            Debug.LogError($"IslandSystem: the shadow is set to draw on '{coastShadowTilemap.name}', which another island " +
+                           "layer draws on — give it a tilemap of its own; the island casts no shadow on the water.", this);
             return null;
         }
 

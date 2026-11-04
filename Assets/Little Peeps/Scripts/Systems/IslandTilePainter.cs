@@ -5,13 +5,16 @@ using UnityEngine.Tilemaps;
 
 namespace LittlePeeps
 {
-    // Pure C# autotiler: turns the sparse IslandGrid into four tilemap layers.
+    // Pure C# autotiler: turns the sparse IslandGrid into its tilemap layers.
     //  - ground: one tile per land cell — checkerboard shade from cell parity, rounded variant at the
     //            island's outer corners;
     //  - decor:  specks scattered over the ground, on a random share of the land cells (see HasDecor);
     //  - trim:   the coastline outline, painted on the NON-land cells that touch land, in two layers:
     //            HORIZONTAL — the band under land to the north (the island's bottom edge) — and VERTICAL —
-    //            the column beside land to the east or west (the island's sides), drawn over the horizontal.
+    //            the column beside land to the east or west (the island's sides), drawn over the horizontal;
+    //  - waves:  the foam breaking on the coast, under the island: the trim's own pieces on the trim's own
+    //            cells, in two layers the same way (see Waves);
+    //  - shadow: the island's shadow on the water, under the waves: a tile under every band (see CoastShadow).
     //
     // Every choice is made from the 8 neighbours ("a cell exists in the grid" == land), never from an
     // index inside a rectangle. That is what makes it survive the shapes IslandGenerator produces:
@@ -106,6 +109,67 @@ namespace LittlePeeps
             }
         }
 
+        // The coast's waves: the outline's third layer, under the island. A water cell's waves are its trim
+        // pieces again — the same choice, so wherever the outline goes the foam goes — drawn from tileFor, which
+        // answers with a piece's tile in the frame showing now. On a horizontal and a vertical layer like the
+        // trim's, columns over bands. A cell with both — a bay's inner corner and its kin — takes the one tile
+        // cornerFor answers with instead, on the vertical layer, where the band's foam and the wall's meet
+        // without crossing; with none, the two stacked. One art for every terrain, so no source cell picks it.
+        // default = no waves.
+        public readonly struct Waves
+        {
+            public readonly Tilemap horizontal;
+            public readonly Tilemap vertical;
+            public readonly Func<IslandTrimPiece, TileBase> tileFor;
+            public readonly Func<IslandTrimPiece, IslandTrimPiece, TileBase> cornerFor;   // may be null
+
+            public Waves(Tilemap horizontal, Tilemap vertical, Func<IslandTrimPiece, TileBase> tileFor,
+                         Func<IslandTrimPiece, IslandTrimPiece, TileBase> cornerFor = null)
+            {
+                this.horizontal = horizontal;
+                this.vertical = vertical;
+                this.tileFor = tileFor;
+                this.cornerFor = cornerFor;
+            }
+
+            public bool Draws => tileFor != null && (horizontal != null || vertical != null);
+
+            public TileBase TileOf(IslandTrimPiece piece) => piece == IslandTrimPiece.None ? null : tileFor(piece);
+
+            // A water cell's two pieces onto the two wave layers, or its corner's one.
+            public void Set(Vector3Int at, IslandTrimPiece horizontalPiece, IslandTrimPiece verticalPiece)
+            {
+                var corner = horizontalPiece != IslandTrimPiece.None && verticalPiece != IslandTrimPiece.None && cornerFor != null
+                    ? cornerFor(horizontalPiece, verticalPiece)
+                    : null;
+                if (corner != null) SetTrim(horizontal, vertical, at, null, corner);
+                else SetTrim(horizontal, vertical, at, TileOf(horizontalPiece), TileOf(verticalPiece));
+            }
+        }
+
+        // The island's shadow on the water: the outline's lowest layer, under the waves. It falls wherever a band
+        // goes — a water cell with land to the north — the same choice again, so a coast's shadow needs no rule of
+        // its own. One tile two cells tall, its sprite hanging from this cell into the one below: read off the
+        // north neighbour alone it stays inside Around, where a tile of its own in the lower cell would have to
+        // look two cells up. And nothing overlaps: a shadow in the cell below would need land in this one. One art
+        // for every terrain, so no source cell picks it. default = no shadow.
+        public readonly struct CoastShadow
+        {
+            public readonly Tilemap tilemap;
+            public readonly TileBase tile;
+
+            public CoastShadow(Tilemap tilemap, TileBase tile)
+            {
+                this.tilemap = tilemap;
+                this.tile = tile;
+            }
+
+            public bool Draws => tilemap != null && tile != null;
+
+            public void Set(Vector3Int at, IslandTrimPiece horizontalPiece) =>
+                tilemap.SetTile(at, horizontalPiece != IslandTrimPiece.None ? tile : null);
+        }
+
         public static CellPaint PaintOf(Land land, Vector2Int coord)
         {
             if (land.Contains(coord)) return CellPaint.Ground(PickGround(land, coord));
@@ -150,9 +214,10 @@ namespace LittlePeeps
         // Repaint every layer from scratch. tileSetFor answers with a set for every terrain (a default
         // for unmapped ones); the two trim tilemaps and decorTilemap may be null — the ground still draws,
         // just bare (see SetTrim for a missing vertical one). decorSeed is the run's: the same seed draws
-        // the same decor.
+        // the same decor. Without waves or a shadow their tilemaps are left as they are.
         public static void Repaint(Land land, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap,
-                                   Tilemap horizontalTilemap, Tilemap verticalTilemap, Tilemap decorTilemap, int decorSeed)
+                                   Tilemap horizontalTilemap, Tilemap verticalTilemap, Tilemap decorTilemap, int decorSeed,
+                                   Waves waves = default, CoastShadow shadow = default)
         {
             if (!CanPaint(tileSetFor, groundTilemap)) return;
 
@@ -160,6 +225,12 @@ namespace LittlePeeps
             if (horizontalTilemap != null) horizontalTilemap.ClearAllTiles();
             if (verticalTilemap != null) verticalTilemap.ClearAllTiles();
             if (decorTilemap != null) decorTilemap.ClearAllTiles();
+            if (waves.Draws)
+            {
+                if (waves.horizontal != null) waves.horizontal.ClearAllTiles();
+                if (waves.vertical != null) waves.vertical.ClearAllTiles();
+            }
+            if (shadow.Draws) shadow.tilemap.ClearAllTiles();
             if (land == null) return;
 
             bool warnedMissing = false;
@@ -184,6 +255,8 @@ namespace LittlePeeps
                     SetTrim(horizontalTilemap, verticalTilemap, ToTilemapCell(coord),
                             TrimTile(land, paint.horizontal, paint.horizontalSource, tileSetFor),
                             TrimTile(land, paint.vertical, paint.verticalSource, tileSetFor));
+                    if (waves.Draws) waves.Set(ToTilemapCell(coord), paint.horizontal, paint.vertical);
+                    if (shadow.Draws) shadow.Set(ToTilemapCell(coord), paint.horizontal);
                 }
             }
         }
@@ -193,7 +266,8 @@ namespace LittlePeeps
         // A missing tile set stays silent here: the full repaint that drew the island already said so.
         public static void RepaintAround(Land land, Vector2Int cell, Func<TerrainType, IslandTileSet> tileSetFor,
                                          Tilemap groundTilemap, Tilemap horizontalTilemap, Tilemap verticalTilemap,
-                                         Tilemap decorTilemap, int decorSeed)
+                                         Tilemap decorTilemap, int decorSeed, Waves waves = default,
+                                         CoastShadow shadow = default)
         {
             if (!CanPaint(tileSetFor, groundTilemap) || land == null) return;
 
@@ -205,6 +279,10 @@ namespace LittlePeeps
                 SetTrim(horizontalTilemap, verticalTilemap, tilemapCell,
                         paint.land ? null : TrimTile(land, paint.horizontal, paint.horizontalSource, tileSetFor),
                         paint.land ? null : TrimTile(land, paint.vertical, paint.verticalSource, tileSetFor));
+                if (waves.Draws)
+                    waves.Set(tilemapCell, paint.land ? IslandTrimPiece.None : paint.horizontal,
+                              paint.land ? IslandTrimPiece.None : paint.vertical);
+                if (shadow.Draws) shadow.Set(tilemapCell, paint.land ? IslandTrimPiece.None : paint.horizontal);
                 if (decorTilemap != null)
                     decorTilemap.SetTile(tilemapCell, DecorTile(land, coord, paint, tileSetFor, decorSeed));
             }

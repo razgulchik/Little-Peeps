@@ -454,16 +454,16 @@ namespace LittlePeeps
 
             public bool Active => renderers != null;
 
-            // Snapshot every renderer under `root` — except drop shadows — and the color it currently has
-            // (no tint applied yet — call Retint to color them). A tint replaces the colour outright, and
-            // a shadow turned green or red reads as a second copy of the building; left out, it stays
-            // black under any tint. Replaces any previous capture without restoring it, so callers
-            // restore/forget first.
+            // Snapshot every renderer under `root` — except drop shadows and projections on the water — and
+            // the color it currently has (no tint applied yet — call Retint to color them). A tint replaces
+            // the colour outright, and a shadow turned green or red reads as a second copy of the building;
+            // left out, it stays black under any tint. Replaces any previous capture without restoring it, so
+            // callers restore/forget first.
             public void Capture(Component root)
             {
                 var all = root.GetComponentsInChildren<SpriteRenderer>(true);
                 var kept = new List<SpriteRenderer>(all.Length);
-                foreach (var r in all) if (!SpriteShadow.IsShadow(r)) kept.Add(r);
+                foreach (var r in all) if (!SpriteShadow.IsShadow(r) && !WaterProjection.IsProjection(r)) kept.Add(r);
                 renderers = kept.ToArray();
                 originalColors = new Color[renderers.Length];
                 for (int i = 0; i < renderers.Length; i++) originalColors[i] = renderers[i].color;

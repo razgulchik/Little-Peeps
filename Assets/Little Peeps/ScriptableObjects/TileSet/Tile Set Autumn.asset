@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dbb8c1fec873164280b26e25c517c73, type: 3}
+  m_Name: Tile Set Autumn
+  m_EditorClassIdentifier: 
+  groundLight: {fileID: 11400000, guid: 3b9a938145e82be4d92a8ff2bfcc194b, type: 2}
+  groundDark: {fileID: 11400000, guid: 7cd41b421febfeb41aa0d8fa14baa808, type: 2}
+  cornerTopLeftLight: {fileID: 11400000, guid: c0567df6ca9b76940a080b1ecf8c667a, type: 2}
+  cornerTopLeftDark: {fileID: 11400000, guid: af1ec39a5170ed04495b6c02a93e56ce, type: 2}
+  cornerTopRightLight: {fileID: 11400000, guid: 938ebdb6e949e3e499e108990371e00e, type: 2}
+  cornerTopRightDark: {fileID: 11400000, guid: a20fd3fa832c90245ae23a42e19a921b, type: 2}
+  cornerBottomLeftLight: {fileID: 11400000, guid: 891722d527c446c45a5fcf9f48d09b10, type: 2}
+  cornerBottomLeftDark: {fileID: 11400000, guid: e2110289f78d4e4419bce09eab61f8f3, type: 2}
+  cornerBottomRightLight: {fileID: 11400000, guid: c6f51cf7d4c773e4fa18a65d4a82cb0d, type: 2}
+  cornerBottomRightDark: {fileID: 11400000, guid: b8706a8c8dff0554596b218bd6dc6bdc, type: 2}
+  leftEdgeTop: {fileID: 11400000, guid: c18d8a0f005af5d4db1176428ff0e89f, type: 2}
+  leftEdgeMid: {fileID: 11400000, guid: c0521fa01199a3242aa1dcead5efaa21, type: 2}
+  leftEdgeBottom: {fileID: 0}
+  rightEdgeTop: {fileID: 11400000, guid: 89758b653681f014bbc898d30a7529de, type: 2}
+  rightEdgeMid: {fileID: 11400000, guid: 781f11e29281189489d39ea2b777c102, type: 2}
+  rightEdgeBottom: {fileID: 0}
+  bottomEdgeLeft: {fileID: 11400000, guid: e5a00e6b20c21c64fa4a488c4fcfe22b, type: 2}
+  bottomEdgeMid: {fileID: 11400000, guid: ba875fe354738544caff119350e7cf41, type: 2}
+  bottomEdgeRight: {fileID: 11400000, guid: bc4117bc2d4dfb246a7b16dd7f12ee03, type: 2}
+  decorLight:
+  - {fileID: 11400000, guid: 8f3fb1c93adf6cb478ee3d4225b27879, type: 2}
+  - {fileID: 11400000, guid: f3a0dd6805c401c49ace7e55c0e61811, type: 2}
+  - {fileID: 11400000, guid: e48d6f9f632de4240aa45ee8ff8f860a, type: 2}
+  - {fileID: 11400000, guid: 30003c03a606bc7429ab5cbdf6c25ac0, type: 2}
+  decorDark:
+  - {fileID: 11400000, guid: 15f5fa1b1a3ebd34e8753a98a623448f, type: 2}
+  - {fileID: 11400000, guid: dbecf5e81706dda4380bcdec802196ef, type: 2}
+  - {fileID: 11400000, guid: 26708aa4a01293943ac715a1bd07c990, type: 2}
+  - {fileID: 11400000, guid: 3ea737c133ff3fa4eb3a07f759a78c94, type: 2}
+  - {fileID: 11400000, guid: 66feb5f05415401468e6e11feef7bda9, type: 2}
+  decorChance: 0.3
+  invertCheckerboard: 1

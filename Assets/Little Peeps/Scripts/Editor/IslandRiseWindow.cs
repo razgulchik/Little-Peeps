@@ -15,10 +15,12 @@ namespace LittlePeeps.EditorTools
     // The rise shown here is not a reconstruction: it is IslandRise, the class the game plays at an age
     // transition, run on an IslandDrawing of the window's own instead of the game's island. The profile is
     // read live — a curve edit shows on the next frame; a timing edit re-plans the rise where the clock
-    // stands. What Edit Mode cannot show: the real water (the game spawns it at run time, so a flat sea
-    // stands in for it), anything the structures' own scripts do (they are dormant here — no shadows, no
-    // animals out of a den) and the camera kick. Play Mode shows all of it; the window then offers the
-    // player's Replay Last Zone instead.
+    // stands. The coast's waves break here as in the game, from the scene island's Coast Wave Set, in real
+    // time whether the rise plays or not, and its shadow falls on the water from the scene island's tile. What
+    // Edit Mode cannot show: the real water (the game spawns it at
+    // run time, so a flat sea stands in for it), anything the structures' own scripts do (they are dormant
+    // here — no shadows, no animals out of a den) and the camera kick. Play Mode shows all of it; the window
+    // then offers the player's Replay Last Zone instead.
     //
     // A window rather than a scene component for the reason HarvestFeedbackWindow gives: nothing here may
     // reach SampleScene.unity. Every object the preview makes is HideAndDontSave — not saved, not in the
@@ -48,6 +50,7 @@ namespace LittlePeeps.EditorTools
         // The preview.
         private GameObject root;
         private IslandDrawing drawing;
+        private CoastWaveTiles waveTiles;   // the drawing's waves; null without them
         private IslandRise rise;
         private IslandSection zone;
         private readonly List<StructureInstance> content = new();
@@ -218,6 +221,7 @@ namespace LittlePeeps.EditorTools
                 playing = false;
                 return;
             }
+            if (drawing != null && drawing.ShowWavesAt(EditorApplication.timeSinceStartup)) SceneView.RepaintAll();
             if (rise == null) return;
 
             // A profile edit: a timing change re-plans the rise where the clock stands; anything else (a
@@ -321,8 +325,18 @@ namespace LittlePeeps.EditorTools
                     borders.Add(new IslandBorderLayer(layer.terrain, layer.tiles, tilemap));
                 }
 
+            // The scene island's waves, on tilemaps of the preview's own; the drawing sorts them under the island.
+            waveTiles = sceneIsland != null ? CoastWaveTiles.Create(sceneIsland.CoastWaves) : null;
+            var waveHorizontal = waveTiles != null ? NewTilemap(gridObject, "WaveHorizontal", sceneIsland.WaveHorizontalTilemap, -2) : null;
+            var waveVertical = waveTiles != null ? NewTilemap(gridObject, "WaveVertical", sceneIsland.WaveVerticalTilemap, -1) : null;
+
+            // Its shadow on the water likewise, under the waves.
+            var coastShadowTile = sceneIsland != null ? sceneIsland.CoastShadowTile : null;
+            var coastShadow = coastShadowTile != null ? NewTilemap(gridObject, "CoastShadow", sceneIsland.CoastShadowTilemap, -5) : null;
+
             drawing = new IslandDrawing(grid, terrain => terrain == zoneTerrain ? zoneTiles : otherTiles, ground, trimHorizontal,
-                                        decor, seed, borders, trimVertical);
+                                        decor, seed, borders, trimVertical, waveHorizontal, waveVertical, waveTiles,
+                                        coastShadow, coastShadowTile);
             drawing.HideLand(zone.Cells);
 
             grid.CellBounds(out var min, out var max);
@@ -330,7 +344,7 @@ namespace LittlePeeps.EditorTools
             PlaceContent(zoneContent, grid);
 
             var host = Child(root, "Rise");
-            rise = new IslandRise(host.transform, pushWater: false, shakeCamera: false, simulateEffects: true);
+            rise = new IslandRise(host.transform, shakeCamera: false, simulateEffects: true);
             if (!rise.Start(profile, drawing, zone, content, seed)) return "The rise could not start.";
 
             scheduleKey = ScheduleKey();
@@ -437,6 +451,8 @@ namespace LittlePeeps.EditorTools
             if (root != null) DestroyImmediate(root);
             root = null;
             drawing = null;
+            waveTiles?.Dispose();
+            waveTiles = null;
             rise = null;
             zone = null;
             content.Clear();

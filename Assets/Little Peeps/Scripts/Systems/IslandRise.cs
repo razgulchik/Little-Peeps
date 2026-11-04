@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using Water2D;
-using Object = UnityEngine.Object;
 
 namespace LittlePeeps
 {
@@ -24,9 +22,7 @@ namespace LittlePeeps
     // A tile in flight is a stand-in: a pooled SpriteRenderer with the sprite of the ground tile the cell
     // will have at the moment it lands, so the swap to the real tile shows nothing. It is drawn:
     //   under water — on the island's layer below all the land and foam, over the water: the stand-in
-    //                 plays the depth itself, dark and see-through. (The package's Below Water was tried
-    //                 for this and dropped: it re-renders everything under the sea over the whole screen,
-    //                 not a few cells, and our sea has nothing under it.)
+    //                 plays the depth itself, dark and see-through.
     //   above water — on the island's layer just above the coast outline, under every structure.
     // After it lands the tile may still be wet; the drying goes on as the tilemap cell's own colour.
     //
@@ -63,11 +59,9 @@ namespace LittlePeeps
             public GameObject gameObject;
             public Transform transform;
             public SpriteRenderer renderer;
-            public Obstructor obstructor;   // null when the tiles don't push the water
         }
 
         private readonly Transform host;       // parent of everything this makes; its hide flags are copied
-        private readonly bool pushWater;       // stand-ins in the air push on the sea (there is one)
         private readonly bool shakeCamera;     // kicks go to Cinemachine (Play Mode only)
         private readonly bool simulateEffects; // particles are stepped by hand (Edit Mode: nothing else does)
 
@@ -105,7 +99,6 @@ namespace LittlePeeps
         private readonly Dictionary<Transform, (Vector3 scale, Vector3 position)> animalBodies = new();   // animal root → its own scale and place
 
         private readonly Stack<Proxy> pool = new();
-        private bool obstructorsBuilt;     // whether the pooled stand-ins carry an Obstructor
 
         // Sorting of the stand-ins, read from the island's tilemaps when a rise starts.
         private int sortingLayer, aboveOrder, underOrder;
@@ -121,10 +114,9 @@ namespace LittlePeeps
         private int nextVoice;
         private CinemachineImpulseSource impulse;
 
-        public IslandRise(Transform host, bool pushWater, bool shakeCamera, bool simulateEffects)
+        public IslandRise(Transform host, bool shakeCamera, bool simulateEffects)
         {
             this.host = host;
-            this.pushWater = pushWater;
             this.shakeCamera = shakeCamera;
             this.simulateEffects = simulateEffects;
         }
@@ -403,7 +395,6 @@ namespace LittlePeeps
             renderer.color = pose.tint;
             renderer.sortingLayerID = sortingLayer;
             renderer.sortingOrder = pose.underwater ? underOrder : aboveOrder;
-            if (proxy.obstructor != null) proxy.obstructor.data.child.gameObject.SetActive(!pose.underwater);
 
             // Under water the tile grows about its middle; above it, it stands on the bottom of its cell,
             // so a hop lifts it and a squash flattens it onto the ground rather than into the air.
@@ -727,6 +718,10 @@ namespace LittlePeeps
                 lowest = Mathf.Min(lowest, trim.sortingOrder);
                 highest = Mathf.Max(highest, trim.sortingOrder);
             }
+            // The waves, the structures' projections and the island's shadow lie on the water's surface, so a tile
+            // still under water passes under them too.
+            if (drawing.UnderIslandSortingLayer == ground.sortingLayerID)
+                lowest = Mathf.Min(lowest, drawing.LowestUnderIslandOrder);
             // A tile in flight passes over landed neighbours, decor and borders and all. Both lie on the land,
             // not along the coast, so they do not move the foam and the underwater order below.
             var decor = drawing.DecorTilemap != null ? drawing.DecorTilemap.GetComponent<TilemapRenderer>() : null;
@@ -739,7 +734,8 @@ namespace LittlePeeps
                     highest = Mathf.Max(highest, border.sortingOrder);
             }
             aboveOrder = highest + 1;
-            underOrder = lowest - 2;   // under the side foam, which WaterSystem sorts one below the lowest coast layer
+            // Under everything along the coast: the island's layers and all that lies on the water.
+            underOrder = lowest - 1;
 
             tileMaterial = IslandBend.Unbent(ground.sharedMaterial);   // a tile in flight is not part of the sheet
             tileScale = drawing.GroundTilemap.transform.lossyScale;
@@ -747,36 +743,22 @@ namespace LittlePeeps
 
         // ---- the pool ----
 
-        // The sprite goes on BEFORE the stand-in is switched on: an Obstructor copies its sprite as it
-        // enables, and a missing one throws inside the package.
         private Proxy Acquire(Sprite sprite)
         {
-            bool obstruct = pushWater && profile.obstructOnProxy;
-            if (obstruct != obstructorsBuilt) ClearPool();   // the setting changed since they were made
-            obstructorsBuilt = obstruct;
-
-            var proxy = pool.Count > 0 ? pool.Pop() : Create(obstruct);
+            var proxy = pool.Count > 0 ? pool.Pop() : Create();
             proxy.renderer.sprite = sprite;
             proxy.renderer.sharedMaterial = tileMaterial;
             proxy.gameObject.SetActive(true);
             return proxy;
         }
 
-        private Proxy Create(bool obstruct)
+        private Proxy Create()
         {
             var go = new GameObject("Rising tile");
             go.SetActive(false);
             go.transform.SetParent(host, false);
             HideLikeHost(go);
-            var proxy = new Proxy { gameObject = go, transform = go.transform, renderer = go.AddComponent<SpriteRenderer>() };
-            if (obstruct)
-            {
-                proxy.obstructor = go.AddComponent<Obstructor>();   // wakes on first activation
-                // The obstruction material's own height, which the coast's tilemap twins draw with. A sprite
-                // Obstructor overrides it with this field, whose default of 0 is not what the coast uses.
-                proxy.obstructor.height = 1f;
-            }
-            return proxy;
+            return new Proxy { gameObject = go, transform = go.transform, renderer = go.AddComponent<SpriteRenderer>() };
         }
 
         private void Release(int i)
@@ -785,22 +767,8 @@ namespace LittlePeeps
             if (proxy == null) return;
             proxies[i] = null;
             if (proxy.gameObject == null) return;
-            if ((proxy.obstructor != null) != obstructorsBuilt)
-            {
-                Discard(proxy.gameObject);        // made before the setting changed: the pool keeps one kind
-                return;
-            }
-            proxy.gameObject.SetActive(false);   // takes the Obstructor's child — the obstruction — with it
+            proxy.gameObject.SetActive(false);
             pool.Push(proxy);
-        }
-
-        private void ClearPool()
-        {
-            while (pool.Count > 0)
-            {
-                var proxy = pool.Pop();
-                if (proxy.gameObject != null) Discard(proxy.gameObject);
-            }
         }
 
         // What this makes is hidden and unsaved exactly as its host is: nothing in the game, everything in
@@ -809,13 +777,6 @@ namespace LittlePeeps
         {
             var flags = host.gameObject.hideFlags;
             foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.hideFlags = flags;
-        }
-
-        // Destroy is refused in Edit Mode, where the tuning window runs this.
-        private static void Discard(Object obj)
-        {
-            if (Application.isPlaying) Object.Destroy(obj);
-            else Object.DestroyImmediate(obj);
         }
     }
 }

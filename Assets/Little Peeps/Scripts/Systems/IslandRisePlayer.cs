@@ -10,13 +10,11 @@ namespace LittlePeeps
     //
     // Runs on unscaled time: an age transition plays with the game paused (timeScale 0), so people and
     // animals stand still while their island grows, and everything the rise shows has to keep moving
-    // regardless — capped per frame by the profile's Slow frames setting. Wire: profile, islandSystem,
-    // waterSystem (optional — without it the tiles in the air do not push on the water).
+    // regardless — capped per frame by the profile's Slow frames setting. Wire: profile, islandSystem.
     public class IslandRisePlayer : MonoBehaviour
     {
         [SerializeField] private IslandRiseProfile profile;
         [SerializeField] private IslandSystem islandSystem;
-        [SerializeField] private WaterSystem waterSystem;
 
         private IslandRise rise;
         private Action onDone;
@@ -29,8 +27,7 @@ namespace LittlePeeps
         {
             if (IsPlaying) Finish();
 
-            rise ??= new IslandRise(transform, pushWater: waterSystem != null && waterSystem.HasWater,
-                                    shakeCamera: true, simulateEffects: false);
+            rise ??= new IslandRise(transform, shakeCamera: true, simulateEffects: false);
 
             var drawing = islandSystem != null ? islandSystem.Drawing : null;
             int seed = section != null && islandSystem != null

@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dbb8c1fec873164280b26e25c517c73, type: 3}
+  m_Name: Tile Set Forest
+  m_EditorClassIdentifier: 
+  groundLight: {fileID: 11400000, guid: b2ba768f0e0c80847af966b6817afbf6, type: 2}
+  groundDark: {fileID: 11400000, guid: 8878ee67529d2d6449c64ba2ba0d0313, type: 2}
+  cornerTopLeftLight: {fileID: 11400000, guid: b09c3f15d4c66794c8d27149e882e697, type: 2}
+  cornerTopLeftDark: {fileID: 11400000, guid: daece18c45dbb0e47a533db756f61533, type: 2}
+  cornerTopRightLight: {fileID: 11400000, guid: d0634b4d7de1d1e4a9cf4f395c83a3fb, type: 2}
+  cornerTopRightDark: {fileID: 11400000, guid: 95102b45cf248b94488897cb89e158a6, type: 2}
+  cornerBottomLeftLight: {fileID: 11400000, guid: 48a4b2720650e9e4abf7bba6f9d20f47, type: 2}
+  cornerBottomLeftDark: {fileID: 11400000, guid: 5053c4db87102b54d9f2101df718da4e, type: 2}
+  cornerBottomRightLight: {fileID: 11400000, guid: 4ac6d6412c5c8e3478c83cb7b4dfd7e0, type: 2}
+  cornerBottomRightDark: {fileID: 11400000, guid: 5ff3be726b4459d48b1a10570b18cf4b, type: 2}
+  leftEdgeTop: {fileID: 11400000, guid: d1d836057795e7843a51c2fb2d0f73e1, type: 2}
+  leftEdgeMid: {fileID: 11400000, guid: a09a464720df9704a9d5cff2bf5c03d8, type: 2}
+  leftEdgeBottom: {fileID: 0}
+  rightEdgeTop: {fileID: 11400000, guid: 9c328e2f6a5fe35459bcc45fe00a9300, type: 2}
+  rightEdgeMid: {fileID: 11400000, guid: 59384654330952246bb5d441ec4d02b4, type: 2}
+  rightEdgeBottom: {fileID: 0}
+  bottomEdgeLeft: {fileID: 11400000, guid: 5ea78f8889b9eca4e80c0b7c4d64ecac, type: 2}
+  bottomEdgeMid: {fileID: 11400000, guid: 2c7734e020da9ca4f84a13a7332494b8, type: 2}
+  bottomEdgeRight: {fileID: 11400000, guid: 23808c86ec53b814dabd407cacc62999, type: 2}
+  decorLight:
+  - {fileID: 11400000, guid: 8f5a807a54bc09f4abb3f5c1d9af17b3, type: 2}
+  - {fileID: 11400000, guid: 88fd15be9eac98a42b7a995572a27e58, type: 2}
+  - {fileID: 11400000, guid: c31c560a67f0d3e438b7656131d0d24e, type: 2}
+  - {fileID: 11400000, guid: 1bb65a19aad943a4cb467dd9bf413ca3, type: 2}
+  decorDark:
+  - {fileID: 11400000, guid: 480ea5fd218342b4a833b63a2bd7fcdd, type: 2}
+  - {fileID: 11400000, guid: e0837fd1c8fd34c489136fd18b394022, type: 2}
+  - {fileID: 11400000, guid: ef488d4ad0043ad4e9bd23e964075dcc, type: 2}
+  - {fileID: 11400000, guid: a12eafdfb39a9ab4ea78352525c1079a, type: 2}
+  - {fileID: 11400000, guid: de6cc646b4e9c1646a7abb7d66652033, type: 2}
+  invertCheckerboard: 1

@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a36f9882f00203f4e8db409b40563876, type: 3}
+  m_Name: Coast Wave Set
+  m_EditorClassIdentifier: 
+  frames:
+  - leftEdgeTop: {fileID: 5114455361061001634, guid: b60ed5f38e8d98e42a2d90e4ddec0645, type: 3}
+    leftEdgeMid: {fileID: 2771095474174536574, guid: b60ed5f38e8d98e42a2d90e4ddec0645, type: 3}
+    leftEdgeBottom: {fileID: 1620911773218029140, guid: b60ed5f38e8d98e42a2d90e4ddec0645, type: 3}
+    bottomEdgeLeft: {fileID: 1399004540722135362, guid: b60ed5f38e8d98e42a2d90e4ddec0645, type: 3}
+    bottomEdgeMid: {fileID: 6275768452848519539, guid: b60ed5f38e8d98e42a2d90e4ddec0645, type: 3}
+    cornerBay: {fileID: 4005977239779772497, guid: 89f3c8babd4045929f4db13966f62cfb, type: 3}
+    cornerStep: {fileID: 7269918125237359600, guid: 89f3c8babd4045929f4db13966f62cfb, type: 3}
+    cornerNotch: {fileID: 8280567236741746638, guid: 89f3c8babd4045929f4db13966f62cfb, type: 3}
+  - leftEdgeTop: {fileID: 5001169614392877422, guid: a58f4e8c75ffc1449adeb3e3a382bd8d, type: 3}
+    leftEdgeMid: {fileID: 4945678527967894766, guid: a58f4e8c75ffc1449adeb3e3a382bd8d, type: 3}
+    leftEdgeBottom: {fileID: 3644914569156954118, guid: a58f4e8c75ffc1449adeb3e3a382bd8d, type: 3}
+    bottomEdgeLeft: {fileID: 1299246188528392157, guid: a58f4e8c75ffc1449adeb3e3a382bd8d, type: 3}
+    bottomEdgeMid: {fileID: 8819685514204412549, guid: a58f4e8c75ffc1449adeb3e3a382bd8d, type: 3}
+    cornerBay: {fileID: 3027155899517684675, guid: b34513d9f03c4290a89149d0ddc884dd, type: 3}
+    cornerStep: {fileID: 2917063317244684017, guid: b34513d9f03c4290a89149d0ddc884dd, type: 3}
+    cornerNotch: {fileID: 4540452608478958815, guid: b34513d9f03c4290a89149d0ddc884dd, type: 3}
+  - leftEdgeTop: {fileID: 6928400098547591887, guid: e5dc436a8de96db4b86c2f8efd9d4fa0, type: 3}
+    leftEdgeMid: {fileID: 3814099295483272729, guid: e5dc436a8de96db4b86c2f8efd9d4fa0, type: 3}
+    leftEdgeBottom: {fileID: 6282733506333586010, guid: e5dc436a8de96db4b86c2f8efd9d4fa0, type: 3}
+    bottomEdgeLeft: {fileID: 2762395732891872785, guid: e5dc436a8de96db4b86c2f8efd9d4fa0, type: 3}
+    bottomEdgeMid: {fileID: 4364400790658988774, guid: e5dc436a8de96db4b86c2f8efd9d4fa0, type: 3}
+    cornerBay: {fileID: 3819417998779340450, guid: 36501353925d40d9beae861b08ccec83, type: 3}
+    cornerStep: {fileID: 8093679530437402176, guid: 36501353925d40d9beae861b08ccec83, type: 3}
+    cornerNotch: {fileID: 3290958911696380263, guid: 36501353925d40d9beae861b08ccec83, type: 3}
+  - leftEdgeTop: {fileID: 6675982842367653047, guid: 2ab119e5fe0c6734081654e85e5aa1ce, type: 3}
+    leftEdgeMid: {fileID: 7353254279302166795, guid: 2ab119e5fe0c6734081654e85e5aa1ce, type: 3}
+    leftEdgeBottom: {fileID: 8429250123088620109, guid: 2ab119e5fe0c6734081654e85e5aa1ce, type: 3}
+    bottomEdgeLeft: {fileID: 2407045193502520090, guid: 2ab119e5fe0c6734081654e85e5aa1ce, type: 3}
+    bottomEdgeMid: {fileID: 1519007031164590989, guid: 2ab119e5fe0c6734081654e85e5aa1ce, type: 3}
+    cornerBay: {fileID: 6684766420291507837, guid: 258d9205e1c542f7b787a1d5d77ad23a, type: 3}
+    cornerStep: {fileID: 7475348991922627568, guid: 258d9205e1c542f7b787a1d5d77ad23a, type: 3}
+    cornerNotch: {fileID: 5583284751563972576, guid: 258d9205e1c542f7b787a1d5d77ad23a, type: 3}
+  steps:
+  - frame: 0
+    seconds: 1
+  - frame: 1
+    seconds: 0.4
+  - frame: 2
+    seconds: 0.4
+  - frame: 3
+    seconds: 0.4
+  - frame: 2
+    seconds: 0.4
+  - frame: 1
+    seconds: 0.4

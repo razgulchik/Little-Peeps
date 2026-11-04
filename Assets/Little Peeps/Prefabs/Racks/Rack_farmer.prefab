@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 341156709457610043}
   - component: {fileID: 4314701166638441387}
   - component: {fileID: 2493966648408524244}
+  - component: {fileID: 3972314632274539894}
   m_Layer: 0
   m_Name: Rack_farmer
   m_TagString: Untagged
@@ -457,3 +458,16 @@ MonoBehaviour:
   damping: 0.3
   blockedLean: 0.6
   uselessLean: 0.6
+--- !u!114 &3972314632274539894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 831909280926080680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bef40fe504f4b168305be69db82060e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lightInsetPixels: 2

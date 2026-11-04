@@ -5,8 +5,8 @@ using UnityEngine.Tilemaps;
 
 namespace LittlePeeps
 {
-    // The island as it is DRAWN: the ground, decor, trim (horizontal and vertical) and border tilemaps painted
-    // from a grid, less whatever land is held back. The grid stays the truth — placement, content and units see
+    // The island as it is DRAWN: the ground, decor, trim (horizontal and vertical), border, coast wave and coast
+    // shadow tilemaps painted from a grid, less whatever land is held back. The grid stays the truth — placement, content and units see
     // every cell on it — and this only decides which cells the tilemaps show. That is what lets an age's zone
     // be on the grid from the moment it is committed and still come up out of the sea one tile at a time
     // (IslandRise).
@@ -22,6 +22,13 @@ namespace LittlePeeps
         public Tilemap TrimVerticalTilemap { get; }     // its columns, beside land to the east or west, over the bands
         public Tilemap DecorTilemap { get; }
 
+        // The coast's waves, under the island: null without waves to draw.
+        public Tilemap WaveHorizontalTilemap { get; }   // under the bands
+        public Tilemap WaveVerticalTilemap { get; }     // beside the columns, over the horizontal waves
+
+        // The island's shadow on the water, under the waves: null without a shadow to draw.
+        public Tilemap CoastShadowTilemap { get; }
+
         // The soft borders between terrains, top first (IslandBorderPainter): never null, maybe empty.
         public IReadOnlyList<IslandBorderLayer> BorderLayers { get; }
 
@@ -31,8 +38,27 @@ namespace LittlePeeps
         private readonly HashSet<Vector2Int> hidden = new();
         private readonly IslandTilePainter.Land land;   // the grid minus `hidden`
 
-        // Set by every paint, taken by whoever mirrors the drawn island (IslandSystem → IslandRepaintedEvent).
-        private bool repainted;
+        private readonly CoastWaveTiles waveTiles;      // null without waves; not this drawing's to destroy
+        private readonly IslandTilePainter.Waves waves;
+        private int waveFrame;                          // the frame the waves are painted in
+
+        private readonly IslandTilePainter.CoastShadow coastShadow;
+
+        // What lies on the water draws on the sorting layer and in the material of the trim, in the orders right
+        // under the island's lowest layer. Top down, how many orders under it: the waves, the structures'
+        // projections (no tilemaps, see ProjectionLook), the island's shadow.
+        private const int WaveVerticalDepth = 1;
+        private const int WaveHorizontalDepth = 2;
+        private const int ProjectionLightDepth = 3;
+        private const int ProjectionDarkDepth = 4;
+        private const int CoastShadowDepth = 5;
+
+        private int islandLowestOrder;
+        private Material underIslandMaterial;
+
+        // The sorting layer of what lies on the water, and the lowest order any of it takes.
+        public int UnderIslandSortingLayer { get; private set; }
+        public int LowestUnderIslandOrder => islandLowestOrder - CoastShadowDepth;
 
         // tileSetFor answers with a set for every terrain (a default for unmapped ones); the two trim tilemaps
         // and decorTilemap may be null — the ground still draws, just without its outline or decor (with no
@@ -40,9 +66,17 @@ namespace LittlePeeps
         // decor: the run's, so a seed always comes back with the same island. borderLayers is the cascade,
         // top first; null or empty draws no borders. Their tilemaps are sorted by it here, and the vertical
         // trim is made to draw like the horizontal, right over it.
+        //
+        // The waves are drawn when waveTiles is given, on whichever of their two tilemaps is (with only one, the
+        // columns' waves go on it the way the trim's columns do); the caller keeps waveTiles alive and destroys
+        // it. Their tilemaps are sorted under the island and drawn in the trim's material here. So is the coast
+        // shadow's, under them, drawn when both it and its tile are given.
         public IslandDrawing(IslandGrid grid, Func<TerrainType, IslandTileSet> tileSetFor, Tilemap groundTilemap,
                              Tilemap trimHorizontalTilemap, Tilemap decorTilemap = null, int decorSeed = 0,
-                             IReadOnlyList<IslandBorderLayer> borderLayers = null, Tilemap trimVerticalTilemap = null)
+                             IReadOnlyList<IslandBorderLayer> borderLayers = null, Tilemap trimVerticalTilemap = null,
+                             Tilemap waveHorizontalTilemap = null, Tilemap waveVerticalTilemap = null,
+                             CoastWaveTiles waveTiles = null, Tilemap coastShadowTilemap = null,
+                             TileBase coastShadowTile = null)
         {
             Grid = grid;
             this.tileSetFor = tileSetFor;
@@ -54,7 +88,22 @@ namespace LittlePeeps
             BorderLayers = borderLayers ?? Array.Empty<IslandBorderLayer>();
             cascade = new IslandBorderPainter.Cascade(TerrainsOf(BorderLayers));
             land = new IslandTilePainter.Land(grid, hidden.Contains);
+            if (waveTiles != null && (waveHorizontalTilemap != null || waveVerticalTilemap != null))
+            {
+                this.waveTiles = waveTiles;
+                WaveHorizontalTilemap = waveHorizontalTilemap;
+                WaveVerticalTilemap = waveVerticalTilemap;
+                waves = new IslandTilePainter.Waves(waveHorizontalTilemap, waveVerticalTilemap,
+                                                    piece => this.waveTiles.Get(waveFrame, piece),
+                                                    (horizontal, vertical) => this.waveTiles.Corner(waveFrame, horizontal, vertical));
+            }
+            if (coastShadowTilemap != null && coastShadowTile != null)
+            {
+                CoastShadowTilemap = coastShadowTilemap;
+                coastShadow = new IslandTilePainter.CoastShadow(coastShadowTilemap, coastShadowTile);
+            }
             MatchTrimVertical();
+            MatchUnderIsland();
             StackBorderLayers();
         }
 
@@ -73,6 +122,51 @@ namespace LittlePeeps
             vertical.sortingOrder = horizontal.sortingOrder + 1;
             TrimVerticalTilemap.tileAnchor = TrimHorizontalTilemap.tileAnchor;
         }
+
+        // The waves and the shadow are the outline's too, so they draw as the trim does — its material (the land's
+        // bend: a zone rising lifts its foam and its shadow's edge with it), its sorting layer, its tile anchor — but
+        // under the whole island, columns over bands as the trim stacks them, and the shadow below them all. That
+        // puts them over everything on the water's own sorting layer (the sea, the gradient over it). Copied rather
+        // than trusted to be set alike, as the vertical trim's are.
+        private void MatchUnderIsland()
+        {
+            var likeTilemap = TrimHorizontalTilemap != null ? TrimHorizontalTilemap : GroundTilemap;
+            var like = likeTilemap != null ? likeTilemap.GetComponent<TilemapRenderer>() : null;
+            if (like == null) return;
+
+            int lowest = like.sortingOrder;
+            foreach (var tilemap in new[] { GroundTilemap, TrimHorizontalTilemap, TrimVerticalTilemap })
+            {
+                var renderer = tilemap != null ? tilemap.GetComponent<TilemapRenderer>() : null;
+                if (renderer != null && renderer.sortingLayerID == like.sortingLayerID)
+                    lowest = Mathf.Min(lowest, renderer.sortingOrder);
+            }
+
+            islandLowestOrder = lowest;
+            underIslandMaterial = like.sharedMaterial;
+            UnderIslandSortingLayer = like.sortingLayerID;
+
+            Match(WaveVerticalTilemap, lowest - WaveVerticalDepth);
+            Match(WaveHorizontalTilemap, lowest - WaveHorizontalDepth);
+            Match(CoastShadowTilemap, lowest - CoastShadowDepth);
+
+            void Match(Tilemap underTilemap, int order)
+            {
+                var renderer = underTilemap != null ? underTilemap.GetComponent<TilemapRenderer>() : null;
+                if (renderer == null) return;
+                renderer.sharedMaterial = like.sharedMaterial;
+                renderer.sortingLayerID = like.sortingLayerID;
+                renderer.sortingOrder = order;
+                underTilemap.tileAnchor = likeTilemap.tileAnchor;
+            }
+        }
+
+        // How a structure's projection on the water draws: over the island's shadow, under the waves. Unbent: a
+        // projection rides with its structure, which moves with the land already — and a bending renderer would
+        // have the rise take the whole structure for part of the land (IslandRise.DrawnAsLand).
+        public WaterProjectionLook ProjectionLook(Sprite dark, Sprite light) =>
+            new(dark, light, IslandBend.Unbent(underIslandMaterial), UnderIslandSortingLayer,
+                islandLowestOrder - ProjectionDarkDepth, islandLowestOrder - ProjectionLightDepth);
 
         // How the border layers stack is the cascade's to say, so they are sorted by it rather than trusted
         // to agree with it: on the ground's sorting layer, over the ground, its decor and both trim layers,
@@ -116,9 +210,8 @@ namespace LittlePeeps
         public void RepaintAll()
         {
             IslandTilePainter.Repaint(land, tileSetFor, GroundTilemap, TrimHorizontalTilemap, TrimVerticalTilemap,
-                                      DecorTilemap, decorSeed);
+                                      DecorTilemap, decorSeed, waves, coastShadow);
             IslandBorderPainter.Repaint(land, BorderLayers, cascade);
-            repainted = true;
         }
 
         // Take land off the screen without taking it off the grid: these cells' tiles go, and the coast
@@ -142,9 +235,8 @@ namespace LittlePeeps
         {
             if (!hidden.Remove(cell)) return;
             IslandTilePainter.RepaintAround(land, cell, tileSetFor, GroundTilemap, TrimHorizontalTilemap,
-                                            TrimVerticalTilemap, DecorTilemap, decorSeed);
+                                            TrimVerticalTilemap, DecorTilemap, decorSeed, waves, coastShadow);
             IslandBorderPainter.RepaintAround(land, cell, BorderLayers, cascade);
-            repainted = true;
         }
 
         public void RevealAllLand()
@@ -177,12 +269,22 @@ namespace LittlePeeps
             tilemap.SetColor(at, tint);
         }
 
-        // Whether anything was painted since the last call.
-        public bool TakeRepainted()
+        // The waves as they stand `seconds` into their loop, in real time — the caller's clock: they keep breaking
+        // through every pause, the island rise's included. Only a change of frame does anything: every wave tile
+        // is swapped for its piece's tile in the new frame, and nothing else is painted. True when the frame
+        // changed, for a caller that has to ask for the view to be drawn again.
+        public bool ShowWavesAt(double seconds)
         {
-            bool was = repainted;
-            repainted = false;
-            return was;
+            if (waveTiles == null) return false;
+            // The steps were checked when the tiles were made; the set can still be edited in Play Mode.
+            int frame = Mathf.Clamp(waveTiles.Set.FrameAt(seconds), 0, waveTiles.FrameCount - 1);
+            if (frame == waveFrame) return false;
+
+            // Every wave tile on both layers: with one layer missing, the other holds the columns' waves too.
+            if (WaveHorizontalTilemap != null) waveTiles.Swap(WaveHorizontalTilemap, waveFrame, frame);
+            if (WaveVerticalTilemap != null) waveTiles.Swap(WaveVerticalTilemap, waveFrame, frame);
+            waveFrame = frame;
+            return true;
         }
     }
 }

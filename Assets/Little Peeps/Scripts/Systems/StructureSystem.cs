@@ -144,6 +144,10 @@ namespace LittlePeeps
             // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river,
             // a river cell its piece by the river beside it.
             ApplyPlacementVisual(go, grid, cell, def.Footprint);
+
+            // What it throws on the water, if it is one of those that do.
+            if (go.TryGetComponent<WaterProjection>(out var projection))
+                projection.Show(islandSystem.ProjectionLook, def.size.x * grid.CellSize);
             return structure;
         }
 

@@ -66,12 +66,24 @@ namespace LittlePeeps
         {
             EventBus<BumpedEvent>.Subscribe(OnBumped);
             EventBus<CoastBumpedEvent>.Subscribe(OnCoastBumped);
+            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
         }
 
         private void OnDisable()
         {
             EventBus<BumpedEvent>.Unsubscribe(OnBumped);
             EventBus<CoastBumpedEvent>.Unsubscribe(OnCoastBumped);
+            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+        }
+
+        // The waves in flight belong to the run that just ended and its island — they must not hang over the
+        // new one (where a start perk pick would freeze them on its first frame). Clear, not Stop: the emitters
+        // stay playing, ready for the new run's first bump.
+        private void OnRunStarted(RunStartedEvent _)
+        {
+            for (int i = 0; i < emitters.Length; i++)
+                if (emitters[i] != null) emitters[i].Clear();
+            if (coastEmitter != null) coastEmitter.Clear();
         }
 
         private void OnBumped(BumpedEvent e)

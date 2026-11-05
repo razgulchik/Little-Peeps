@@ -62,13 +62,27 @@ namespace LittlePeeps
             if (numberPrefab != null) baseScale = numberPrefab.transform.localScale;
         }
 
-        private void OnEnable() => EventBus<HarvestedEvent>.Subscribe(OnHarvested);
+        private void OnEnable()
+        {
+            EventBus<HarvestedEvent>.Subscribe(OnHarvested);
+            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+        }
 
         private void OnDisable()
         {
             EventBus<HarvestedEvent>.Unsubscribe(OnHarvested);
+            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
 
             // Nothing will tick these again, so don't leave a screenful of numbers frozen mid-flight.
+            ReleaseAll();
+        }
+
+        // The numbers in flight belong to the run that just ended and its island — they must not hang over
+        // the new one (where a start perk pick would freeze them on its first frame).
+        private void OnRunStarted(RunStartedEvent _) => ReleaseAll();
+
+        private void ReleaseAll()
+        {
             for (int i = 0; i < count; i++) Release(active[i].view);
             count = 0;
         }

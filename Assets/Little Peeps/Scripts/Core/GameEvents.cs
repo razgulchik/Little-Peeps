@@ -54,7 +54,9 @@ namespace LittlePeeps
     // Published by RunManager at the end of StartNewRun, once the new run is fully built. Systems that
     // CACHE the RunContext subscribe and re-bind, so a prestige doesn't leave them reading the run that
     // just ended. Systems RunManager initialises itself (Resource/Structure/Spawn) are not among them —
-    // they are ordered dependencies of StartNewRun, not observers of it.
+    // they are ordered dependencies of StartNewRun, not observers of it. The effect systems that outlive
+    // a run (HarvestNumbers, HarvestVfxSystem, BumpVfxSystem) subscribe too, to drop what is still in flight
+    // over the old island.
     public struct RunStartedEvent
     {
         public RunContext Run;

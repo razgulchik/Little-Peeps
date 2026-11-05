@@ -308,6 +308,10 @@ namespace LittlePeeps
             capByDef.Clear();
             activeByDef.Clear();
             spawners.Clear();
+
+            // Puffs still in flight belong to the island being thrown away. Clear, not Stop: the emitter
+            // stays playing, ready for the new run.
+            if (puffEmitter != null) puffEmitter.Clear();
         }
 
         private void DespawnAll()

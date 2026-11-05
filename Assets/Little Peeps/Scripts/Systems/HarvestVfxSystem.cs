@@ -41,8 +41,26 @@ namespace LittlePeeps
             if (viewCamera == null) viewCamera = Camera.main;
         }
 
-        private void OnEnable() => EventBus<HarvestedEvent>.Subscribe(OnHarvested);
-        private void OnDisable() => EventBus<HarvestedEvent>.Unsubscribe(OnHarvested);
+        private void OnEnable()
+        {
+            EventBus<HarvestedEvent>.Subscribe(OnHarvested);
+            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+        }
+
+        private void OnDisable()
+        {
+            EventBus<HarvestedEvent>.Unsubscribe(OnHarvested);
+            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+        }
+
+        // The particles in flight belong to the run that just ended and its island — they must not hang over
+        // the new one (where a start perk pick would freeze them on its first frame). Clear, not Stop: the
+        // emitters stay playing, ready for the new run's first harvest.
+        private void OnRunStarted(RunStartedEvent _)
+        {
+            foreach (var emitter in emitters.Values)
+                if (emitter != null) emitter.Clear();
+        }
 
         private void OnHarvested(HarvestedEvent e)
         {

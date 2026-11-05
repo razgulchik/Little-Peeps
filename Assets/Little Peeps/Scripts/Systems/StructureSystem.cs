@@ -139,6 +139,7 @@ namespace LittlePeeps
                 foreach (var source in sources) source.Initialize(resourceSystem, spawnSystem, cells);
             }
             foreach (var animalSpawner in go.GetComponentsInChildren<AnimalSpawner>(true)) animalSpawner.Initialize(spawnSystem, resourceSystem, grid, instance);
+            foreach (var coop in go.GetComponentsInChildren<ChickenCoop>(true)) coop.Initialize(spawnSystem, resourceSystem, grid, instance);
             foreach (var tavern in go.GetComponentsInChildren<Tavern>(true)) tavern.Initialize(resourceSystem, grid, instance);
 
             // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river,
@@ -275,7 +276,8 @@ namespace LittlePeeps
         // may be left pointing at a building that is gone. (A run teardown is the other way out, see
         // ClearAll: everything goes at once there, so none of this applies.)
         //   - a tavern lets its guests out where it stood (Tavern.EvictAll);
-        //   - a den's animals go in a puff — they belong to the den, and only it lets them out;
+        //   - a den's animals go in a puff — they belong to the den, and only it lets them out — and so do
+        //     a coop's birds;
         //   - every spawner hands its books back NOW rather than in the deferred OnDestroy (resting units
         //     back to the pool, capacity given back, unregistered), so that
         //   - SpawnSystem.TrimSurplus sees the room that is left and takes the residents a sold house
@@ -289,9 +291,15 @@ namespace LittlePeeps
                 tavern.EvictAll();
 
             if (spawnSystem != null)
+            {
                 foreach (var den in structure.GetComponentsInChildren<AnimalSpawner>(true))
                     for (int i = 0; i < den.Animals.Count; i++)
                         if (den.Animals[i] != null) spawnSystem.Puff(den.Animals[i].transform.position);
+
+                foreach (var coop in structure.GetComponentsInChildren<ChickenCoop>(true))
+                    for (int i = 0; i < coop.Flying.Count; i++)
+                        if (coop.Flying[i] != null) spawnSystem.Puff(coop.Flying[i].transform.position);
+            }
 
             foreach (var spawner in structure.GetComponentsInChildren<IStructureSpawner>(true))
                 spawner.Teardown();

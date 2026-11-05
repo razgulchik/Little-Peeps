@@ -39,6 +39,9 @@ namespace LittlePeeps
     // always walk off it — and a cell site waits until no animal stands on its spot either. Without that
     // wait a house went up around a grazing animal, and every step it then tried led into the house.
     //
+    // A coop's bird flying over the spot goes home in a puff (SendChickensHome): it has a pen to go to, and
+    // waiting for it to fly out could hold a building up for as long as it pleases.
+    //
     // Built entirely in code by Create — there is no prefab to wire — and swapped for the real prefab on
     // completion; the StructureInstance stays the same object throughout.
     [RequireComponent(typeof(Structure))]
@@ -111,11 +114,14 @@ namespace LittlePeeps
             // Before the next physics step: the site is placed from a click (Update), and every FixedUpdate of
             // the next frame — the simulation's included — comes after this, so no insider ever touches the wall.
             AdoptUnitsInside();
+            SendChickensHome();
         }
 
         // Physics time, like the units: a frozen screen (perk pick, age transition) holds the site as it is.
         private void FixedUpdate()
         {
+            SendChickensHome();
+
             for (int i = insiders.Count - 1; i >= 0; i--)
             {
                 var unit = insiders[i];
@@ -163,6 +169,17 @@ namespace LittlePeeps
                 Physics2D.IgnoreCollision(unit.Body, wall, true);
                 insiders.Add(unit);
             }
+        }
+
+        // Every bird whose centre is on the spot. The centre and not the whole body, so a bird that only
+        // bounces off the wall from outside is left alone. A bird can get in past the wall the way a unit
+        // can (see FixedUpdate), so this runs for as long as the site stands.
+        private void SendChickensHome()
+        {
+            var chickens = Chicken.Alive;
+            for (int i = 0; i < chickens.Count; i++)
+                if (chickens[i] != null && ConstructionArea.Overlaps(area, chickens[i].BodyCenter, 0f))
+                    chickens[i].GoHome();
         }
 
         // Whether an animal stands on the spot: its feet (the transform, where the grid reads it too) on any

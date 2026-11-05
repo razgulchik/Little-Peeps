@@ -58,6 +58,7 @@ namespace LittlePeeps
         private State state = State.Ready;
         private float respawnTimer;
         private IReadOnlyList<Rect> cells;   // the structure's, in the world; null = none (an animal)
+        private bool despawned;              // a Despawn source's last hit has landed; it is gone by the frame's end
 
         // A hit has just paid — after the credit, before any depletion. What an add-on settles its own
         // state on (the mill empties its store), since only here is it certain the hit paid.
@@ -130,7 +131,7 @@ namespace LittlePeeps
         // hit that depletes or despawns the source: that hit shows as the reap, not as a bump.
         public HitOutcome OnHit(Unit unit, CollisionTarget target)
         {
-            if (state == State.Harvested || def == null || resourceSystem == null || unit == null) return HitOutcome.None;
+            if (state == State.Harvested || despawned || def == null || resourceSystem == null || unit == null) return HitOutcome.None;
             if (!def.TryGetYield(unit.Type, out float amount)) return HitOutcome.None;
 
             // Add-on scales (ForgeHeat) multiply the BASE amount, so they sit under the run's modifiers
@@ -151,7 +152,11 @@ namespace LittlePeeps
 
             // Despawn: gone for good. The feedback above was already sent with the position, so it
             // outlives the node; the den hears about the loss from Animal.OnDestroy.
-            if (def.depletion == Depletion.Despawn) Destroy(gameObject);
+            if (def.depletion == Depletion.Despawn)
+            {
+                despawned = true;   // Destroy is deferred: a second unit crossing in this same step must not be paid too
+                Destroy(gameObject);
+            }
             else Deplete();
             return HitOutcome.UsedUp;
         }
@@ -180,6 +185,11 @@ namespace LittlePeeps
                 if (unit != null && unit.IsOnField && ConstructionArea.Overlaps(cells, unit.BodyCenter, unit.BodyRadius))
                     return true;
             }
+
+            var chickens = Chicken.Alive;
+            for (int i = 0; i < chickens.Count; i++)
+                if (chickens[i] != null && ConstructionArea.Overlaps(cells, chickens[i].BodyCenter, chickens[i].BodyRadius))
+                    return true;
             return false;
         }
 

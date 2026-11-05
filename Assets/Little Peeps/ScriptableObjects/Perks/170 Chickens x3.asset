@@ -19,7 +19,7 @@ MonoBehaviour:
   smallIcon: {fileID: 21300000, guid: 7297b02535ea4ee46bcc978365046c43, type: 3}
   grade: 0
   rarity: 3
-  weight: 100
+  weight: 1
   minAge: 2
   requires: {fileID: 0}
   levels: 1

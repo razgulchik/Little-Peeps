@@ -323,6 +323,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: 8736fb6aa630adb49b82019dfce13a8b, type: 2}
   resourceSystem: {fileID: 0}
+  spawnSystem: {fileID: 0}
   fxAnchor: {fileID: 5123960186200300597}
 --- !u!114 &8492232596221062094
 MonoBehaviour:
@@ -372,7 +373,23 @@ MonoBehaviour:
     m_RotationOrder: 4
   widthFollows: 1
   squashDuration: 0.2
+  waves: 1
+  blockedSquash: 0.5
+  uselessSquash: 0.35
   minInterval: 0.15
+--- !u!114 &6979963194301684889
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3665828757108797952}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bef40fe504f4b168305be69db82060e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lightInsetPixels: 2
 --- !u!1 &6972097579630732581
 GameObject:
   m_ObjectHideFlags: 0
@@ -550,22 +567,9 @@ Transform:
   m_GameObject: {fileID: 8645956111892562565}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.6875, z: 0}
+  m_LocalPosition: {x: 0, y: 2.875, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1804084537577775017}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6979963194301684889
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3665828757108797952}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3bef40fe504f4b168305be69db82060e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  lightInsetPixels: 2

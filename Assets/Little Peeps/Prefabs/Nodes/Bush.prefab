@@ -79,6 +79,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 42c2b62f2a4f8894ab418aa62750d82f, type: 2}
+  taxFxAnchor: {fileID: 0}
 --- !u!114 &6350096946007942276
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -93,6 +94,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   def: {fileID: 11400000, guid: 8bd8056c1cfba16499856cc27baf86bf, type: 2}
   resourceSystem: {fileID: 0}
+  spawnSystem: {fileID: 0}
   fxAnchor: {fileID: 3936104942616605764}
 --- !u!114 &2865929945107580217
 MonoBehaviour:
@@ -167,6 +169,26 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &3809043241856848835
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 831909280926080680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb9c93e3f5bf4f20aa40ae5ec9d85082, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  leanTarget: {fileID: 3936104942616605764}
+  maxTilt: 8
+  maxStretch: 0.06
+  squatOnly: 0
+  frequency: 3
+  damping: 0.3
+  blockedLean: 0.6
+  uselessLean: 0.6
 --- !u!1 &3998499462639044529
 GameObject:
   m_ObjectHideFlags: 0
@@ -534,6 +556,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3525689260355347565}
   - component: {fileID: 1273545211605596717}
+  - component: {fileID: 5698991852110254551}
   m_Layer: 0
   m_Name: Model_Harvested
   m_TagString: Untagged
@@ -613,6 +636,21 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 1
+--- !u!114 &5698991852110254551
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7757070926767666809}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b76a3ae4c25760e4eb7e2b1f8efb66f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  castShadow: 1
+  offsetPixels: {x: 0, y: 1}
+  alpha: 0.11764706
 --- !u!1 &7981387064455066318
 GameObject:
   m_ObjectHideFlags: 0
@@ -820,23 +858,3 @@ Transform:
   - {fileID: 3525689260355347565}
   m_Father: {fileID: 624315485844873439}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &3809043241856848835
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 831909280926080680}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb9c93e3f5bf4f20aa40ae5ec9d85082, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  leanTarget: {fileID: 3936104942616605764}
-  maxTilt: 8
-  maxStretch: 0.06
-  squatOnly: 0
-  frequency: 3
-  damping: 0.3
-  blockedLean: 0.6
-  uselessLean: 0.6

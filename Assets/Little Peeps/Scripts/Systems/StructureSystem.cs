@@ -298,7 +298,7 @@ namespace LittlePeeps
 
                 foreach (var coop in structure.GetComponentsInChildren<ChickenCoop>(true))
                     for (int i = 0; i < coop.Flying.Count; i++)
-                        if (coop.Flying[i] != null) spawnSystem.Puff(coop.Flying[i].transform.position);
+                        if (coop.Flying[i] != null) spawnSystem.SmallPuff(coop.Flying[i].transform.position);
             }
 
             foreach (var spawner in structure.GetComponentsInChildren<IStructureSpawner>(true))

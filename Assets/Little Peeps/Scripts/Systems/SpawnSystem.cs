@@ -39,13 +39,18 @@ namespace LittlePeeps
                  "shared emitter (World space, no emission of its own). Empty = they just vanish.")]
         [SerializeField] private ParticleSystem puffFx;
 
-        [Tooltip("Particles per puff.")]
+        [Tooltip("The same puff, drawn smaller, for a coop's bird. Built like Puff Fx. Empty = the bird just " +
+                 "vanishes.")]
+        [SerializeField] private ParticleSystem smallPuffFx;
+
+        [Tooltip("Particles per puff, of either size.")]
         [SerializeField, Min(1)] private int puffParticles = 8;
 
         [Tooltip("Played with every puff. Empty = silent.")]
         [SerializeField] private SoundDef puffSound;
 
         private ParticleSystem puffEmitter;
+        private ParticleSystem smallPuffEmitter;
 
         private readonly Dictionary<UnitDef, int> capByDef = new();
         private readonly Dictionary<UnitDef, int> activeByDef = new();
@@ -102,6 +107,11 @@ namespace LittlePeeps
                 puffEmitter = SharedEmitter.Create(puffFx, transform, "PuffFx",
                                                    $"SpawnSystem: '{puffFx.name}' (puff of a unit taken off the island)",
                                                    "SpawnSystem.puffParticles");
+
+            if (smallPuffFx != null)
+                smallPuffEmitter = SharedEmitter.Create(smallPuffFx, transform, "SmallPuffFx",
+                                                        $"SpawnSystem: '{smallPuffFx.name}' (puff of a coop's bird)",
+                                                        "SpawnSystem.puffParticles");
         }
 
         private void Update()
@@ -296,6 +306,14 @@ namespace LittlePeeps
             if (soundSystem != null) soundSystem.Play(puffSound);
         }
 
+        // The same for a coop's bird: its own smaller art, because scaling the big sheet down would break
+        // the pixel grid. Same sound.
+        public void SmallPuff(Vector2 position)
+        {
+            SharedEmitter.EmitAt(smallPuffEmitter, position, puffParticles);
+            if (soundSystem != null) soundSystem.Play(puffSound);
+        }
+
         // Run teardown: every unit back to the pool and every scrap of per-run bookkeeping dropped, so
         // the next run starts from a clean sheet instead of inheriting caps and spawner entries.
         //
@@ -312,6 +330,7 @@ namespace LittlePeeps
             // Puffs still in flight belong to the island being thrown away. Clear, not Stop: the emitter
             // stays playing, ready for the new run.
             if (puffEmitter != null) puffEmitter.Clear();
+            if (smallPuffEmitter != null) smallPuffEmitter.Clear();
         }
 
         private void DespawnAll()

@@ -3167,6 +3167,7 @@ MonoBehaviour:
   soundSystem: {fileID: 950349391}
   stuckSweepInterval: 0.5
   puffFx: {fileID: 8980289643981497851, guid: 41f10d4e499e4cab833a9da662dd4217, type: 3}
+  smallPuffFx: {fileID: 8980289643981497851, guid: 4973b0a9aca2437aadf8ead3094e0761, type: 3}
   puffParticles: 1
   puffSound: {fileID: 11400000, guid: 8e62a9a0bfff4b0c856ae611a829ddd2, type: 2}
 --- !u!4 &711440997

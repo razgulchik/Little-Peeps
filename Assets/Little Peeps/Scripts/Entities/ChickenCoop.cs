@@ -161,7 +161,7 @@ namespace LittlePeeps
 
         public void Puff(Vector2 at)
         {
-            if (spawnSystem != null) spawnSystem.Puff(at);
+            if (spawnSystem != null) spawnSystem.SmallPuff(at);
         }
 
         private void ShowPen()

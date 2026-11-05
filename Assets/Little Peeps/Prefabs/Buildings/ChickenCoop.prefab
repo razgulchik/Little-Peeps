@@ -79,6 +79,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 136d0938cb6369028c393427b99ca015, type: 2}
+  taxFxAnchor: {fileID: 0}
 --- !u!114 &1947367019355775185
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -92,7 +93,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   chickenPrefab: {fileID: 4386377681604152477, guid: 56b4ec77d703fee4d00ac6d9b748036f, type: 3}
-  flockSize: 5
+  flockSize: 3
   restTime: 0
   releasedBy: 1
   releaseSound: {fileID: 0}

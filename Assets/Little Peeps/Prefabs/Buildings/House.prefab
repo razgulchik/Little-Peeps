@@ -201,6 +201,7 @@ Transform:
   m_Children:
   - {fileID: 3717784755494331762}
   - {fileID: 249872939212404820}
+  - {fileID: 1638250947716042985}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &3442869824636118119
@@ -244,6 +245,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bounceSound: {fileID: 0}
   def: {fileID: 11400000, guid: 24b3b61ee172148489feb1c8cfcb8a95, type: 2}
+  taxFxAnchor: {fileID: 1638250947716042985}
 --- !u!114 &7576926083405738824
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -318,6 +320,19 @@ MonoBehaviour:
   blockedSquash: 0.5
   uselessSquash: 0.35
   minInterval: 0.15
+--- !u!114 &4960125393205491662
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2603376487552531715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bef40fe504f4b168305be69db82060e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lightInsetPixels: 2
 --- !u!1 &3660868618199599061
 GameObject:
   m_ObjectHideFlags: 0
@@ -421,6 +436,37 @@ MonoBehaviour:
   castShadow: 1
   offsetPixels: {x: 0, y: 2}
   alpha: 0.13725491
+--- !u!1 &7241906385510273946
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1638250947716042985}
+  m_Layer: 0
+  m_Name: TaxFx_Anchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1638250947716042985
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7241906385510273946}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.8125, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3867302214612423989}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8785312853424561509
 GameObject:
   m_ObjectHideFlags: 0
@@ -454,16 +500,3 @@ Transform:
   - {fileID: 8084760205709484988}
   m_Father: {fileID: 3867302214612423989}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4960125393205491662
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2603376487552531715}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3bef40fe504f4b168305be69db82060e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  lightInsetPixels: 2

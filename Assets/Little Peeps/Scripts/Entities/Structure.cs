@@ -17,6 +17,11 @@ namespace LittlePeeps
     {
         public StructureDef def;
 
+        [Tooltip("Where the tax leaves from — the extra resource a perk makes this building pay on a hit: its " +
+                 "pickup effect and floating number. Empty = this transform. Apart from a ResourceSource's own " +
+                 "fx anchor: that one belongs to what the source yields, this one to the tax alone.")]
+        [SerializeField] private Transform taxFxAnchor;
+
         private static readonly ResourceType[] ResourceTypes =
             (ResourceType[])System.Enum.GetValues(typeof(ResourceType));
 
@@ -35,19 +40,20 @@ namespace LittlePeeps
         }
 
         // ICollisionEffect — every resource the run's modifiers name for this building, through the
-        // production gateway like any harvest. Out of the building's root, the same default a source
-        // without an fx anchor uses.
+        // production gateway like any harvest. Out of the tax anchor, or the building's root without one —
+        // the same default a source without an fx anchor uses.
         public HitOutcome OnHit(Unit unit, CollisionTarget target)
         {
             if (unit == null) return HitOutcome.None;
 
             var outcome = HitOutcome.None;
+            Vector3 origin = taxFxAnchor != null ? taxFxAnchor.position : transform.position;
             for (int i = 0; i < ResourceTypes.Length; i++)
             {
                 float amount = ExtraPerHit(ResourceTypes[i]);
                 if (amount <= 0f) continue;
 
-                resourceSystem.AddHarvest(ResourceTypes[i], unit.Type, amount, transform.position);
+                resourceSystem.AddHarvest(ResourceTypes[i], unit.Type, amount, origin);
                 outcome = HitOutcome.Worked;
             }
             return outcome;

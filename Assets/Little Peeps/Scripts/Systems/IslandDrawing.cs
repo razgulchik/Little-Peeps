@@ -36,6 +36,7 @@ namespace LittlePeeps
         private readonly int decorSeed;
         private readonly IslandBorderPainter.Cascade cascade;
         private readonly HashSet<Vector2Int> hidden = new();
+        private readonly HashSet<Vector2Int> rising = new();   // the zone held back, for as long as it is coming up
         private readonly IslandTilePainter.Land land;   // the grid minus `hidden`
 
         private readonly CoastWaveTiles waveTiles;      // null without waves; not this drawing's to destroy
@@ -87,7 +88,7 @@ namespace LittlePeeps
             this.decorSeed = decorSeed;
             BorderLayers = borderLayers ?? Array.Empty<IslandBorderLayer>();
             cascade = new IslandBorderPainter.Cascade(TerrainsOf(BorderLayers));
-            land = new IslandTilePainter.Land(grid, hidden.Contains);
+            land = new IslandTilePainter.Land(grid, hidden.Contains, rising.Contains);
             if (waveTiles != null && (waveHorizontalTilemap != null || waveVerticalTilemap != null))
             {
                 this.waveTiles = waveTiles;
@@ -215,14 +216,17 @@ namespace LittlePeeps
         }
 
         // Take land off the screen without taking it off the grid: these cells' tiles go, and the coast
-        // redraws around the gap, until they are revealed again.
+        // redraws around the gap, until they are revealed again. They are a zone coming up from here until
+        // RevealAllLand: each shows as the piece it will be in the finished zone (IslandTilePainter).
         public void HideLand(IEnumerable<Vector2Int> cells)
         {
             hidden.UnionWith(cells);
+            rising.UnionWith(cells);
             RepaintAll();
         }
 
-        // Exactly these cells hidden, every other one shown — one full repaint, however many changed.
+        // Exactly these cells hidden, every other one shown — one full repaint, however many changed. For
+        // moving through a zone's rise, so what counts as rising stays as it is.
         public void HideOnly(IEnumerable<Vector2Int> cells)
         {
             hidden.Clear();
@@ -239,17 +243,20 @@ namespace LittlePeeps
             IslandBorderPainter.RepaintAround(land, cell, BorderLayers, cascade);
         }
 
+        // The zone is up: its cells are ordinary land from now on. With nothing left hidden they already draw
+        // what ordinary land draws, so only a zone cut short needs painting.
         public void RevealAllLand()
         {
+            rising.Clear();
             if (hidden.Count == 0) return;
             hidden.Clear();
             RepaintAll();
         }
 
-        // The ground tile `cell` draws when the land shown is the grid minus `hiddenThen`: what a tile of a
-        // rising zone will look like at the moment it lands. Null for a cell that is not land then.
-        public TileBase GroundTileAt(Vector2Int cell, Func<Vector2Int, bool> hiddenThen) =>
-            IslandTilePainter.GroundTileOf(new IslandTilePainter.Land(Grid, hiddenThen), cell, tileSetFor);
+        // The ground tile `cell` draws with all the grid's land shown: what a tile of a rising zone looks like
+        // from the moment it lands. Null for a cell that is not on the grid.
+        public TileBase FinalGroundTileOf(Vector2Int cell) =>
+            IslandTilePainter.GroundTileOf(new IslandTilePainter.Land(Grid), cell, tileSetFor);
 
         // Colour one drawn cell of land, its decor and border pieces with it (a wet cell is wet all over);
         // white = as painted. Each tile keeps the colour until it is next painted.

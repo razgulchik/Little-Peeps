@@ -39,23 +39,35 @@ namespace LittlePeeps
     // step. So there are two ways to paint: Repaint redraws everything (run start, a whole zone at once),
     // RepaintAround redraws only what one cell turning land or water can change. Both decide each cell
     // with the same PaintOf, which is also what makes the two provably agree (IslandTilePainterTests).
+    //
+    // A rising zone's own ground tiles are the one thing not drawn for what is on screen: each is the piece
+    // it will be in the finished zone, so a tile never turns from a corner into a plain one as its neighbours
+    // land after it. The coast around them, and the old land, do follow the screen.
     public static class IslandTilePainter
     {
         // The land the painter draws: the grid's cells, minus any the caller holds back. Reads through to
-        // the grid and the predicate on every call, so it never goes stale as either changes.
+        // the grid and the predicates on every call, so it never goes stale as either changes. `rising`
+        // says which cells belong to a zone on its way up.
         public sealed class Land
         {
             private readonly IslandGrid grid;
             private readonly Func<Vector2Int, bool> hidden;
+            private readonly Func<Vector2Int, bool> rising;
 
-            public Land(IslandGrid grid, Func<Vector2Int, bool> hidden = null)
+            public Land(IslandGrid grid, Func<Vector2Int, bool> hidden = null, Func<Vector2Int, bool> rising = null)
             {
                 this.grid = grid;
                 this.hidden = hidden;
+                this.rising = rising;
             }
 
             public bool Contains(Vector2Int coord) =>
                 grid != null && grid.GetCell(coord) != null && (hidden == null || !hidden(coord));
+
+            // Whether land cell `cell` shapes its ground piece as if `side` were land: it is on screen, or
+            // `cell` is rising and it is still to come.
+            public bool ShapesAsLand(Vector2Int cell, Vector2Int side) =>
+                Contains(side) || (rising != null && rising(cell) && grid.GetCell(side) != null);
 
             public TerrainType TerrainOf(Vector2Int coord) => grid.GetCell(coord).terrain;
 
@@ -370,10 +382,10 @@ namespace LittlePeeps
         // would need art that does not exist, so the first match wins and the other corner stays square.
         private static IslandGroundPiece PickGround(Land land, Vector2Int c)
         {
-            bool n = IsLand(land, c.x, c.y + 1);
-            bool s = IsLand(land, c.x, c.y - 1);
-            bool e = IsLand(land, c.x + 1, c.y);
-            bool w = IsLand(land, c.x - 1, c.y);
+            bool n = land.ShapesAsLand(c, new Vector2Int(c.x, c.y + 1));
+            bool s = land.ShapesAsLand(c, new Vector2Int(c.x, c.y - 1));
+            bool e = land.ShapesAsLand(c, new Vector2Int(c.x + 1, c.y));
+            bool w = land.ShapesAsLand(c, new Vector2Int(c.x - 1, c.y));
 
             if (!n && !w) return IslandGroundPiece.CornerTopLeft;
             if (!n && !e) return IslandGroundPiece.CornerTopRight;

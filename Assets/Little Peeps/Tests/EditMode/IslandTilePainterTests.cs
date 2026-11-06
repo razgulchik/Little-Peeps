@@ -171,6 +171,65 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void ARisingCell_IsItsFinalPiece_FromTheMomentItLands()
+        {
+            int changedOtherwise = 0;
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                var (old, zone) = GrownIsland(seed);
+                if (zone == null) continue;
+
+                var grid = GridOf(old.Concat(zone));
+                var hidden = new HashSet<Vector2Int>(zone);
+                var land = new IslandTilePainter.Land(grid, hidden.Contains, new HashSet<Vector2Int>(zone).Contains);
+                var shown = new IslandTilePainter.Land(grid, hidden.Contains);
+                var finished = new IslandTilePainter.Land(grid);
+                var drawn = IslandTilePainter.Plan(land);
+
+                new IslandRng(seed).Shuffle(zone);
+                foreach (var cell in zone)
+                {
+                    hidden.Remove(cell);
+                    RepaintAround(drawn, land, cell);
+                    AssertSamePlan(IslandTilePainter.Plan(land), drawn, $"seed {seed}, revealed {cell}");
+
+                    var final = IslandTilePainter.PaintOf(finished, cell).ground;
+                    Assert.That(drawn[cell].ground, Is.EqualTo(final), $"seed {seed}, {cell} as it lands");
+                    if (IslandTilePainter.PaintOf(shown, cell).ground != final) changedOtherwise++;
+                }
+            }
+
+            Assert.That(changedOtherwise, Is.GreaterThan(0), "no tile would ever have changed — nothing was tested");
+        }
+
+        [Test]
+        public void OldLandAndTheCoast_FollowWhatIsShown_WhileAZoneRises()
+        {
+            for (int seed = 1; seed <= 10; seed++)
+            {
+                var (old, zone) = GrownIsland(seed);
+                if (zone == null) continue;
+
+                var grid = GridOf(old.Concat(zone));
+                var hidden = new HashSet<Vector2Int>(zone);
+                var rising = new HashSet<Vector2Int>(zone);
+                var land = new IslandTilePainter.Land(grid, hidden.Contains, rising.Contains);
+                var shown = new IslandTilePainter.Land(grid, hidden.Contains);
+
+                new IslandRng(seed).Shuffle(zone);
+                foreach (var cell in zone)
+                {
+                    AssertSamePlan(ExceptRisingGround(IslandTilePainter.Plan(shown), rising),
+                                   ExceptRisingGround(IslandTilePainter.Plan(land), rising), $"seed {seed}, before {cell}");
+                    hidden.Remove(cell);
+                }
+            }
+
+            static Dictionary<Vector2Int, Paint> ExceptRisingGround(Dictionary<Vector2Int, Paint> plan, HashSet<Vector2Int> rising) =>
+                plan.Where(kv => !(kv.Value.land && rising.Contains(kv.Key))).ToDictionary(kv => kv.Key, kv => kv.Value);
+        }
+
+        [Test]
         public void ABaysCorner_IsTheBandOfTheLandAbove_AndTheColumnOfItsWall()
         {
             // A forest strip along y = 1 with a wall at each end below it: water at (1, 0) is a bay's left

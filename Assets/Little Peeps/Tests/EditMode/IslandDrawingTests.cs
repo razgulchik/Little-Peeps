@@ -427,5 +427,38 @@ namespace LittlePeeps.Tests
             Assert.That(shadow.HasTile(new Vector3Int(2, 0, 0)), Is.False, "the land covers the old shadow's cell");
             Assert.That(shadow.GetTile(new Vector3Int(2, -2, 0)), Is.EqualTo(tile), "and the shadow fell under the new coast");
         }
+
+        [Test]
+        public void AZonesCell_KeepsItsFinalPieceWhileItRises_AndIsOrdinaryLandOnceItIsUp()
+        {
+            root = new GameObject("Island");
+            root.AddComponent<Grid>();
+            var grid = new IslandGrid(1f);
+            var strip = new[] { new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(2, 0) };
+            foreach (var cell in strip) grid.SetCell(cell, TerrainType.Grass);
+
+            // Cell (1, 0) falls on the checkerboard's dark squares.
+            var tiles = ScriptableObject.CreateInstance<IslandTileSet>();
+            made.Add(tiles);
+            var plain = ScriptableObject.CreateInstance<Tile>();
+            var corner = ScriptableObject.CreateInstance<Tile>();
+            made.Add(plain);
+            made.Add(corner);
+            tiles.groundDark = plain;
+            tiles.cornerTopRightDark = corner;
+
+            var ground = NewTilemap("Ground", "Default", 0).GetComponent<Tilemap>();
+            var drawing = new IslandDrawing(grid, _ => tiles, ground, null);
+            var middle = new Vector3Int(1, 0, 0);
+
+            drawing.HideLand(new[] { strip[1], strip[2] });
+            drawing.RevealLand(strip[1]);
+            Assert.That(ground.GetTile(middle), Is.EqualTo(plain), "plain, with its eastern neighbour still to land");
+            Assert.That(drawing.FinalGroundTileOf(strip[1]), Is.EqualTo(plain), "as its stand-in was");
+
+            drawing.RevealAllLand();
+            drawing.HideLand(new[] { strip[2] });
+            Assert.That(ground.GetTile(middle), Is.EqualTo(corner), "old land by the next zone: a corner until that lands");
+        }
     }
 }

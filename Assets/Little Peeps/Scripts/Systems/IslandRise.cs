@@ -19,7 +19,8 @@ namespace LittlePeeps
     // settles.
     //
     // A tile in flight is a stand-in: a pooled SpriteRenderer with the sprite of the ground tile the cell
-    // will have at the moment it lands, so the swap to the real tile shows nothing. It is drawn:
+    // will have for good — a zone's tiles are its finished shape from the start, whatever has landed around
+    // them — so neither the swap to the real tile nor a later landing changes it. It is drawn:
     //   under water — on the island's layer below all the land and foam, over the water: the stand-in
     //                 plays the depth itself, dark and see-through.
     //   above water — on the island's layer just above the coast outline, under every structure.
@@ -657,8 +658,8 @@ namespace LittlePeeps
             return cells;
         }
 
-        // Each cell's sprite is the ground piece it will have when it lands — the land then being the old
-        // island plus every cell that has landed by that moment — so its tile takes over without a change.
+        // Each cell's sprite is the ground piece it has in the finished zone, which is also what its real tile
+        // draws, so that tile takes over without a change.
         private void PrepareCells()
         {
             int n = schedule.Cells.Count;
@@ -674,8 +675,7 @@ namespace LittlePeeps
             for (int i = 0; i < n; i++)
             {
                 var cell = schedule.Cells[i];
-                float lands = schedule.SettleOf(i);
-                var tile = drawing.GroundTileAt(cell, c => schedule.TryGetIndex(c, out int k) && schedule.SettleOf(k) > lands);
+                var tile = drawing.FinalGroundTileOf(cell);
                 sprites[i] = (tile as Tile)?.sprite;
                 if (tile != null && sprites[i] == null && !warned)
                 {

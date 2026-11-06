@@ -26,7 +26,7 @@ MonoBehaviour:
     amount: 25
   requiredAge: 2
   lockedUntilPerk: 0
-  allowedTerrain: 00000000
+  allowedTerrain: 0000000002000000
   sellRefundPercent: 0.5
   canSell: 1
   passable: 0

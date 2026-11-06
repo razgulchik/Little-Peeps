@@ -16,4 +16,4 @@ MonoBehaviour:
   title: Lucky Start
   icon: {fileID: 21300000, guid: 6d1cb0827ba67784b95376e9d4361006, type: 3}
   description: Pick an additional perk at the start of every run
-  cost: 1
+  cost: 2

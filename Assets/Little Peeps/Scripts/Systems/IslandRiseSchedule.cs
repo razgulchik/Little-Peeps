@@ -188,15 +188,24 @@ namespace LittlePeeps
         public float TouchDownOf(int cell) => BreachOf(cell) + hop;
         public float SettleOf(int cell) => TouchDownOf(cell) + squash;
 
-        // How many bubbles the cell gives off between two moments of the clock, at `perSecond`: it bubbles
-        // from the very start until its tile breaks the surface. A function of the clock like everything
-        // here, so however the time is cut into frames the count comes out the same. Each cell has a phase
-        // of its own: starting level, a whole zone would owe its next bubble in the same frame and pulse.
-        public int BubblesBetween(int cell, float from, float to, float perSecond)
+        // How many bubbles the cell gives off between two moments of the clock. It bubbles from the very start
+        // until its tile breaks the surface, the rate climbing evenly from `atStart` to `atBreach`, so the water
+        // comes to the boil ahead of the wave. A function of the clock like everything here, so however the time
+        // is cut into frames the count comes out the same. Each cell has a phase of its own: starting level, a
+        // whole zone would owe its next bubble in the same frame and pulse.
+        public int BubblesBetween(int cell, float from, float to, float atStart, float atBreach)
         {
-            if (to >= BreachOf(cell)) return 0;
             float phase = bubblePhases[cell];
-            return Mathf.FloorToInt(phase + perSecond * to) - Mathf.FloorToInt(phase + perSecond * from);
+            return Mathf.FloorToInt(phase + BubblesBy(cell, to, atStart, atBreach))
+                 - Mathf.FloorToInt(phase + BubblesBy(cell, from, atStart, atBreach));
+        }
+
+        // The rate's integral from the start of the clock to `t`; it stops growing at the breach.
+        private float BubblesBy(int cell, float t, float atStart, float atBreach)
+        {
+            float breach = BreachOf(cell);
+            t = Mathf.Clamp(t, 0f, breach);
+            return t * (atStart + (atBreach - atStart) * t / (2f * breach));
         }
 
         // Whether the cell's tile splashes as it breaks the surface, when `share` of the tiles do (0..1). Drawn

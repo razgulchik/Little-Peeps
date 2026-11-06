@@ -246,38 +246,68 @@ namespace LittlePeeps.Tests
         // ---- bubbles ----
 
         [Test]
-        public void Bubbles_ACellBubblesAtTheRate_UntilItsTileBreaksTheSurface()
+        public void Bubbles_ACellGivesOffTheClimbingRatesWorth_UntilItsTileBreaksTheSurface()
+        {
+            const float atStart = 1f, atBreach = 7f;
+            var s = Build(Timing());
+
+            for (int i = 0; i < s.Cells.Count; i++)
+            {
+                float breach = s.BreachOf(i);
+                Assert.That(s.BubblesBetween(i, 0f, breach, atStart, atBreach), Is.EqualTo(breach * (atStart + atBreach) / 2f).Within(1f));
+                Assert.That(s.BubblesBetween(i, breach, breach + 1f, atStart, atBreach), Is.EqualTo(0));
+            }
+        }
+
+        [Test]
+        public void Bubbles_TheWaterComesToTheBoil_MoreInTheSecondHalfOfACellsWait()
+        {
+            const float atStart = 1f, atBreach = 7f;
+            var s = Build(Timing());
+
+            int firstHalf = 0, secondHalf = 0;
+            for (int i = 0; i < s.Cells.Count; i++)
+            {
+                float breach = s.BreachOf(i);
+                firstHalf += s.BubblesBetween(i, 0f, breach / 2f, atStart, atBreach);
+                secondHalf += s.BubblesBetween(i, breach / 2f, breach, atStart, atBreach);
+            }
+
+            Assert.That(secondHalf, Is.GreaterThan(firstHalf * 3 / 2));
+        }
+
+        [Test]
+        public void Bubbles_EqualRates_KeepAnEvenPace()
         {
             const float perSecond = 4f;
             var s = Build(Timing());
 
             for (int i = 0; i < s.Cells.Count; i++)
             {
-                float breach = s.BreachOf(i), justBefore = breach - 1e-3f;
-                Assert.That(s.BubblesBetween(i, 0f, justBefore, perSecond), Is.EqualTo(justBefore * perSecond).Within(1f));
-                Assert.That(s.BubblesBetween(i, justBefore, breach, perSecond), Is.EqualTo(0));
-                Assert.That(s.BubblesBetween(i, breach, breach + 1f, perSecond), Is.EqualTo(0));
+                float halfway = s.BreachOf(i) / 2f;
+                Assert.That(s.BubblesBetween(i, 0f, halfway, perSecond, perSecond), Is.EqualTo(halfway * perSecond).Within(1f));
             }
         }
 
+        // Past the breach as well: the frame that crosses it must not lose the bubbles owed before it.
         [Test]
         public void Bubbles_HowTheTimeIsCutIntoFramesDoesNotChangeHowMany()
         {
-            const float perSecond = 4f;
+            const float atStart = 1f, atBreach = 7f;
             var s = Build(Timing());
 
             foreach (float frame in new[] { 1f / 60f, 0.11f })
                 for (int i = 0; i < s.Cells.Count; i++)
                 {
-                    float end = s.BreachOf(i) - 1e-3f, t = 0f;
+                    float end = s.BreachOf(i) + 0.2f, t = 0f;
                     int count = 0;
                     while (t < end)
                     {
                         float next = Mathf.Min(t + frame, end);
-                        count += s.BubblesBetween(i, t, next, perSecond);
+                        count += s.BubblesBetween(i, t, next, atStart, atBreach);
                         t = next;
                     }
-                    Assert.That(count, Is.EqualTo(s.BubblesBetween(i, 0f, end, perSecond)));
+                    Assert.That(count, Is.EqualTo(s.BubblesBetween(i, 0f, end, atStart, atBreach)));
                 }
         }
 
@@ -291,7 +321,7 @@ namespace LittlePeeps.Tests
             int mostInOneFrame = 0;
             for (float t = 0f; t < 1f / perSecond; t += frame)
             {
-                int going = Enumerable.Range(0, s.Cells.Count).Count(i => s.BubblesBetween(i, t, t + frame, perSecond) > 0);
+                int going = Enumerable.Range(0, s.Cells.Count).Count(i => s.BubblesBetween(i, t, t + frame, perSecond, perSecond) > 0);
                 mostInOneFrame = Mathf.Max(mostInOneFrame, going);
             }
 

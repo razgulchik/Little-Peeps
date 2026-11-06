@@ -20,7 +20,7 @@ MonoBehaviour:
     jitter: 0.4
     noiseScale: 3.2
     noiseStrength: 0.7
-    depthRise: 0.3
+    depthRise: 0.8
     hop: 0.32
     squash: 0.2
     contentStart: 0.7
@@ -296,8 +296,9 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   popOverrides: []
-  bubblesFx: {fileID: 8980289643981497851, guid: a00590512a84406bbfd33188621d4952, type: 3}
-  bubblesPerSecond: 1
+  bubblesFx: {fileID: 8980289643981497851, guid: 22e6969232d741f881c40abda0eb0381, type: 3}
+  bubblesPerSecondAtStart: 1
+  bubblesPerSecondAtBreach: 3
   splashFx: {fileID: 8980289643981497851, guid: ef96d24d0d304d2ea8a2949d551851f8, type: 3}
   splashCount: 2
   splashShare: 1

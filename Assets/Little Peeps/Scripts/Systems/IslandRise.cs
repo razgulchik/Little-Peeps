@@ -460,7 +460,7 @@ namespace LittlePeeps
             var bubbles = Emitter(profile.bubblesFx, "bubbles");
             for (int i = 0; i < schedule.Cells.Count; i++)
             {
-                SharedEmitter.EmitAt(bubbles, centres[i], schedule.BubblesBetween(i, from, to, profile.bubblesPerSecond));
+                SharedEmitter.EmitAt(bubbles, centres[i], schedule.BubblesBetween(i, from, to, profile.bubblesPerSecondAtStart, profile.bubblesPerSecondAtBreach));
 
                 float breach = schedule.BreachOf(i);
                 if (from < breach && breach <= to) OnBreach(i);

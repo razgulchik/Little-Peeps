@@ -104,8 +104,11 @@ namespace LittlePeeps
                  "ParticleSystem prefab run as one shared emitter: Simulation Space = World, Looping on, " +
                  "Rate over Time 0 — the rise moves it and emits by hand. Empty = none.")]
         public ParticleSystem bubblesFx;
-        [Tooltip("Bubbles per second over each cell whose tile is still under the water.")]
-        [Min(0f)] public float bubblesPerSecond = 4f;
+        [Tooltip("Bubbles per second over a cell when the rise starts.")]
+        [Min(0f)] public float bubblesPerSecondAtStart = 1f;
+        [Tooltip("Bubbles per second over a cell the moment its tile breaks the surface. The rate climbs evenly " +
+                 "up to here, so the water comes to the boil ahead of the wave.")]
+        [Min(0f)] public float bubblesPerSecondAtBreach = 3f;
 
         [Tooltip("Splash where a tile breaks the surface.")]
         public ParticleSystem splashFx;

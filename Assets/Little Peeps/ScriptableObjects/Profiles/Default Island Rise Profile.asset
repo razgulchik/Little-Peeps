@@ -297,7 +297,8 @@ MonoBehaviour:
     m_RotationOrder: 4
   popOverrides: []
   bubblesFx: {fileID: 0}
-  bubblesPerSecond: 4
+  bubblesPerSecondAtStart: 1
+  bubblesPerSecondAtBreach: 4
   splashFx: {fileID: 8980289643981497851, guid: 3a9965573fcaf8a46a1c4f53f379dfa1, type: 3}
   splashCount: 6
   touchDownFx: {fileID: 0}

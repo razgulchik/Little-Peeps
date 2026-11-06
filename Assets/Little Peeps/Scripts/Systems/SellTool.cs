@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,6 +14,9 @@ namespace LittlePeeps
     // right-click drops the stroke, and a release before the stroke grew sells just the fence pressed.
     public sealed class SellTool : IPlacementTool
     {
+        // Something has just been sold — once per act, however many fences a stroke took.
+        public event Action Sold;
+
         private readonly PlacementContext ctx;
         private readonly HoverHighlight hover;
 
@@ -107,7 +111,10 @@ namespace LittlePeeps
             }
 
             if (ctx.Structures.SellStructure(target.Instance.Cell))
+            {
                 hover.Forget();   // the highlighted object has just been destroyed
+                Sold?.Invoke();
+            }
         }
 
         public void Release(Vector2 world)
@@ -118,15 +125,20 @@ namespace LittlePeeps
             if (!strokeGrew)
             {
                 if (ctx.Structures.SellEdgeStructure(stroke.PressedEdge))
+                {
                     hover.Forget();   // the pressed fence, still tinted as the hover, is gone
+                    Sold?.Invoke();
+                }
             }
             else
             {
                 CollectStrokeFences();
-                foreach (var edge in strokeFences) ctx.Structures.SellEdgeStructure(edge);
+                bool soldAny = false;
+                foreach (var edge in strokeFences) soldAny |= ctx.Structures.SellEdgeStructure(edge);
                 // Restored, not forgotten: the catch-up above may have backed off a marked fence that is
                 // still standing. A sold one is harmless to recolour — its Destroy lands at frame end.
                 DropStroke();
+                if (soldAny) Sold?.Invoke();
                 return;
             }
             stroke.Clear();

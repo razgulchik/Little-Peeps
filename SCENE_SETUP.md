@@ -125,8 +125,8 @@ SampleScene
     │   │       │                  от последней строки цены 2 px)
     │   │       ├── Line1       → TMP_Text «EXPAND», m6x11plus 18 + пресет с тенью, #C69F67, Left + Baseline, (13, −7), 50×22
     │   │       └── Line2       → TMP_Text «ISLAND», то же, (14, −21) — обе строки по центру кнопки по краям букв
-    │   ├── SellButton          → Image + Button + CanvasGroup + SellButtonUI   (левый нижний угол (2, 17), 34×42)
-    │   │   └── SelectedFrame   → Image                 (горит, пока в руке Sell)
+    │   ├── SellButton          → Image + Button + CanvasGroup + SellButtonUI   (левый нижний угол (2, 17), 34×42;
+    │   │                         Button: Sprite Swap, Navigation None, Selected Sprite пуст — обычные спрайты sell / hover / press)
     │   ├── BuildTabs           → Vertical Layout Group + Content Size Fitter + CanvasGroup + BuildTabBar
     │   │                         ← слева от палитры (59, 7), ширина 79, растёт вверх; Spacing −3 — соседние
     │   │                           вкладки перекрываются на 3 px, как на макете; кнопки вкладок в рантайме
@@ -370,7 +370,9 @@ SampleScene
 | | | tabPrefab, container | префаб `Prefabs/Elements/BuildTabUi`; container пусто = сам `BuildTabs` (его Vertical Layout Group) |
 | Canvas/Hud/BuildPalette | **BuildPaletteUI** | cardPrefab, cardContainer | префаб `Prefabs/Elements/BuildCard`, дочерний `Viewport/CardRow` |
 | | | scroller | BuildPanelScroller на `Viewport` |
-| Canvas/Hud/SellButton | SellButtonUI | button, selectedFrame | свой Button, дочерний `SelectedFrame` |
+| Canvas/Hud/SellButton | SellButtonUI | button | свой Button. Его Sprite Swap — вид с пустой рукой (`bttn_buildmode_sell` / `_hover` / `_press`); **Navigation None и Selected Sprite пуст** — иначе фокус UI оставляет кнопку «включённой» после выключения режима |
+| | | activeSprite, activeHoverSprite | `bttn_buildmode_sell_active` / `_active_hover`: вид и наведение, пока Sell в руке (нажатие — прежнее `_press`) |
+| | | soldSprite, soldSeconds | `bttn_buildmode_sell_active_process` (с плюсиком) на `soldSeconds` (0.2 с, unscaled) после каждой продажи; протяжка забором — одна вспышка на всю протяжку |
 | Canvas/Hud/ResourceBar | ResourcePanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit`, себя, ResourceIconSet |
 | Canvas/Hud/PerkPanel | PerkPanel | slotPrefab | префаб `Prefabs/Elements/PerkSlot` (его PerkSlotUI). Сетка на том же объекте: Cell 20×20, Spacing 1, Fixed Column Count 2, **Start Corner и Child Alignment — Upper Right** (одного Start Corner мало: пока перков меньше двух, сетка сужается до одной колонки и прижимает её по Child Alignment — одиночный перк встал бы влево); Content Size Fitter — Vertical Fit Preferred |
 | Canvas/Hud/TimePanel | **TimePanel** | now, belt, riders, hands | `Now`, `Track/Belt`, `Track/Riders`, `Offering/Icon`. Руки ждут там, где стоят в префабе, — по центру большого ромба: с этого столбца ромб уезжает, и руки уезжают с ним без рывка |
@@ -826,7 +828,7 @@ Label стоит после Icon — цифра рисуется поверх к
   - **Старт забега** (`Start` и каждый `RunStartedEvent`): камера мгновенно, без damping, встаёт в центр острова с зумом из сцены (`Lens > Orthographic Size` у vcam) — новый забег всегда начинается с одного вида, что бы ни крутили до этого.
 - **`GameHotkeys`** (на `Input`) — дискретные команды по нажатию, публикует события в `EventBus`, ни во что не лезет напрямую. UI его не фильтрует: клавиатура не целится в то, что под курсором, поэтому подписчики сами проверяют состояние:
   - **B** → `BuildPanelToggleRequestedEvent` → `BuildPanelToggle` (тот же переключатель, что клик по `BuildToggle`) прячет или показывает `SellButton`, `BuildTabs` и `BuildPalette`. Не режим: игра идёт и так и так; прятание кладёт инструмент из руки;
-  - **X** → `SellModeRequestedEvent` → `SellButtonUI` берёт Sell в руку или кладёт — тем же путём, что клик (подсветку рисует по факту, из `PlacementController.ToolChanged`); `BuildPanelToggle` показывает спрятанную панель. Поверх другого экрана (выбор перка, подъём острова…) — no-op: вне живой игры контроллер инструмент не даёт, а панель не показывается;
+  - **X** → `SellModeRequestedEvent` → `SellButtonUI` берёт Sell в руку или кладёт — тем же путём, что клик (вид кнопки рисует по факту, из `PlacementController.ToolChanged`; вспышку продажи — из `PlacementController.Sold`); `BuildPanelToggle` показывает спрятанную панель. Поверх другого экрана (выбор перка, подъём острова…) — no-op: вне живой игры контроллер инструмент не даёт, а панель не показывается;
   - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildTabBar` открывает N-ю вкладку, `BuildPanelToggle` показывает спрятанную панель; поверх другого экрана — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
   - **Esc** → `ExitToMenuRequestedEvent` → `GameBootstrap` пока **отклоняет** переход (warning в консоли): у `MainMenuState` нет экрана, и выход в него оставил бы игрока без пути назад. Вернуть — одна строка, когда меню появится.
 

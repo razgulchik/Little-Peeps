@@ -39,6 +39,9 @@ namespace LittlePeeps
         // HoldsSell here instead of remembering what it asked for.
         public event Action ToolChanged;
 
+        // The sell tool has just sold something — once per act, however many fences a stroke took.
+        public event Action Sold;
+
         // What is in hand, for the UI to draw: the structure a build card asked for, or null.
         public StructureDef HeldStructure { get; private set; }
 
@@ -138,6 +141,7 @@ namespace LittlePeeps
             visuals.Init(structureSystem);
             context = new PlacementContext(islandSystem, structureSystem, resourceSystem, visuals);
             sellTool = new SellTool(context);
+            sellTool.Sold += () => Sold?.Invoke();
             tool = emptyHand;
         }
 

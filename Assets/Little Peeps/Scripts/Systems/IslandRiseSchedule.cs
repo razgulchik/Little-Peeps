@@ -68,11 +68,15 @@ namespace LittlePeeps
         // Largest jitter shift, as a share of the cascade, at jitter 1.
         private const float JitterReach = 0.15f;
 
-        // Salts keep the random draws independent: the order, the jitter and the pops each get their own.
+        // Salts keep the random draws independent: the order, the jitter, the pops, the bubbles and the splashes
+        // each get their own.
         private const int SaltRandomOrder = 1;
         private const int SaltNoise = 2;
         private const int SaltJitter = 3;
         private const int SaltPop = 4;
+        private const int SaltBubbles = 5;
+        private const int SaltSplash = 6;
+        private const int SaltSparkle = 7;
 
         // The zone's cells in IslandShape.CellOrder — a fixed order whatever set they came in, so the same
         // zone and seed always give the same schedule. Every per-cell accessor takes an index into this.
@@ -99,10 +103,14 @@ namespace LittlePeeps
         private readonly float[] starts;
         private readonly int[] notes;
         private readonly int[] cellOrder;
+        private readonly float[] bubblePhases;   // 0..1, how far towards its next bubble each cell starts
+        private readonly float[] splashDraws;    // 0..1, the cell splashes while the profile's share is above this
+        private readonly float[] sparkleDraws;   // 0..1, the same for the finale's sparkles
         private readonly int[] steps;      // side-to-side steps from the join (the breath travels by these)
         private readonly float[] itemStarts;
         private readonly float[] itemDurations;
         private readonly int[] itemOrder;
+        private readonly bool[] itemOnRiver;
 
         // Copied from the timing at build time: a profile tuned while this plays must not move the phase
         // edges of tiles whose start times were computed from the old values.
@@ -128,6 +136,9 @@ namespace LittlePeeps
             starts = new float[n];
             notes = new int[n];
             cellOrder = new int[n];
+            bubblePhases = new float[n];
+            splashDraws = new float[n];
+            sparkleDraws = new float[n];
 
             if (n == 0)
             {
@@ -135,6 +146,7 @@ namespace LittlePeeps
                 itemStarts = Array.Empty<float>();
                 itemDurations = Array.Empty<float>();
                 itemOrder = Array.Empty<int>();
+                itemOnRiver = Array.Empty<bool>();
                 return;
             }
 
@@ -148,6 +160,9 @@ namespace LittlePeeps
                 float shift = (Hash01(c.x, c.y, seed, SaltJitter) - 0.5f) * 2f * timing.jitter * JitterReach;
                 float p = Mathf.Clamp01(place[i] + shift);
                 starts[i] = timing.leadIn + timing.cascade * Mathf.Pow(p, 1f / crescendo);
+                bubblePhases[i] = Hash01(c.x, c.y, seed, SaltBubbles);
+                splashDraws[i] = Hash01(c.x, c.y, seed, SaltSplash);
+                sparkleDraws[i] = Hash01(c.x, c.y, seed, SaltSparkle);
             }
 
             for (int i = 0; i < n; i++) cellOrder[i] = i;
@@ -156,6 +171,8 @@ namespace LittlePeeps
 
             float end = SettleOf(cellOrder[n - 1]);
             (itemStarts, itemDurations, itemOrder) = ScheduleItems(timing, items, seed);
+            itemOnRiver = new bool[itemStarts.Length];
+            for (int j = 0; j < itemOnRiver.Length; j++) itemOnRiver[j] = items[j].flowIndex >= 0;
             for (int j = 0; j < itemStarts.Length; j++) end = Mathf.Max(end, itemStarts[j] + itemDurations[j]);
 
             Finale = end + timing.finaleDelay;
@@ -170,6 +187,24 @@ namespace LittlePeeps
         public float BreachOf(int cell) => starts[cell] + depthRise;
         public float TouchDownOf(int cell) => BreachOf(cell) + hop;
         public float SettleOf(int cell) => TouchDownOf(cell) + squash;
+
+        // How many bubbles the cell gives off between two moments of the clock, at `perSecond`: it bubbles
+        // from the very start until its tile breaks the surface. A function of the clock like everything
+        // here, so however the time is cut into frames the count comes out the same. Each cell has a phase
+        // of its own: starting level, a whole zone would owe its next bubble in the same frame and pulse.
+        public int BubblesBetween(int cell, float from, float to, float perSecond)
+        {
+            if (to >= BreachOf(cell)) return 0;
+            float phase = bubblePhases[cell];
+            return Mathf.FloorToInt(phase + perSecond * to) - Mathf.FloorToInt(phase + perSecond * from);
+        }
+
+        // Whether the cell's tile splashes as it breaks the surface, when `share` of the tiles do (0..1). Drawn
+        // once per cell, so raising the share only adds tiles to those already splashing.
+        public bool Splashes(int cell, float share) => splashDraws[cell] < share;
+
+        // The same for the finale: whether the cell sparkles as the breath reaches it.
+        public bool Sparkles(int cell, float share) => sparkleDraws[cell] < share;
 
         // Rank of the cell's breach, 0 = first to break the surface: the step of its note up the scale.
         public int NoteOf(int cell) => notes[cell];
@@ -199,6 +234,9 @@ namespace LittlePeeps
 
         public float ItemStartOf(int item) => itemStarts[item];
         public float ItemDurationOf(int item) => itemDurations[item];
+
+        // Whether the item runs in with the zone's river: water, so nothing earthy flies off it as it pops.
+        public bool ItemOnRiver(int item) => itemOnRiver[item];
 
         public bool ItemStartedAt(int item, float t) => t >= itemStarts[item];
 

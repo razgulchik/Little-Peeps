@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -77,7 +76,6 @@ namespace LittlePeeps
         private Proxy[] proxies;           // its stand-in while under water or in the air; null otherwise
         private bool[] revealed;           // its real tile is on the tilemap
         private bool[] dry;                // its tilemap colour is back to white
-        private float[] bubbleDebt;        // bubbles owed but not yet a whole one
 
         // Standing land off its place: when its neighbours touch down, how high each cell is now, and the
         // bent land that makes of it.
@@ -166,10 +164,9 @@ namespace LittlePeeps
         {
             if (!IsPlaying) return;
 
-            float before = clock;
             clock = Mathf.Min(clock + deltaTime * speed, schedule.Duration);
             ApplyState();
-            GoOff(clock - before, deltaTime);
+            GoOff(deltaTime);
 
             if (simulateEffects && deltaTime > 0f)
                 foreach (var emitter in emitters.Values)
@@ -215,7 +212,6 @@ namespace LittlePeeps
             if (!IsPlaying) return;
             speed = 1f;
             shakeLoad = 0f;
-            Array.Clear(bubbleDebt, 0, bubbleDebt.Length);
             Seek(0f);
         }
 
@@ -233,7 +229,11 @@ namespace LittlePeeps
             if (!IsPlaying || clock >= schedule.Finale) return;
             bool finaleDue = eventsUpTo < schedule.Finale;
             Seek(schedule.Finale);
-            if (finaleDue) OnFinale();
+            if (finaleDue)
+            {
+                OnFinale();
+                SparklesBetween(float.NegativeInfinity, clock);   // the join's cells: their breath starts on this very moment
+            }
         }
 
         // Everything to where the rise leaves it — all land shown and dry, every structure on and full size —
@@ -448,9 +448,9 @@ namespace LittlePeeps
 
         // ---- what goes off ----
 
-        // Everything whose moment falls between the last frame's clock and this one's. `elapsed` is rise
-        // time (sped up with the tap); `deltaTime` is the caller's own, for the kick's ring-down.
-        private void GoOff(float elapsed, float deltaTime)
+        // Everything whose moment falls between the last frame's clock and this one's. `deltaTime` is the
+        // caller's own time, for the kick's ring-down.
+        private void GoOff(float deltaTime)
         {
             float from = eventsUpTo, to = clock;
             eventsUpTo = to;
@@ -459,14 +459,9 @@ namespace LittlePeeps
             var bubbles = Emitter(profile.bubblesFx, "bubbles");
             for (int i = 0; i < schedule.Cells.Count; i++)
             {
+                SharedEmitter.EmitAt(bubbles, centres[i], schedule.BubblesBetween(i, from, to, profile.bubblesPerSecond));
+
                 float breach = schedule.BreachOf(i);
-                if (bubbles != null && to < breach)
-                {
-                    bubbleDebt[i] += profile.bubblesPerSecond * elapsed;
-                    int whole = (int)bubbleDebt[i];
-                    bubbleDebt[i] -= whole;
-                    SharedEmitter.EmitAt(bubbles, centres[i], whole);
-                }
                 if (from < breach && breach <= to) OnBreach(i);
 
                 float touchDown = schedule.TouchDownOf(i);
@@ -479,27 +474,38 @@ namespace LittlePeeps
                 float start = schedule.ItemStartOf(j);
                 if (from < start && start <= to && roots[j] != null)
                 {
-                    SharedEmitter.EmitAt(Emitter(profile.popFx, "pop"), roots[j].position, profile.popCount);
+                    if (!schedule.ItemOnRiver(j))
+                        SharedEmitter.EmitAt(Emitter(profile.popFx, "pop"), roots[j].position, profile.popCount);
                     PlaySound(profile.popClip, profile.popVolume, 1f);
                 }
             }
 
             if (from < schedule.Finale && schedule.Finale <= to) OnFinale();
+            SparklesBetween(from, to);
         }
 
         private void OnBreach(int i)
         {
-            SharedEmitter.EmitAt(Emitter(profile.splashFx, "splash"), centres[i], profile.splashCount);
+            if (schedule.Splashes(i, profile.splashShare))
+                SharedEmitter.EmitAt(Emitter(profile.splashFx, "splash"), centres[i], profile.splashCount);
             PlayNote(schedule.NoteOf(i));
             Kick();
         }
 
-        private void OnFinale()
+        private void OnFinale() => PlaySound(profile.finaleClip, profile.finaleVolume, 1f);
+
+        // The sparkles travel with the breath: a cell goes off as the breath reaches it, if it is one of the
+        // profile's share.
+        private void SparklesBetween(float from, float to)
         {
             var sparkles = Emitter(profile.finaleFx, "finale");
+            if (sparkles == null) return;
             for (int i = 0; i < schedule.Cells.Count; i++)
-                SharedEmitter.EmitAt(sparkles, centres[i], profile.finaleCountPerCell);
-            PlaySound(profile.finaleClip, profile.finaleVolume, 1f);
+            {
+                float reached = schedule.BreathStartOf(i);
+                if (from < reached && reached <= to && schedule.Sparkles(i, profile.finaleShare))
+                    SharedEmitter.EmitAt(sparkles, centres[i], profile.finaleCountPerCell);
+            }
         }
 
         // The slot's shared emitter, made on first use and kept for later rises. A rejected prefab is cached
@@ -661,7 +667,6 @@ namespace LittlePeeps
             proxies = new Proxy[n];
             revealed = new bool[n];
             dry = new bool[n];
-            bubbleDebt = new float[n];
 
             var tilemap = drawing.GroundTilemap;
             var anchor = tilemap.tileAnchor;

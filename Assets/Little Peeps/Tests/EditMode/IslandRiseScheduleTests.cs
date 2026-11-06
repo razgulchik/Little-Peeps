@@ -207,6 +207,98 @@ namespace LittlePeeps.Tests
             Assert.That(s.TileAt(i, s.SettleOf(i) + 1e-3f).phase, Is.EqualTo(IslandRisePhase.Settled));
         }
 
+        // ---- splashes ----
+
+        private static int SplashingCells(IslandRiseSchedule s, float share) =>
+            Enumerable.Range(0, s.Cells.Count).Count(i => s.Splashes(i, share));
+
+        [Test]
+        public void Splashes_AllAtAShareOfOne_NoneAtZero_AboutAThirdAtAThird()
+        {
+            var s = Build(Timing(), Zone(12));
+
+            Assert.That(SplashingCells(s, 1f), Is.EqualTo(s.Cells.Count));
+            Assert.That(SplashingCells(s, 0f), Is.EqualTo(0));
+            Assert.That(SplashingCells(s, 1f / 3f), Is.InRange(s.Cells.Count / 6, s.Cells.Count / 2));
+        }
+
+        [Test]
+        public void Splashes_RaisingTheShareOnlyAddsTiles()
+        {
+            var s = Build(Timing(), Zone(12));
+
+            for (int i = 0; i < s.Cells.Count; i++)
+                if (s.Splashes(i, 0.3f)) Assert.That(s.Splashes(i, 0.6f), $"cell {i} stopped splashing");
+        }
+
+        [Test]
+        public void Sparkles_FollowTheShare_AndAreDrawnApartFromTheSplashes()
+        {
+            var s = Build(Timing(), Zone(12));
+            var all = Enumerable.Range(0, s.Cells.Count).ToList();
+
+            Assert.That(all.Count(i => s.Sparkles(i, 1f)), Is.EqualTo(all.Count));
+            Assert.That(all.Count(i => s.Sparkles(i, 0f)), Is.EqualTo(0));
+            Assert.That(all.Count(i => s.Sparkles(i, 1f / 3f)), Is.InRange(all.Count / 6, all.Count / 2));
+            Assert.That(all.Where(i => s.Sparkles(i, 0.5f)), Is.Not.EqualTo(all.Where(i => s.Splashes(i, 0.5f))));
+        }
+
+        // ---- bubbles ----
+
+        [Test]
+        public void Bubbles_ACellBubblesAtTheRate_UntilItsTileBreaksTheSurface()
+        {
+            const float perSecond = 4f;
+            var s = Build(Timing());
+
+            for (int i = 0; i < s.Cells.Count; i++)
+            {
+                float breach = s.BreachOf(i), justBefore = breach - 1e-3f;
+                Assert.That(s.BubblesBetween(i, 0f, justBefore, perSecond), Is.EqualTo(justBefore * perSecond).Within(1f));
+                Assert.That(s.BubblesBetween(i, justBefore, breach, perSecond), Is.EqualTo(0));
+                Assert.That(s.BubblesBetween(i, breach, breach + 1f, perSecond), Is.EqualTo(0));
+            }
+        }
+
+        [Test]
+        public void Bubbles_HowTheTimeIsCutIntoFramesDoesNotChangeHowMany()
+        {
+            const float perSecond = 4f;
+            var s = Build(Timing());
+
+            foreach (float frame in new[] { 1f / 60f, 0.11f })
+                for (int i = 0; i < s.Cells.Count; i++)
+                {
+                    float end = s.BreachOf(i) - 1e-3f, t = 0f;
+                    int count = 0;
+                    while (t < end)
+                    {
+                        float next = Mathf.Min(t + frame, end);
+                        count += s.BubblesBetween(i, t, next, perSecond);
+                        t = next;
+                    }
+                    Assert.That(count, Is.EqualTo(s.BubblesBetween(i, 0f, end, perSecond)));
+                }
+        }
+
+        // All starting level, every cell would owe its next bubble in the same frame and the zone would pulse.
+        [Test]
+        public void Bubbles_TheCellsDoNotAllGoInTheSameFrame()
+        {
+            const float perSecond = 4f, frame = 1f / 60f;
+            var s = Build(Timing());
+
+            int mostInOneFrame = 0;
+            for (float t = 0f; t < 1f / perSecond; t += frame)
+            {
+                int going = Enumerable.Range(0, s.Cells.Count).Count(i => s.BubblesBetween(i, t, t + frame, perSecond) > 0);
+                mostInOneFrame = Mathf.Max(mostInOneFrame, going);
+            }
+
+            Assert.That(mostInOneFrame, Is.GreaterThan(0));
+            Assert.That(mostInOneFrame, Is.LessThan(s.Cells.Count / 2));
+        }
+
         [Test]
         public void NoSquash_ATileSettlesTheMomentItTouchesDown()
         {
@@ -362,6 +454,20 @@ namespace LittlePeeps.Tests
                 Assert.That(s.ItemStartOf(ItemAt(x)), Is.GreaterThanOrEqualTo(s.SettleOf(Index(s, x, 0)) + timing.contentGap - Eps),
                             $"x = {x} waits for its land");
             }
+        }
+
+        [Test]
+        public void OnlyTheRiversOwnItems_CountAsOnTheRiver()
+        {
+            var items = new List<IslandRiseItem>
+            {
+                new(new[] { new Vector2Int(0, 0) }, 0.2f, flowIndex: 0),
+                new(new[] { new Vector2Int(1, 0) }, 0.2f),
+            };
+            var s = Build(Timing(), items: items);
+
+            Assert.That(s.ItemOnRiver(0));
+            Assert.That(s.ItemOnRiver(1), Is.False);
         }
 
         [Test]

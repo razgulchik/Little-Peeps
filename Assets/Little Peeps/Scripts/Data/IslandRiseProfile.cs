@@ -110,6 +110,9 @@ namespace LittlePeeps
         [Tooltip("Splash where a tile breaks the surface.")]
         public ParticleSystem splashFx;
         [Min(0)] public int splashCount = 6;
+        [Tooltip("Share of the tiles that splash, the rest coming out silently: 1 = every tile, 0.33 = about one " +
+                 "in three, fewer events and each one seen on its own.")]
+        [Range(0f, 1f)] public float splashShare = 1f;
 
         [Tooltip("Where a tile touches down: a ring of foam, a puff of spray.")]
         public ParticleSystem touchDownFx;
@@ -119,10 +122,12 @@ namespace LittlePeeps
         public ParticleSystem popFx;
         [Min(0)] public int popCount = 5;
 
-        [Tooltip("Sparkles over the whole zone at the finale.")]
+        [Tooltip("Sparkles at the finale, travelling with the breath: a cell goes off as the breath reaches it.")]
         public ParticleSystem finaleFx;
-        [Tooltip("Sparkles per cell of the zone.")]
+        [Tooltip("Sparkles per cell that goes off.")]
         [Min(0)] public int finaleCountPerCell = 1;
+        [Tooltip("Share of the cells that go off: 1 = every cell, 0.33 = about one in three.")]
+        [Range(0f, 1f)] public float finaleShare = 1f;
 
         [Header("Sound")]
         [Tooltip("Played as each tile breaks the surface, one step up a pentatonic scale each time: the " +

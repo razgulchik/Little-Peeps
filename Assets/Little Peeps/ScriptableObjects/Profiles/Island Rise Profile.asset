@@ -296,16 +296,18 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   popOverrides: []
-  bubblesFx: {fileID: 0}
-  bubblesPerSecond: 4
-  splashFx: {fileID: 8980289643981497851, guid: 3a9965573fcaf8a46a1c4f53f379dfa1, type: 3}
-  splashCount: 6
-  touchDownFx: {fileID: 0}
-  touchDownCount: 4
-  popFx: {fileID: 0}
-  popCount: 5
-  finaleFx: {fileID: 0}
-  finaleCountPerCell: 1
+  bubblesFx: {fileID: 8980289643981497851, guid: a00590512a84406bbfd33188621d4952, type: 3}
+  bubblesPerSecond: 1
+  splashFx: {fileID: 8980289643981497851, guid: ef96d24d0d304d2ea8a2949d551851f8, type: 3}
+  splashCount: 2
+  splashShare: 1
+  touchDownFx: {fileID: 8980289643981497851, guid: 124f2e814d674c97bc36803216ce1f08, type: 3}
+  touchDownCount: 3
+  popFx: {fileID: 8980289643981497851, guid: 644014391cd24de9ad6235aaa9351a11, type: 3}
+  popCount: 3
+  finaleFx: {fileID: 8980289643981497851, guid: c9502aa9da3a43a988321bd4eb860868, type: 3}
+  finaleCountPerCell: 2
+  finaleShare: 0.6
   breachClip: {fileID: 8300000, guid: 8fc8c8a00a2b4bcfa66da03407f2063f, type: 3}
   breachVolume: 0.2
   basePitch: 0.5

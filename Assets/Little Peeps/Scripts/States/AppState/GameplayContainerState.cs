@@ -82,7 +82,7 @@ namespace LittlePeeps
             else offerings.NextCycle();   // nothing to ask with: the run goes on, never ended unasked
         }
 
-        // Meta perks can owe the run perk picks at its start (StartPerkPickUpgradeDef, StartAgeUpgradeDef).
+        // Meta perks can owe the run perk picks at its start (StartPerkPickUpgradeDef).
         // Opened HERE, from normal play, rather than wherever a run is started: runs start in three places —
         // the first run in GameBootstrap, Play on the meta screen, the debug Restart Run — and this one check
         // covers all of them, and any added later. Normal play only, by the rule the age advance follows
@@ -104,7 +104,7 @@ namespace LittlePeeps
         }
 
         // Start an age only from normal play (not mid-transition, not over another screen) and only when
-        // the next age is actually affordable. ZoneSelectionState owns the spend and the zone pick, then
+        // the next age is actually free or affordable. ZoneSelectionState owns the spend and the zone pick, then
         // hands over to AgeTransitionState for the animation and the return.
         private void OnAgeAdvanceRequested(AgeAdvanceRequestedEvent _)
         {

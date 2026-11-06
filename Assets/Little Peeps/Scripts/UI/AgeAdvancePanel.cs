@@ -9,8 +9,8 @@ namespace LittlePeeps
     // button — the one control that BUYS an age. The price under it is AgeCostPanel's, which only reports.
     //
     // The button just publishes an intent (AgeAdvanceRequestedEvent) — GameplayContainerState decides
-    // whether the transition may start. The button's interactable state tracks affordability
-    // (recomputed on every resource change / age start).
+    // whether the transition may start. The button's interactable state tracks whether the next age can
+    // be entered, free or affordable (recomputed on every resource change / age start).
     public class AgeAdvancePanel : MonoBehaviour, IUIElement
     {
         [Header("The age we are in")]
@@ -32,9 +32,10 @@ namespace LittlePeeps
 
         private AgeSystem ageSystem;
 
-        // The age we are standing IN. Taken from event payloads rather than read back off AgeSystem, so
-        // the panel never depends on which of the two handled RunStartedEvent first. Same reasoning as
-        // AgeCostPanel.
+        // The run and the age we are standing IN. Taken from event payloads rather than read back off
+        // AgeSystem, so the panel never depends on which of the two handled RunStartedEvent first. Same
+        // reasoning as AgeCostPanel.
+        private RunContext run;
         private int currentAge = RunContext.FirstAge;
 
         // The rows of the bonus text line as authored, and midway between the two bonus lines — where the
@@ -46,7 +47,7 @@ namespace LittlePeeps
         public void Initialize(UIServices ui)
         {
             ageSystem = ui.AgeSystem;
-            RunContext run = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
+            run = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
             if (run != null) currentAge = run.currentAge;
         }
 
@@ -99,6 +100,7 @@ namespace LittlePeeps
         // A prestige starts the ages over — show the new run's age, not the finished one's.
         private void OnRunStarted(RunStartedEvent e)
         {
+            run = e.Run;
             currentAge = e.Run != null ? e.Run.currentAge : RunContext.FirstAge;
             RefreshAge();
             RefreshButton();
@@ -138,7 +140,7 @@ namespace LittlePeeps
 
         private void RefreshButton()
         {
-            if (nextAgeButton != null) nextAgeButton.interactable = ageSystem != null && ageSystem.CanAdvance;
+            if (nextAgeButton != null) nextAgeButton.interactable = ageSystem != null && ageSystem.CanAdvanceIn(run);
         }
 
         // Centred by hand, on whole pixels: TMP's own centring puts a line whose width differs in parity

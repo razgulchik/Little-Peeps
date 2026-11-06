@@ -50,14 +50,16 @@ namespace LittlePeeps
         // The AgeDef of the NEXT age — the one the "New Age" button buys — or null at the final age.
         public AgeDef NextAge => runContext != null ? DefOf(runContext.currentAge + 1) : null;
 
-        // True when there is a next age and its cost is currently affordable.
-        public bool CanAdvance
+        // True when there is a next age and it can be entered right now: free or affordable.
+        public bool CanAdvance => CanAdvanceIn(runContext);
+
+        // The same question about a given run, for a caller that learned the run from an event payload — the
+        // same reason DefOf touches no run state: this system's own RunStartedEvent handler may not have run
+        // yet, and a run's free age must light the button from its very first frame.
+        public bool CanAdvanceIn(RunContext run)
         {
-            get
-            {
-                var next = NextAge;
-                return next != null && resourceSystem != null && resourceSystem.CanAfford(next.resourceCost);
-            }
+            if (run == null || resourceSystem == null) return false;
+            return TriggerAgeCmd.CanEnter(resourceSystem, run, DefOf(run.currentAge + 1));
         }
     }
 }

@@ -8,6 +8,9 @@ namespace LittlePeeps
     // one resource or of five reads correctly with no hand-placed slots to keep in sync — and an
     // icon/format change lands on the wallet and on the price at the same time.
     //
+    // While the next age is free (RunContext.freeAgesLeft) there is no price to show: this object switches
+    // off and the Free Label, its sibling in the age panel's column, stands in its place.
+    //
     // Set up in the inspector: the ResourceUnit prefab, the container (the child with the Grid Layout
     // Group), and the shared ResourceIconSet. The systems come from UIServices.
     public class AgeCostPanel : MonoBehaviour, IUIElement
@@ -20,12 +23,19 @@ namespace LittlePeeps
                  "is whatever the ResourceUnit prefab authors — nothing to keep in sync here.")]
         [SerializeField] private Color unaffordableColor = new Color(0.6078f, 0.1294f, 0.1176f);
 
-        [Tooltip("Switched off once the final age is reached and there is nothing left to buy. " +
-                 "Leave empty to hide this object.")]
+        [Tooltip("Switched off while there is no price to show: the next age is free, or the final age is " +
+                 "reached and there is nothing left to buy. Leave empty to hide this object.")]
         [SerializeField] private GameObject visibilityRoot;
+
+        [Tooltip("Shown instead of the price while the next age is free. Must sit outside Visibility Root, " +
+                 "or it would switch off with the price it replaces.")]
+        [SerializeField] private GameObject freeLabel;
 
         private AgeSystem ageSystem;
         private ResourceSystem resourceSystem;
+
+        // Where freeAgesLeft is read. Taken from the event payload, like the age below.
+        private RunContext run;
 
         // The age we are standing IN; the price shown is the next one's. Taken from event
         // payloads rather than read back off AgeSystem, so the panel never depends on which of the two
@@ -35,19 +45,18 @@ namespace LittlePeeps
         private readonly List<ResourceUnit> units = new();
         private readonly List<ResourceCost> shown = new();   // the entry each unit displays, same index
 
-        // From UIRoot once the run exists — even while switched off at the final age, since UIRoot finds
-        // inactive elements too.
+        // From UIRoot once the run exists — even while switched off, since UIRoot finds inactive elements too.
         public void Initialize(UIServices ui)
         {
             ageSystem = ui.AgeSystem;
             resourceSystem = ui.ResourceSystem;
-            RunContext run = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
+            run = ui.RunManager != null ? ui.RunManager.CurrentRun : null;
             if (run != null) currentAge = run.currentAge;
         }
 
-        // Subscribed in Awake/OnDestroy, NOT OnEnable/OnDisable: this panel switches itself off at the
-        // final age, and a subscription tied to enabled-ness would go with it — leaving nothing to hear
-        // the RunStartedEvent that must bring it back for the next run.
+        // Subscribed in Awake/OnDestroy, NOT OnEnable/OnDisable: this panel switches itself off when there is
+        // no price to show, and a subscription tied to enabled-ness would go with it — leaving nothing to
+        // hear the events that must bring it back.
         private void Awake()
         {
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
@@ -91,6 +100,7 @@ namespace LittlePeeps
         // A prestige restarts the ladder at the new run's age — rebuild against that, not the finished run's.
         private void OnRunStarted(RunStartedEvent e)
         {
+            run = e.Run;
             currentAge = e.Run != null ? e.Run.currentAge : RunContext.FirstAge;
             Rebuild();
         }
@@ -106,10 +116,14 @@ namespace LittlePeeps
             Clear();
 
             AgeDef next = ageSystem.DefOf(currentAge + 1);
-            GameObject root = visibilityRoot != null ? visibilityRoot : gameObject;
-            if (root.activeSelf != (next != null)) root.SetActive(next != null);
+            bool free = next != null && run != null && run.freeAgesLeft > 0;
+            bool priced = next != null && !free;
 
-            if (next == null || next.resourceCost == null || unitPrefab == null) return;
+            GameObject root = visibilityRoot != null ? visibilityRoot : gameObject;
+            if (root.activeSelf != priced) root.SetActive(priced);
+            if (freeLabel != null && freeLabel.activeSelf != free) freeLabel.SetActive(free);
+
+            if (!priced || next.resourceCost == null || unitPrefab == null) return;
 
             Transform parent = container != null ? container : transform;
             for (int i = 0; i < next.resourceCost.Count; i++)

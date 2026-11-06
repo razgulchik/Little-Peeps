@@ -75,7 +75,7 @@ namespace LittlePeeps
                 return;
             }
 
-            cmd.Execute();                       // spend + currentAge++ + apply modifiers
+            cmd.Execute();                       // pay + currentAge++ + apply modifiers
             Time.timeScale = 0f;                 // freeze + block world input for the pick
 
             var offers = islandSystem != null ? islandSystem.ProposeZones() : new List<ZoneOffer>();

@@ -78,8 +78,8 @@ namespace LittlePeeps
             prestigeSystem.Initialize(metaContext);
 
             //    Every run starts with the meta perks bought so far, so RunManager learns where they come
-            //    from before it builds the first one — and the age list, for the ages a perk skips.
-            runManager.Initialize(prestigeSystem, ageSystem);
+            //    from before it builds the first one.
+            runManager.Initialize(prestigeSystem);
 
             //    Test mode swaps its presets in before the first run, so the first island is already the
             //    test one; they hold for every run of this play session.

@@ -1,8 +1,10 @@
 namespace LittlePeeps
 {
-    // Spend the age cost and apply its permanent effects: bump the age counter and push the age's stat
-    // modifiers into the run. Pure state mutation — the transition animation is driven by
-    // AgeTransitionState, not here, so the command stays free of any FSM / sequencer knowledge.
+    // Pay for the age and apply its permanent effects: bump the age counter and push the age's stat
+    // modifiers into the run. Paying means spending the cost, or using up a free age a meta perk gave the
+    // run (FreeAgeUpgradeDef) — the only difference: a free age grants everything a bought one does.
+    // Pure state mutation — the transition animation is driven by AgeTransitionState, not here, so the
+    // command stays free of any FSM / sequencer knowledge.
     public class TriggerAgeCmd
     {
         private readonly ResourceSystem resourceSystem;
@@ -16,21 +18,20 @@ namespace LittlePeeps
             this.ageDef = ageDef;
         }
 
-        public bool CanExecute() => ageDef != null && resourceSystem.CanAfford(ageDef.resourceCost);
+        public bool CanExecute() => CanEnter(resourceSystem, runContext, ageDef);
 
         public void Execute()
         {
-            resourceSystem.Spend(ageDef.resourceCost);
-            EnterAge(runContext, ageDef);
+            if (runContext.freeAgesLeft > 0) runContext.freeAgesLeft--;
+            else resourceSystem.Spend(ageDef.resourceCost);
+
+            runContext.currentAge++;
+            runContext.stats.Add(ageDef.modifiers);   // production/yield/speed/... — all data-driven
         }
 
-        // What entering an age IS, without the price: the counter and the age's modifiers. Shared with the
-        // ages a run skips at its start (StartAgeUpgradeDef → RunManager), so a skipped age and a bought one
-        // can never grant different things.
-        public static void EnterAge(RunContext run, AgeDef def)
-        {
-            run.currentAge++;
-            run.stats.Add(def.modifiers);   // production/yield/speed/... — all data-driven
-        }
+        // Whether `run` can enter the age `def` right now: it exists, and it is free or affordable. The one
+        // rule, asked by AgeSystem for the button too, so the button and the purchase cannot disagree.
+        public static bool CanEnter(ResourceSystem resources, RunContext run, AgeDef def) =>
+            def != null && (run.freeAgesLeft > 0 || resources.CanAfford(def.resourceCost));
     }
 }

@@ -48,16 +48,15 @@ namespace LittlePeeps
         public float offeringElapsed;
 
         // Perk picks the run is owed at its start, shown one after another before play begins: one from
-        // StartPerkPickUpgradeDef (skipped ages owe none — ages give no perks). GameplayContainerState opens
-        // the first, PerkSelectionState counts them down and shows the rest in the same sitting. A pick that
-        // finds nothing to offer drops what is left — the roll would only come up empty again.
+        // StartPerkPickUpgradeDef. GameplayContainerState opens the first, PerkSelectionState counts them down
+        // and shows the rest in the same sitting. A pick that finds nothing to offer drops what is left — the
+        // roll would only come up empty again.
         public int perkPicksOwed;
 
-        // Ages to skip at the start of the run, and the biome the island grows by for each of them — set by
-        // StartAgeUpgradeDef while the run is built, carried out by RunManager once the island exists (the
-        // perk itself has neither the age list nor the island). Zero again by the time the run starts.
-        public int startAgesToSkip;
-        public BiomeDef skippedAgeBiome;
+        // How many ages the run can still enter without paying, from FreeAgeUpgradeDef. While this is above
+        // zero the next age is a free one, so these are always the first ages the run buys. TriggerAgeCmd
+        // uses them up.
+        public int freeAgesLeft;
 
         // Structures a perk has opened this run (UnlockStructurePerkDef), read by StructureDef.LockState
         // for the ones marked lockedUntilPerk. Derived from perksChosen, so it stays rebuildable like the

@@ -9,7 +9,7 @@ namespace LittlePeeps
     // The prestige counterpart of PerkDef, with the same split: this base holds what every meta perk has, and
     // each KIND of effect is its own subclass — StatUpgradeDef for everything a stat modifier can say, which
     // is most of them. A kind that is not a number arrives as its own subclass, one file:
-    // StartResourcesUpgradeDef, StartPerkPickUpgradeDef, StartAgeUpgradeDef.
+    // StartResourcesUpgradeDef, StartPerkPickUpgradeDef, FreeAgeUpgradeDef.
     public abstract class GlobalUpgradeDef : ScriptableObject
     {
         [Tooltip("Stable key for saves: the profile stores what is taken by it. Must be unique across the " +

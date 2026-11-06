@@ -22,14 +22,9 @@ namespace LittlePeeps
         // tests and in a scene without bootstrap: the run then starts with none.
         private PrestigeSystem metaUpgrades;
 
-        // The age list, for the ages a meta perk skips at the start (SkipStartAges). Injected with the meta
-        // perks for the same reason. Null: no age is skipped.
-        private AgeSystem ages;
-
-        public void Initialize(PrestigeSystem prestigeSystem, AgeSystem ageSystem)
+        public void Initialize(PrestigeSystem prestigeSystem)
         {
             metaUpgrades = prestigeSystem;
-            ages = ageSystem;
         }
 
         // Another start config for every run from the next StartNewRun on (TestMode). Changes only this
@@ -72,10 +67,6 @@ namespace LittlePeeps
             if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSeed, startConfig.islandRules, startConfig.startBiome, startConfig.house, startConfig.pier);
             else                     islandSystem.GenerateForRun();
 
-            // The ages a meta perk skips need the island to grow on, so they come after it — and before the
-            // event below, so everything that reads the run's age on RunStartedEvent sees the skipped one.
-            SkipStartAges();
-
             // Last: the run is fully built, so observers that cache the context can safely re-bind.
             // On the FIRST run this reaches nobody — GameBootstrap.Awake publishes it before the other
             // systems' OnEnable has run, which is exactly why GameBootstrap still injects them by hand.
@@ -116,35 +107,6 @@ namespace LittlePeeps
             spawnSystem.ResetForNewRun();
 
             CurrentRun = null;
-        }
-
-        // Enter the ages a meta perk skips (StartAgeUpgradeDef), each one as if bought for free: what entering
-        // an age grants (TriggerAgeCmd.EnterAge) and its zone of island — grown at once, no pick, no rise. No
-        // perk pick: ages give none since the offering cycle (perks come from offerings). Stops quietly at the
-        // final age: there is nothing left to skip into, and a high level must not run off the end of the list.
-        private void SkipStartAges()
-        {
-            int skips = CurrentRun.startAgesToSkip;
-            CurrentRun.startAgesToSkip = 0;
-            if (skips <= 0) return;
-
-            if (ages == null)
-            {
-                Debug.LogWarning("RunManager has no AgeSystem — the run starts in the Age I despite the " +
-                                 "Start Age perk. GameBootstrap injects it.", this);
-                return;
-            }
-
-            for (int i = 0; i < skips; i++)
-            {
-                var def = ages.DefOf(CurrentRun.currentAge + 1);
-                if (def == null) break;
-
-                TriggerAgeCmd.EnterAge(CurrentRun, def);
-                if (CurrentRun.skippedAgeBiome != null) islandSystem.GrowZone(CurrentRun.skippedAgeBiome);
-            }
-
-            Debug.Log($"[Run] Started in the Age {RomanNumeral.From(CurrentRun.currentAge)} (Start Age perk).", this);
         }
 
         // Fill CurrentRun.resources from the config's starting amounts, before ResourceSystem.Initialize

@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // One bonus of something bought in levels — a perk (StatPerkDef) or a meta upgrade (StatUpgradeDef): a
-    // StatModifier's stat and scopes, with a STEP per level instead of one value. Peer Pressure at three
+    // One bonus of a perk bought in levels (StatPerkDef): a StatModifier's stat and scopes, with a STEP per
+    // level instead of one value. Peer Pressure at three
     // levels might read +10%, +10%, +20% — taking level 3 adds the third step, and the run then holds +40%
     // in all.
     //

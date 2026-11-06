@@ -13,17 +13,11 @@ namespace LittlePeeps
     [CreateAssetMenu(menuName = "LittlePeeps/Meta/Start Resources")]
     public class StartResourcesUpgradeDef : GlobalUpgradeDef
     {
-        [Tooltip("What ONE level adds to the run's starting resources. Levels repeat it: 20 Food here is " +
-                 "60 Food at 3/3. Added to the start config's amounts.")]
+        [Tooltip("What this adds to the run's starting resources, on top of the start config's amounts.")]
         public List<ResourceCost> resources = new();
 
-        // "+20 FOOD", one line per resource — the grammar of a stat line on a perk card. Every level is the
-        // same step; the total is that step times the levels.
-        public override string GeneratedDescription(int level) => Describe(1);
-
-        public override string GeneratedTotal(int level) => Describe(level);
-
-        private string Describe(int times)
+        // "+20 FOOD", one line per resource — the grammar of a stat line on a perk card.
+        public override string GeneratedDescription()
         {
             if (resources == null) return string.Empty;
 
@@ -33,21 +27,20 @@ namespace LittlePeeps
                 var r = resources[i];
                 if (r == null || Mathf.Approximately(r.amount, 0f)) continue;
 
-                float amount = r.amount * times;
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append(amount > 0f ? "+" : "")
-                  .Append(amount.ToString("0.##", CultureInfo.InvariantCulture))
+                sb.Append(r.amount > 0f ? "+" : "")
+                  .Append(r.amount.ToString("0.##", CultureInfo.InvariantCulture))
                   .Append(' ')
                   .Append(r.resourceType.ToString().ToUpperInvariant());
             }
             return sb.ToString();
         }
 
-        // The step added `level` times. A type the config left out is absent from the dictionary and starts
-        // from 0, which is what ResourceSystem would have defaulted it to.
-        public override void ApplyToRun(RunContext run, int level)
+        // A type the config left out is absent from the dictionary and starts from 0, which is what
+        // ResourceSystem would have defaulted it to.
+        public override void ApplyToRun(RunContext run)
         {
-            if (run == null || resources == null || level <= 0) return;
+            if (run == null || resources == null) return;
 
             for (int i = 0; i < resources.Count; i++)
             {
@@ -55,7 +48,7 @@ namespace LittlePeeps
                 if (r == null) continue;
 
                 run.resources.TryGetValue(r.resourceType, out float current);
-                run.resources[r.resourceType] = current + r.amount * level;
+                run.resources[r.resourceType] = current + r.amount;
             }
         }
     }

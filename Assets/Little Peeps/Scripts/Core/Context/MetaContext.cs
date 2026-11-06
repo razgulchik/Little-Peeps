@@ -29,7 +29,8 @@ namespace LittlePeeps
         public int agePointsAwarded;
         public int harvestPointsAwarded;
 
-        // Keyed by GlobalUpgradeDef.id; tracks how many levels of each global upgrade have been purchased
+        // Keyed by GlobalUpgradeDef.id: the upgrades taken, each with the points it holds — its price when
+        // it was taken. Absent means not taken.
         [NonSerialized] public Dictionary<string, int> globalUpgrades = new();
 
         // Bank a finished run: credit the payout and raise each record to what the run was worth GROSS.
@@ -49,53 +50,36 @@ namespace LittlePeeps
             harvestPointsAwarded = Math.Max(harvestPointsAwarded, harvestPointsEarned);
         }
 
-        // Return level for a specific upgrade; 0 if never purchased
-        public int GetUpgradeLevel(string id)
-        {
-            return id != null && globalUpgrades != null && globalUpgrades.TryGetValue(id, out var level) ? level : 0;
-        }
+        public bool IsTaken(string id) => id != null && globalUpgrades != null && globalUpgrades.ContainsKey(id);
 
         // The spending side of prestigePoints. prestigePoints is everything ever banked and is never spent
-        // DOWN: a level holds one point, and the points not held by any level are what the meta screen
-        // offers. That is what makes re-spending free — lowering a level gives its point straight back,
-        // with nothing to refund and no second balance to keep in step.
+        // DOWN: a taken upgrade holds its price, and the points no upgrade holds are what the screen offers.
+        // That is what makes re-spending free — returning an upgrade gives back exactly what it holds, with
+        // nothing to refund and no second balance to keep in step.
         public int PointsInvested
         {
             get
             {
                 int sum = 0;
                 if (globalUpgrades != null)
-                    foreach (int level in globalUpgrades.Values) sum += Math.Max(0, level);
+                    foreach (int held in globalUpgrades.Values) sum += Math.Max(0, held);
                 return sum;
             }
         }
 
         public int FreePoints => Math.Max(0, prestigePoints - PointsInvested);
 
-        // Plain ids and limits rather than GlobalUpgradeDef, so the rules stay testable without a
-        // ScriptableObject. PrestigeSystem passes the def's id and MaxLevel.
-        public bool CanRaise(string id, int maxLevel) =>
-            !string.IsNullOrEmpty(id) && FreePoints > 0 && GetUpgradeLevel(id) < maxLevel;
-
-        public bool CanLower(string id) => GetUpgradeLevel(id) > 0;
-
-        public bool TryRaise(string id, int maxLevel)
+        // A plain id and price rather than GlobalUpgradeDef, so the rules stay testable without a
+        // ScriptableObject. PrestigeSystem passes the def's id and Cost.
+        public bool TryTake(string id, int cost)
         {
-            if (!CanRaise(id, maxLevel)) return false;
+            if (string.IsNullOrEmpty(id) || IsTaken(id) || FreePoints < cost) return false;
 
             globalUpgrades ??= new Dictionary<string, int>();
-            globalUpgrades[id] = GetUpgradeLevel(id) + 1;
+            globalUpgrades[id] = cost;
             return true;
         }
 
-        public bool TryLower(string id)
-        {
-            if (!CanLower(id)) return false;
-
-            int level = GetUpgradeLevel(id) - 1;
-            if (level > 0) globalUpgrades[id] = level;
-            else globalUpgrades.Remove(id);   // 0 is "never bought"; keep the book free of empty rows
-            return true;
-        }
+        public bool TryReturn(string id) => IsTaken(id) && globalUpgrades.Remove(id);
     }
 }

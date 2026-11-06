@@ -12,11 +12,8 @@ namespace LittlePeeps.EditorTools
         protected override string Noun => "upgrade";
 
         protected override string Generated(Object target) =>
-            ((StartPerkPickUpgradeDef)target).GeneratedDescription(1);
+            ((StartPerkPickUpgradeDef)target).GeneratedDescription();
 
         protected override bool HasModifiers(Object target) => true;
-
-        protected override string Note(Object target) =>
-            "Bought once: Max Level is held at 1.";
     }
 }

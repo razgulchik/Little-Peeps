@@ -4,9 +4,9 @@ using UnityEngine;
 
 namespace LittlePeeps.Tests
 {
-    // Starting resources from a meta perk: a level repeats the step, the amounts are ADDED to what the start
-    // config seeded, and none of it counts as harvest. ScriptableObjects, so these run in the Test Runner
-    // only; the offline harness skips them.
+    // Starting resources from a meta perk: the amounts are ADDED to what the start config seeded, and none
+    // of it counts as harvest. ScriptableObjects, so these run in the Test Runner only; the offline harness
+    // skips them.
     public class StartResourcesUpgradeDefTests
     {
         private StartResourcesUpgradeDef upgrade;
@@ -30,24 +30,14 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
-        public void Level1_GivesTheStep()
+        public void GivesTheAmounts()
         {
             var run = new RunContext();
 
-            upgrade.ApplyToRun(run, 1);
+            upgrade.ApplyToRun(run);
 
             Assert.That(run.resources[ResourceType.Food], Is.EqualTo(20f));
             Assert.That(run.resources[ResourceType.Wood], Is.EqualTo(20f));
-        }
-
-        [Test]
-        public void Level3_IsThreeSteps()
-        {
-            var run = new RunContext();
-
-            upgrade.ApplyToRun(run, 3);
-
-            Assert.That(run.resources[ResourceType.Food], Is.EqualTo(60f));
         }
 
         // On top of the start config, never instead of it: RunManager seeds the config before meta perks.
@@ -57,7 +47,7 @@ namespace LittlePeeps.Tests
             var run = new RunContext();
             run.resources[ResourceType.Food] = 5f;
 
-            upgrade.ApplyToRun(run, 1);
+            upgrade.ApplyToRun(run);
 
             Assert.That(run.resources[ResourceType.Food], Is.EqualTo(25f));
         }
@@ -68,25 +58,15 @@ namespace LittlePeeps.Tests
         {
             var run = new RunContext();
 
-            upgrade.ApplyToRun(run, 2);
+            upgrade.ApplyToRun(run);
 
             Assert.That(run.harvested, Is.Empty);
         }
 
         [Test]
-        public void LevelZero_ChangesNothing()
-        {
-            var run = new RunContext();
-
-            upgrade.ApplyToRun(run, 0);
-
-            Assert.That(run.resources, Is.Empty);
-        }
-
-        [Test]
         public void Description_OneLinePerResource()
         {
-            Assert.That(upgrade.GeneratedDescription(1), Is.EqualTo("+20 FOOD\n+20 WOOD"));
+            Assert.That(upgrade.GeneratedDescription(), Is.EqualTo("+20 FOOD\n+20 WOOD"));
         }
 
         [Test]
@@ -94,14 +74,7 @@ namespace LittlePeeps.Tests
         {
             upgrade.resources[1].amount = 0f;
 
-            Assert.That(upgrade.GeneratedDescription(1), Is.EqualTo("+20 FOOD"));
-        }
-
-        // Every level is the same step, so the total at the top of the meta screen is the step times the levels.
-        [Test]
-        public void Total_IsTheStepTimesTheLevels()
-        {
-            Assert.That(upgrade.GeneratedTotal(3), Is.EqualTo("+60 FOOD\n+60 WOOD"));
+            Assert.That(upgrade.GeneratedDescription(), Is.EqualTo("+20 FOOD"));
         }
     }
 }

@@ -9,7 +9,7 @@ namespace LittlePeeps
     [CreateAssetMenu(menuName = "LittlePeeps/Meta/Upgrade Catalogue")]
     public class GlobalUpgradeCatalogueDef : ScriptableObject
     {
-        [Tooltip("Every meta perk on offer, listed on the meta screen top to bottom in this order.")]
+        [Tooltip("Every meta perk on offer, one cell each on the Ancestral Wisdom screen, in this order.")]
         public List<GlobalUpgradeDef> upgrades = new();
     }
 }

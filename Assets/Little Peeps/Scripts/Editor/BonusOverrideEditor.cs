@@ -36,7 +36,7 @@ namespace LittlePeeps.EditorTools
         // An optional line under the buttons. Null for none.
         protected virtual string Note(Object target) => null;
 
-        // The note of an asset bought in levels (Stat Perk, Stat Upgrade): the preview above is level I, so
+        // The note of an asset bought in levels (a Stat Perk): the preview above is level I, so
         // the other levels' texts are listed here and the totals can be checked without playing — with a
         // warning when a hand-written description would hide them. Null for a single level.
         protected static string LevelsNote(string description, int maxLevel, System.Func<int, string> textAt)

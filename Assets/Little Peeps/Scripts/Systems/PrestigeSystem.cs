@@ -5,7 +5,7 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // The prestige economy, both halves: what a run is worth and banking it (Calculate / CashIn), and what
-    // the banked points buy — the meta perks, their levels, and putting them into every new run
+    // the banked points buy — the meta perks, and putting the taken ones into every new run
     // (ApplyUpgrades, called by RunManager.StartNewRun). It does not start runs itself: after a cash-in the
     // meta screen comes first, and its Play button starts the next run, so that what was just bought is in
     // place when that run is built.
@@ -83,28 +83,21 @@ namespace LittlePeeps
             if (saveSystem != null && metaContext != null) saveSystem.Save(metaContext);
         }
 
-        // --- Spending. One point per level; the rules live in MetaContext, these pass the def's limits. ---
+        // --- Spending. The rules live in MetaContext; these pass the def's id and price. ---
 
         public int FreePoints => metaContext != null ? metaContext.FreePoints : 0;
 
-        public int LevelOf(GlobalUpgradeDef def) =>
-            def != null && metaContext != null ? metaContext.GetUpgradeLevel(def.id) : 0;
+        public bool IsTaken(GlobalUpgradeDef def) =>
+            def != null && metaContext != null && metaContext.IsTaken(def.id);
 
-        public bool CanRaise(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.CanRaise(def.id, def.MaxLevel);
+        public bool TryTake(GlobalUpgradeDef def) =>
+            def != null && metaContext != null && metaContext.TryTake(def.id, def.Cost);
 
-        public bool CanLower(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.CanLower(def.id);
+        public bool TryReturn(GlobalUpgradeDef def) =>
+            def != null && metaContext != null && metaContext.TryReturn(def.id);
 
-        public bool TryRaise(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.TryRaise(def.id, def.MaxLevel);
-
-        public bool TryLower(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.TryLower(def.id);
-
-        // Put every bought level into a run that is being built. Called by RunManager.StartNewRun next to the
-        // start config's modifiers — a meta perk is a run-start bonus, in the sheet before any system reads
-        // it. Clamped to MaxLevel, so lowering a maximum in the asset can never apply more than it allows.
+        // Put every taken upgrade into a run that is being built. Called by RunManager.StartNewRun next to the
+        // start config's modifiers — a meta perk is a run-start bonus, in the sheet before any system reads it.
         public void ApplyUpgrades(RunContext run)
         {
             if (run == null || metaContext == null) return;
@@ -113,10 +106,7 @@ namespace LittlePeeps
             for (int i = 0; i < list.Count; i++)
             {
                 var def = list[i];
-                if (def == null) continue;
-
-                int level = Mathf.Min(metaContext.GetUpgradeLevel(def.id), def.MaxLevel);
-                if (level > 0) def.ApplyToRun(run, level);
+                if (def != null && metaContext.IsTaken(def.id)) def.ApplyToRun(run);
             }
         }
 
@@ -141,15 +131,17 @@ namespace LittlePeeps
                 }
 
                 if (string.IsNullOrEmpty(def.id))
-                    Debug.LogError($"Upgrade '{def.name}' has no id — the profile keys levels by id, so it " +
-                                   "can never be bought.", def);
+                    Debug.LogError($"Upgrade '{def.name}' has no id — the profile keys what is taken by id, " +
+                                   "so it can never be bought.", def);
                 else if (!seen.Add(def.id))
                     Debug.LogError($"Upgrade '{def.name}' repeats the id '{def.id}'; ids must be unique, or " +
-                                   "the two share one level.", def);
+                                   "taking one takes both.", def);
 
-                // A warning, not an error: a missing title costs a blank row, not a corrupt save.
+                // Warnings, not errors: these cost a blank tip or a bare cell, not a corrupt save.
                 if (string.IsNullOrEmpty(def.title))
-                    Debug.LogWarning($"Upgrade '{def.name}' has no title — its row will read empty.", def);
+                    Debug.LogWarning($"Upgrade '{def.name}' has no title — its tip will have no name.", def);
+                if (def.icon == null)
+                    Debug.LogWarning($"Upgrade '{def.name}' has no icon — its cell shows the bare frame.", def);
             }
         }
     }

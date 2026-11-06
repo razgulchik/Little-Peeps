@@ -37,7 +37,7 @@ namespace LittlePeeps
         public static string Describe(IReadOnlyList<StatModifier> modifiers) =>
             Lines(modifiers?.Count ?? 0, i => Describe(modifiers[i]));
 
-        // A levelled bonus (perk or meta upgrade) on the card of one level: what that level adds, then — when
+        // A levelled bonus (a perk's) on the card of one level: what that level adds, then — when
         // the run already holds some of it — what it comes to: "+20% TAP RADIUS [TOTAL +40%]". Level 1 is the
         // step alone, since the two are the same number. Square brackets, because the parentheses already
         // belong to the scope. Empty when the level adds nothing to this bonus: the card says what changes.
@@ -54,11 +54,6 @@ namespace LittlePeeps
 
         public static string Describe(IReadOnlyList<LevelledModifier> modifiers, int level) =>
             Lines(modifiers?.Count ?? 0, i => Describe(modifiers[i], level));
-
-        // What levels 1 to `level` give together, as one plain line per bonus: "+75% ALL PRODUCTION". For a
-        // meta upgrade bought to its last level, where there is no next step left to show.
-        public static string DescribeTotal(IReadOnlyList<LevelledModifier> modifiers, int level) =>
-            Lines(modifiers?.Count ?? 0, i => Describe(modifiers[i].With(modifiers[i].TotalAt(level))));
 
         private static string Lines(int count, System.Func<int, string> lineAt)
         {

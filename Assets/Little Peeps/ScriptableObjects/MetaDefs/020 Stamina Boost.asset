@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: stamina_boost
   title: Stamina Boost
+  icon: {fileID: 21300000, guid: a98d3ee3050af3947b8d54aef4b677ee, type: 3}
   description: 
-  levels: 2
+  cost: 1
   modifiers:
   - id: 4
     unitScope: 0
@@ -24,6 +25,4 @@ MonoBehaviour:
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
     kind: 1
-    steps:
-    - 0.5
-    - 0.5
+    value: 0.5

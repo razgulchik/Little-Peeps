@@ -181,22 +181,9 @@ namespace LittlePeeps.Tests
             Assert.That(StatModifierText.Describe((IReadOnlyList<LevelledModifier>)null, 1), Is.Empty);
         }
 
-        // The meta screen at the top level: no next step, just what every level gives together.
-        [Test]
-        public void Total_IsOnePlainLinePerBonus()
-        {
-            var modifiers = new List<LevelledModifier>
-            {
-                Levels(StatId.ProductionGlobal, ModifierKind.Percent, 0.25f, 0.5f),
-                Levels(StatId.UnitStamina, ModifierKind.Flat, 1f, 0f),
-            };
-
-            Assert.That(StatModifierText.DescribeTotal(modifiers, 2), Is.EqualTo("+75% ALL PRODUCTION\n+1 STAMINA"));
-            Assert.That(StatModifierText.DescribeTotal((IReadOnlyList<LevelledModifier>)null, 2), Is.Empty);
-        }
     }
 
-    // A levelled bonus's numbers per level (perk or meta upgrade): what one level adds, and what the run
+    // A levelled bonus's numbers per level (a perk's): what one level adds, and what the run
     // holds once it is taken.
     public class LevelledModifierTests
     {

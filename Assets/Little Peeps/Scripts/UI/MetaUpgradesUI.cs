@@ -6,11 +6,12 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // The meta screen's content: the free prestige points, one row per meta perk, and Play. Points move
-    // here, through PrestigeSystem, and are free to move back while the screen is open; the screen itself
-    // starts nothing — Play hands control to MetaUpgradesState, which builds the next run.
+    // The Ancestral Wisdom screen's content: the free prestige points, one icon per meta perk, and the button
+    // to the next island. Points move here, through PrestigeSystem, and are free to move back while the screen
+    // is open; the screen itself starts nothing — the button hands control to MetaUpgradesState, which builds
+    // the next run.
     //
-    // Rows are instantiated per Show rather than living in the prefab as fixed slots, like the perk cards:
+    // Cells are instantiated per Show rather than living in the prefab as fixed slots, like the perk cards:
     // the list is whatever the catalogue holds, in its order.
     //
     // Visibility is NOT this panel's job — UIVisibility shows it on UIMode.MetaUpgrades — but the object
@@ -19,20 +20,19 @@ namespace LittlePeeps
     [RequireComponent(typeof(CanvasGroup))]
     public class MetaUpgradesUI : MonoBehaviour
     {
-        [SerializeField] private MetaUpgradeRowUI rowPrefab;
+        [SerializeField] private MetaUpgradeSlotUI slotPrefab;
 
-        [Tooltip("Parent for the rows — give it a Vertical Layout Group (the Content of a Scroll View, once " +
-                 "the list outgrows the screen).")]
-        [SerializeField] private Transform rowContainer;
+        [Tooltip("Parent of the cells. Its Grid Layout Group sets the cell, the spacing and the columns.")]
+        [SerializeField] private Transform slotContainer;
 
+        [Tooltip("The number beside the star: the points not spent yet.")]
         [SerializeField] private TMP_Text pointsText;
 
-        [Tooltip("{0} becomes the free points.")]
-        [SerializeField] private string pointsFormat = "Prestige points: {0}";
+        [SerializeField] private MetaUpgradeTipUI tip;
 
         [SerializeField] private Button playButton;
 
-        private readonly List<MetaUpgradeRowUI> rows = new();
+        private readonly List<MetaUpgradeSlotUI> slots = new();
         private PrestigeSystem prestige;
         private Action onPlay;
 
@@ -46,17 +46,17 @@ namespace LittlePeeps
             if (playButton != null) playButton.onClick.RemoveListener(OnPlayClicked);
         }
 
-        // Fill the screen and hand it Play. Called by MetaUpgradesState after it has announced the mode, so
-        // the panel is already up: this owns the CONTENT of the screen, not the screen.
+        // Fill the screen and hand it the way out. Called by MetaUpgradesState after it has announced the
+        // mode, so the panel is already up: this owns the CONTENT of the screen, not the screen.
         public void Show(PrestigeSystem prestigeSystem, Action onPlay)
         {
             prestige = prestigeSystem;
             this.onPlay = onPlay;
-            ClearRows();
+            ClearSlots();
 
-            if (rowPrefab == null || rowContainer == null)
-                Debug.LogError($"MetaUpgradesUI on '{name}' is missing its row prefab or container — the screen " +
-                               "opens with nothing to spend on. Play still works.", this);
+            if (slotPrefab == null || slotContainer == null)
+                Debug.LogError($"MetaUpgradesUI on '{name}' is missing its slot prefab or container — the screen " +
+                               "opens with nothing to spend on. Its button still works.", this);
             else if (prestige != null)
             {
                 var upgrades = prestige.Upgrades;
@@ -64,9 +64,9 @@ namespace LittlePeeps
                 {
                     if (upgrades[i] == null) continue;
 
-                    var row = Instantiate(rowPrefab, rowContainer);
-                    row.Init(upgrades[i], Raise, Lower);
-                    rows.Add(row);
+                    var slot = Instantiate(slotPrefab, slotContainer);
+                    slot.Init(upgrades[i], Take, Return, tip);
+                    slots.Add(slot);
                 }
             }
 
@@ -76,34 +76,28 @@ namespace LittlePeeps
 
         public void Hide()
         {
-            ClearRows();
+            ClearSlots();
+            if (tip != null) tip.Hide();
             prestige = null;
             onPlay = null;
         }
 
-        private void Raise(GlobalUpgradeDef def)
+        private void Take(GlobalUpgradeDef def)
         {
-            if (prestige != null && prestige.TryRaise(def)) Refresh();
+            if (prestige != null && prestige.TryTake(def)) Refresh();
         }
 
-        private void Lower(GlobalUpgradeDef def)
+        private void Return(GlobalUpgradeDef def)
         {
-            if (prestige != null && prestige.TryLower(def)) Refresh();
+            if (prestige != null && prestige.TryReturn(def)) Refresh();
         }
 
-        // Everything, every time: one point moving changes the free total and with it every row's [+].
         private void Refresh()
         {
-            int free = prestige != null ? prestige.FreePoints : 0;
-            if (pointsText != null) pointsText.text = pointsFormat.Replace("{0}", free.ToString());
+            if (pointsText != null) pointsText.text = (prestige != null ? prestige.FreePoints : 0).ToString();
 
-            for (int i = 0; i < rows.Count; i++)
-            {
-                var def = rows[i].Def;
-                rows[i].Refresh(prestige != null ? prestige.LevelOf(def) : 0, def.MaxLevel,
-                                prestige != null && prestige.CanRaise(def),
-                                prestige != null && prestige.CanLower(def));
-            }
+            for (int i = 0; i < slots.Count; i++)
+                slots[i].Refresh(prestige != null && prestige.IsTaken(slots[i].Def));
         }
 
         // One-shot, like ConfirmDialog's answers: the callback is dropped and the button locked BEFORE the
@@ -117,12 +111,12 @@ namespace LittlePeeps
             play?.Invoke();
         }
 
-        private void ClearRows()
+        private void ClearSlots()
         {
-            for (int i = 0; i < rows.Count; i++)
-                if (rows[i] != null) Destroy(rows[i].gameObject);
+            for (int i = 0; i < slots.Count; i++)
+                if (slots[i] != null) Destroy(slots[i].gameObject);
 
-            rows.Clear();
+            slots.Clear();
         }
     }
 }

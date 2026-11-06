@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: tap_radius
   title: Tap Radius
+  icon: {fileID: 21300000, guid: 103f09e310826454f88c703d38b5ff92, type: 3}
   description: 
-  levels: 1
+  cost: 1
   modifiers:
   - id: 14
     unitScope: 0
@@ -24,5 +25,4 @@ MonoBehaviour:
     sourceScope: {fileID: 0}
     structureScope: {fileID: 0}
     kind: 0
-    steps:
-    - 0.4
+    value: 0.4

@@ -35,29 +35,19 @@ namespace LittlePeeps.Tests
         {
             var run = new RunContext();
 
-            upgrade.ApplyToRun(run, 1);
+            upgrade.ApplyToRun(run);
 
             Assert.That(run.perkPicksOwed, Is.EqualTo(1));
         }
 
         [Test]
-        public void LevelZero_OwesNothing()
-        {
-            var run = new RunContext();
-
-            upgrade.ApplyToRun(run, 0);
-
-            Assert.That(run.perkPicksOwed, Is.Zero);
-        }
-
-        [Test]
         public void Description_FollowsTheDataUnlessOverridden()
         {
-            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo(upgrade.GeneratedDescription(1)));
-            Assert.That(upgrade.DescriptionAt(1), Is.Not.Empty);
+            Assert.That(upgrade.ScreenText, Is.EqualTo(upgrade.GeneratedDescription()));
+            Assert.That(upgrade.ScreenText, Is.Not.Empty);
 
             upgrade.description = "A head start";
-            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo("A head start"));
+            Assert.That(upgrade.ScreenText, Is.EqualTo("A head start"));
         }
     }
 }

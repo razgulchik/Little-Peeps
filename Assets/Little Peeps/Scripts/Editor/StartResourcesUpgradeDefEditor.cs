@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LittlePeeps.EditorTools
 {
     // Inspector for StartResourcesUpgradeDef: the description-override affordance from BonusOverrideEditor,
-    // generated from the resource list. The text is for ONE level, like a Stat Upgrade's.
+    // generated from the resource list.
     [CustomEditor(typeof(StartResourcesUpgradeDef))]
     public class StartResourcesUpgradeDefEditor : BonusOverrideEditor
     {
@@ -12,7 +12,7 @@ namespace LittlePeeps.EditorTools
         protected override string Noun => "upgrade";
 
         protected override string Generated(Object target) =>
-            ((StartResourcesUpgradeDef)target).GeneratedDescription(1);
+            ((StartResourcesUpgradeDef)target).GeneratedDescription();
 
         protected override bool HasModifiers(Object target)
         {

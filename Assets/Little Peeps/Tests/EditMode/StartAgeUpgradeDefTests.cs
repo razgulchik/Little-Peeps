@@ -37,14 +37,26 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
-        public void Level2_SkipsTwoAges_InTheChosenBiome()
+        public void SkipsOneAge_InTheChosenBiome()
         {
             var run = new RunContext();
 
-            upgrade.ApplyToRun(run, 2);
+            upgrade.ApplyToRun(run);
+
+            Assert.That(run.startAgesToSkip, Is.EqualTo(1));
+            Assert.That(run.skippedAgeBiome, Is.SameAs(biome));
+        }
+
+        // A bigger skip is a second upgrade with its own icon: they add up.
+        [Test]
+        public void TwoSuchUpgrades_SkipTwoAges()
+        {
+            var run = new RunContext();
+
+            upgrade.ApplyToRun(run);
+            upgrade.ApplyToRun(run);
 
             Assert.That(run.startAgesToSkip, Is.EqualTo(2));
-            Assert.That(run.skippedAgeBiome, Is.SameAs(biome));
         }
 
         // The intent only: the age itself moves when RunManager carries it out, after the island exists.
@@ -53,20 +65,10 @@ namespace LittlePeeps.Tests
         {
             var run = new RunContext();
 
-            upgrade.ApplyToRun(run, 2);
+            upgrade.ApplyToRun(run);
 
             Assert.That(run.currentAge, Is.EqualTo(RunContext.FirstAge));
             Assert.That(run.perkPicksOwed, Is.Zero);
-        }
-
-        [Test]
-        public void LevelZero_SkipsNothing()
-        {
-            var run = new RunContext();
-
-            upgrade.ApplyToRun(run, 0);
-
-            Assert.That(run.startAgesToSkip, Is.Zero);
         }
 
         // What a skipped age grants is exactly what a bought one does, minus the price.
@@ -84,17 +86,11 @@ namespace LittlePeeps.Tests
         [Test]
         public void Description_FollowsTheDataUnlessOverridden()
         {
-            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo(upgrade.GeneratedDescription(1)));
-            Assert.That(upgrade.DescriptionAt(1), Is.Not.Empty);
+            Assert.That(upgrade.ScreenText, Is.EqualTo(upgrade.GeneratedDescription()));
+            Assert.That(upgrade.ScreenText, Is.Not.Empty);
 
             upgrade.description = "Late bloomer";
-            Assert.That(upgrade.DescriptionAt(1), Is.EqualTo("Late bloomer"));
-        }
-
-        [Test]
-        public void Total_CountsTheAges()
-        {
-            Assert.That(upgrade.GeneratedTotal(2), Is.EqualTo("+2 STARTING AGE"));
+            Assert.That(upgrade.ScreenText, Is.EqualTo("Late bloomer"));
         }
     }
 }

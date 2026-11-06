@@ -221,13 +221,18 @@ SampleScene
     │                             конец цикла спрашивает через `OfferingWindow`; оставлен для простых да/нет
     ├── FPSmeter
     │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
-    ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← экран после престижа (включён, как Screens)
-    │   ├── TitleText, PointsText → TMP_Text
-    │   ├── Scroll View         → Image + ScrollRect
-    │   │   ├── Viewport        → Image + Mask
-    │   │   │   └── Content     → Vertical Layout Group + Content Size Fitter   (строки мета-перков в рантайме)
-    │   │   └── Scrollbar Vertical
-    │   └── PlayButton          → Image + Button
+    ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← окно Ancestral Wisdom после престижа (включено, как Screens)
+    │   ├── Decor               → 12 плоских квадратов `window_wisdom_decor` за сеткой
+    │   ├── Title               → TMP_Text + PixelSnapText
+    │   ├── Points              → Image (`window_wisdom_points`)
+    │   │   ├── PointsText      → TMP_Text + PixelSnapText   (свободные очки)
+    │   │   └── Star            → Image (`wisdom_icon`)
+    │   ├── Grid                → Grid Layout Group (7 колонок, ячейка 38×39, зазор 3)   (ячейки мета-перков в рантайме)
+    │   ├── Footer              → TMP_Text + PixelSnapText
+    │   ├── NextIslandButton    → Image + Button   (`bttn_pay_offering`)
+    │   │   └── Label           → TMP_Text + PixelSnapText
+    │   └── Tip                 → Image + CanvasGroup + MetaUpgradeTipUI   ← последний ребёнок, поверх ячеек
+    │       └── Text            → TMP_Text + PixelSnapText
     └── ref (выключен)          → скрин-референс вёрстки, в игре не участвует
 ```
 
@@ -399,7 +404,8 @@ SampleScene
 | Canvas/HintView | HintView | titleText, bodyText, costContainer, footerText | свои дети; секция с пустым содержимым прячется сама. Встаёт над элементом или слева от него — как попросит источник (`HintShowEvent.Side`; карточки стройки — сверху, ячейки перков — слева) |
 | | | costPrefab, iconSet, unaffordableColor | ResourceUnit, ResourceIconSet, #9B211E — цена, которую не потянуть |
 | | | maxWidth, gap, screenMargin, showDelay, chainWindow | 160, 4, 2, 0.25 с, 0.3 с (дефолты): ширина до переноса, отступ от элемента и от края экрана, задержка появления, окно «перехода» между соседними элементами без задержки |
-| Canvas/MetaScreen | **MetaUpgradesUI** | rowPrefab, rowContainer | префаб `Prefabs/Elements/MetaUpgradeRow`, `Scroll View/Viewport/Content` |
+| Canvas/MetaScreen | **MetaUpgradesUI** | slotPrefab, slotContainer, pointsText, tip, playButton | префаб `Prefabs/Elements/MetaUpgradeSlot`, `Grid`, `Points/PointsText`, `Tip`, `NextIslandButton` |
+| Canvas/MetaScreen/Tip | **MetaUpgradeTipUI** | text | `Tip/Text` |
 | | | pointsText, pointsFormat | `PointsText`, `Prestige points: {0}` |
 | | | **playButton** | `PlayButton` — следующий забег |
 | Canvas/ConfirmDialog | ConfirmDialog | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию. Сейчас не вызывается: окно конца цикла — `Screens/OfferingWindow`. На `UIRoot` ссылки на него больше нет |
@@ -804,7 +810,7 @@ Label стоит после Icon — цифра рисуется поверх к
 | **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, **grade** (Common — обычные подношения и стартовый выбор; Special — только подношения особых циклов; наборы не смешиваются, а если особых не осталось, особый цикл даёт обычные), weight (шанс выпасть), minAge (с какой эпохи предлагается), requires (перк, который должен быть взят хоть на уровне 1, — один перк открывает другой; не для уровней). Stat Perk — **levels** (сколько раз берётся за забег; взял — тот же перк выпадает следующим уровнем, пока не взят последний) и modifiers[]: стат, скоупы, Kind (Flat / Percent) и строка **Level N** на каждый уровень — сколько добавляет ИМЕННО этот уровень, не итог (0 — на нём не растёт; число строк следует за levels, новый уровень повторяет последний шаг). Карточка пишет шаг и итог: `+20% TAP RADIUS [TOTAL +40%]`; ручное description у перка с уровнями не ставить — оно одно на все уровни (инспектор предупредит и покажет тексты уровней II+). Unlock Structure Perk — structure (снимает `lockedUntilPerk`), один уровень. Особые сейчас: Good rest, Bigger Houses, Unlock Rice Paddy |
 | **Offering Schedule** | LittlePeeps/Offering Schedule | цикл подношений, для `OfferingSystem.schedule`: segmentSeconds (длина одного отрезка-«года» в секундах игры, одна на весь забег — лента всегда едет с одной скоростью; пауза не идёт), cycles[] (по порядку, первый элемент = цикл 1: segments — сколько отрезков длится цикл, не меньше одного; resources — квота; ресурс эпохой не проверяется — не просить его раньше, чем обычный игрок до неё дойдёт), growthPastEnd (после списка повторяется последний цикл: квота ×рост за каждый лишний цикл, округление вверх, длина — как есть), specialEvery (каждый N-й цикл особый, 0 = нет). В проекте `OfferingDef/Offering Schedule Def`, **тестовые** значения: 10 с × 6 отрезков = 60 с на цикл, дерево 10 → дерево 20 → еда 10, ×1.25, каждый 3-й; настоящие числа — за Даниилом |
 | **PerkCatalogueDef** | LittlePeeps/Perk Catalogue | perks — список перков для `PerkSystem.catalogue` |
-| **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Start Age | общее: id, title, description, **levels** (сколько уровней покупается — 3 в «1/3»; то же имя, что у Stat Perk). Stat Upgrade — modifiers[] как у Stat Perk: Kind и строка Level N на уровень (шаг), уровень N даёт шаги 1…N; строка мета-экрана — что даст следующий `[+]` (`+50% ALL PRODUCTION [TOTAL +75%]`), на максимуме — итог; Start Resources — resources; Start Age — zoneBiome (каким биомом растут пропущенные эпохи) |
+| **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Start Age | общее: id, title, icon (картинка ячейки), description (пусто — текст хинта строится из данных), **cost** (цена в очках, число в углу ячейки); уровней нет, одна иконка — один апгрейд. Stat Upgrade — modifiers[] (обычные StatModifier); Start Resources — resources; Start Age — zoneBiome (каким биомом растёт пропущенная эпоха, +1 эпоха за апгрейд) |
 | **GlobalUpgradeCatalogueDef** | LittlePeeps/Meta/Upgrade Catalogue | upgrades — мета-перки в порядке мета-экрана, для `PrestigeSystem.upgrades` |
 | Island Rise Profile | LittlePeeps/Island Rise Profile | все ручки подъёма острова: тайминги, кривые прыжка и сплющивания, эффекты, звуки, тряска |
 | Harvest Number Motion | LittlePeeps/Harvest Number Motion | полёт всплывающей цифры: lifetime, travel, кривые, разброс |

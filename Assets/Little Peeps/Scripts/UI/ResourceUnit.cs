@@ -25,12 +25,18 @@ namespace LittlePeeps
         private ReactiveValue<float> reactive;
 
         // The colour the prefab authored for the label. Captured before anything can tint it, so
-        // ClearTint restores the designed look instead of a hard-coded white.
+        // ClearTint restores the designed look instead of a hard-coded white. Also by the first Tint: a
+        // unit under an inactive parent (a build card in a hidden panel) is tinted before its Awake runs.
         private Color baseLabelColor = Color.white;
+        private bool baseCaptured;
 
-        private void Awake()
+        private void Awake() => CaptureBaseColor();
+
+        private void CaptureBaseColor()
         {
-            if (label != null) baseLabelColor = label.color;
+            if (baseCaptured || label == null) return;
+            baseLabelColor = label.color;
+            baseCaptured = true;
         }
 
         // Wire this unit to a resource: show its icon and start tracking its amount. Renders the
@@ -67,12 +73,14 @@ namespace LittlePeeps
         // Recolour the amount label — used by cost panels to flag a price the player can't pay yet.
         public void Tint(Color color)
         {
+            CaptureBaseColor();
             if (label != null) label.color = color;
         }
 
+        // Never tinted = nothing to undo.
         public void ClearTint()
         {
-            if (label != null) label.color = baseLabelColor;
+            if (baseCaptured) label.color = baseLabelColor;
         }
 
         // A louder flag than the tint: the outline around the icon. Its colour is the ring Image's own.

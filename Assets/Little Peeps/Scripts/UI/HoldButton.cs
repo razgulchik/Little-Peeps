@@ -43,7 +43,9 @@ namespace LittlePeeps
             }
         }
 
-        private void Awake() => ReadFill();
+        // At rest from the first frame: the window this sits in stays active while hidden, so nothing else
+        // would shrink the prefab's full fill before the first show.
+        private void Awake() => ApplyProgress(0f);
 
         private void OnDisable() => CancelHold();
 

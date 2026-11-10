@@ -43,7 +43,9 @@ namespace LittlePeeps
         // Optional: "1/2" on a building with a limit, hidden on one without. Left empty, the card shows no
         // count — the limit still locks it when reached.
         [SerializeField] private TMP_Text countText;
-        [SerializeField] private CanvasGroup artworkCanvasGroup;
+        // Everything the card is drawn with. Its Images turn grey while the player cannot pay — all but the
+        // price and the in-hand highlight, which are not the card's art.
+        [SerializeField] private RectTransform artwork;
         [SerializeField] private ResourceIconSet iconSet;
 
         [Header("Open card")]
@@ -78,6 +80,14 @@ namespace LittlePeeps
             public GameObject chip;
         }
 
+        // An Image of the artwork with the material it was authored with (null = the UI default), to go
+        // back to when the card is affordable again.
+        private struct ArtworkImage
+        {
+            public Image image;
+            public Material material;
+        }
+
         public StructureDef Def { get; private set; }
         public bool IsLocked { get; private set; }
 
@@ -103,6 +113,7 @@ namespace LittlePeeps
         private bool dragSuppressed;
         private Canvas uiCanvas;
         private CanvasGroup[] interactionCanvasGroups;
+        private readonly List<ArtworkImage> artworkImages = new();
 
         private ResourceSystem wallet;   // the hint paints each price line red or not against it
         private readonly HintContent hint = new();
@@ -126,6 +137,7 @@ namespace LittlePeeps
             scroller = GetComponentInParent<BuildPanelScroller>();
             uiCanvas = GetComponentInParent<Canvas>();
             interactionCanvasGroups = GetComponentsInParent<CanvasGroup>(true);
+            CollectArtworkImages();
             ConfigureShineLocalSpace();
 
             if (iconImage != null) iconImage.sprite = def.icon;
@@ -217,7 +229,7 @@ namespace LittlePeeps
         {
             affordable = value;
             hintStale = true;
-            RefreshArtworkAlpha();
+            RefreshAffordableLook();
         }
 
         // The run-dependent numbers: how many of Def stand, which sets the price on the card (the NEXT
@@ -261,7 +273,7 @@ namespace LittlePeeps
                 pointerInside = false;
                 SetHovered(false);
             }
-            RefreshArtworkAlpha();
+            RefreshAffordableLook();
         }
 
         // Drops every tween and lands on the state the card is in: closed, or open if it is in hand.
@@ -744,11 +756,38 @@ namespace LittlePeeps
             if (shineImage != null) shineImage.gameObject.SetActive(false);
         }
 
-        private void RefreshArtworkAlpha()
+        private void CollectArtworkImages()
         {
-            if (artworkCanvasGroup == null || motionProfile == null) return;
-            // The lock overlay greys out an opaque card, so the world cannot show through it.
-            artworkCanvasGroup.alpha = IsLocked || affordable ? 1f : motionProfile.unaffordableAlpha;
+            artworkImages.Clear();
+            if (artwork == null) return;
+
+            foreach (Image image in artwork.GetComponentsInChildren<Image>(true))
+            {
+                Transform t = image.transform;
+                if (IsUnder(t, costUnit) || IsUnder(t, selectionFrame) || IsUnder(t, iconSelectionPlaceholder))
+                    continue;
+                Material authored = image.material == image.defaultMaterial ? null : image.material;
+                artworkImages.Add(new ArtworkImage { image = image, material = authored });
+            }
+        }
+
+        private static bool IsUnder(Transform t, Component root) => root != null && t.IsChildOf(root.transform);
+
+        private static bool IsUnder(Transform t, GameObject root) => root != null && t.IsChildOf(root.transform);
+
+        // A card the player cannot pay for stays opaque: its art turns grey and the price red. A locked one
+        // keeps its colours — the lock overlay already shuts it.
+        private void RefreshAffordableLook()
+        {
+            bool poor = !affordable && !IsLocked && motionProfile != null;
+            Material grey = poor ? motionProfile.unaffordableMaterial : null;
+
+            foreach (ArtworkImage entry in artworkImages)
+                if (entry.image != null) entry.image.material = grey != null ? grey : entry.material;
+
+            if (costUnit == null) return;
+            if (poor) costUnit.Tint(motionProfile.unaffordableCostColor);
+            else costUnit.ClearTint();
         }
 
         // The first cost entry at the price the NEXT one costs — it grows with how many stand.

@@ -221,5 +221,6 @@ MonoBehaviour:
   shineTravelDuration: 1.5
   shineInterval: 1
   shineAlpha: 0.5
-  unaffordableAlpha: 0.55
+  unaffordableMaterial: {fileID: 2100000, guid: 3a361fc3cfe14da495acb710b7a7720b, type: 2}
+  unaffordableCostColor: {r: 0.60784316, g: 0.12941177, b: 0.11764706, a: 1}
   hoverSortingOrder: 100

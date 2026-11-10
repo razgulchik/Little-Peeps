@@ -912,7 +912,7 @@ MonoBehaviour:
   iconSelectionPlaceholder: {fileID: 2411}
   costUnit: {fileID: 3274457342236783648}
   countText: {fileID: 0}
-  artworkCanvasGroup: {fileID: 2703}
+  artwork: {fileID: 2702}
   iconSet: {fileID: 11400000, guid: a8b6247b3cd9d1a58b1b4d63f81e733d, type: 2}
   infoGroup: {fileID: 7300000000000047515}
   titleText: {fileID: 7300000000000079191}

@@ -102,7 +102,11 @@ namespace LittlePeeps
         [Range(0f, 1f)] public float shineAlpha = 0.12f;
 
         [Header("State presentation")]
-        [Range(0f, 1f)] public float unaffordableAlpha = 0.55f;
+        [Tooltip("Put on the card's artwork while the player cannot pay for it (the greyscale UI material): " +
+                 "how grey and how bright is the material's. The price and the in-hand frame keep their colour.")]
+        public Material unaffordableMaterial;
+        [Tooltip("The price's number while the player cannot pay for it — the same red as the hint and the age price.")]
+        public Color unaffordableCostColor = new(0.6078f, 0.1294f, 0.1176f);
         [Tooltip("Draw priority within the build row while hovered. The open card uses one less.")]
         public int hoverSortingOrder = 100;
 

@@ -1,6 +1,5 @@
 using System;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace LittlePeeps
 {
@@ -29,7 +28,6 @@ namespace LittlePeeps
         [SerializeField] private StructureSystem structureSystem;
         [SerializeField] private ResourceSystem resourceSystem;
         [SerializeField] private IslandSystem islandSystem;
-        [SerializeField] private Camera mainCamera;
         [SerializeField] private GridOverlay gridOverlay;
 
         [SerializeField] private PlacementVisuals visuals = new();
@@ -151,13 +149,14 @@ namespace LittlePeeps
 
             // Runs for the whole of normal play now, not just inside a build mode — so no pointer (none
             // attached) has to be a quiet frame, not an exception every frame.
-            if (Mouse.current == null)
+            if (!inputHandler.HasMouse)
             {
                 gridOverlay.Hide();
                 return;
             }
 
-            Vector2 cursor = ScreenToWorld();
+            // InputHandler's answer, not the mouse's: it holds still while a right press grabs the map.
+            Vector2 cursor = inputHandler.WorldMousePosition;
             tool.Tick(cursor);
 
             // The grid only while it means something: with a tool in hand, around where it would act.
@@ -179,19 +178,14 @@ namespace LittlePeeps
 
         // Right-click = cancel the current action, like any strategy game. The tool gets first refusal:
         // if it had something in progress it consumes the click, otherwise the tool is put down.
-        // Over the panel too: cancel means the same wherever the cursor is.
+        // Over the panel too: cancel means the same wherever the cursor is. It arrives on the release and
+        // never after a right-drag — that one pans the camera (InputHandler tells the two apart).
         private void OnRightClick(Vector2 worldPos)
         {
             if (!active) return;
 
             if (tool.Cancel()) return;   // the tool had something in progress and undid it
             PutDown();
-        }
-
-        private Vector2 ScreenToWorld()
-        {
-            Vector2 screen = Mouse.current.position.ReadValue();
-            return mainCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
         }
 
         // Nothing in hand. A tool that does nothing rather than a null, so every path above can talk to

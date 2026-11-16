@@ -10,71 +10,58 @@ namespace LittlePeeps
     // smooth motion lives in Cinemachine, not here). This controller lives on its OWN GameObject and reaches
     // into the rig through references, so each rig object keeps a single responsibility.
     //
-    // Self-contained input: polls keyboard/mouse directly (no InputHandler reference, since panning needs
-    // only a screen delta, not world coords) and runs on UNSCALED time so panning/zoom still work while build
-    // mode has frozen the game (Time.timeScale = 0). Movement sources:
+    // Polls the keyboard and the cursor position itself and runs on UNSCALED time, so panning still works
+    // while the game is frozen (Time.timeScale = 0). Movement sources:
     //   - WASD / arrow keys       → velocity pan
     //   - cursor at a screen edge  → pan toward that edge
-    //   - middle-mouse drag        → grab-and-drag the world under the cursor
-    //   - mouse wheel              → zoom (to screen center) by changing the vcam's ortho size
-    // The two that point AT something under the cursor — the wheel and the start of a drag — leave it alone
-    // while the cursor is over UI (InputHandler.IsPointerOverUI, the same rule the clicks follow): the
-    // wheel over a window scrolls the window, not the world behind it. Keys and edge-pan aim at nothing
-    // and stay as they are.
+    //   - right-mouse drag         → grab-and-drag the world under the cursor. The gesture is
+    //                                InputHandler's (OnPan): the right button is also cancel, and only one
+    //                                place may decide which of the two a press is. A drag starts only on
+    //                                the world; keys and edge-pan aim at nothing and stay as they are.
+    //
+    // There is no zoom. The view is one fixed, pixel-perfect scale: the vcam's Lens > Orthographic Size,
+    // which the CinemachinePixelPerfect extension snaps to the nearest size the Pixel Perfect Camera
+    // allows (a whole number of screen pixels per sprite pixel). Nothing here writes the ortho size.
     // The target is clamped to the island's world bounds (from IslandSystem) expanded by a configurable
     // margin, so the player can't pan off into empty space; the vcam follows the clamped target so the
     // camera stays in range too. (A Cinemachine Confiner2D is a later iteration.) While zones are on
     // offer the clamp is widened to take them in (SetExtraBounds) and the camera can be sent to look at
     // one (FocusOn) — the pan itself stays the player's.
     //
-    // Every run starts from the same view (ResetView): the island in the middle of the screen at the zoom
-    // the vcam is authored with, as a cut. A new run is a new island, and it should look like a fresh
-    // start — not inherit wherever the last run left the camera, or the wheel turned behind a window.
+    // Every run starts from the same view (ResetView): the island in the middle of the screen, as a cut.
+    // A new run is a new island, and it should look like a fresh start — not inherit wherever the last
+    // run left the camera.
     //
     // Place on a dedicated CameraController GameObject (NOT on the CameraTarget and NOT on the Camera) and wire:
     //   - cameraTarget  → the CameraTarget transform this drives (pan)
-    //   - vcam          → the CinemachineCamera; we set its Lens.OrthographicSize to zoom
+    //   - vcam          → the CinemachineCamera; reset to a cut on a new run, its ortho size read by FocusOn
     //   - viewCamera    → the rendering Camera, only to convert drag pixels → world units (its ortho size is
-    //                     driven by the Cinemachine brain, so it reflects the live zoom).
+    //                     the one actually on screen, after the pixel-perfect snap).
     //   - islandSystem  → for the bounds clamp
+    //   - inputHandler  → the right-drag pan (OnPan / IsPanning)
     // Reads the grid in Start (not Awake), per the bootstrap rule: the run + island are built in
     // GameBootstrap.Awake.
     public class CameraController : MonoBehaviour
     {
         [SerializeField] private Transform cameraTarget;      // the logical center the vcam follows; we pan it
-        [SerializeField] private CinemachineCamera vcam;      // owns the live ortho size (zoom)
+        [SerializeField] private CinemachineCamera vcam;      // follows the target; owns the authored ortho size
         [SerializeField] private Camera viewCamera;           // rendering camera (Cinemachine brain output); drag scale only
         [SerializeField] private IslandSystem islandSystem;
+        [SerializeField] private InputHandler inputHandler;   // the right-drag pan
 
         [Header("Keyboard / edge pan")]
         [SerializeField] private float panSpeed = 12f;        // world units / second
         [SerializeField] private bool edgePanEnabled = true;
         [SerializeField] private float edgeThickness = 12f;   // px from the screen border that triggers edge-pan
 
-        [Header("Zoom")]
-        [Tooltip("Ortho-size change per wheel notch. The zoom every run STARTS at is not here: it is the " +
-                 "vcam's Lens > Orthographic Size.")]
-        [SerializeField] private float zoomSpeed = 2f;        // ortho-size units per mouse-wheel notch
-        [SerializeField] private float minZoom = 3f;          // most zoomed-in ortho half-height
-        [SerializeField] private float maxZoom = 12f;         // most zoomed-out ortho half-height
-
         [Header("Bounds")]
         [SerializeField] private float boundsMargin = 4f;     // how far past the island edge the target may go
 
-        private bool dragging;
-        private Vector2 lastDragScreenPos;
         private Bounds islandBounds;
         private bool hasBounds;
         private Bounds extraBounds;   // added to the clamp while set: the zone offers, which are not island yet
         private bool hasExtraBounds;
         private bool pointerActive;   // latched true on the first real mouse movement (see EdgeDir)
-        private float startZoom;      // the vcam's ortho size as authored: every run starts at it
-
-        // The authored zoom is caught before anything — the wheel included — can change it.
-        private void Awake()
-        {
-            if (vcam != null) startZoom = vcam.Lens.OrthographicSize;
-        }
 
         private void Start() => ResetView();
 
@@ -82,12 +69,14 @@ namespace LittlePeeps
         {
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+            if (inputHandler != null) inputHandler.OnPan += OnPan;
         }
 
         private void OnDisable()
         {
             EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+            if (inputHandler != null) inputHandler.OnPan -= OnPan;
         }
 
         // The island grows on a new age → its bounds change, so re-cache them.
@@ -97,12 +86,11 @@ namespace LittlePeeps
         // must not keep the finished run's bounds, and the view starts over. The first run is covered by Start.
         private void OnRunStarted(RunStartedEvent _) => ResetView();
 
-        // The view a run starts from: the whole island centred on screen at the authored zoom. A cut, not
-        // a glide — PreviousStateIsValid = false makes the vcam skip its damping for one update.
+        // The view a run starts from: the whole island centred on screen. A cut, not a glide —
+        // PreviousStateIsValid = false makes the vcam skip its damping for one update.
         private void ResetView()
         {
             RefreshBounds();
-            if (vcam != null) vcam.Lens.OrthographicSize = startZoom;
             if (cameraTarget != null && hasBounds)
                 ApplyPosition(new Vector3(islandBounds.center.x, islandBounds.center.y, cameraTarget.position.z));
             if (vcam != null) vcam.PreviousStateIsValid = false;
@@ -160,19 +148,17 @@ namespace LittlePeeps
         {
             if (cameraTarget == null) return;
 
-            HandleZoom();
-
             Vector3 pos = cameraTarget.position;
 
-            // Middle-mouse drag takes over while held; keyboard/edge are skipped so they don't fight it.
-            if (HandleDrag(ref pos))
-            {
-                ApplyPosition(pos);
-                return;
-            }
+            // A right-drag moves the target itself (OnPan); keys and the edge sit it out so they don't fight it.
+            bool panning = inputHandler != null && inputHandler.IsPanning;
 
-            Vector2 dir = KeyboardDir();
-            if (edgePanEnabled) dir += EdgeDir();
+            Vector2 dir = Vector2.zero;
+            if (!panning)
+            {
+                dir = KeyboardDir();
+                if (edgePanEnabled) dir += EdgeDir();
+            }
             if (dir != Vector2.zero)
             {
                 // Unscaled time → panning works on the frozen screens too (timeScale 0). Clamp so diagonals aren't faster.
@@ -184,54 +170,18 @@ namespace LittlePeeps
             ApplyPosition(pos);
         }
 
-        // Mouse-wheel zoom toward the screen center: drive the vcam's ortho half-height between min/max.
-        // The rendering camera's ortho size is driven by the Cinemachine brain, so it follows automatically
-        // (with the vcam's damping). Discrete per-notch step, so no deltaTime scaling.
-        private void HandleZoom()
+        // Right-drag pan: move the camera opposite the cursor's pixel move so the grabbed world point stays
+        // under the cursor. The rendering camera's ortho size is the one on screen, after the pixel-perfect
+        // snap, so the grab holds on any resolution.
+        private void OnPan(Vector2 deltaPx)
         {
-            var mouse = Mouse.current;
-            if (mouse == null || vcam == null) return;
-
-            float scroll = mouse.scroll.ReadValue().y;
-            if (Mathf.Approximately(scroll, 0f)) return;
-            if (InputHandler.IsPointerOverUI()) return;   // the wheel belongs to the window under the cursor
-
-            // scroll > 0 (wheel up) → zoom in → smaller ortho size.
-            float size = vcam.Lens.OrthographicSize - Mathf.Sign(scroll) * zoomSpeed;
-            vcam.Lens.OrthographicSize = Mathf.Clamp(size, minZoom, maxZoom);
-        }
-
-        // Middle-mouse drag-pan: while held, move the camera opposite the cursor's pixel delta so the
-        // grabbed world point stays under the cursor. Returns true while a drag is active.
-        private bool HandleDrag(ref Vector3 pos)
-        {
-            var mouse = Mouse.current;
-            if (mouse == null || viewCamera == null) return false;
-
-            // A drag can only START on the world; once it has hold, it may pass over UI without letting go.
-            if (mouse.middleButton.wasPressedThisFrame)
-            {
-                if (!InputHandler.IsPointerOverUI())
-                {
-                    dragging = true;
-                    lastDragScreenPos = mouse.position.ReadValue();
-                }
-            }
-            else if (!mouse.middleButton.isPressed)
-            {
-                dragging = false;
-            }
-
-            if (!dragging) return false;
-
-            Vector2 screen = mouse.position.ReadValue();
-            Vector2 deltaPx = screen - lastDragScreenPos;
-            lastDragScreenPos = screen;
+            if (cameraTarget == null || viewCamera == null) return;
 
             float worldPerPixel = (viewCamera.orthographicSize * 2f) / Screen.height;
+            Vector3 pos = cameraTarget.position;
             pos.x -= deltaPx.x * worldPerPixel;
             pos.y -= deltaPx.y * worldPerPixel;
-            return true;
+            ApplyPosition(pos);
         }
 
         private static Vector2 KeyboardDir()

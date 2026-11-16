@@ -19,16 +19,20 @@ namespace LittlePeeps
     //                                place may decide which of the two a press is. A drag starts only on
     //                                the world; keys and edge-pan aim at nothing and stay as they are.
     //
-    // There is no zoom. The view is one fixed, pixel-perfect scale: the vcam's Lens > Orthographic Size,
-    // which the CinemachinePixelPerfect extension snaps to the nearest size the Pixel Perfect Camera
-    // allows (a whole number of screen pixels per sprite pixel). Nothing here writes the ortho size.
+    // Zoom is a few fixed views, stepped with + and − (the main row and the numpad), toward the screen
+    // centre, as a cut. Each view is a vcam ortho size; the CinemachinePixelPerfect extension snaps it to
+    // the nearest size the Pixel Perfect Camera allows — a whole number of screen pixels per sprite pixel —
+    // so no view can break the pixels on any screen, and a gliding zoom could not exist anyway: every
+    // size in between is a broken one. The vcam's own Lens > Orthographic Size is overwritten by the
+    // start view; the views are here.
     // The target is clamped to the island's world bounds (from IslandSystem) expanded by a configurable
     // margin, so the player can't pan off into empty space; the vcam follows the clamped target so the
     // camera stays in range too. (A Cinemachine Confiner2D is a later iteration.) While zones are on
     // offer the clamp is widened to take them in (SetExtraBounds) and the camera can be sent to look at
     // one (FocusOn) — the pan itself stays the player's.
     //
-    // Every run starts from the same view (ResetView): the island in the middle of the screen, as a cut.
+    // Every run starts from the same view (ResetView): the island in the middle of the screen at the start
+    // zoom, as a cut.
     // A new run is a new island, and it should look like a fresh start — not inherit wherever the last
     // run left the camera.
     //
@@ -54,6 +58,14 @@ namespace LittlePeeps
         [SerializeField] private bool edgePanEnabled = true;
         [SerializeField] private float edgeThickness = 12f;   // px from the screen border that triggers edge-pan
 
+        [Header("Zoom")]
+        [Tooltip("The views + and − step between, as the vcam's ortho size, FAR to CLOSE. Any value is " +
+                 "safe — the pixel-perfect extension snaps it to the nearest whole pixel scale of the screen " +
+                 "at hand; these are exact on 1080p (×2, ×3, ×4) and keep about the same framing elsewhere.")]
+        [SerializeField] private float[] zoomLevels = { 16.875f, 11.25f, 8.4375f };
+        [Tooltip("Index into Zoom Levels every run starts at — the classic view.")]
+        [SerializeField] private int startZoomLevel = 1;
+
         [Header("Bounds")]
         [SerializeField] private float boundsMargin = 4f;     // how far past the island edge the target may go
 
@@ -62,6 +74,7 @@ namespace LittlePeeps
         private Bounds extraBounds;   // added to the clamp while set: the zone offers, which are not island yet
         private bool hasExtraBounds;
         private bool pointerActive;   // latched true on the first real mouse movement (see EdgeDir)
+        private int zoomLevel;        // index into zoomLevels
 
         private void Start() => ResetView();
 
@@ -86,11 +99,12 @@ namespace LittlePeeps
         // must not keep the finished run's bounds, and the view starts over. The first run is covered by Start.
         private void OnRunStarted(RunStartedEvent _) => ResetView();
 
-        // The view a run starts from: the whole island centred on screen. A cut, not a glide —
-        // PreviousStateIsValid = false makes the vcam skip its damping for one update.
+        // The view a run starts from: the whole island centred on screen at the start zoom. A cut, not a
+        // glide — PreviousStateIsValid = false makes the vcam skip its damping for one update.
         private void ResetView()
         {
             RefreshBounds();
+            SetZoomLevel(startZoomLevel);
             if (cameraTarget != null && hasBounds)
                 ApplyPosition(new Vector3(islandBounds.center.x, islandBounds.center.y, cameraTarget.position.z));
             if (vcam != null) vcam.PreviousStateIsValid = false;
@@ -148,6 +162,8 @@ namespace LittlePeeps
         {
             if (cameraTarget == null) return;
 
+            HandleZoomKeys();
+
             Vector3 pos = cameraTarget.position;
 
             // A right-drag moves the target itself (OnPan); keys and the edge sit it out so they don't fight it.
@@ -168,6 +184,28 @@ namespace LittlePeeps
             }
 
             ApplyPosition(pos);
+        }
+
+        // + steps closer, − farther, stopping at the ends. Keys aim at nothing, so they work over UI and on
+        // the frozen screens like the pan keys. `equalsKey` is the + key of the main row (+ without Shift).
+        private void HandleZoomKeys()
+        {
+            var k = Keyboard.current;
+            if (k == null) return;
+
+            int step = 0;
+            if (k.equalsKey.wasPressedThisFrame || k.numpadPlusKey.wasPressedThisFrame)   step += 1;
+            if (k.minusKey.wasPressedThisFrame  || k.numpadMinusKey.wasPressedThisFrame)  step -= 1;
+            if (step != 0) SetZoomLevel(zoomLevel + step);
+        }
+
+        // Puts the vcam on one of the views; the pixel-perfect extension does the snapping.
+        private void SetZoomLevel(int level)
+        {
+            if (vcam == null || zoomLevels == null || zoomLevels.Length == 0) return;
+
+            zoomLevel = Mathf.Clamp(level, 0, zoomLevels.Length - 1);
+            vcam.Lens.OrthographicSize = zoomLevels[zoomLevel];
         }
 
         // Right-drag pan: move the camera opposite the cursor's pixel move so the grabbed world point stays

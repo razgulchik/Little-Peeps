@@ -179,7 +179,7 @@ SampleScene
     │   │       ├── TitleText   → TMP_Text
     │   │       └── CardColumn  → Vertical Layout Group         (перк-карточки в рантайме)
     │   ├── ZoneScreen          → CanvasGroup + ZoneSelectionUI
-    │   │   └── Panel           → Image (прозрачная, **Raycast Target ВЫКЛ** — иначе при выборе зоны нет зума)
+    │   │   └── Panel           → Image (прозрачная, **Raycast Target ВЫКЛ** — иначе при выборе зоны остров не перетащить)
     │   │       └── CardRow     → Horizontal Layout Group       (зон-карточки в рантайме)
     │   └── OfferingWindow      → Image (чёрный α 0.7 — затемнение, глотает клики) + CanvasGroup + OfferingWindow
     │       │                     ← окно конца цикла по макету `Sprites/UI/Offering Window/Gods Blessing.png`;
@@ -295,7 +295,7 @@ SampleScene
 | | | refreshStamina | выкл (дефолт): тап только ускоряет; вкл — ещё и восполняет выносливость |
 | | | tapClip | звук тапа (`Sound/click`); пусто = тапы без звука. AudioSource не нужен — TapSystem создаёт его сам |
 | | | tapVolume, tapPitchJitter | 0.6 и ±0.05 (дефолты): громкость щелчка и случайный разброс высоты на каждый тап, 0 = всегда одинаково |
-| Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, mainCamera, gridOverlay** | соответствующие компоненты (gridOverlay — на `Island/GridOverlay`) |
+| Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, gridOverlay** | соответствующие компоненты (gridOverlay — на `Island/GridOverlay`). Камеры нет: курсор в мире берёт у `InputHandler` |
 | | | visuals → validColor, invalidColor, sellHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже (есть дефолты) |
 | | | visuals → territoryValidColor, territoryInvalidColor, territorySortingLayer, territorySortingOrder | ореол занимаемой территории госта: зелёный/красный α0.18, слой Ground/1001 (дефолты) |
 | Systems/HarvestVfxSystem | HarvestVfxSystem | viewCamera | Main Camera (опц. — пусто = `Camera.main` в `Awake`; нужна только чтобы не играть эффекты за экраном) |
@@ -313,12 +313,14 @@ SampleScene
 | Systems/WaterSystem | **WaterSystem** | **waterMaterial** | `Materials/M_Water` — цвет моря и штрихи. У плитки `Sprites/GamePlay/Water/water_flow` нужен Read/Write, иначе штрихов нет. Пусто = предупреждение в консоли и остров на фоне камеры |
 | Input | **InputHandler** | **mainCamera** | Main Camera |
 | Input | GameHotkeys | buildPanelKey, sellKey, exitToMenuKey | клавиши команд: B — спрятать / показать панель стройки, X — Sell, Esc (дефолты, правятся в инспекторе); цифры 1–9 — вкладки стройки (зашиты в коде) |
-| CameraController | **CameraController** | **cameraTarget, vcam** | пустой `CameraTarget` (его и двигаем); CinemachineCamera — зум = её `Lens > Orthographic Size`, а значение, сохранённое в сцене, = **стартовый зум каждого забега** |
-| | | **islandSystem, viewCamera** | Island (кламп по острову); viewCamera = Main Camera (только для перевода drag-пикселей в мир) |
-| | | zoomSpeed, minZoom, maxZoom | шаг колеса (2) и пределы ortho size (3…12) — дефолты |
+| CameraController | **CameraController** | **cameraTarget, vcam** | пустой `CameraTarget` (его и двигаем); CinemachineCamera — зум пишется в её `Lens > Orthographic Size`, значение в сцене перезаписывается стартовым видом |
+| | | **islandSystem, viewCamera, inputHandler** | Island (кламп по острову); viewCamera = Main Camera (только для перевода пикселей перетаскивания в мир); inputHandler = InputHandler на `Input` — от него перетаскивание ПКМ. **Пусто — остров правой не двигается, молча** |
+| | | zoomLevels, startZoomLevel | виды зума на `+` / `−`: Ortho Size от дальнего к ближнему — 16.875 / 11.25 / 8.4375 (×2 / ×3 / ×4 на 1080p); старт = 1 (классика) — дефолты. Любое значение безопасно: до целого масштаба пикселей его округляет `CinemachinePixelPerfect` |
 | | | panSpeed, edgePanEnabled, edgeThickness | скорость WASD/стрелок (12), вкл. край-скролл, толщина края в px (12) — дефолты |
 | | | boundsMargin | насколько центр (= цель) может уйти за край острова (4) — дефолт |
 | Main Camera | **CinemachineBrain** | Ignore Time Scale ✓ | пишет позицию из активной vcam — и при `timeScale = 0` |
+| Main Camera | **PixelPerfectCamera** | Assets PPU 16, Reference Resolution 640×360, Upscale Render Texture ✗ | целый масштаб пикселей под экран. 640×360 = ширина Канваса → в классическом виде пиксель мира = пиксель UI. Upscale RT не включать — лесенкой станут наклоны, рябь, частицы |
+| CinemachineCamera | **CinemachinePixelPerfect** | — | округляет Ortho Size vcam до ближайшего целого масштаба. Без него виды зума били бы пиксели |
 | CinemachineCamera | **CinemachineCamera** (vcam) | Follow = CameraTarget; Body = CinemachineFollow (damping ~0.1–0.2) | плавно следует за целью |
 | | CinemachineImpulseListener | Channel Mask 1 (дефолт) | без него толчки подъёма острова никто не почувствует; сам источник толчков IslandRise добавляет себе кодом |
 | Island | **IslandSystem** | **tilemap, trimHorizontalTilemap** | `Grid/Ground` (суша с коллайдером), `Grid/TrimHorizontal` (горизонтальная кромка — полосы под сушей, без коллайдера) |
@@ -824,25 +826,29 @@ Label стоит после Icon — цифра рисуется поверх к
 
 Три слоя ввода, расцеплённые между собой:
 
-- **`InputHandler`** — низкоуровневый роутер мыши: ЛКМ/ПКМ → мировые координаты → три события:
+- **`InputHandler`** — низкоуровневый роутер мыши. Мышь у игры в две кнопки: колеса и средней нет. ЛКМ/ПКМ → мировые координаты → события:
   - `OnWorldClick` — ЛКМ, **только если курсор НЕ над UI**. Слушают оба, а забирает один: с карточкой или Sell в руке — `PlacementController` (ставит / продаёт), с пустой рукой — `TapSystem` (буст юнитов + щелчок; он сам спрашивает `PlacementController.HoldsTool`);
   - `OnAnyClick` — любая ЛКМ, и над UI тоже. Слушает `AgeSequencer`: тап ускоряет подъём острова и закрывает баннер эпохи, а баннер сам UI;
-  - `OnRightClick` — любая ПКМ: положить инструмент из руки, над панелью тоже.
+  - ПКМ универсальная, клик от перетаскивания отличает порог **Drag Threshold** у `EventSystem` (10 px — то же правило, что у полосы стройки):
+    - `OnRightClick` — **клик**: ПКМ отпущена, не уйдя дальше порога. Положить инструмент из руки, над панелью тоже. Срабатывает на **отпускании** — при нажатии ещё неизвестно, клик это или перетаскивание;
+    - `OnPan` / `IsPanning` — **перетаскивание**: ПКМ ушла дальше порога и была нажата на острове (нажатая над UI — ничего). Каждый кадр — сдвиг мыши в пикселях экрана, считая от точки нажатия. Слушает `CameraController`. Перетаскивание никогда не отмена.
+  - `WorldMousePosition` — точка мира под курсором для всех, кто за ним следует (призрак постройки, протяжка забора, сетка у курсора, кольцо тапа). Пока ПКМ зажата на острове, стоит на точке нажатия: камера догоняет цель с damping, и без этого всё, что за курсором, ползло бы по острову. Считается при чтении, так что порядок `Update` не важен. Своих `ScreenToWorldPoint` в системах не заводить.
 
-  Камеру он не трогает.
-- **`CameraController`** (на своём GO, НЕ на CameraTarget и НЕ на камере) — двигает transform пустого **CameraTarget** = логическую цель камеры; поллит ввод сам, считает на `unscaledDeltaTime` → работает и на паузах (`timeScale=0`: выбор зоны и перка, подъём острова). Источники: WASD + стрелки, курсор у края экрана, **drag средней кнопкой мыши** (мир тащится под курсором), **колесо — зум** (ortho size vcam в пределах `minZoom…maxZoom`). Цель клампится по `IslandGrid.WorldBounds()` + `boundsMargin`; границы перечитываются на `AgeStartedEvent` (рост острова) и `RunStartedEvent`. Плавность даёт не он, а **Cinemachine vcam**, которая следует за целью с damping; `Main Camera` несёт `CinemachineBrain` и рендерит. `viewCamera` (= Main Camera) нужен скрипту только чтобы перевести drag-пиксели в мир (его `orthographicSize` крутит brain → отражает живой зум). `Confiner2D` — отдельной итерацией позже.
-  - **Старт забега** (`Start` и каждый `RunStartedEvent`): камера мгновенно, без damping, встаёт в центр острова с зумом из сцены (`Lens > Orthographic Size` у vcam) — новый забег всегда начинается с одного вида, что бы ни крутили до этого.
+  Камеру он не двигает — только сообщает о перетаскивании.
+- **`CameraController`** (на своём GO, НЕ на CameraTarget и НЕ на камере) — двигает transform пустого **CameraTarget** = логическую цель камеры; клавиатуру поллит сам, считает на `unscaledDeltaTime` → работает и на паузах (`timeScale=0`: выбор зоны и перка, подъём острова). Источники: WASD + стрелки, курсор у края экрана, **перетаскивание ПКМ** (от `InputHandler.OnPan`; мир тащится под курсором). Жест ПКМ сам не разбирает: та же кнопка — отмена, и решать «клик или перетаскивание» должно одно место. Цель клампится по `IslandGrid.WorldBounds()` + `boundsMargin`; границы перечитываются на `AgeStartedEvent` (рост острова) и `RunStartedEvent`. Плавность даёт не он, а **Cinemachine vcam**, которая следует за целью с damping; `Main Camera` несёт `CinemachineBrain` и рендерит. `viewCamera` (= Main Camera) нужен скрипту только чтобы перевести пиксели перетаскивания в мир (его `orthographicSize` — то, что на экране после пиксельного округления). `Confiner2D` — отдельной итерацией позже.
+  - **Зум — `+` / `−`** (основной ряд — клавиша `=` без Shift — и нампад): три вида из `zoomLevels` (далеко / классика / близко), мгновенно, к центру экрана, у краёв упирается. Плавного зума нет и быть не может: все промежуточные размеры бьют пиксели. Целый масштаб пикселей обеспечивает не код, а связка `PixelPerfectCamera` + `CinemachinePixelPerfect` (см. таблицу выше).
+  - **Старт забега** (`Start` и каждый `RunStartedEvent`): камера мгновенно, без damping, встаёт в центр острова на виде `startZoomLevel` — новый забег всегда начинается с одного вида, что бы ни делали до этого.
 - **`GameHotkeys`** (на `Input`) — дискретные команды по нажатию, публикует события в `EventBus`, ни во что не лезет напрямую. UI его не фильтрует: клавиатура не целится в то, что под курсором, поэтому подписчики сами проверяют состояние:
   - **B** → `BuildPanelToggleRequestedEvent` → `BuildPanelToggle` (тот же переключатель, что клик по `BuildToggle`) прячет или показывает `SellButton`, `BuildTabs` и `BuildPalette`. Не режим: игра идёт и так и так; прятание кладёт инструмент из руки;
   - **X** → `SellModeRequestedEvent` → `SellButtonUI` берёт Sell в руку или кладёт — тем же путём, что клик (вид кнопки рисует по факту, из `PlacementController.ToolChanged`; вспышку продажи — из `PlacementController.Sold`); `BuildPanelToggle` показывает спрятанную панель. Поверх другого экрана (выбор перка, подъём острова…) — no-op: вне живой игры контроллер инструмент не даёт, а панель не показывается;
   - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildTabBar` открывает N-ю вкладку, `BuildPanelToggle` показывает спрятанную панель; поверх другого экрана — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
   - **Esc** → `ExitToMenuRequestedEvent` → `GameBootstrap` пока **отклоняет** переход (warning в консоли): у `MainMenuState` нет экрана, и выход в него оставил бы игрока без пути назад. Вернуть — одна строка, когда меню появится.
 
-**Мышь над UI принадлежит UI.** Колесо и начало drag средней кнопкой, как и `OnWorldClick`, ничего не делают, пока курсор над UI (`InputHandler.IsPointerOverUI()` — ответ EventSystem). Начатый на острове drag может пройти и над UI. WASD и край экрана не фильтруются: они ни во что под курсором не целятся.
+**Мышь над UI принадлежит UI.** Начало перетаскивания ПКМ, как и `OnWorldClick`, ничего не делает, пока курсор над UI (`InputHandler.IsPointerOverUI()` — ответ EventSystem). Начатое на острове перетаскивание может пройти и над UI. Клик ПКМ (отмена) не фильтруется. WASD, край экрана и `+` / `−` тоже: они ни во что под курсором не целятся. Колесо над миром ничего не делает; над полосой стройки оно её прокручивает — это UI.
 
-> ⚠️ «Над UI» = над **любой** графикой с включённым **Raycast Target**, даже прозрачной. Невидимая подложка на весь экран отрезает от игры колесо, тапы и drag. Если окно должно оставлять остров доступным, у его подложки Raycast Target выключен — так сделано у `Screens/ZoneScreen/Panel`, иначе при выборе зоны не работает зум. У модальных окон (затемнение `PerkScreen/Panel`, `MetaScreen`) подложка перехватывает ввод намеренно.
+> ⚠️ «Над UI» = над **любой** графикой с включённым **Raycast Target**, даже прозрачной. Невидимая подложка на весь экран отрезает от игры тапы и перетаскивание. Если окно должно оставлять остров доступным, у его подложки Raycast Target выключен — так сделано у `Screens/ZoneScreen/Panel`, иначе при выборе зоны остров не перетащить. У модальных окон (затемнение `PerkScreen/Panel`, `MetaScreen`) подложка перехватывает ввод намеренно.
 
-> ⚠️ `CameraController` использует `viewCamera.orthographicSize` (drag) — **камера должна быть Orthographic** (2D-проект, так и есть). линзу vcam тоже держать Orthographic.
+> ⚠️ `CameraController` использует `viewCamera.orthographicSize` (перетаскивание) — **камера должна быть Orthographic** (2D-проект, так и есть). линзу vcam тоже держать Orthographic.
 
 ## Стройка — как связано
 

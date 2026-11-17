@@ -19,7 +19,12 @@ namespace LittlePeeps
         [Tooltip("Name on the zone card. Empty = the asset's name.")]
         public string displayName;
 
-        public Sprite icon;
+        [Tooltip("A line or two on what the biome is like, under the collage.")]
+        [TextArea(2, 4)] public string description;
+
+        [Tooltip("A piece of this biome drawn from its own tiles, decor and objects, larger than the " +
+                 "card's window: the window travels over it while the card is hovered (ZoneCollageView).")]
+        public Sprite collage;
 
         [Tooltip("Colour the zone's preview is drawn in on the island while it is on offer. The alpha " +
                  "is the overlay's, not this one's.")]

@@ -31,5 +31,6 @@ MonoBehaviour:
       clustered: 1
   tileSet: {fileID: 11400000, guid: c22dd842430b03d4e9ef5113c99a8dca, type: 2}
   displayName: Desert
-  icon: {fileID: 1185625225, guid: 56992922f57d8a34d8d9d639ee12a3c2, type: 3}
+  description: Rocks and mountains. Lots of stone.
+  collage: {fileID: 21300000, guid: ca6a1bbaa8664d759802c09e58ab0270, type: 3}
   previewColor: {r: 1, g: 1, b: 1, a: 1}

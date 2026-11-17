@@ -55,5 +55,6 @@ MonoBehaviour:
       clustered: 0
   tileSet: {fileID: 11400000, guid: 8e532edb1f18b314385ff38a7bf8e21a, type: 2}
   displayName: Forest
-  icon: {fileID: -1010017149, guid: 102b5ce8fcecd3e46b34d2c291336a20, type: 3}
+  description: Dense woods, mushrooms, boars, foxes.
+  collage: {fileID: 21300000, guid: 7a703788928e49ada8186f11fb892c8e, type: 3}
   previewColor: {r: 1, g: 1, b: 1, a: 1}

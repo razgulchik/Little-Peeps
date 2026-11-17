@@ -43,5 +43,6 @@ MonoBehaviour:
       clustered: 0
   tileSet: {fileID: 11400000, guid: 89ca40f95c4d3b94b9241b8dc8c0717a, type: 2}
   displayName: Meadow
-  icon: {fileID: 21300000, guid: c8960ab7a0aae6c42a857650f2bf3a96, type: 3}
+  description: Berry bushes, birches and rivers.
+  collage: {fileID: 21300000, guid: d4c04cbc39964c368dccea789ce601cb, type: 3}
   previewColor: {r: 1, g: 1, b: 1, a: 1}

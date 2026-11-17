@@ -1,33 +1,44 @@
 using System;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Serialization;
-using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // One zone card: the biome's name and icon, and what the zone actually holds — exact counts from
-    // the content already generated for it, so the player is choosing between "14 trees and a river"
-    // and "6 stones and a mountain", not between blurbs.
+    // One zone card: the biome's name, a window onto its collage and a line on what the biome is like.
+    // The collage is how the player sees what a zone of this biome holds — the trees, the animals, the
+    // river — and the zone itself is drawn on the island the moment the card is pointed at.
     //
     // Hover is what this card is really for: the panel is told the moment the cursor lands on it, and
     // the world answers (the zone lights up, the camera goes to it). The focus that results is the
     // panel's, not the card's — it stays where the cursor last was, so the cursor leaving is not
-    // reported and the frame is switched by the panel (SetFocused), not by the pointer. The pick is a
-    // plain click, unlike the perk card's hold — the player has been looking at exactly what they are
-    // about to get.
+    // reported and the frame is switched by the panel (SetFocused), not by the pointer. The cursor
+    // leaving does stop the collage: that one is the card's own, it plays only while being looked at.
+    // The pick is a plain click, unlike the perk card's hold — the player has been looking at exactly
+    // what they are about to get.
+    //
+    // The focused card stands up out of the row (focusLift). What moves is `body`, a child holding
+    // everything drawn, never the root: the root's place is the row's layout group's to decide.
     //
     // Written apart from PerkCardUI on purpose: the two share a frame and nothing else that matters,
     // and the hold/press machinery over there is most of that file.
-    public class ZoneCardUI : MonoBehaviour, IPointerEnterHandler, IPointerClickHandler
+    public class ZoneCardUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
     {
         [SerializeField] private TMP_Text titleLabel;
-        [SerializeField] private Image iconImage;
 
-        [Tooltip("One line per kind of feature the zone holds: \"Forest ×14\".")]
-        [SerializeField] private TMP_Text contentsLabel;
+        [Tooltip("What the biome is like, from BiomeDef.description.")]
+        [SerializeField] private TMP_Text descriptionLabel;
+
+        [Tooltip("The window onto the biome's collage. Plays while the cursor is on the card.")]
+        [SerializeField] private ZoneCollageView collage;
+
+        [Tooltip("Everything the card draws. Raised by focusLift while this card's zone is the one drawn " +
+                 "on the world.")]
+        [SerializeField] private RectTransform body;
+
+        [Tooltip("How far the focused card stands up out of the row, in canvas pixels.")]
+        [Min(0)] [SerializeField] private int focusLift = 5;
 
         [Tooltip("Optional. The frame shown while this card's zone is the one drawn on the world.")]
         [FormerlySerializedAs("hoverHighlight")]
@@ -56,21 +67,15 @@ namespace LittlePeeps
 
             var biome = offer?.Biome;
             if (titleLabel != null) titleLabel.text = biome != null ? biome.DisplayName : string.Empty;
-            if (contentsLabel != null) contentsLabel.text = offer != null ? ContentsText(offer) : string.Empty;
-
-            if (iconImage != null)
-            {
-                iconImage.sprite = biome != null ? biome.icon : null;
-
-                // Hidden rather than left showing the prefab's placeholder as though it were this biome's.
-                iconImage.enabled = iconImage.sprite != null;
-            }
+            if (descriptionLabel != null) descriptionLabel.text = biome != null ? biome.description : string.Empty;
+            if (collage != null) collage.Show(biome != null ? biome.collage : null);
         }
 
         // The panel's focus: on for the card whose zone is drawn, off for the rest.
         public void SetFocused(bool focused)
         {
             if (focusHighlight != null) focusHighlight.SetActive(focused);
+            if (body != null) body.anchoredPosition = new Vector2(0f, focused ? focusLift : 0f);
         }
 
         // Called on every card as soon as one of them is picked: until the state hides the panel, the
@@ -78,12 +83,21 @@ namespace LittlePeeps
         public void SetInteractable(bool value)
         {
             interactable = value;
+            if (!value && collage != null) collage.SetPlaying(false);
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
             if (!interactable) return;
+
+            if (collage != null) collage.SetPlaying(true);
             onHovered?.Invoke(offer);
+        }
+
+        // Only the collage hears about this — the focus stays with the card (see the top of the file).
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (collage != null) collage.SetPlaying(false);
         }
 
         public void OnPointerClick(PointerEventData eventData)
@@ -97,20 +111,6 @@ namespace LittlePeeps
             interactable = false;
 
             callback?.Invoke(picked);
-        }
-
-        // "Forest ×14" per line, in the generator's placement order. A def with no display name falls
-        // back to its id, so an unnamed asset still says something.
-        private static string ContentsText(ZoneOffer offer)
-        {
-            var sb = new StringBuilder();
-            foreach (var (def, count) in offer.Counts)
-            {
-                if (sb.Length > 0) sb.Append('\n');
-                string name = !string.IsNullOrEmpty(def.displayName) ? def.displayName : def.id;
-                sb.Append(name).Append(" ×").Append(count);
-            }
-            return sb.ToString();
         }
     }
 }

@@ -52,14 +52,29 @@ namespace LittlePeeps.Tests
             Hover(first, true);
             Rebuild();
 
-            Assert.That(first.transform.GetSiblingIndex(), Is.EqualTo(2));
+            Assert.That(DrawIndex(first), Is.EqualTo(2));
             Assert.That(Positions(), Is.EqualTo(positions));
             Assert.That(row.preferredWidth, Is.EqualTo(width));
 
             Hover(first, false);
             Rebuild();
-            Assert.That(first.transform.GetSiblingIndex(), Is.Zero);
+            Assert.That(DrawIndex(first), Is.Zero);
             Assert.That(Positions(), Is.EqualTo(positions));
+        }
+
+        // A card reports its priority from OnEnable / OnDisable too, where Unity refuses a reorder while the
+        // row's parent is being switched on or off. So the card only records; the row reorders on its frame.
+        [Test]
+        public void CardRecordsItsPriorityAndTheRowReordersLater()
+        {
+            first.SetSelected(true);
+            Assert.That(first.transform.GetSiblingIndex(), Is.Zero);
+
+            Assert.That(DrawIndex(first), Is.EqualTo(2));
+
+            Invoke(first, "OnDisable");
+            Assert.That(first.transform.GetSiblingIndex(), Is.EqualTo(2));
+            Assert.That(DrawIndex(first), Is.Zero);
         }
 
         [Test]
@@ -67,20 +82,20 @@ namespace LittlePeeps.Tests
         {
             first.SetSelected(true);
             Hover(second, true);
-            Assert.That(second.transform.GetSiblingIndex(), Is.GreaterThan(first.transform.GetSiblingIndex()));
+            Assert.That(DrawIndex(second), Is.GreaterThan(DrawIndex(first)));
 
             // Sample an outgoing tween: Edit Mode does not advance LitMotion's player loop.
             SetField(second, "pointerInside", false);
             SetField(second, "hoverProgress", 0.5f);
             Invoke(second, "ApplyVisualState");
-            Assert.That(first.transform.GetSiblingIndex(), Is.EqualTo(2));
-            Assert.That(second.transform.GetSiblingIndex(), Is.GreaterThan(third.transform.GetSiblingIndex()));
+            Assert.That(DrawIndex(first), Is.EqualTo(2));
+            Assert.That(DrawIndex(second), Is.GreaterThan(DrawIndex(third)));
 
             second.ResetInteractionVisuals();
             first.SetSelected(false);
-            Assert.That(first.transform.GetSiblingIndex(), Is.Zero);
-            Assert.That(second.transform.GetSiblingIndex(), Is.EqualTo(1));
-            Assert.That(third.transform.GetSiblingIndex(), Is.EqualTo(2));
+            Assert.That(DrawIndex(first), Is.Zero);
+            Assert.That(DrawIndex(second), Is.EqualTo(1));
+            Assert.That(DrawIndex(third), Is.EqualTo(2));
         }
 
         [Test]
@@ -104,7 +119,7 @@ namespace LittlePeeps.Tests
             Hover(first, true);
             BuildCardUI fourth = Card("New tab");
             Rebuild();
-            Assert.That(first.transform.GetSiblingIndex(), Is.EqualTo(3));
+            Assert.That(DrawIndex(first), Is.EqualTo(3));
             Assert.That(LeftEdge(fourth), Is.EqualTo(171f).Within(0.001f));
 
             foreach (BuildCardUI card in new[] { first, second, third })
@@ -124,7 +139,7 @@ namespace LittlePeeps.Tests
             }
             Rebuild();
             Assert.That(Positions(), Is.EqualTo(positions));
-            Assert.That(first.transform.GetSiblingIndex(), Is.Zero);
+            Assert.That(DrawIndex(first), Is.Zero);
         }
 
         [Test]
@@ -171,6 +186,13 @@ namespace LittlePeeps.Tests
         }
 
         private void Rebuild() => LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)row.transform);
+
+        // Where the card draws once the row has had its frame: Edit Mode does not run LateUpdate.
+        private int DrawIndex(BuildCardUI card)
+        {
+            typeof(BuildCardRow).GetMethod("LateUpdate", PrivateInstance).Invoke(row, null);
+            return card.transform.GetSiblingIndex();
+        }
         private Vector2[] Positions() => new[] { ((RectTransform)first.transform).anchoredPosition,
             ((RectTransform)second.transform).anchoredPosition, ((RectTransform)third.transform).anchoredPosition };
         private static float LeftEdge(BuildCardUI card)

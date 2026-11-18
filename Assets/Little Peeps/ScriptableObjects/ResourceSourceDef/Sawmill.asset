@@ -19,7 +19,7 @@ MonoBehaviour:
     amount: 2
   pickupFx: {fileID: 4371847270752138857, guid: a285e262118a29846bc987227ea4bb18, type: 3}
   pickupFxCount: 1
-  hitSound: {fileID: 11400000, guid: a4b7641a490df6a488ea05885f820347, type: 2}
+  hitSound: {fileID: 11400000, guid: 93b8c8f98cce4ae59df36684045359b7, type: 2}
   depleteSound: {fileID: 0}
   depletion: 2
   hitsToDeplete: 0

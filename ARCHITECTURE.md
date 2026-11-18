@@ -74,7 +74,7 @@
 │  ToolRack · Pier · ForgeHeat    │    │  ResourceSource · ToolRack  │
 │  RicePaddy · ResourceSource     │    │  Gates (IHitGate impls):    │
 │  Animal · AnimalSpawner         │    │  VisitZone · ForgeHeat ·    │
-│  AnimalWander                   │    │  Mill · RicePaddy           │
+│  AnimalWander · Sawmill         │    │  Mill · RicePaddy · Sawmill │
 │  IStructureSpawner (contract)   │    │  Yield (IYieldScale impls): │
 │  ConstructionSite               │    │  ForgeHeat · Mill           │
 │  + their views on the root      │    │                             │
@@ -141,12 +141,15 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
     `IYieldScale` over its source) — `[RequireComponent(typeof(ResourceSource))]`.
   - `RicePaddy` (grows a crop while nobody stands on the field — a gate over its source) —
     `[RequireComponent(typeof(ResourceSource))]`.
+  - `Sawmill` (waits for one end of the bench, then the other — a gate over its source that asks
+    WHERE the hit landed) — `[RequireComponent(typeof(ResourceSource))]`.
 - Examples: House = Structure + Spawner · Tavern = Structure + Tavern · Market = Structure +
   ResourceSource (`Depletion.Never`) + VisitZone (the passage) · Smithy = Structure + ResourceSource
   (`Never`) + ForgeHeat + `ForgeHeatView` · Tree/Wheat/Rock/Bush = Structure + ResourceSource
   (`Regrow`) + `ResourceSourceView` · Tool rack = Structure + ToolRack · Stable/Den = Structure +
   AnimalSpawner · Watermill = Structure + ResourceSource (`Never`) + Mill + WaterSideVisual · Rice
-  paddy = Structure + ResourceSource (`Regrow`, 1 hit) + RicePaddy + `RicePaddyView` · Mountain =
+  paddy = Structure + ResourceSource (`Regrow`, 1 hit) + RicePaddy + `RicePaddyView` · Sawmill =
+  Structure + ResourceSource (`Never`) + Sawmill + `SawmillView` · Mountain =
   a bare Structure (a wall the generator places; `canSell` off) · River = the same, one
   cell each, + `RiverVisual` (its def is `isWater`).
 - Who may take a building's resource, and how much, is ALWAYS its `ResourceSourceDef.workerYields` —
@@ -158,8 +161,8 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
   grid-row parity — the caller decides), `WaterSideVisual` (one of three roots, plus the south one
   mirrored: a watermill by the side its river runs along), `RiverVisual` (one of three pieces, turned
   to join the river cells beside it), `TiredView`, `ProfessionView`, `ResourceSourceView`,
-  `ForgeHeatView`, `RicePaddyView`, and the hit feedback's `BumpView` and `LeanView` (*Hit feedback*
-  below).
+  `ForgeHeatView`, `RicePaddyView`, `SawmillView`, and the hit feedback's `BumpView` and `LeanView`
+  (*Hit feedback* below).
 
 **One payer, add-ons around it, a view per kind.** Everything a hit pays for pays through its
 `ResourceSource`: the def (who, how much, the pickup effect), the credit through `AddHarvest`, the
@@ -167,14 +170,15 @@ Everything that stands on the grid is a **Structure**; behaviour lives in compon
 own never pays a second time beside it; it is an add-on on the same object, the way the forge has
 always been: an `IHitGate` says WHETHER a hit pays, an `IYieldScale` HOW MUCH, and the source's events
 tell it what happened — `Paid` (after the credit, before any depletion), `Depleted`, `Regrown`; it reads
-`IsReady` / `Def` / `Accepts`. So `ForgeHeat` (heat), `Mill` (a store of sacks) and `RicePaddy` (a crop)
-hold only their own state, and the def, the payout and the effect live in one place for all. The one
-exception is the tavern, which charges at the door (`IEntrance`), not on a hit, and so calls
-`AddHarvest` itself. Each kind's LOOK is its own view component, on the prefab ROOT (next to what it
+`IsReady` / `Def` / `Accepts`. So `ForgeHeat` (heat), `Mill` (a store of sacks), `RicePaddy` (a crop) and
+`Sawmill` (the end it waits for) hold only their own state, and the def, the payout and the effect live
+in one place for all. The one exception is the tavern, which charges at the door (`IEntrance`), not on
+a hit, and so calls `AddHarvest` itself. Each kind's LOOK is its own view component, on the prefab ROOT (next to what it
 shows; the renderers it drives are wired in by reference, so where they sit is the prefab's business):
 `ResourceSourceView` is shared by the nodes — tree, field, bush, rock, alpaca — because they happen to
 look alike (ready and harvested roots, the reap fade and squash); buildings get their own
-(`ForgeHeatView`, `RicePaddyView`, a `MillView` once there is art). Views are presentation only — they
+(`ForgeHeatView`, `RicePaddyView`, `SawmillView`, a `MillView` once there is art). Views are presentation
+only — they
 read the logic (poll it or listen to its events) and never write to it, so a source with no view
 simply keeps its authored look.
 
@@ -189,22 +193,27 @@ the box centre leaves the footprint, plus its radius and a gap. A house launches
 guests out and a stable or den lets its animals out this way; sealed in on every side, each keeps
 them inside and tries again later.
 
-**Hit gates** (`IHitGate.TryConsume(unit)`) sit between a collision and its effects. `HandleHit`
+**Hit gates** (`IHitGate.TryConsume(unit, hit)`) sit between a collision and its effects. `HandleHit`
 asks every gate on the target (root + children) and drops the hit on the first refusal — the unit
-still bounces, it just pays nothing. `TryConsume` decides AND spends in one call, so a rationing
+still bounces, it just pays nothing. A gate is handed the hit as it ARRIVED — `HitReport` with its
+`Contact`, `Point` and `Side` (the unit, the verdict and `Final` are not settled yet: they are what the
+gates and effects decide) — for a gate whose answer depends on where the hit landed; the rest ignore
+it. `TryConsume` decides AND spends in one call, so a rationing
 gate can never hand out a budget it can't then debit; the flip side is that gates are asked in
 order, and a gate that consumed before a later one refused has spent a hit for nothing — keep ONE
 rationing gate per target. A gate is effect-agnostic and prefab-composable: it knows nothing about
-what the hit would have paid, so the same component can sit on any building or animal. Four so far:
+what the hit would have paid, so the same component can sit on any building or animal. Five so far:
 `VisitZone` (Market — `hitsPerVisit` counted hits per stay inside the passage trigger, then nothing
 until the unit leaves and re-enters; a unit outside the zone never counts, so the zone also decides
 WHICH surfaces pay — inside the passage a unit can only touch the inner walls), `ForgeHeat`
 (refuses while overheated; it asks its sibling `ResourceSource` whether the worker is one it pays,
-so a lumberjack bouncing off never heats the forge), `Mill` (refuses on an empty store) and
-`RicePaddy` (refuses unless the crop is ripe). The last two are plain looks that spend nothing: what
-they hold is settled on the source's own events once the hit has really paid, so they never count as
-a rationing gate. The per-visit number lives on the component, not in `ResourceSourceDef`, and is the
-`MarketVisitHits` stat, resolved on entry — a unit already inside finishes the budget it came in with.
+so a lumberjack bouncing off never heats the forge), `Mill` (refuses on an empty store),
+`RicePaddy` (refuses unless the crop is ripe) and `Sawmill` (refuses anything but a bounce on the end
+it waits for — the one gate that reads the hit). The last three are plain looks that spend nothing:
+what they hold is settled on the source's own events once the hit has really paid, so they never
+count as a rationing gate. The per-visit number lives on the component, not in `ResourceSourceDef`,
+and is the `MarketVisitHits` stat, resolved on entry — a unit already inside finishes the budget it
+came in with.
 
 **Hit feedback — one verdict per hit.** Every way through `HandleHit` (and `HitFromRange`) ends in
 `CollisionTarget.Resolve`, which raises the target's C# event `HitResolved` with a `HitReport`. The hit is
@@ -366,6 +375,39 @@ swapping at `swapAt`), none on first show. The field sits on the Ground sorting 
 the Island layer every island tilemap is on, so it lies over the land whatever the orders, and units
 (on Entities) always walk over it. Units parting
 the crop as they cross waits for art.
+
+**Sawmill** (design doc: *Sawmill*). A solid 3×1 bench whose working faces are its two ENDS, one at a
+time: the `Sawmill` waits for the left end or for the right; a working lumberjack (its def lists no one
+else) striking the awaited end is paid, and from then on it waits for the other. Everything else is a
+plain bounce that changes nothing — the end it is not waiting for (the doc: no pay, no reset), the long
+sides, a walk-through, an arrow, a bounce the physics reported no contact point for — so a stream on one
+side pays once and then stands at a wall: the traffic has to reach BOTH ends. Idle time resets nothing.
+The end belongs to the bench, so two lumberjacks on opposite sides take turns; a new sawmill waits for
+the left end. It pays through its `ResourceSource` (def `Never`; `Start` says so if it is anything else)
+as an add-on: the gate (`Sawmill.Strikes`) reads the hit's `Side` and `Point`, and `Paid` switches the
+end and raises `Cut(struck)` — an unlisted worker is let through by the gate and refused by the source,
+so it switches nothing. "The end" is more than the end face: `endReach` (cells, 0.5 by default, capped at
+half the bench so the ends never overlap; 0 = the end faces alone) also counts a bounce off the top or
+bottom edge whose contact point lies that close to an end, measured against the bench's own solid
+colliders at the moment of the hit, so it follows the body; the two zones are drawn as gizmos while the
+sawmill is selected. A general "active zones" component was considered and left for when a second
+building needs one (the market's surfaces are settled by its passage trigger already); zones as
+separate colliders — the body cut into pieces — were rejected for the crooked bounces at their seams.
+
+`SawmillView` draws it. The blade always heads for `Awaited`, at one speed (`travelTime` from end to
+end), spinning through its frames (`spinFps` travelling, `idleSpinFps` standing); a `Cut` sends it
+across the log, and at the far end the log comes apart: its two halves take its place, roll off
+backwards and forwards (`backRollPixels` / `frontRollPixels`) and fade (`splitTime`), and the next log
+drops onto the bench (`newLogDelay`, `dropTime`, `dropPixels`). The state is derived, not queued, so the
+picture never lags behind the rule: two cuts while the blade travels turn it round (one split), and a
+cut while the bench is empty puts the log down at once. Only the halves fade — the log drops in rather
+than fading in, so the sell-hover tint, which captures and restores each renderer's colour, can never put
+it back half-faded. Every move is in whole art pixels from the authored pose; the blade is authored at
+the left end and the right end is its mirror. The prefab's `Visual` is a `SortingGroup` — the bench sorts
+as one building, by its base — with the pieces in `sortingOrder` steps of ten (yard, table back, back
+half, log back, blade, log front, table front, front half): the blade runs BETWEEN the two halves of the
+log and of the table, which no y-sort can order, and the steps leave room for `SpriteShadow`'s order − 1.
+The art is a placeholder.
 
 **Stuck rescue.** A unit that cannot get anywhere cannot free itself (a tired one can't chop, a
 farmer never could). `StuckWatch` (on `Unit`, field only) cuts time into `stuckWindow` windows (5 s):
@@ -691,6 +733,7 @@ buildings. Ages and offerings retain their multi-resource costs.
 | Market | 25 Stone | +5 Stone |
 | Smithy | 30 Stone | +5 Stone |
 | Mill | 20 Stone | +3 Stone |
+| Sawmill | 20 Stone | +3 Stone |
 | Rice Paddy | 20 Stone | +4 Stone |
 
 The free starting house counts toward price growth, so the first additional house costs 9 Food.
@@ -1110,9 +1153,9 @@ before the spending.
 | Market passage (`VisitZone`) | BoxCollider2D `isTrigger=true` on a `Passage` child (the two walls are ordinary obstacle boxes on the `Physics` child) | Rigidbody2D (Static) on that **same child** | The zone's own body is not optional: Unity delivers a trigger callback to the collider's GameObject AND to the GameObject of the Rigidbody2D it belongs to, so hung off the root body the passage's `OnTriggerEnter2D` would also reach `CollisionTarget`, which treats a trigger entry as a hit — walking in would pay a coin by itself. Sizing: across the passage the trigger overlaps the walls by 1–2 px (a unit can't be inside a wall, so this only guards a seam); along it, it stops one unit radius short of each mouth, so a unit sliding along the outside never counts as inside |
 
 **Collision dispatch lives in `CollisionTarget`** (the base). Both `OnCollisionEnter2D` (obstacle
-path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit)`. Every unit is
+path) and `OnTriggerEnter2D` (interactable path) call the same `HandleHit(unit, report)`. Every unit is
 offered first to each `IEntrance.TryEnter` on the root (the first that takes it in ends the hit);
-past them a TIRED unit stops, and a WORKING unit goes through every `IHitGate.TryConsume(unit)` on
+past them a TIRED unit stops, and a WORKING unit goes through every `IHitGate.TryConsume(unit, hit)` on
 the target (root + children; the first refusal ends the hit as a plain bounce) →
 `effect.OnHit(...)` for each `ICollisionEffect` component on the root. Every path ends in `Resolve` →
 `HitResolved` (see *Hit feedback*); `OnTriggerExit2D` only raises `PassEnded`. `Structure :
@@ -1166,9 +1209,10 @@ a dead Pay, the quota's rows) and the hold-to-confirm button, the meta
 screen (its refusal paths), the confirm dialog (a greyed Yes included), meta perk spending (take / return, price),
 perk roll (the two pools and the fallback), perk state + card,
 the modifier card text, placement target (a site turning into its building is a new target), house
-capacity, the hit's verdict cell by cell (house, tavern, forge, mill, market, tree, wheat, paddy, rack,
-fence, an arrow), the bump's face, turn and throttle, the lean's spring (the same swing at any frame rate)
-and pose, the coast's waterline and per-place throttle, `BumpView` and `LeanView` on a real
+capacity, the hit's verdict cell by cell (house, tavern, forge, mill, market, sawmill — the ends taking
+turns and the end's reach — tree, wheat, paddy, rack, fence, an arrow), which hit strikes a sawmill end
+(`SawmillStrikeTests`), the bump's face, turn and throttle, the lean's spring (the same swing at any
+frame rate) and pose, the coast's waterline and per-place throttle, `BumpView` and `LeanView` on a real
 `CollisionTarget`'s report, a construction site's area (`ConstructionArea`), the animals' blocking rule (a site refuses
 newcomers, never one already on it), the island's shape rules (with a seed
 sweep, so tuned rules can never fail in play), island content, zone offers, the zone pick state, the
@@ -1240,14 +1284,14 @@ belongs in a PlayMode assembly (none yet).
 | `HarvestNumbers` | MB | The floating "+1.2k" — universal, one prefab and one set of curves for every resource. Pooled world-space `TextMeshPro`, driven by one flat loop over a fixed-size array (no coroutine, no MonoBehaviour per popup); `SetText` overloads format in place, nothing lands on the GC. Cap + recycle-nearest-death. This owns the plumbing; **the feel lives in `HarvestNumberMotionDef`**, an asset shared with the `HarvestFeedbackWindow` |
 | `HarvestFade` / `HarvestNumberFormat` | static | One implementation each of a reaped node's fade + squash and of the number's spelling ("+1", "+2.5", "+1.2k"), shared by the game and the `HarvestFeedbackWindow` so the preview cannot drift |
 | `CollisionTarget` | MB (base) | Collision callbacks → `IEntrance` (root) for every unit, the first that takes it in ends the hit → a tired unit stops there → working: `IHitGate` check (root + children) → `ICollisionEffect` dispatch (root) → `Resolve`: the hit's verdict, raised as `HitResolved` (`HitReport`); `PassEnded` when a unit leaves one of its triggers; `FaceOf` (the struck face from a contact normal, shared with `CoastBump`); `SetColliderEnabled` toggles every collider under it, a `VisitZone` trigger included |
-| `HitReport` / `HitVerdict` / `HitOutcome` / `HitContact` | plain C# | One hit once `CollisionTarget` has run it: the unit, the verdict (Useless < Blocked < Useful), `Final`, how it got there (Bounce / Pass / Ranged), `Point`, `Side`. `HitOutcome` (None < Worked < UsedUp) is what one effect did; the hit counts as the most any of them did |
+| `HitReport` / `HitVerdict` / `HitOutcome` / `HitContact` | plain C# | One hit once `CollisionTarget` has run it: the unit, the verdict (Useless < Blocked < Useful), `Final`, how it got there (Bounce / Pass / Ranged), `Point`, `Side`. The gates see it earlier, as it arrived — `Contact`, `Point` and `Side` only. `HitOutcome` (None < Worked < UsedUp) is what one effect did; the hit counts as the most any of them did |
 | `BumpView` | MB | A bounce's squash of `squashTarget` (`Visual`) by verdict — `squashHeight` curve, `widthFollows`, `squashDuration`, `blockedSquash` / `uselessSquash` — throttled by `minInterval` (a stronger verdict always gets through), and its wave announced as `BumpedEvent` unless `waves` is off. Listens to the nearest `CollisionTarget` on it or above it; `Final` and `Pass` show nothing. LitMotion for the squash |
 | `LeanView` | MB | A walk-through object bending after a unit crossing it: tilt / stretch / squat of `leanTarget` (`Visual`) from a damped spring of its own (`frequency`, `damping`, solved exactly per step), kicked once per crossing — past the middle, or on `PassEnded` if sooner — by verdict (`blockedLean`, `uselessLean`); kicks add up to a cap. `maxTilt`, `maxStretch`, `squatOnly` |
 | `BumpVfxSystem` | MB | Every `BumpedEvent` → the wave of its verdict (`usefulWave` / `blockedWave` / `uselessWave`, empty = none), every `CoastBumpedEvent` → `coastRipple`. One shared emitter each; the art is drawn for a top face and turned by quarter turns (`TurnFor`), its centre snapped to `pixelsPerUnit`; skips off-screen bumps (`viewCamera`, `offscreenMargin`) |
 | `CoastBump` | MB | On the `Ground` tilemap: a unit bouncing off the coast → `CoastBumpedEvent` at the waterline (`Waterline`: the contact stepped out by the art's outline, `southOutline` / `sideOutline` / `northOutline` px), throttled per place (`RecentPlaces`: `minDistance`, `minInterval`) |
 | `Structure` | MB : CollisionTarget | Placement identity: `def` (`StructureDef`) |
 | `IEntrance` | interface | `TryEnter(unit)` — a building a unit can go INTO; decides by its own door rule and takes the unit off the field in one call, asked for every unit before anything else. `Serves(unit)` — whom the building is for, full or not; it decides nothing, it only tells a Blocked hit from a Useless one. Implemented by `Spawner` (tired or drunk) and `Tavern` (sober, served, seat free) |
-| `IHitGate` | interface | `TryConsume(unit)` — decides AND spends in one call; asked before any effect, one refusal = plain bounce. Effect-agnostic, so a gate composes onto any target; one rationing gate per target. Implemented by `VisitZone` and `ForgeHeat` (rationing), `Mill` and `RicePaddy` (plain looks that spend nothing) |
+| `IHitGate` | interface | `TryConsume(unit, in hit)` — decides AND spends in one call; asked before any effect, one refusal = plain bounce. `hit` is the hit as it arrived (`Contact`, `Point`, `Side`; no verdict yet), for a gate that cares where it landed. Effect-agnostic, so a gate composes onto any target; one rationing gate per target. Implemented by `VisitZone` and `ForgeHeat` (rationing), `Mill`, `RicePaddy` and `Sawmill` (plain looks that spend nothing; only `Sawmill` reads the hit) |
 | `ICollisionEffect` | interface | `OnHit(unit, target)` — what a hit by a WORKING unit does once every gate let it through, returned as a `HitOutcome`; the worker check lives inside. `Serves(unit)` — whom the effect is for, the moment aside (for the verdict only). Implemented by `ResourceSource` and `ToolRack` |
 | `IYieldScale` | interface | `Factor(unit)` — a per-hit multiplier on what a `ResourceSource` pays, UNDER the run's modifiers; asked only for a hit that pays, must not mutate. Implemented by `ForgeHeat` and `Mill` |
 | `VisitZone` | MB, `IHitGate` | Per-visit hit ration (`hitsPerVisit` on the component, not in a def): `Dictionary<Unit,int>` filled on trigger enter, debited per hit, dropped on exit. Sits on its own child with the trigger AND a Static Rigidbody2D so its trigger events stay off the root; `Reset()` sets both up, `Awake` errors if the collider isn't a trigger |
@@ -1259,6 +1303,8 @@ belongs in a PlayMode assembly (none yet).
 | `Mill` | MB, `IHitGate`, `IYieldScale` | The watermill's store, an add-on over its `ResourceSource` (def `Never`): grinds whole sacks of Food on game time (`secondsPerSack`, up to `capacity`; the clock stands at zero while full); the gate refuses on an empty store, the scale is the number of sacks (the def's amount is per sack), `Paid` empties the store — an unlisted worker isn't paid, so the store stays. `Stored` / `Capacity` / `IsFull` for the future view |
 | `RicePaddy` | MB, `IHitGate` | The rice paddy's crop, an add-on over its `ResourceSource` (def `Regrow`, 1 hit): grows `growTime` seconds of empty field — any unit on it (a `Collider2D.Overlap` each frame, not an enter/exit list) holds it; the gate lets a hit through only while ripe, the source pays and uses the crop up; `Regrown` starts it again from zero. `Current` (Growing / Ripe / Harvested, derived) and `GrowthProgress` for the view |
 | `RicePaddyView` | MB | The paddy's look on one renderer: growing sprites over the growth time in equal parts, ripe, harvested; a stretch-and-squash on every change of look (Y curve on its own clock, sprite swapped at `swapAt`), none on first show. Polls `RicePaddy`, presentation only |
+| `Sawmill` | MB, `IHitGate` | The sawmill's ends, an add-on over its `ResourceSource` (def `Never`): `Awaited` (Left / Right; a new one waits for Left); the gate lets through only a bounce that `Strikes` the awaited end — its face, or any face whose contact point is within `endReach` cells of it (capped at half the bench, measured against the bench's solid colliders at the hit); `Paid` switches the end and raises `Cut(struck)`. Zones drawn as gizmos when selected |
+| `SawmillView` | MB | The sawmill drawn, next to `Sawmill` on the root: the blade heads for `Awaited` at one speed (`travelTime`) spinning through `bladeFrames`; on arrival after a `Cut` the log splits — the halves roll (`backRollPixels` / `frontRollPixels`) and fade (`splitTime`), the next log drops in (`newLogDelay`, `dropTime`, `dropPixels`). Derived, never queued: two cuts in flight turn the blade round, a cut with no log down puts it down at once. Authored at rest (blade left, log whole, halves off); only the halves' colour is touched. Presentation only |
 | `Unit` | MB | Bouncing villager: stamina clock (`UnitDef.stamina` × `UnitStamina`, ticks whenever on the field) → `IsTired`; Drunk (`MakeDrunk`, timed) → `IsDrunk`; `TargetSpeed` (`UnitSpeed` × tired factor × drunk factor) held every step; profession for the outing (`Equip` / `Unequip`, `Type`); `Launch` (house — refills), `Resume` (out of a hold — refills nothing), `Boost(mult, duration, refreshStamina)` (tap), `EnterRest` (house: stamina 0, sober, tool back), `EnterHold` / `LeaveHold` (tavern), `OnBecameTired` (the one transition); the bounce rule (`minBounceAngle` bend + `bounceJitterDegrees` turn, `BendAwayFromNormal`), or the autopilot's turn to a house (`EnterAutopilot`, `autopilotRadius`, `autopilotMaxTurnDegrees`); `StuckWatch` → `IsStuck`; wedged kick; `IsOnField` (body simulated — not resting in a house, not held in a tavern), `IsHeld`, `Body` / `BodyCenter` (for a construction site's wall and area); injected with the island, `RunStats` and `SpawnSystem` on spawn |
 | `StuckWatch` | struct | Fixed windows: a window the unit never left a disc of `radius` = stuck; the verdict clears once it gets out. No dependency beyond `Vector2` — tested offline |
 | `StructureExits` | static | Where a unit or an animal may leave a structure on the grid (`CollectAllowedDirections`, `IsOpenExit`, `TryPickDirection` + jitter) and where it is put (`ExitPoint`: the ray from the box centre out of the footprint, plus a clearance). Parameterised by grid + origin + footprint + border, not components — tested on a bare `IslandGrid` |

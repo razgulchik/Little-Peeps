@@ -510,7 +510,7 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
   alpha (30/255). У госта стройки тени нет by design.
 - **WaterProjection** — на КОРЕНЬ префаба (не на Model): тёмный и светлый блоки на воде перед постройкой, суша закрывает
   их сама. Спрайты общие (`IslandSystem.projectionDark`, `projectionLight`); поле lightInsetPixels (2) — на сколько
-  арт-пикселей светлый блок уже тёмного с каждой стороны. Стоит на House, Market, Mill, RicePaddy, Smithy, Stable, Tavern
+  арт-пикселей светлый блок уже тёмного с каждой стороны. Стоит на House, Market, Mill, RicePaddy, Sawmill, Smithy, Stable, Tavern
   и 5 стойках; у пирса, пшеницы, забора и природы его нет. У госта и чертежа стройки проекций нет by design.
 
 Компоненты поведения (на корне, комбинируются):
@@ -544,6 +544,13 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 | | autopilot | уставшие гости идут домой на автопилоте (настройки — в `Unit`) |
 | **Mill** (мельница, только у реки) | secondsPerSack, capacity | 4 с на мешок, 5 мешков в запасе; полная мельница не мелет |
 | **RicePaddy** (рисовое поле) | growTime | 30 с роста; растёт, только пока на поле никого нет |
+| **Sawmill** (лесопилка: торцы по очереди) | endReach | 0.5 клетки — насколько торец заходит на верхний и нижний край (0 = только сами торцы, больше половины скамьи не бывает); зоны видны гизмо, когда лесопилка выделена |
+| **SawmillView** (вид лесопилки) | blade, bladeFrames | `Visual/Blade` (стоит у ЛЕВОГО торца — правый зеркальный) и 4 кадра диска `bldng_sawmill_blade_00…03` |
+| | travelTime, spinFps, idleSpinFps | 0.6 с от торца до торца; 16 и 6 кадров/с — в пути и на стоянке |
+| | logBack, logFront | `Visual/Log_Back`, `Visual/Log_Front` — бревно, между частями которого идёт диск |
+| | newLogDelay, dropTime, dropPixels | 0.3 с после раскола, 0.2 с падения, с 4 px — новое бревно падает, а не проявляется |
+| | halfBack, halfFront | `Visual/Half_Back`, `Visual/Half_Front` — половинки, рендереры ВЫКЛЮЧЕНЫ, стоят там, где ложится раскол |
+| | splitTime, backRollPixels, frontRollPixels | 0.45 с; задняя откатывается на 5 px назад, передняя на 8 px вперёд, обе гаснут |
 | **VisitZone** (проход рынка) | hitsPerVisit | 3 засчитанных удара за заход — база, стат `MarketVisitHits` сверху |
 | **Pier** | — | маркер без полей (см. «Пирс») |
 | **BumpView** (отклик на отскок: сквош + волна) | squashTarget | `Visual`. Пусто = без сквоша, только волна (так у Pier и RicePaddy) |
@@ -596,6 +603,29 @@ Root          → Rigidbody2D (Static) + Structure + RiverVisual
   в тех же ориентациях — иначе повороты перепутаются.
 - Спрайт в самом `Model` — любой из трёх, в игре его заменит `RiverVisual`.
 - Тень на реке не нужна: тень — ребёнок модели и крутилась бы вместе с куском.
+
+**Лесопилка** (`Prefabs/Buildings/Sawmill`, 3×1) — диск идёт МЕЖДУ частями бревна и стола, поэтому порядок задаёт
+`SortingGroup` на `Visual`, а не Y: лесопилка сортируется как одно здание по своему основанию, внутри — `sortingOrder`:
+```
+Root            → Rigidbody2D (Static) + Structure + ResourceSource (def Sawmill, fxAnchor → Fx_anchor)
+│                 + Sawmill + SawmillView + BumpView (squashTarget → Visual) + WaterProjection
+├── Visual      → SortingGroup (Entities, 0)
+│   ├── Yard        order 0   — двор 48×16 = футпринт
+│   ├── Table_Back  order 10  — задняя полоса столешницы с прорезью + SpriteShadow (0, 2 px)
+│   ├── Half_Back   order 15  — половинка бревна, рендерер выключен
+│   ├── Log_Back    order 20  — верхняя полоска коры
+│   ├── Blade       order 30  — диск, у левого торца
+│   ├── Log_Front   order 40  — остальное бревно
+│   ├── Table_Front order 50  — передняя часть стола
+│   └── Half_Front  order 55  — половинка бревна, рендерер выключен
+├── Physics     → BoxCollider2D 3×1 (Y 0.5, Unit Physics Material 2D) — от него меряется endReach
+└── Fx_anchor   (0, 1) — над бревном
+```
+- Порядки — с шагом 10: `SpriteShadow` рисует тень на order − 1, она не должна влезать между соседями.
+- Тень только у `Table_Back`: тень вверх у остальных легла бы на столешницу или повисла в воздухе.
+- Всё, что двигает `SawmillView`, в префабе стоит в покое (диск слева, бревно целое, половинки выключены) — призрак
+  размещения показывает префаб как есть.
+- Арт — заглушка (`Sprites/GamePlay/Buildings/Sawmill/`), иконка карточки склеена из тех же кусков.
 
 ### Звери (Boar, Fox, Alpaka — подвижные ресурсные ноды)
 Зверь — **не юнит и не Structure**: у него нет дефа постройки, клетки на гриде и здоровья.

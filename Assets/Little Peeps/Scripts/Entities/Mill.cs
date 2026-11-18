@@ -67,7 +67,7 @@ namespace LittlePeeps
         }
 
         // IHitGate — a plain look, nothing spent: the store is emptied on Paid, once the hit has really paid.
-        public bool TryConsume(Unit unit) => stored > 0;
+        public bool TryConsume(Unit unit, in HitReport hit) => stored > 0;
 
         // IYieldScale — the def's amount is per sack.
         public float Factor(Unit unit) => stored;

@@ -127,7 +127,7 @@ namespace LittlePeeps
                     return;
                 }
 
-            Resolve(unit, unit.IsTired ? HitOutcome.None : Work(unit), report);
+            Resolve(unit, unit.IsTired ? HitOutcome.None : Work(unit, report), report);
         }
 
         // A hit that came from afar instead of by contact — an arrow. Nobody steps through a door from
@@ -136,15 +136,17 @@ namespace LittlePeeps
         // From the gates on it is the same hit a bounce would be: same payout, same depletion.
         public void HitFromRange(Unit unit)
         {
-            if (unit != null) Resolve(unit, Work(unit), new HitReport { Contact = HitContact.Ranged });
+            if (unit == null) return;
+            var report = new HitReport { Contact = HitContact.Ranged };
+            Resolve(unit, Work(unit, report), report);
         }
 
         // The working half of a hit: gates first (a refused hit has no effect), only then the effects — and
-        // the hit counts as the most any of them did.
-        private HitOutcome Work(Unit unit)
+        // the hit counts as the most any of them did. The gates see where the hit landed (IHitGate).
+        private HitOutcome Work(Unit unit, in HitReport hit)
         {
             for (int i = 0; i < gates.Length; i++)
-                if (!gates[i].TryConsume(unit)) return HitOutcome.None;
+                if (!gates[i].TryConsume(unit, hit)) return HitOutcome.None;
 
             var outcome = HitOutcome.None;
             for (int i = 0; i < effects.Length; i++)

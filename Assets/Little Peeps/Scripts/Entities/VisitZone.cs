@@ -65,7 +65,7 @@ namespace LittlePeeps
         }
 
         // IHitGate — CollisionTarget asks this before paying out a hit.
-        public bool TryConsume(Unit unit)
+        public bool TryConsume(Unit unit, in HitReport hit)
         {
             if (!visits.TryGetValue(unit, out int left) || left <= 0) return false;
             visits[unit] = left - 1;

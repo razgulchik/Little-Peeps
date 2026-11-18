@@ -88,7 +88,7 @@ namespace LittlePeeps
         }
 
         // IHitGate — a plain look, nothing spent: the source uses the crop up itself when it pays.
-        public bool TryConsume(Unit unit) => Current == Phase.Ripe;
+        public bool TryConsume(Unit unit, in HitReport hit) => Current == Phase.Ripe;
 
         // The ground is back: the crop starts again from bare earth.
         private void OnRegrown() => grown = 0f;

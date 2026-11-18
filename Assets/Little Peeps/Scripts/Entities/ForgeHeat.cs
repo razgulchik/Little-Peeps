@@ -66,7 +66,7 @@ namespace LittlePeeps
         }
 
         // IHitGate — CollisionTarget asks this before dispatching the hit to ResourceSource.
-        public bool TryConsume(Unit unit)
+        public bool TryConsume(Unit unit, in HitReport hit)
         {
             if (overheated) return false;
 

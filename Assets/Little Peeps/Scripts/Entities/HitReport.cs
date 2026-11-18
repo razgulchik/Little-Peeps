@@ -36,7 +36,8 @@ namespace LittlePeeps
 
     // One hit, once CollisionTarget has run it (CollisionTarget.HitResolved). Raised after every entrance,
     // gate and effect has had its say, so a listener sees what the hit left behind — a source already
-    // depleted, a unit already inside.
+    // depleted, a unit already inside. The gates see it earlier, as it arrived — Contact, Point and Side only
+    // (IHitGate).
     public struct HitReport
     {
         public Unit Unit;

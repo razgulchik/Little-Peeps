@@ -9,9 +9,11 @@ namespace LittlePeeps.Tests
 {
     // The hit feedback's table, cell by cell: what CollisionTarget reports for a hit — Useful (it worked),
     // Blocked (the target is for this unit, but not now or not here), Useless (nothing on it is for this
-    // unit). Real participants (house, tavern, payers, rack, and the forge, mill, market and paddy gates) on
-    // a real CollisionTarget. A hit goes in through the trigger callback, the way a unit crossing a field
-    // arrives: a Collision2D can't be built by hand, and the verdict doesn't depend on the way in. Edit Mode
+    // unit). Real participants (house, tavern, payers, rack, and the forge, mill, market, paddy and sawmill
+    // gates) on a real CollisionTarget. A hit goes in through the trigger callback, the way a unit crossing a
+    // field arrives: a Collision2D can't be built by hand, and the verdict doesn't depend on the way in — except
+    // at the sawmill, whose gate asks which face was struck; there a bounce goes in one step later, with its
+    // face already settled (Strike). Edit Mode
     // runs no Awake or OnEnable, so Build calls them once everything is on the object, as a spawn would.
     // Editor Test Runner only — the offline harness skips anything that builds a GameObject.
     public class HitVerdictTests
@@ -241,6 +243,127 @@ namespace LittlePeeps.Tests
         [Test]
         public void Market_TiredWorkerFromOutside_Blocked() => Expect(HitVerdict.Blocked, MakeMarket(out _), Tired(UnitType.Farmer));
 
+        // --- sawmill -------------------------------------------------------------------------------
+
+        [Test]
+        public void Sawmill_New_PaysTheLeftEnd_ThenWaitsForTheRight()
+        {
+            var sawmill = MakeSawmill(out var saw);
+
+            Assert.That(Strike(sawmill, Worker(UnitType.Lumberjack), Vector2Int.left).Verdict, Is.EqualTo(HitVerdict.Useful));
+            Assert.That(saw.Awaited, Is.EqualTo(Sawmill.End.Right));
+        }
+
+        // Blocked, not Useless: the sawmill is for the lumberjack — the other end would have paid.
+        [Test]
+        public void Sawmill_WrongEnd_Blocked_AndKeepsWaitingForTheSameEnd()
+        {
+            var sawmill = MakeSawmill(out var saw);
+            var lumberjack = Worker(UnitType.Lumberjack);
+
+            Assert.That(Strike(sawmill, lumberjack, Vector2Int.right).Verdict, Is.EqualTo(HitVerdict.Blocked));
+            Assert.That(saw.Awaited, Is.EqualTo(Sawmill.End.Left), "a wrong end resets nothing");
+            Assert.That(Strike(sawmill, lumberjack, Vector2Int.left).Verdict, Is.EqualTo(HitVerdict.Useful));
+        }
+
+        [Test]
+        public void Sawmill_EndsTakeTurns_AndEachCutSaysWhichEnd()
+        {
+            var sawmill = MakeSawmill(out var saw);
+            var lumberjack = Worker(UnitType.Lumberjack);
+            var cuts = new List<Sawmill.End>();
+            saw.Cut += cuts.Add;
+
+            var verdicts = new[]
+            {
+                Strike(sawmill, lumberjack, Vector2Int.left).Verdict,
+                Strike(sawmill, lumberjack, Vector2Int.left).Verdict,
+                Strike(sawmill, lumberjack, Vector2Int.right).Verdict,
+                Strike(sawmill, lumberjack, Vector2Int.right).Verdict,
+                Strike(sawmill, lumberjack, Vector2Int.left).Verdict,
+            };
+
+            Assert.That(verdicts, Is.EqualTo(new[]
+            {
+                HitVerdict.Useful, HitVerdict.Blocked, HitVerdict.Useful, HitVerdict.Blocked, HitVerdict.Useful,
+            }));
+            Assert.That(cuts, Is.EqualTo(new[] { Sawmill.End.Left, Sawmill.End.Right, Sawmill.End.Left }));
+        }
+
+        // The end is the bench's: a second lumberjack finds it where the first one left it.
+        [Test]
+        public void Sawmill_EndBelongsToTheBench_NotToTheWorker()
+        {
+            var sawmill = MakeSawmill(out _);
+            var first = Worker(UnitType.Lumberjack);
+            var second = Worker(UnitType.Lumberjack);
+
+            Strike(sawmill, first, Vector2Int.left);
+
+            Assert.That(Strike(sawmill, second, Vector2Int.left).Verdict, Is.EqualTo(HitVerdict.Blocked));
+            Assert.That(Strike(sawmill, second, Vector2Int.right).Verdict, Is.EqualTo(HitVerdict.Useful));
+        }
+
+        // The end reaches half a cell along the bench (the prefab's End Reach): the top or bottom edge that
+        // close to the awaited end strikes it; the middle of a long side does not.
+        [Test]
+        public void Sawmill_LongEdgeNearTheAwaitedEnd_Useful()
+        {
+            var sawmill = MakeSawmill(out var saw, endReach: 0.5f);
+            var lumberjack = Worker(UnitType.Lumberjack);
+
+            Assert.That(Strike(sawmill, lumberjack, Vector2Int.up, new Vector2(-1.3f, 0.5f)).Verdict, Is.EqualTo(HitVerdict.Useful));
+            Assert.That(Strike(sawmill, lumberjack, Vector2Int.down, new Vector2(1.3f, -0.5f)).Verdict, Is.EqualTo(HitVerdict.Useful));
+            Assert.That(Strike(sawmill, lumberjack, Vector2Int.up, new Vector2(-0.5f, 0.5f)).Verdict, Is.EqualTo(HitVerdict.Blocked));
+            Assert.That(saw.Awaited, Is.EqualTo(Sawmill.End.Left));
+        }
+
+        [Test]
+        public void Sawmill_NoReach_LongEdgeNearTheEnd_Blocked()
+            => Assert.That(Strike(MakeSawmill(out _, endReach: 0f), Worker(UnitType.Lumberjack), Vector2Int.up,
+                                  new Vector2(-1.4f, 0.5f)).Verdict,
+                           Is.EqualTo(HitVerdict.Blocked));
+
+        [Test]
+        public void Sawmill_LongSides_Blocked()
+        {
+            var sawmill = MakeSawmill(out var saw);
+            var lumberjack = Worker(UnitType.Lumberjack);
+
+            Assert.That(Strike(sawmill, lumberjack, Vector2Int.up).Verdict, Is.EqualTo(HitVerdict.Blocked));
+            Assert.That(Strike(sawmill, lumberjack, Vector2Int.down).Verdict, Is.EqualTo(HitVerdict.Blocked));
+            Assert.That(saw.Awaited, Is.EqualTo(Sawmill.End.Left));
+        }
+
+        // A bounce the physics gave no contact point for has no face — nothing to tell the ends apart by.
+        [Test]
+        public void Sawmill_BounceWithNoFace_Blocked()
+            => Assert.That(Strike(MakeSawmill(out _), Worker(UnitType.Lumberjack), Vector2Int.zero).Verdict,
+                           Is.EqualTo(HitVerdict.Blocked));
+
+        [Test]
+        public void Sawmill_WalkThrough_IsNoStrike() => Expect(HitVerdict.Blocked, MakeSawmill(out _), Worker(UnitType.Lumberjack));
+
+        [Test]
+        public void Sawmill_TiredLumberjack_Blocked_AndSwitchesNothing()
+        {
+            var sawmill = MakeSawmill(out var saw);
+
+            Assert.That(Strike(sawmill, Tired(UnitType.Lumberjack), Vector2Int.left).Verdict, Is.EqualTo(HitVerdict.Blocked));
+            Assert.That(saw.Awaited, Is.EqualTo(Sawmill.End.Left));
+        }
+
+        // The gate lets the awaited end through for anyone; the source refuses whom the def doesn't list, and
+        // an unpaid hit switches nothing.
+        [Test]
+        public void Sawmill_OtherProfession_Useless_AndSwitchesNothing()
+        {
+            var sawmill = MakeSawmill(out var saw);
+
+            Assert.That(Strike(sawmill, Worker(UnitType.Farmer), Vector2Int.left).Verdict, Is.EqualTo(HitVerdict.Useless));
+            Assert.That(saw.Awaited, Is.EqualTo(Sawmill.End.Left));
+        }
+
         // --- trees ----------------------------------------------------------------------------------
 
         [Test]
@@ -382,6 +505,21 @@ namespace LittlePeeps.Tests
             return report;
         }
 
+        // A bounce off one face of the target — what OnCollisionEnter2D makes of a contact, from the step after:
+        // a Collision2D can't be built by hand, so the face goes in already settled.
+        // Without a point it lands in the middle of the target.
+        private static HitReport Strike(CollisionTarget target, Unit unit, Vector2Int face, Vector2? point = null)
+        {
+            var bounce = new HitReport
+            {
+                Contact = HitContact.Bounce, Point = point ?? (Vector2)target.transform.position, Side = face,
+            };
+            var report = Single(target, () => Invoke(target, "HandleHit", unit, bounce));
+            Assert.That(report.Unit, Is.SameAs(unit));
+            Assert.That(report.Side, Is.EqualTo(face), "the report carries the face that was struck");
+            return report;
+        }
+
         private static HitReport Single(CollisionTarget target, Action hit)
         {
             var reports = new List<HitReport>();
@@ -510,6 +648,17 @@ namespace LittlePeeps.Tests
         {
             var go = Source(Def("Mill", Depletion.Never, 0, Everyone));
             store = go.AddComponent<Mill>();
+            return Build(go);
+        }
+
+        // Listed like the real sawmill — the lumberjack only — with its 3×1 body centred on the origin, so the
+        // ends are at x = ±1.5. The default reach is whatever the component ships with.
+        private CollisionTarget MakeSawmill(out Sawmill saw, float? endReach = null)
+        {
+            var go = Source(Def("Sawmill", Depletion.Never, 0, UnitType.Lumberjack));
+            go.GetComponent<BoxCollider2D>().size = new Vector2(3f, 1f);
+            saw = go.AddComponent<Sawmill>();
+            if (endReach.HasValue) SetField(saw, "endReach", endReach.Value);
             return Build(go);
         }
 

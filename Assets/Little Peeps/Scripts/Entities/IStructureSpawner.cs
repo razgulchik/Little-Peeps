@@ -21,9 +21,10 @@ namespace LittlePeeps
         // Give everything back to SpawnSystem RIGHT NOW rather than in OnDestroy. Two callers, one reason:
         // Destroy() defers OnDestroy to the end of the frame. A run teardown ends one run and starts the
         // next within a single frame, so the old spawner's unregistration would land AFTER the new run had
-        // already registered its own, corrupting the fresh run's books; and a sale (StructureSystem's live
-        // removal) needs the capacity gone before it trims the surplus residents. Implementations must
-        // leave OnDestroy a no-op afterwards, and must stay safe to call twice.
+        // already registered its own, corrupting the fresh run's books; and after a sale (StructureSystem's
+        // live removal) the game runs on, so the sold spawner's share must be gone before anyone reads the
+        // books again. Implementations must leave OnDestroy a no-op afterwards, and must stay safe to call
+        // twice.
         void Teardown();
     }
 }

@@ -21,16 +21,15 @@ namespace LittlePeeps
         [SerializeField] private bool autopilotWhenTired = true;
 
         [Tooltip("On: the moment it runs out of stamina a unit vanishes in a puff and is in the house it was " +
-                 "born in, however far it is. If that house is full or sold: in the nearest one with a free " +
-                 "slot. If every slot is taken it stays on the field as a tired unit. Off: it has to get home " +
-                 "by itself.")]
+                 "born in, however far it is. If that house is full: in the nearest one with a free slot. If " +
+                 "every slot is taken it stays on the field as a tired unit. Off: it has to get home by itself.")]
         [SerializeField] private bool despawnWhenTired = false;
 
         [Header("Tap")]
-        [Tooltip("On: a tap on a unit that is out of stamina sends it straight to the nearest house with a " +
-                 "free slot; if every slot is taken, it is boosted as usual. Off: a tap boosts every unit, " +
-                 "tired or not. TapSystem's Refresh Stamina wins over this: a tap that refills stamina sends " +
-                 "nobody home.")]
+        [Tooltip("On: a unit that is out of stamina vanishes in a puff when tapped and is in the house it was " +
+                 "born in, however far it is. If that house is full: in the nearest one with a free slot. If " +
+                 "every slot is taken, it is boosted as usual. Off: a tap boosts every unit, tired or not. " +
+                 "TapSystem's Refresh Stamina wins over this: a tap that refills stamina sends nobody home.")]
         [SerializeField] private bool tapSendsTiredHome = true;
 
         public bool AutopilotWhenTired => autopilotWhenTired;

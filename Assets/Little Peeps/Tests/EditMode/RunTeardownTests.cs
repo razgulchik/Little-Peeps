@@ -13,7 +13,7 @@ namespace LittlePeeps.Tests
     // The fix is IStructureSpawner.Teardown: unregister synchronously, then make OnDestroy a no-op.
     //
     // The sale takes the same path since building went real-time: StructureSystem's live removal calls
-    // Teardown before the Destroy too, so the capacity is gone before it trims the surplus residents.
+    // Teardown before the Destroy too, so the capacity is gone before the running game reads it again.
     // What is NOT covered here is a structure destroyed some other way, where OnDestroy alone has to do
     // the whole job. Edit Mode never invokes MonoBehaviour lifecycle callbacks for a plain
     // MonoBehaviour — the same rule that already forces MakeSpawner to call Warmup() by hand, because

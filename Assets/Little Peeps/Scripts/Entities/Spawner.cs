@@ -6,11 +6,13 @@ namespace LittlePeeps
     // Placed on a structure; drives a per-slot spawn -> travel -> return -> rest cycle.
     // Each slot is an independent place for one little person: it launches a unit, then stands
     // free for ANY tired or drunk unit — houses provide population, not professions, so a house neither
-    // owns the units it launched nor cares what they work as when they come back (the tool goes back
-    // to its rack on entry, see Unit.EnterRest). There is no lockout after a launch: the unit that just
-    // left has full stamina and is sober, and the house's door (TryEnter) lets only tired or drunk units
-    // in, so nothing can duck straight back in — a free slot simply takes the next such unit that hits
-    // the house.
+    // keeps a slot for the units it launched nor cares what they work as when they come back (the tool
+    // goes back to its rack on entry, see Unit.EnterRest). There is no lockout after a launch: the unit
+    // that just left has full stamina and is sober, and the house's door (TryEnter) lets only tired or
+    // drunk units in, so nothing can duck straight back in — a free slot simply takes the next such unit
+    // that hits the house.
+    // The units born here are its RESIDENTS all the same (Unit.BirthHouse), one per slot: this is the house
+    // they are sent home to (SpawnSystem.SendHome), and they leave the game with it when it is sold (EvictAll).
     // `capacity` is the BASE slot count; the run's HouseCapacity modifier is applied on top at Warmup,
     // and the result — slots.Count — is what is registered into SpawnSystem's global cap under this
     // house's `unitDef` (population is counted per kind of unit) and what OnDestroy gives back.
@@ -240,10 +242,9 @@ namespace LittlePeeps
         }
 
         // Take `unit` in to rest in the first free slot; false when every slot is occupied. The one
-        // way in from the field, whether the unit came through the door (TryEnter) or SpawnSystem
-        // brought it here because it was stuck or sent home (a tap, or out of stamina) — the house takes any
-        // of them the same way, and sends it back out launched after its rest. No door rule here: TryEnter
-        // applies it before calling this, and the others pick their own units.
+        // way in, whether the unit came through the door (TryEnter) or was sent home (SpawnSystem.SendHome)
+        // — the house takes either the same way, and sends it back out launched after its rest. No door
+        // rule here: TryEnter applies it before calling this, and SendHome's callers pick their own units.
         public bool TryShelter(Unit unit)
         {
             if (slots == null || unit == null) return false;
@@ -276,7 +277,24 @@ namespace LittlePeeps
             slot.state = SlotState.Occupied;
             slot.timer = ResolveRestDuration();
             slot.unit = unit;
-            unit.EnterRest();
+            unit.EnterRest(this);
+        }
+
+        private static void FreeSlot(Slot slot)
+        {
+            slot.unit = null;
+            slot.state = SlotState.Free;
+            slot.timer = 0f;
+        }
+
+        // The unit left the game from inside (Unit.LeaveBuilding, from SpawnSystem.Despawn): free its slot
+        // without launching it — it is on its way back to the pool.
+        public void Forget(Unit unit)
+        {
+            if (slots == null) return;
+
+            foreach (var slot in slots)
+                if (slot.unit == unit) FreeSlot(slot);
         }
 
         private void LaunchFromSlot(Slot slot, Unit unit)
@@ -293,9 +311,7 @@ namespace LittlePeeps
             unit.Launch(dir, launchSpeedMultiplier, launchBoostDuration);
             unit.MakeSound(exitSound);
 
-            slot.unit = null;
-            slot.state = SlotState.Free;
-            slot.timer = 0f;
+            FreeSlot(slot);
         }
 
         // Choose a launch direction toward an OPEN perimeter cell (an exit, see StructureExits). Without
@@ -346,6 +362,23 @@ namespace LittlePeeps
             return center + dir * Mathf.Min(tx, ty);
         }
 
+        // The house is being sold in a running game (StructureSystem's live removal, before the Teardown).
+        // Its residents leave the game with it, wherever they are; a stranger resting here is sent home and
+        // loses only the rest it has had. The order is the point:
+        //   - out of the registry first, so nobody is sent back in here;
+        //   - residents before strangers, because a resident resting in another house frees a slot there.
+        // So every stranger finds room: the houses left keep their own residents only, one per slot.
+        public void EvictAll()
+        {
+            if (!registered) return;
+
+            spawnSystem.UnregisterSpawner(this);
+            spawnSystem.RemoveResidents(this);
+
+            foreach (var slot in slots)
+                if (slot.state == SlotState.Occupied && spawnSystem.SendHome(slot.unit)) FreeSlot(slot);
+        }
+
         // IStructureSpawner — hand everything back synchronously, before the object is destroyed.
         // See the interface for why the deferred OnDestroy is too late (run teardown, a sale).
         public void Teardown() => Unregister();
@@ -353,18 +386,16 @@ namespace LittlePeeps
         private void OnDestroy() => Unregister();
 
         // Idempotent by design: `registered` is cleared FIRST, so the OnDestroy that follows a Teardown
-        // (and any re-entrant path) does nothing. Double-running this would both halve the global cap
-        // twice and push an already-pooled unit into the pool a second time — UnitPool.Release has no
-        // guard of its own, so the same Unit would then be handed out to two callers.
+        // (and any re-entrant path) does nothing. Double-running this would take this house's slots off
+        // the global cap twice.
         private void Unregister()
         {
             if (!registered) return;
             registered = false;
 
-            // Despawn units currently resting here so they don't leak as hidden objects. The ones out on
-            // the island are no business of the house — it never owned them; when a sale leaves more of
-            // them than the houses left can hold, StructureSystem has SpawnSystem.TrimSurplus take the
-            // difference, after this has given the capacity back.
+            // Despawn units currently resting here so they don't leak as hidden objects. In a run teardown
+            // only: whoever is out on the island is collected right after (SpawnSystem.ResetForNewRun). A
+            // sale finds nobody here — EvictAll has already seen everyone off.
             if (slots != null && spawnSystem != null)
             {
                 foreach (var slot in slots)

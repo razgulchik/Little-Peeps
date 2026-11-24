@@ -24,8 +24,8 @@ namespace LittlePeeps
     //
     // Sealed in on every side, the tavern keeps its guests and tries again after another stay — never
     // removes or teleports them, like a house. Only reachable through StructureSystem (it needs the grid
-    // for the exits); a guest leaves the game from inside only through SpawnSystem.Despawn (a puff, run
-    // teardown), which tells the tavern through the unit (Unit.LeaveHold → Forget). Selling happens in the
+    // for the exits); a guest leaves the game from inside only through SpawnSystem.Despawn (its house sold,
+    // run teardown), which tells the tavern through the unit (Unit.LeaveBuilding → Forget). Selling happens in the
     // running game, guests and all: the sale lets them out first (EvictAll).
     [RequireComponent(typeof(Structure))]
     public class Tavern : MonoBehaviour, IEntrance
@@ -217,7 +217,7 @@ namespace LittlePeeps
             }
         }
 
-        // The unit left the game from inside (Unit.LeaveHold, from SpawnSystem.Despawn): free its seat
+        // The unit left the game from inside (Unit.LeaveBuilding, from SpawnSystem.Despawn): free its seat
         // without letting it out — it is on its way back to the pool.
         public void Forget(Unit unit)
         {

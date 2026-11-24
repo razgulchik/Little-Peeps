@@ -61,10 +61,12 @@ namespace LittlePeeps
         // destroyed component by then, and its tool simply goes with it (a new rack comes full).
         private ToolRack rack;
 
-        // The tavern holding the unit right now (EnterHold), so a despawn from inside can give its seat
-        // back (LeaveHold) — the same two-way link as the rack's. Null on the field and in a house: a
-        // house keeps its own slots. Cleared when the tavern lets the unit out (Resume).
+        // The building the unit is inside right now, so that leaving the game from there can give its place
+        // back (LeaveBuilding) — the same two-way link as the rack's: the tavern it sits in (EnterHold) or
+        // the house it rests in (EnterRest), never both. Null on the field: cleared when the building lets
+        // the unit out (Resume).
         private Tavern holder;
+        private Spawner shelter;
 
         // Autopilot: the unit finds its way home by itself. Two ways onto it, each enough on its own:
         //   - tired, with GameSetup's autopilotWhenTired on: from the moment stamina runs out until it is refilled;
@@ -106,9 +108,9 @@ namespace LittlePeeps
         private float drunkSpeedMultiplier = 1f;
 
         // Whether the unit has stopped getting anywhere (see StuckWatch). A tired one cannot get home from
-        // there, so SpawnSystem sweeps for this flag and takes a tired unit into a house. Ticked in FixedUpdate on the field only; every way off the field
-        // (EnterRest, EnterHold) and back onto it (Launch, Resume) resets it, so a building never sees
-        // the verdict that brought the unit there.
+        // there, so SpawnSystem sweeps for this flag and sends a tired unit home. Ticked in FixedUpdate on
+        // the field only; every way off the field (EnterRest, EnterHold) and back onto it (Launch, Resume)
+        // resets it, so a building never sees the verdict that brought the unit there.
         public bool IsStuck => stuckWatch.IsStuck;
         private StuckWatch stuckWatch;
 
@@ -148,6 +150,12 @@ namespace LittlePeeps
         // Out on the island, physics running — not resting in a house, not sitting in a tavern. The body is
         // switched off exactly while the unit is inside a building (LeaveField) and back on the way out.
         public bool IsOnField => rb != null && rb.simulated;
+
+        // Where the unit is, for whoever takes it off the island. While it rests that is its house: a unit
+        // sent home never walked there, and its transform still stands where it vanished.
+        public Vector2 Whereabouts => shelter != null
+            ? (Vector2)shelter.transform.position
+            : (Vector2)transform.position;
 
         private IslandSystem island;   // injected on spawn; kept for future island-aware behavior
         private RunStats stats;        // injected on spawn; applies the UnitSpeed modifier to def.speed
@@ -191,11 +199,12 @@ namespace LittlePeeps
             Profession = BornProfession;
             rack = null;
             holder = null;
+            shelter = null;
             autopilot = false;
             baseSpeed = ResolveBaseSpeed();
             stuckWatch = default;   // a verdict from the previous outing must not survive the pool
             drunkTimer = 0f;        // nor a drink
-            birthHouse = null;      // nor a house: the next one tells it right after the spawn
+            BirthHouse = null;      // nor a house: the next one tells it right after the spawn
         }
 
         private void Start()
@@ -218,13 +227,14 @@ namespace LittlePeeps
         // Injected by SpawnSystem on spawn: where the autopilot finds the houses.
         public void SetSpawns(SpawnSystem spawnSystem) => spawns = spawnSystem;
 
-        // The house that spawned this unit, told by that house right after the spawn and never changed while
-        // the unit lives, wherever it rests in between. The house keeps no claim in return: its slots are
-        // open to any tired unit. Read only when the unit is sent home for running out of stamina
-        // (OnBecameTired). Reads as Unity's null once the house is sold.
-        private Spawner birthHouse;
+        // The unit's own house: the one that spawned it, told by that house right after the spawn and never
+        // changed while the unit lives, wherever it rests in between. Where the unit goes whenever it is
+        // sent home (SpawnSystem.SendHome); sold, the house takes the unit out of the game with it
+        // (SpawnSystem.RemoveResidents), so no unit outlives its house. The house keeps no slot for it in
+        // return: its slots are open to any tired unit. Null for a unit nobody spawned.
+        public Spawner BirthHouse { get; private set; }
 
-        public void SetBirthHouse(Spawner house) => birthHouse = house;
+        public void SetBirthHouse(Spawner house) => BirthHouse = house;
 
         // A sound this unit's action makes — an axe in a tree, a door. It stands for the unit's hit this
         // frame, so the plain bounce of the same contact stays silent (SoundSystem.PlayHit). Null = nothing.
@@ -294,7 +304,8 @@ namespace LittlePeeps
         // (see FixedUpdate); 1 and 0 = it simply walks out. Direction is preserved through bounces.
         public void Resume(Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
         {
-            holder = null;                          // out of the tavern, if that is where it was
+            holder = null;                          // out of the tavern or the house, whichever it was in
+            shelter = null;
             autopilot = false;                      // a building putting it on autopilot says so after this
             bouncesSinceRelease = 0;
             stuckWatch.Reset(transform.position);   // the building placed us here — that jump is not travel
@@ -318,9 +329,9 @@ namespace LittlePeeps
             ApplyLaunch(dir, speedMultiplier, duration);
         }
 
-        // The tap's other answer: straight into the nearest house with a free slot, wherever the unit is, to
-        // rest there like any unit that walked in (EnterRest). False — and nothing happens — when there is no
-        // such house. WHOM a tap sends home is the tap's business (TapSystem).
+        // Vanish from wherever the unit is and rest at home, in its own house (SpawnSystem.SendHome says
+        // which one when that is full). False — and nothing happens — when there is no free slot anywhere.
+        // WHEN a unit goes home is the caller's business: a tap (TapSystem), stamina run out (OnBecameTired).
         public bool TryGoHome() => spawns != null && spawns.SendHome(this);
 
         // Shared body of Resume (and so Launch) and Boost. Reads TargetSpeed AFTER the caller has settled
@@ -357,9 +368,11 @@ namespace LittlePeeps
         // stamina is dropped — Launch refills it on the way out anyway; this only keeps IsTired truthful
         // while the unit is inside. Not through OnBecameTired: there is no velocity to touch. Going home
         // ends the outing, so the profession (and its tool) is given up here as well, and the house reset
-        // sobers the unit up — a drunk one comes back out clean, at full stamina, Unassigned.
-        public void EnterRest()
+        // sobers the unit up — a drunk one comes back out clean, at full stamina, Unassigned. The slot is
+        // the house's own; the unit only remembers WHICH house, for LeaveBuilding.
+        public void EnterRest(Spawner house)
         {
+            shelter = house;
             stamina = 0f;
             drunkTimer = 0f;
             Unequip();
@@ -380,21 +393,23 @@ namespace LittlePeeps
         // a stop in the middle of it. Stamina, profession and tool all stay; the stamina clock simply
         // stands still while the unit is off the field (FixedUpdate), and Resume brings it back out with
         // the same numbers. Whatever the building does to the unit is the building's own business; the
-        // unit only remembers WHICH building, for LeaveHold.
+        // unit only remembers WHICH building, for LeaveBuilding.
         public void EnterHold(Tavern tavern)
         {
             holder = tavern;
             LeaveField();
         }
 
-        // The unit is leaving the game from inside a tavern (SpawnSystem.Despawn: a puff, run teardown):
-        // tell the tavern, so the seat is free again and it never lets a pooled unit out.
-        // `!= null`, not `?.`: a tavern torn down with the run is a destroyed component by then, and
-        // there is nothing left to tell. Nothing to do for a unit that is not held.
-        public void LeaveHold()
+        // The unit is leaving the game from inside a building (SpawnSystem.Despawn: its house sold, run
+        // teardown): tell the building, so its place is free again and it never lets a pooled unit out.
+        // `!= null`, not `?.`: a building torn down with the run is a destroyed component by then, and
+        // there is nothing left to tell. Nothing to do for a unit on the field.
+        public void LeaveBuilding()
         {
             if (holder != null) holder.Forget(this);
+            if (shelter != null) shelter.Forget(this);
             holder = null;
+            shelter = null;
         }
 
         // Switch the drunk's autopilot on (see IsOnAutopilot) — after Resume, which clears it. It lasts
@@ -572,14 +587,13 @@ namespace LittlePeeps
         // (a building charging per paying hit) tomorrow. Nothing to do with the velocity here: the next
         // FixedUpdate reads the new TargetSpeed and eases or snaps to it. Direction is kept — the unit
         // sags, it doesn't turn. The grumble is a sound of its own, not a hit's: it claims no bounce.
-        // With GameSetup's despawnWhenTired on the unit goes straight home instead — to the house it was born
-        // in, or the nearest with room if that one is full or gone — and the puff and the house's door are its
-        // sounds: no grumble. Every slot taken: it is tired like any other.
+        // With GameSetup's despawnWhenTired on the unit goes straight home instead, and the puff and the
+        // house's door are its sounds: no grumble. Every slot taken: it is tired like any other.
         private void OnBecameTired()
         {
             stamina = 0f;
 
-            if (Setup != null && Setup.DespawnWhenTired && spawns.SendHome(this, birthHouse)) return;
+            if (Setup != null && Setup.DespawnWhenTired && TryGoHome()) return;
 
             var sounds = Sounds;
             if (sounds != null && def != null) sounds.Play(def.tiredSound);

@@ -10,8 +10,9 @@ namespace LittlePeeps
     // refresh and the houses a unit can be sent to.
     //
     // Nothing ever empties the field mid-run any more: building happens in the running game. A unit
-    // leaves the island only through a house (rest), the run's end, or a PUFF — the visible way out for
-    // the residents a sold house leaves without a home (TrimSurplus) and a sold den's animals.
+    // vanishes off the island in one way, whatever the reason: in a PUFF, home to its own house (SendHome).
+    // It leaves the GAME (Despawn) only at the run's end or with its own house when that is sold
+    // (RemoveResidents), in the same puff.
     //
     // Population is counted per UnitDef — the kind of unit a house spawns — never per profession:
     // a rack changes what a unit does mid-outing, not what it is. Spawn and despawn must count
@@ -28,16 +29,17 @@ namespace LittlePeeps
 
         [Header("Stuck units")]
         [Tooltip("How often the live units are swept for tired ones that report themselves stuck " +
-                 "(Unit.IsStuck), which are taken into the nearest house with a free slot. A unit that finds " +
-                 "none stays where it is and is tried again on the next sweep.")]
+                 "(Unit.IsStuck), which are sent home: to the house they were born in, or the nearest with a " +
+                 "free slot if that one is full. A unit that finds none stays where it is and is tried again " +
+                 "on the next sweep.")]
         [SerializeField, Min(0.05f)] private float stuckSweepInterval = 0.5f;
         private float stuckSweepTimer;
 
         [Header("Puff")]
-        [Tooltip("Played where a unit or an animal is taken off the island in the open: the residents a sold " +
-                 "house leaves without a home, the animals of a sold den, a unit sent home by a tap or by " +
-                 "running out of stamina (GameSetup). A ParticleSystem prefab built as a shared emitter (World " +
-                 "space, no emission of its own). Empty = they just vanish.")]
+        [Tooltip("Played where a unit or an animal is taken off the island: a unit sent home (a tap, out of " +
+                 "stamina, stuck), the residents of a sold house, the animals of a sold den. A ParticleSystem " +
+                 "prefab built as a shared emitter (World space, no emission of its own). Empty = they just " +
+                 "vanish.")]
         [SerializeField] private ParticleSystem puffFx;
 
         [Tooltip("The same puff, drawn smaller, for a coop's bird. Built like Puff Fx. Empty = the bird just " +
@@ -57,9 +59,7 @@ namespace LittlePeeps
         private readonly Dictionary<UnitDef, int> activeByDef = new();
 
         private readonly List<IStructureSpawner> spawners = new();   // live spawners (units + animals)
-        private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll
-        private readonly List<UnitDef> overCap = new();     // reused by TrimSurplus: defs with more units than room
-        private readonly List<Unit> homeless = new();       // reused by TrimSurplus: the candidates of one def
+        private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll and RemoveResidents
 
         private RunStats stats;   // injected into spawned units so their speed reflects run modifiers
 
@@ -133,44 +133,41 @@ namespace LittlePeeps
         }
 
         // A stuck unit — wedged, sealed into a pocket or a pen; the unit itself decides, see StuckWatch —
-        // that is TIRED cannot get home, so it is taken there: into the nearest house with a free slot,
-        // the same slot it would have walked into, so it rests and comes back out launched with full
-        // stamina. Only a tired one: a working unit loses nothing it needs by being shut in — a lumberjack
-        // chops its way out, anyone else bounces out the rest of its outing — and is taken home once it
-        // tires there. Houses hold no units of their own, so any house will do, and the nearest reads as
-        // the unit having walked into it. No house free (every slot taken): the unit stays put and the
-        // next sweep tries again. Sheltering keeps the unit active, so the list is safe to walk in place.
+        // that is TIRED cannot get home, so it is sent there (SendHome), rests and comes back out launched
+        // with full stamina. Only a tired one: a working unit loses nothing it needs by being shut in — a
+        // lumberjack chops its way out, anyone else bounces out the rest of its outing — and is sent home
+        // once it tires there. No house free (every slot taken): the unit stays put and the next sweep
+        // tries again. Going home keeps the unit active, so the list is safe to walk in place.
         private void RescueStuckUnits()
         {
             var units = unitSystem.ActiveUnits;
             for (int i = 0; i < units.Count; i++)
             {
                 var unit = units[i];
-                if (unit.IsStuck && unit.IsTired) TakeHome(unit);
+                if (unit.IsStuck && unit.IsTired) SendHome(unit);
             }
         }
 
-        // A unit sent home in the open, on purpose — the player's tap on a tired one, or a unit running out of
-        // stamina with GameSetup's despawnWhenTired on: into `preferred` if it has a free slot (the house the
-        // unit was born in; null = no preference), else into the nearest house that has one. With a puff where
-        // the unit stood, so it reads as sent off and not as lost. False when every slot is taken: the unit
-        // stays where it is, and nothing is shown.
-        public bool SendHome(Unit unit, Spawner preferred = null)
+        // THE way a unit vanishes off the island, whatever the reason: a tap on a tired one, stamina run out
+        // with GameSetup's despawnWhenTired on, stuck, the house it was resting in sold. It is in its own
+        // house at once and rests there like a unit that walked in, with a puff where it was, so it reads as
+        // sent off and not as lost. A house keeps no slot for its residents, so a unit that finds its own full
+        // goes to the nearest with room. False when every slot is taken: the unit stays where it is, and
+        // nothing is shown.
+        public bool SendHome(Unit unit)
         {
-            Vector2 from = unit.transform.position;
-            if (!TakeHome(unit, preferred)) return false;
+            var house = HomeFor(unit);
+            Vector2 from = unit.Whereabouts;
+            if (house == null || !house.TryShelter(unit)) return false;
 
             Puff(from);
             return true;
         }
 
-        // The preferred house must still be in the registry: one being sold has left it at once (Teardown),
-        // but is destroyed only at the end of the frame.
-        private bool TakeHome(Unit unit, Spawner preferred = null)
+        private Spawner HomeFor(Unit unit)
         {
-            bool preferredTakes = preferred != null && spawners.Contains(preferred) && preferred.HasFreeSlot;
-            var house = preferredTakes ? preferred : NearestHouseWithFreeSlot(unit.transform.position);
-            return house != null && house.TryShelter(unit);
+            var own = unit.BirthHouse;
+            return own != null && own.HasFreeSlot ? own : NearestHouseWithFreeSlot(unit.Whereabouts);
         }
 
         // Only unit Spawners shelter; the registry also holds AnimalSpawners, which are skipped.
@@ -260,15 +257,16 @@ namespace LittlePeeps
             return unit;
         }
 
-        // Every exit from the field goes through here (house teardown, a puff, run teardown), so
-        // this is where a mid-outing profession ends: Unequip before the pool takes the unit — the
-        // tool goes back on its rack — and the count comes off the def TrySpawn put it on. A unit
-        // sitting in a tavern gives its seat back the same way (LeaveHold).
+        // Out of the GAME, back to the pool: its house sold, run teardown. A unit that only vanishes off the
+        // island goes home instead (SendHome). Every exit goes through here, so this is where a mid-outing
+        // profession ends: Unequip before the pool takes the unit — the tool goes back on its rack — and
+        // the count comes off the def TrySpawn put it on. A unit inside a tavern or a house gives its
+        // place back the same way (LeaveBuilding).
         public void Despawn(Unit unit)
         {
             if (unit == null) return;
 
-            unit.LeaveHold();
+            unit.LeaveBuilding();
             unit.Unequip();
 
             if (unit.def != null)
@@ -281,49 +279,25 @@ namespace LittlePeeps
             unitPool.Release(unit);
         }
 
-        // A house has just been sold (StructureSystem's live removal), so the island may hold more units
-        // of a kind than the houses left have room for. The surplus goes, the ones nearest `near` — the
-        // sold house — first, each in a puff, so the residents read as leaving with their home. Only units
-        // OUTSIDE a house are candidates (on the field, or sitting in a tavern): a resting one fills a slot
-        // another house still has, so it is not surplus, and taking it would leave that slot pointing at a
-        // pooled unit. There are always enough outside: the sold house's own resting units are gone by
-        // now, and the units still resting elsewhere fit in the slots that are left, so whatever exceeds
-        // the cap is outside.
-        public void TrimSurplus(Vector2 near)
+        // A house is being sold (Spawner.EvictAll): the units born in it leave the game with it, each in a
+        // puff, wherever they are — on the field, in a tavern, resting in this house or in another. There is
+        // one resident per slot, so the island never holds more units than the houses left have room for.
+        public void RemoveResidents(Spawner house)
         {
             if (unitSystem == null) return;
 
-            // Collected first: Despawn writes activeByDef, which must not change under its own iteration.
-            overCap.Clear();
-            foreach (var pair in activeByDef)
+            // Snapshot first: Despawn mutates UnitSystem's list via Remove while we iterate.
+            despawnBuffer.Clear();
+            var units = unitSystem.ActiveUnits;
+            for (int i = 0; i < units.Count; i++)
+                if (units[i].BirthHouse == house) despawnBuffer.Add(units[i]);
+
+            for (int i = 0; i < despawnBuffer.Count; i++)
             {
-                capByDef.TryGetValue(pair.Key, out int cap);
-                if (pair.Value > cap) overCap.Add(pair.Key);
+                Puff(despawnBuffer[i].Whereabouts);
+                Despawn(despawnBuffer[i]);
             }
-
-            for (int d = 0; d < overCap.Count; d++)
-            {
-                var def = overCap[d];
-                capByDef.TryGetValue(def, out int cap);
-                activeByDef.TryGetValue(def, out int active);
-
-                homeless.Clear();
-                var units = unitSystem.ActiveUnits;
-                for (int i = 0; i < units.Count; i++)
-                    if (units[i].def == def && (units[i].IsOnField || units[i].IsHeld)) homeless.Add(units[i]);
-                homeless.Sort((a, b) => ((Vector2)a.transform.position - near).sqrMagnitude
-                                        .CompareTo(((Vector2)b.transform.position - near).sqrMagnitude));
-
-                int surplus = Mathf.Min(active - cap, homeless.Count);
-                for (int i = 0; i < surplus; i++)
-                {
-                    Puff(homeless[i].transform.position);
-                    Despawn(homeless[i]);
-                }
-            }
-
-            overCap.Clear();
-            homeless.Clear();
+            despawnBuffer.Clear();
         }
 
         // The puff effect and sound at `position`. Public for the sold den's animals, which are not units

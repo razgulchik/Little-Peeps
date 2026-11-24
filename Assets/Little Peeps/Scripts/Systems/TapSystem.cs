@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // Handles game-object taps: every unit in an AoE radius around the cursor is boosted — or, if it is out
-    // of stamina and GameSetup says so, sent straight to the nearest house instead. A ring (TapRadiusVisual)
+    // of stamina and GameSetup says so, sent straight home instead (Unit.TryGoHome). A ring (TapRadiusVisual)
     // follows the cursor every frame so the player sees the tap's area; it shows while the game runs and
     // the hand is empty — frozen screens (perk pick, age transition) hide it, and so does a build card or
     // the sell tool in hand, since the click is placement's then. The pier is not clickable. A click on UI

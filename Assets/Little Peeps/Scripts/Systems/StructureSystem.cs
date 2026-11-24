@@ -278,10 +278,10 @@ namespace LittlePeeps
         //   - a tavern lets its guests out where it stood (Tavern.EvictAll);
         //   - a den's animals go in a puff — they belong to the den, and only it lets them out — and so do
         //     a coop's birds;
-        //   - every spawner hands its books back NOW rather than in the deferred OnDestroy (resting units
-        //     back to the pool, capacity given back, unregistered), so that
-        //   - SpawnSystem.TrimSurplus sees the room that is left and takes the residents a sold house
-        //     leaves without a home, nearest first, in a puff.
+        //   - a house's residents go in a puff, wherever they are, and whoever else was resting in it is
+        //     sent home (Spawner.EvictAll);
+        //   - every spawner hands its books back NOW rather than in the deferred OnDestroy (capacity given
+        //     back, unregistered).
         // Composite prefabs carry these at any depth, like everything Build injects.
         private void ReleaseOccupants(Structure structure)
         {
@@ -301,10 +301,11 @@ namespace LittlePeeps
                         if (coop.Flying[i] != null) spawnSystem.SmallPuff(coop.Flying[i].transform.position);
             }
 
+            foreach (var house in structure.GetComponentsInChildren<Spawner>(true))
+                house.EvictAll();
+
             foreach (var spawner in structure.GetComponentsInChildren<IStructureSpawner>(true))
                 spawner.Teardown();
-
-            if (spawnSystem != null) spawnSystem.TrimSurplus(structure.transform.position);
         }
 
         // Refund sellRefundPercent of each cost entry to the player. Free structures (no cost) refund 0.

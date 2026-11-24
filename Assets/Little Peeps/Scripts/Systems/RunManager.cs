@@ -92,13 +92,11 @@ namespace LittlePeeps
         // Tear the current run down to nothing: no structures, no units, no bookkeeping, no RunContext.
         // Safe to call twice, and safe to call with no run in progress.
         //
-        // ORDER IS LOAD-BEARING, in both directions:
-        //   1. structures first — each spawner despawns the units resting inside it as it goes, so they
-        //      leave through the one path that decrements the active count. Wiping units first instead
-        //      would leave those slots holding pooled Units, and the teardown would release them again.
+        // The order:
+        //   1. structures first — each spawner gives its capacity back and despawns the units resting
+        //      inside it as it goes, against books that are still whole.
         //   2. SpawnSystem second — it collects whatever is still roaming (units that were out and about
         //      belong to no slot) and then clears the registries the structures have just emptied.
-        // Doing it the other way round double-releases into UnitPool, which has no guard against it.
         public void EndRun()
         {
             if (CurrentRun == null) return;

@@ -54,6 +54,11 @@ namespace LittlePeeps
         [Header("Building")]
         [SerializeField] private PlacementController placementController;
 
+        [Header("Setup")]
+        [Tooltip("The game's rule switches: what a unit out of stamina does, what a tap does to it. " +
+                 "Empty = every switch is off.")]
+        [SerializeField] private GameSetup gameSetup;
+
         [Header("Debug")]
         [Tooltip("Test presets, used only while the menu switch Little Peeps → Test Mode is on (per machine, " +
                  "editor only). Empty = no test mode in this scene.")]
@@ -81,6 +86,12 @@ namespace LittlePeeps
             //    from before it builds the first one.
             runManager.Initialize(prestigeSystem);
 
+            //    The rule switches reach the units through SpawnSystem, before the first of them is spawned.
+            //    Loud but not fatal: without it every switch is off and the game plays on.
+            if (gameSetup == null)
+                Debug.LogError("[GameBootstrap] no GameSetup assigned — every switch on it counts as off.", this);
+            spawnSystem.UseSetup(gameSetup);
+
             //    Test mode swaps its presets in before the first run, so the first island is already the
             //    test one; they hold for every run of this play session.
             if (TestMode.IsOn)
@@ -96,8 +107,8 @@ namespace LittlePeeps
             RunContext run = runManager.CurrentRun;
 
             // 4. Wire run-dependent systems. The tap also learns about placement, which owns the click
-            //    whenever a build card or the sell tool is in hand.
-            tapSystem.Initialize(run, placementController);
+            //    whenever a build card or the sell tool is in hand, and about the rule switches.
+            tapSystem.Initialize(run, placementController, gameSetup);
             ageSystem.Initialize(run);
 
             // Loud but not fatal: without it there is no offering cycle — no quotas, no wrath, no perks

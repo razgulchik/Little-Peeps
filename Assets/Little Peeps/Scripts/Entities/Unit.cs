@@ -20,11 +20,8 @@ namespace LittlePeeps
                  "drift apart instead of tracing one path. 0 = off.")]
         [SerializeField, Range(0f, 30f)] private float bounceJitterDegrees = 3f;
 
+        // How a unit on autopilot steers. WHO goes on autopilot is GameSetup's switch, or the tavern's.
         [Header("Autopilot")]
-        [Tooltip("On: the unit goes on autopilot the moment it runs out of stamina and stays on it until a " +
-                 "house takes it in. Off: only the tavern puts units on autopilot (its own checkbox).")]
-        [SerializeField] private bool autopilotWhenTired = true;
-
         [Tooltip("A unit on autopilot looks for a house with a free slot within this distance (world units, " +
                  "to the house's root) at every bounce, and leaves toward it if the way is clear.")]
         [SerializeField, Min(0f)] private float autopilotRadius = 12f;
@@ -70,14 +67,14 @@ namespace LittlePeeps
         private Tavern holder;
 
         // Autopilot: the unit finds its way home by itself. Two ways onto it, each enough on its own:
-        //   - tired, with autopilotWhenTired on: from the moment stamina runs out until it is refilled;
+        //   - tired, with GameSetup's autopilotWhenTired on: from the moment stamina runs out until it is refilled;
         //   - drunk, if a building switched it on (EnterAutopilot — the tavern, for a tired guest it lets
         //     out drunk): for as long as the unit stays drunk. That switch, `autopilot`, is cleared on every
         //     way off the field and back onto it (LeaveField, Resume, OnEnable).
         // On autopilot, every bounce looks for a house in sight and leaves toward it (see
         // OnCollisionEnter2D). No destination is kept — each bounce looks again from where the unit is — so
         // a knock from an animal, or a house that filled up meanwhile, only means the next bounce looks again.
-        public bool IsOnAutopilot => (autopilotWhenTired && IsTired) || (autopilot && IsDrunk);
+        public bool IsOnAutopilot => (IsTired && Setup != null && Setup.AutopilotWhenTired) || (autopilot && IsDrunk);
         private bool autopilot;
 
         // World-space radius of the unit's collider (used for spawn-clearance math).
@@ -160,6 +157,10 @@ namespace LittlePeeps
         // unit nobody spawned (scene-placed) — it is then silent.
         private SoundSystem Sounds => spawns != null ? spawns.Sounds : null;
 
+        // The game's rule switches, by the same road. Null for a unit nobody spawned: every switch is off.
+        // Asked each time, never cached — the switches may be flipped mid-run.
+        private GameSetup Setup => spawns != null ? spawns.Setup : null;
+
         // Decaying launch boost, ticked in FixedUpdate (physics-based acceleration).
         private float launchBoostTimer;
         private float launchTau;
@@ -194,6 +195,7 @@ namespace LittlePeeps
             baseSpeed = ResolveBaseSpeed();
             stuckWatch = default;   // a verdict from the previous outing must not survive the pool
             drunkTimer = 0f;        // nor a drink
+            birthHouse = null;      // nor a house: the next one tells it right after the spawn
         }
 
         private void Start()
@@ -215,6 +217,14 @@ namespace LittlePeeps
 
         // Injected by SpawnSystem on spawn: where the autopilot finds the houses.
         public void SetSpawns(SpawnSystem spawnSystem) => spawns = spawnSystem;
+
+        // The house that spawned this unit, told by that house right after the spawn and never changed while
+        // the unit lives, wherever it rests in between. The house keeps no claim in return: its slots are
+        // open to any tired unit. Read only when the unit is sent home for running out of stamina
+        // (OnBecameTired). Reads as Unity's null once the house is sold.
+        private Spawner birthHouse;
+
+        public void SetBirthHouse(Spawner house) => birthHouse = house;
 
         // A sound this unit's action makes — an axe in a tree, a door. It stands for the unit's hit this
         // frame, so the plain bounce of the same contact stays silent (SoundSystem.PlayHit). Null = nothing.
@@ -307,6 +317,11 @@ namespace LittlePeeps
                 : Random.insideUnitCircle.normalized;
             ApplyLaunch(dir, speedMultiplier, duration);
         }
+
+        // The tap's other answer: straight into the nearest house with a free slot, wherever the unit is, to
+        // rest there like any unit that walked in (EnterRest). False — and nothing happens — when there is no
+        // such house. WHOM a tap sends home is the tap's business (TapSystem).
+        public bool TryGoHome() => spawns != null && spawns.SendHome(this);
 
         // Shared body of Resume (and so Launch) and Boost. Reads TargetSpeed AFTER the caller has settled
         // stamina, so a tired unit that is boosted or resumed without a refill leaves at its tired speed
@@ -557,9 +572,14 @@ namespace LittlePeeps
         // (a building charging per paying hit) tomorrow. Nothing to do with the velocity here: the next
         // FixedUpdate reads the new TargetSpeed and eases or snaps to it. Direction is kept — the unit
         // sags, it doesn't turn. The grumble is a sound of its own, not a hit's: it claims no bounce.
+        // With GameSetup's despawnWhenTired on the unit goes straight home instead — to the house it was born
+        // in, or the nearest with room if that one is full or gone — and the puff and the house's door are its
+        // sounds: no grumble. Every slot taken: it is tired like any other.
         private void OnBecameTired()
         {
             stamina = 0f;
+
+            if (Setup != null && Setup.DespawnWhenTired && spawns.SendHome(this, birthHouse)) return;
 
             var sounds = Sounds;
             if (sounds != null && def != null) sounds.Play(def.tiredSound);

@@ -198,7 +198,10 @@ namespace LittlePeeps
 
             var unit = spawnSystem.TrySpawn(unitDef, transform.position);
             if (unit != null)
+            {
+                unit.SetBirthHouse(this);
                 OccupySlot(slot, unit);   // rest inside first, launch only after restDuration
+            }
             else
                 slot.state = SlotState.Free;
         }
@@ -238,9 +241,9 @@ namespace LittlePeeps
 
         // Take `unit` in to rest in the first free slot; false when every slot is occupied. The one
         // way in from the field, whether the unit came through the door (TryEnter) or SpawnSystem
-        // brought it here because it was stuck — the house takes either the same way, and sends it back
-        // out launched after its rest. No door rule here: TryEnter applies it before calling this, and the
-        // stuck rescue picks its own units.
+        // brought it here because it was stuck or sent home (a tap, or out of stamina) — the house takes any
+        // of them the same way, and sends it back out launched after its rest. No door rule here: TryEnter
+        // applies it before calling this, and the others pick their own units.
         public bool TryShelter(Unit unit)
         {
             if (slots == null || unit == null) return false;

@@ -35,8 +35,9 @@ namespace LittlePeeps
 
         [Header("Puff")]
         [Tooltip("Played where a unit or an animal is taken off the island in the open: the residents a sold " +
-                 "house leaves without a home, the animals of a sold den. A ParticleSystem prefab built as a " +
-                 "shared emitter (World space, no emission of its own). Empty = they just vanish.")]
+                 "house leaves without a home, the animals of a sold den, a unit sent home by a tap or by " +
+                 "running out of stamina (GameSetup). A ParticleSystem prefab built as a shared emitter (World " +
+                 "space, no emission of its own). Empty = they just vanish.")]
         [SerializeField] private ParticleSystem puffFx;
 
         [Tooltip("The same puff, drawn smaller, for a coop's bird. Built like Puff Fx. Empty = the bird just " +
@@ -70,6 +71,13 @@ namespace LittlePeeps
         // Read by the units this system spawns: their bounces, and every sound their actions make
         // (Unit.MakeSound) — a house's door, a tree's chop.
         public SoundSystem Sounds => soundSystem;
+
+        // The game's rule switches, read by the units this system spawns. Handed in by GameBootstrap before
+        // the first run and kept for every run of the session. Null in tests and in a scene without
+        // bootstrap: every switch then reads as off.
+        public GameSetup Setup { get; private set; }
+
+        public void UseSetup(GameSetup setup) => Setup = setup;
 
         // Every unit in play — on the field, resting in a house or sitting in a tavern (Unit.IsOnField tells
         // them apart). For a construction site looking for the units standing on its spot.
@@ -138,11 +146,31 @@ namespace LittlePeeps
             for (int i = 0; i < units.Count; i++)
             {
                 var unit = units[i];
-                if (!unit.IsStuck || !unit.IsTired) continue;
-
-                var house = NearestHouseWithFreeSlot(unit.transform.position);
-                if (house != null) house.TryShelter(unit);
+                if (unit.IsStuck && unit.IsTired) TakeHome(unit);
             }
+        }
+
+        // A unit sent home in the open, on purpose — the player's tap on a tired one, or a unit running out of
+        // stamina with GameSetup's despawnWhenTired on: into `preferred` if it has a free slot (the house the
+        // unit was born in; null = no preference), else into the nearest house that has one. With a puff where
+        // the unit stood, so it reads as sent off and not as lost. False when every slot is taken: the unit
+        // stays where it is, and nothing is shown.
+        public bool SendHome(Unit unit, Spawner preferred = null)
+        {
+            Vector2 from = unit.transform.position;
+            if (!TakeHome(unit, preferred)) return false;
+
+            Puff(from);
+            return true;
+        }
+
+        // The preferred house must still be in the registry: one being sold has left it at once (Teardown),
+        // but is destroyed only at the end of the frame.
+        private bool TakeHome(Unit unit, Spawner preferred = null)
+        {
+            bool preferredTakes = preferred != null && spawners.Contains(preferred) && preferred.HasFreeSlot;
+            var house = preferredTakes ? preferred : NearestHouseWithFreeSlot(unit.transform.position);
+            return house != null && house.TryShelter(unit);
         }
 
         // Only unit Spawners shelter; the registry also holds AnimalSpawners, which are skipped.

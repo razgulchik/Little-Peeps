@@ -3,18 +3,20 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Handles game-object taps: boosts units in an AoE radius around the cursor. A ring (TapRadiusVisual)
-    // follows the cursor every frame so the player sees the boost area; it shows while the game runs and
+    // Handles game-object taps: every unit in an AoE radius around the cursor is boosted — or, if it is out
+    // of stamina and GameSetup says so, sent straight to the nearest house instead. A ring (TapRadiusVisual)
+    // follows the cursor every frame so the player sees the tap's area; it shows while the game runs and
     // the hand is empty — frozen screens (perk pick, age transition) hide it, and so does a build card or
     // the sell tool in hand, since the click is placement's then. The pier is not clickable. A click on UI
     // never gets here (InputHandler keeps it out of OnWorldClick), so a button pressed over the island boosts
     // no one.
     //
-    // Every live tap answers, through the SoundSystem. A tap that boosts anyone is answered by the boosted
+    // Every live tap answers, through the SoundSystem. A tap that reaches anyone is answered by the reached
     // units themselves (UnitDef.tapSound): the nearest first, then each next one rippleStep later — a ripple
     // spreading from the finger — and only voicesPerTap of them, so a crowd stays a little chord instead of
     // a bang. A tap that reaches nobody plays the soft missSound, so the player hears it landed even on
-    // empty ground. The tap's sounds are not bounces: they claim no unit's hit.
+    // empty ground. A unit sent home adds its puff and the house's door to its voice. The
+    // tap's own sounds are not bounces: they claim no unit's hit.
     public class TapSystem : MonoBehaviour
     {
         [SerializeField] private InputHandler inputHandler;
@@ -27,9 +29,8 @@ namespace LittlePeeps
         [SerializeField] private float boostSpeedMultiplier = 2f;
         [SerializeField] private float boostDuration = 5f;
 
-        [Tooltip("Off: a tap is speed only. A tired unit stays tired and just gets home faster; only a " +
-                 "house refills stamina. On: a tap also refills stamina - a full restart, like a house " +
-                 "launch. A future perk flips this.")]
+        [Tooltip("Off: a tap refills nothing; only a house refills stamina. On: a tap also refills stamina - " +
+                 "a full restart, like a house launch. A future perk flips this.")]
         [SerializeField] private bool refreshStamina = false;
 
         [Header("Sound")]
@@ -39,7 +40,7 @@ namespace LittlePeeps
         [Tooltip("A tap that reaches no unit. Empty = such a tap is silent.")]
         [SerializeField] private SoundDef missSound;
 
-        [Tooltip("How many of the boosted units answer a tap: the nearest ones. The rest are boosted in silence.")]
+        [Tooltip("How many of the reached units answer a tap: the nearest ones. The rest stay silent.")]
         [SerializeField, Min(1)] private int voicesPerTap = 3;
 
         [Tooltip("Seconds between one answering unit's voice and the next: the ripple. 0 = all at once.")]
@@ -53,12 +54,14 @@ namespace LittlePeeps
 
         private RunContext runContext;
         private PlacementController placement;   // owns the click while it holds a tool; null = never does
-        private readonly List<Tapped> tapped = new();   // reused per tap: the units it boosted, each once
+        private GameSetup setup;                 // what a tap does to a tired unit; null = a tap only boosts
+        private readonly List<Tapped> tapped = new();   // reused per tap: the units it reached, each once
 
-        public void Initialize(RunContext context, PlacementController placement)
+        public void Initialize(RunContext context, PlacementController placement, GameSetup setup)
         {
             runContext = context;
             this.placement = placement;
+            this.setup = setup;
         }
 
         // Live gameplay with nothing in hand: building no longer stops the game, so time alone cannot
@@ -101,17 +104,22 @@ namespace LittlePeeps
             // Frozen screens take no taps, and a click made with a tool in hand places or sells instead.
             if (!CanTap) return;
 
-            // Units: AoE boost — every unit whose collider overlaps the tap radius gets boosted, once
+            // Units: AoE — every unit whose collider overlaps the tap radius is boosted or sent home, once
             // however many of its colliders overlap. The collider lives on a child ("Physics"), so resolve
             // the Unit via GetComponentInParent.
             var (speedMult, radius, duration, refresh) = GetBoostParams();
             var hits = Physics2D.OverlapCircleAll(worldPos, radius);
             tapped.Clear();
+
+            // A refilling tap leaves nobody tired, so it has nobody to send home.
+            bool sendsTiredHome = setup != null && setup.TapSendsTiredHome && !refresh;
             foreach (var hit in hits)
             {
                 var unit = hit.GetComponentInParent<Unit>();
                 if (unit == null || WasTapped(unit)) continue;
-                unit.Boost(speedMult, duration, refresh);
+
+                bool sentHome = sendsTiredHome && unit.IsTired && unit.TryGoHome();
+                if (!sentHome) unit.Boost(speedMult, duration, refresh);
                 tapped.Add(new Tapped { unit = unit, distance = Vector2.Distance(worldPos, unit.transform.position) });
             }
 
@@ -125,7 +133,7 @@ namespace LittlePeeps
             return false;
         }
 
-        // The tap's answer (see the class comment): the boosted units' voices nearest first, one
+        // The tap's answer (see the class comment): the reached units' voices nearest first, one
         // rippleStep apart, or the miss sound when nobody was reached.
         private void PlayTapSounds()
         {

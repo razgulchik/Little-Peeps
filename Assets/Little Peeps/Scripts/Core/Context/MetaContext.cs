@@ -10,14 +10,14 @@ namespace LittlePeeps
     {
         public int prestigePoints;
 
-        // The prestige this profile has ALREADY been paid, one high-water mark per term of the payout.
-        // A run earns only what it BEATS:
+        // The prestige this profile has ALREADY been paid, one high-water mark per RECORD term of the
+        // payout. Of those two a run earns only what it BEATS:
         //
         //     payout = max(0, ageTerm - agePointsAwarded) + max(0, harvestTerm - harvestPointsAwarded)
+        //            + timeTerm
         //
-        // So prestiging at age 3 on repeat, or farming the same harvest again, is worth exactly nothing,
-        // and the lifetime total equals the payout of the single best run so far. Pushing further is the
-        // only way to earn.
+        // So reaching age 3 on repeat, or farming the same harvest again, is worth exactly nothing. The
+        // time term has no mark on purpose: every run is paid for the time it was played.
         //
         // Raised by PrestigeSystem.CashIn and by nothing else. Deliberately not "best age
         // reached" / "most ever harvested": a run abandoned without prestiging was never cashed in, so

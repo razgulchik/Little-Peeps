@@ -3,16 +3,21 @@ using NUnit.Framework;
 
 namespace LittlePeeps.Tests
 {
-    // PrestigeFormula converts a finished run into meta currency. Two gross terms —
+    // PrestigeFormula converts a finished run into meta currency. Two record terms —
     //
-    //     age term     = pointsPerAge * transitions bought (currentAge - RunContext.FirstAge)
+    //     age term     = sum of agePoints over the transitions bought (currentAge - RunContext.FirstAge)
     //     harvest term = floor(coefficient * pow(weighted harvest, exponent))
     //
-    // — of which the run is paid only the part that beats the profile's record for that term.
+    // — of which the run is paid only the part that beats the profile's record for that term, and
     //
-    // Three properties are load-bearing design decisions, and all three fail silently when broken.
+    //     time term    = pointsPerInterval * whole intervals played
     //
-    // The RECORDS are what make a run worth "how far did you get" instead of "how long did you play".
+    // — paid in full by every run.
+    //
+    // Three properties of the record terms are load-bearing design decisions, and all three fail silently
+    // when broken.
+    //
+    // The RECORDS are what make those terms worth "how far did you get" instead of "how long did you play".
     // Lose either subtraction and the same run can be cashed in forever: repeat the age you already
     // reached, or re-harvest the pile you already sold, and be paid again each time. The game still
     // runs — it just pays best for the least interesting way to play.
@@ -38,11 +43,11 @@ namespace LittlePeeps.Tests
 
         // Linear and unscaled by default, so a test that isn't about the curve reads as plain arithmetic.
         private static PrestigeFormula Formula(float coefficient = 1f, float exponent = 1f,
-                                               float defaultWeight = 1f, int pointsPerAge = 1,
+                                               float defaultWeight = 1f, int[] agePoints = null,
                                                params ResourceWeight[] weights)
             => new PrestigeFormula
             {
-                pointsPerAge  = pointsPerAge,
+                agePoints     = new List<int>(agePoints ?? new[] { 1 }),
                 weights       = new List<ResourceWeight>(weights),
                 defaultWeight = defaultWeight,
                 coefficient   = coefficient,
@@ -81,10 +86,50 @@ namespace LittlePeeps.Tests
             Assert.That(Formula().Points(new RunContext(), FreshProfile()), Is.EqualTo(0));
         }
 
-        [Test]
-        public void Points_ScaleTheAgeTermByPointsPerAge()
+        [TestCase(0, 0)]
+        [TestCase(1, 1)]
+        [TestCase(2, 2)]
+        [TestCase(3, 4)]
+        [TestCase(4, 8)]
+        public void Points_SumTheAuthoredPointsOfEveryAgeEntered(int transitions, int expected)
         {
-            Assert.That(Formula(pointsPerAge: 2).Points(Run(transitions: 3), FreshProfile()), Is.EqualTo(6));
+            // The first element is the FIRST BOUGHT age (the Age II), not the one the run starts in.
+            var formula = Formula(agePoints: new[] { 1, 1, 2, 4 });
+
+            Assert.That(formula.Points(Run(transitions), FreshProfile()), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Points_RepeatTheLastAge_PastTheEndOfTheList()
+        {
+            var formula = Formula(agePoints: new[] { 1, 3 });
+
+            // 1 + 3 + 3 + 3.
+            Assert.That(formula.Points(Run(transitions: 4), FreshProfile()), Is.EqualTo(10));
+        }
+
+        [Test]
+        public void Points_PayNothingForAges_WhenTheListIsEmpty()
+        {
+            Assert.That(Formula(agePoints: new int[0]).Points(Run(transitions: 3), FreshProfile()),
+                        Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Points_IgnoreANegativeAge_InsteadOfTakingItOffTheOthers()
+        {
+            var formula = Formula(agePoints: new[] { 2, -5, 3 });
+
+            Assert.That(formula.Points(Run(transitions: 3), FreshProfile()), Is.EqualTo(5));
+        }
+
+        [Test]
+        public void Points_PayTheDifferenceToTheAgeRecord_OnAnUnevenLadder()
+        {
+            var formula = Formula(agePoints: new[] { 1, 1, 2, 4 });
+
+            // Record: the Age III, 2 points. This run reached the Age V, worth 8 → 6.
+            Assert.That(formula.Points(Run(transitions: 4), Profile(agePoints: 2)), Is.EqualTo(6));
         }
 
         [Test]
@@ -170,6 +215,67 @@ namespace LittlePeeps.Tests
                         Is.EqualTo(3));
         }
 
+        // --- the time term -----------------------------------------------------------------------
+
+        private static PrestigeFormula TimeFormula(float minutes = 5f, int points = 1)
+        {
+            var formula = Formula();
+            formula.minutesPerInterval = minutes;
+            formula.pointsPerInterval = points;
+            return formula;
+        }
+
+        private static RunContext Played(double seconds, int transitions = 0)
+        {
+            var run = Run(transitions);
+            run.playSeconds = seconds;
+            return run;
+        }
+
+        [TestCase(0.0, 0)]
+        [TestCase(299.9, 0)]
+        [TestCase(300.0, 1)]
+        [TestCase(540.0, 1)]
+        [TestCase(600.0, 2)]
+        public void TimePoints_PayWholeIntervalsOnly(double seconds, int expected)
+        {
+            Assert.That(TimeFormula().TimePoints(Played(seconds)), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void TimePoints_FollowTheAuthoredIntervalAndPoints()
+        {
+            // 5 minutes at 2 minutes an interval: two whole ones, 3 points each.
+            Assert.That(TimeFormula(minutes: 2f, points: 3).TimePoints(Played(300.0)), Is.EqualTo(6));
+        }
+
+        [TestCase(0f)]
+        [TestCase(-1f)]
+        public void TimePoints_AreOff_WithNoInterval(float minutes)
+        {
+            Assert.That(TimeFormula(minutes: minutes).TimePoints(Played(6000.0)), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void TimePoints_AreNeverNegative()
+        {
+            Assert.That(TimeFormula(points: -1).TimePoints(Played(600.0)), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Points_PayForTime_EvenWhenTheRunBeatsNoRecord()
+        {
+            // The whole point of the term: a run short of every record is still worth its time.
+            Assert.That(TimeFormula().Points(Played(600.0, transitions: 2), Profile(agePoints: 8, harvestPoints: 500)),
+                        Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Points_AddTimeToTheRecordTerms()
+        {
+            Assert.That(TimeFormula().Points(Played(600.0, transitions: 3), FreshProfile()), Is.EqualTo(5));
+        }
+
         // --- the gross terms, which CashIn uses to raise the records ------------------------------
 
         [Test]
@@ -188,6 +294,7 @@ namespace LittlePeeps.Tests
         {
             Assert.That(Formula().AgePoints(null), Is.EqualTo(0));
             Assert.That(Formula().HarvestPoints(null), Is.EqualTo(0));
+            Assert.That(Formula().TimePoints(null), Is.EqualTo(0));
         }
 
         // --- weights -----------------------------------------------------------------------------

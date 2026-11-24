@@ -47,6 +47,11 @@ namespace LittlePeeps
         public int offeringCycle = 1;
         public float offeringElapsed;
 
+        // Seconds of normal play so far — every screen over the game stops it, like the offering clock.
+        // Counted by GameplayContainerState, read by PrestigeFormula. A double: it runs for the whole run,
+        // and a long float sum of frame times drifts.
+        public double playSeconds;
+
         // Perk picks the run is owed at its start, shown one after another before play begins: one from
         // StartPerkPickUpgradeDef. GameplayContainerState opens the first, PerkSelectionState counts them down
         // and shows the rest in the same sitting. A pick that finds nothing to offer drops what is left — the

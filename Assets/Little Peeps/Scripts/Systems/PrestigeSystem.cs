@@ -13,7 +13,8 @@ namespace LittlePeeps
     {
         [SerializeField] private SaveSystem saveSystem;
 
-        [Tooltip("The payout: points per age, plus a curve on everything the run harvested.")]
+        [Tooltip("The payout: points per age, points for time played, plus a curve on everything the run " +
+                 "harvested.")]
         [SerializeField] private PrestigeFormula formula = new();
 
         [Tooltip("The meta perks prestige points buy, in the order the meta screen lists them.")]
@@ -49,13 +50,13 @@ namespace LittlePeeps
             return formula != null ? formula.Points(context, metaContext) : 0;
         }
 
-        // Cash the run in: credit what it beat, raise the records it beat, persist. This is the moment a run
+        // Cash the run in: credit what it beat and the time it was played, raise the records it beat, persist. This is the moment a run
         // ends — from here on it is paid for and only waits, frozen under the meta screen, to be replaced.
         // It is NOT replaced here: the meta screen's Play button does that, after the spending. Returns
         // false when refused (no profile to bank into).
         //
         // No age gate: the gods' wrath ends a run in any age (OfferingEndState), and a run too young to beat
-        // a record simply pays nothing.
+        // a record is paid only for the time it was played.
         public bool CashIn(RunContext context)
         {
             if (context == null || metaContext == null) return false;
@@ -65,10 +66,12 @@ namespace LittlePeeps
             int payout          = Calculate(context);
             int agePoints       = formula != null ? formula.AgePoints(context)     : 0;
             int harvestPoints   = formula != null ? formula.HarvestPoints(context) : 0;
+            int timePoints      = formula != null ? formula.TimePoints(context)    : 0;
 
             metaContext.BankPayout(payout, agePoints, harvestPoints);
 
-            Debug.Log($"[Prestige] +{payout} (ages {agePoints}, harvest {harvestPoints}) → " +
+            Debug.Log($"[Prestige] +{payout} (ages {agePoints}, harvest {harvestPoints}, time {timePoints} " +
+                      $"for {context.playSeconds / 60.0:0.0} min) → " +
                       $"{metaContext.prestigePoints} total, {metaContext.FreePoints} free; records now " +
                       $"{metaContext.agePointsAwarded} / {metaContext.harvestPointsAwarded}");
 

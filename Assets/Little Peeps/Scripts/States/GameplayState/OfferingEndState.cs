@@ -107,7 +107,7 @@ namespace LittlePeeps
             gameplayFsm.ChangeState(PickAfterPaying());
         }
 
-        // Wrath: the run ends — cashed in for whatever it beat, then the meta screen, whose Play starts the
+        // Wrath: the run ends — cashed in for whatever it earned, then the meta screen, whose Play starts the
         // next run. The run ends even if the cash-in is refused (no profile to bank into): the player chose to
         // end it, and handing it back would be the one answer they did not give.
         private void OnWrath()

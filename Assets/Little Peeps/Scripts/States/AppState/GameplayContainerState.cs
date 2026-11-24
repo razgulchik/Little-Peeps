@@ -64,8 +64,21 @@ namespace LittlePeeps
         public void Tick()
         {
             TryOpenStartPerkPick();
+            TickPlayTime();
             TickOffering();
             innerFsm.Tick();
+        }
+
+        // Count the run's play time, which prestige pays for (PrestigeFormula). Only in normal play, so every
+        // screen over the game stops it by construction. Beside the offering clock and not read off it: the
+        // time counts with the offering cycle switched off too.
+        private void TickPlayTime()
+        {
+            if (innerFsm.Current != playingState) return;
+
+            // Read the run HERE, not in the constructor — see the runManager field.
+            var run = runManager != null ? runManager.CurrentRun : null;
+            if (run != null) run.playSeconds += Time.deltaTime;
         }
 
         // Run the cycle's clock, and end the cycle when it runs out — only in normal play, after the owed

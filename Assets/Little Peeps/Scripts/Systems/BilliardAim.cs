@@ -10,7 +10,7 @@ namespace LittlePeeps
     // house that filled up meanwhile, just looks again at its next bounce, from where it is.
     //
     // A way is clear when the first thing the unit's body circle runs into along it is a house with a free
-    // slot — the one aimed at or any other; it takes a drunk in on contact. Animals are ignored: they move,
+    // slot — the one aimed at or any other; it takes the unit in on contact. Animals are ignored: they move,
     // and one that walks into the way only gives the unit its next bounce. Other units are never in the way
     // (units pass through each other). Houses are tried in random order, at the middle of their collider:
     // the house's width is the room for error.

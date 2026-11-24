@@ -21,9 +21,12 @@ namespace LittlePeeps
         [SerializeField, Range(0f, 30f)] private float bounceJitterDegrees = 3f;
 
         [Header("Autopilot")]
-        [Tooltip("A unit on autopilot (a tired one the tavern made drunk — see EnterAutopilot) looks for a " +
-                 "house with a free slot within this distance (world units, to the house's root) at every " +
-                 "bounce, and leaves toward it if the way is clear.")]
+        [Tooltip("On: the unit goes on autopilot the moment it runs out of stamina and stays on it until a " +
+                 "house takes it in. Off: only the tavern puts units on autopilot (its own checkbox).")]
+        [SerializeField] private bool autopilotWhenTired = true;
+
+        [Tooltip("A unit on autopilot looks for a house with a free slot within this distance (world units, " +
+                 "to the house's root) at every bounce, and leaves toward it if the way is clear.")]
         [SerializeField, Min(0f)] private float autopilotRadius = 12f;
 
         [Tooltip("How far an autopilot bounce may turn off the physical reflection, in degrees either way. It " +
@@ -66,14 +69,15 @@ namespace LittlePeeps
         // house keeps its own slots. Cleared when the tavern lets the unit out (Resume).
         private Tavern holder;
 
-        // Autopilot: how a drunk finds its way home without knowing how. A building switches it on
-        // (EnterAutopilot — the tavern, for a tired guest it lets out drunk) and it holds for as long as
-        // the unit stays drunk; sobered up short of a house, the unit is on its own again. On autopilot,
-        // every bounce looks for a house in sight and leaves toward it (see OnCollisionEnter2D). No
-        // destination is kept — each bounce looks again from where the unit is — so a knock from an animal,
-        // or a house that filled up meanwhile, only means the next bounce looks again. Cleared on every
-        // way off the field and back onto it (LeaveField, Resume, OnEnable).
-        public bool IsOnAutopilot => autopilot && IsDrunk;
+        // Autopilot: the unit finds its way home by itself. Two ways onto it, each enough on its own:
+        //   - tired, with autopilotWhenTired on: from the moment stamina runs out until it is refilled;
+        //   - drunk, if a building switched it on (EnterAutopilot — the tavern, for a tired guest it lets
+        //     out drunk): for as long as the unit stays drunk. That switch, `autopilot`, is cleared on every
+        //     way off the field and back onto it (LeaveField, Resume, OnEnable).
+        // On autopilot, every bounce looks for a house in sight and leaves toward it (see
+        // OnCollisionEnter2D). No destination is kept — each bounce looks again from where the unit is — so
+        // a knock from an animal, or a house that filled up meanwhile, only means the next bounce looks again.
+        public bool IsOnAutopilot => (autopilotWhenTired && IsTired) || (autopilot && IsDrunk);
         private bool autopilot;
 
         // World-space radius of the unit's collider (used for spawn-clearance math).
@@ -378,8 +382,8 @@ namespace LittlePeeps
             holder = null;
         }
 
-        // Switch the autopilot on (see IsOnAutopilot) — after Resume, which clears it. It lasts while the
-        // unit is drunk, so a sober unit is put on it for nothing.
+        // Switch the drunk's autopilot on (see IsOnAutopilot) — after Resume, which clears it. It lasts
+        // while the unit is drunk, so a sober unit is put on it for nothing.
         public void EnterAutopilot() => autopilot = true;
 
         // What every way into a building shares: stop, switch physics off, hide. The boost is over, and

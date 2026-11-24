@@ -33926,7 +33926,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveSystem: {fileID: 644132713}
   formula:
-    agePoints: 01000000
+    agePoints: 0100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
     minutesPerInterval: 5
     pointsPerInterval: 1
     weights: []

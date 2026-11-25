@@ -175,11 +175,12 @@ namespace LittlePeeps
             unit.MakeDrunk(drunkDuration, drunkSpeedMultiplier);
 
             var footprint = instance.Def.Footprint;
-            if (!StructureExits.TryPickDirection(grid, instance.Cell, footprint, instance.Def.border,
-                                                 exitDirs, releaseJitterDegrees, out Vector2 dir))
+            if (!StructureExits.TryPickExit(grid, instance.Cell, footprint, instance.Def.border, exitDirs,
+                                            unit.Radius + releaseGap, releaseJitterDegrees,
+                                            out Vector2 point, out Vector2 dir))
                 return false;
 
-            LetOut(unit, StructureExits.ExitPoint(grid, instance.Cell, footprint, dir, unit.Radius + releaseGap), dir);
+            LetOut(unit, point, dir);
             return true;
         }
 

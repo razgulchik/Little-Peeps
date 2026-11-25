@@ -46,17 +46,28 @@ namespace LittlePeeps
                 }
         }
 
-        // Pick one exit at random (CollectAllowedDirections into `buffer`) and turn it by up to
-        // ±jitterDegrees, so units leaving one building don't all run on the same few lines. False when
-        // the structure is sealed in — the caller keeps its unit inside and tries again later. The way a
-        // house launches and a tavern lets its guests out.
-        public static bool TryPickDirection(IslandGrid grid, Vector2Int origin, Footprint footprint, int border,
-                                            List<Vector2> buffer, float jitterDegrees, out Vector2 dir)
+        // Pick one exit at random (CollectAllowedDirections into `buffer`): `point` is where to put the
+        // unit down (ExitPoint), `dir` is where it heads, turned by up to ±jitterDegrees so units leaving
+        // one building don't all run on the same few lines. False when the structure is sealed in — the
+        // caller keeps its unit inside and tries again later. The way a house launches, a tavern lets its
+        // guests out and a coop its birds.
+        //
+        // The jitter turns the HEADING only. The point stays on the straight line to the exit: a turned line
+        // can come out past the building's corner, over a cell nobody checked — the sea behind the coast's
+        // outline, the far side of a fence, the inside of a neighbour.
+        public static bool TryPickExit(IslandGrid grid, Vector2Int origin, Footprint footprint, int border,
+                                       List<Vector2> buffer, float clearance, float jitterDegrees,
+                                       out Vector2 point, out Vector2 dir)
         {
             CollectAllowedDirections(grid, origin, footprint, border, buffer);
-            if (buffer.Count == 0) { dir = Vector2.zero; return false; }
+            if (buffer.Count == 0)
+            {
+                point = dir = Vector2.zero;
+                return false;
+            }
 
             dir = buffer[Random.Range(0, buffer.Count)];
+            point = ExitPoint(grid, origin, footprint, dir, clearance);
             if (jitterDegrees > 0f) dir = Rotate(dir, Random.Range(-jitterDegrees, jitterDegrees));
             return true;
         }

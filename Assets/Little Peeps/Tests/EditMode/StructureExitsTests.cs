@@ -412,6 +412,107 @@ namespace LittlePeeps.Tests
             Assert.AreEqual(1f, p.y, 1e-5f);
         }
 
+        // --- picking one: the point stays on the checked cell, the jitter only turns the heading -------
+
+        private const float BodyRadius = 0.18f;     // a unit's; a coop's bird is smaller
+        private const float Clearance = 0.28f;      // a unit's radius plus a house's gap
+        private const int Picks = 500;              // enough for the widest jitter to show its ends
+
+        // Every corner of the box round a body centred on `point` is on land and clear of every building.
+        private static void AssertBodyFits(IslandGrid grid, Footprint shape, Vector2Int origin, Vector2 point, string where)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                var corner = point + new Vector2(i < 2 ? BodyRadius : -BodyRadius, i % 2 == 0 ? BodyRadius : -BodyRadius);
+                var cell = grid.WorldToGrid(corner);
+                var gridCell = grid.GetCell(cell);
+
+                Assert.IsNotNull(gridCell, $"{where}: put down at {point}, over the sea at {cell}");
+                Assert.IsNull(gridCell.occupant, $"{where}: put down at {point}, inside the neighbour at {cell}");
+                Assert.IsFalse(shape.Contains(cell.x - origin.x, cell.y - origin.y),
+                               $"{where}: put down at {point}, inside the building itself");
+            }
+        }
+
+        private void AssertEveryPickFits(IslandGrid grid, Vector2Int origin, Vector2Int size, string where)
+        {
+            var shape = Footprint.Rect(size);
+            for (int i = 0; i < Picks; i++)
+            {
+                Assert.IsTrue(StructureExits.TryPickExit(grid, origin, shape, 0, dirs, Clearance, 25f, out Vector2 point, out _), where);
+                AssertBodyFits(grid, shape, origin, point, where);
+            }
+        }
+
+        // The goose bug: at a shore the jitter used to carry the point past the building's corner, over the
+        // sea. The sizes are those of the buildings that let anything out: coop, house and stable, tavern.
+        [TestCase(2, 1)]
+        [TestCase(2, 2)]
+        [TestCase(3, 2)]
+        public void TryPickExit_AtAShore_NeverPutsTheUnitOverTheSea(int width, int height)
+        {
+            var grid = TestIsland.Square(-5, 5);
+            var size = new Vector2Int(width, height);
+            int right = 6 - width, top = 6 - height;   // flush with the east and the north shore
+
+            AssertEveryPickFits(grid, C(0, top), size, "north shore");
+            AssertEveryPickFits(grid, C(0, -5), size, "south shore");
+            AssertEveryPickFits(grid, C(-5, 0), size, "west shore");
+            AssertEveryPickFits(grid, C(right, 0), size, "east shore");
+            AssertEveryPickFits(grid, C(-5, top), size, "north-west corner");
+            AssertEveryPickFits(grid, C(right, -5), size, "south-east corner");
+        }
+
+        [Test]
+        public void TryPickExit_BesideASolidNeighbour_NeverPutsTheUnitInsideIt()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            // A row of buildings along the coop's north side and past both its ends: the west and east exits
+            // are open, the cells above them are not.
+            for (int x = -1; x <= 2; x++) Occupy(grid, C(x, 1));
+
+            AssertEveryPickFits(grid, C(0, 0), new Vector2Int(2, 1), "under a row of buildings");
+        }
+
+        [Test]
+        public void TryPickExit_JitterTurnsTheHeadingAndNotThePoint()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            foreach (var cell in new[] { C(0, 1), C(1, 1), C(0, -1), C(1, -1), C(-1, 0) }) Occupy(grid, cell);   // only east is open
+
+            bool turned = false;
+            for (int i = 0; i < Picks; i++)
+            {
+                StructureExits.TryPickExit(grid, C(0, 0), Footprint.Rect(2, 1), 0, dirs, 0.3f, 25f, out Vector2 point, out Vector2 dir);
+
+                Assert.AreEqual(2.3f, point.x, 1e-4f, "straight out of the east wall");
+                Assert.AreEqual(0.5f, point.y, 1e-4f, "straight out of the east wall");
+                Assert.That(Vector2.Angle(East, dir), Is.LessThan(25.1f));
+                if (Vector2.Angle(East, dir) > 1f) turned = true;
+            }
+            Assert.IsTrue(turned, "the heading never left the straight line");
+        }
+
+        [Test]
+        public void TryPickExit_WithoutJitter_HeadsStraightForTheExit()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            foreach (var cell in new[] { C(0, 1), C(0, -1), C(-1, 0) }) Occupy(grid, cell);   // only east is open
+
+            Assert.IsTrue(StructureExits.TryPickExit(grid, C(0, 0), Footprint.Rect(1, 1), 0, dirs, 0.3f, 0f, out _, out Vector2 dir));
+
+            Assert.That((dir - East).sqrMagnitude, Is.LessThan(1e-6f));
+        }
+
+        [Test]
+        public void TryPickExit_SealedIn_PicksNothing()
+        {
+            var grid = TestIsland.Square(-5, 5);
+            foreach (var cell in new[] { C(0, 1), C(0, -1), C(-1, 0), C(1, 0) }) Occupy(grid, cell);
+
+            Assert.IsFalse(StructureExits.TryPickExit(grid, C(0, 0), Footprint.Rect(1, 1), 0, dirs, 0.3f, 25f, out _, out _));
+        }
+
         // --- one cell at a time: the question a building with a single door asks ---------------------
 
         [Test]

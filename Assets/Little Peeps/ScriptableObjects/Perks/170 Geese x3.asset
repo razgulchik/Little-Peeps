@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
-  m_Name: 170 Chickens x3
+  m_Name: 170 Geese x3
   m_EditorClassIdentifier: 
-  id: chickens_x3
-  title: Chickens x3
+  id: geese_x3
+  title: Geese x3
   description: 
   icon: {fileID: 21300000, guid: 678b597141feebd4ebb1e2544d47b75c, type: 3}
   smallIcon: {fileID: 21300000, guid: 7297b02535ea4ee46bcc978365046c43, type: 3}

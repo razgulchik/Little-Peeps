@@ -6,9 +6,9 @@ namespace LittlePeeps
     // The birds standing in a coop's pen: one model per READY bird, cloned from a template child, each on
     // its own spot inside penArea, turning left and right now and then as if alive. A resting bird is not
     // shown at all, so what stands in the pen is exactly what the next release lets out. Presentation only:
-    // the flock's books are ChickenFlock's, and ChickenCoop says what to show. Nothing happens until the
+    // the flock's books are GooseFlock's, and GooseCoop says what to show. Nothing happens until the
     // first Show, so a placement ghost (the same prefab with its behaviours off) stands with an empty pen.
-    public class ChickenPenView : MonoBehaviour
+    public class GoosePenView : MonoBehaviour
     {
         [Tooltip("Inactive child cloned once per bird: the sprite, sorting and shadow are authored on it.")]
         [SerializeField] private SpriteRenderer modelTemplate;

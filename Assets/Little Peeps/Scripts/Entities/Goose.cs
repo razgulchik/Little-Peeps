@@ -7,7 +7,7 @@ namespace LittlePeeps
     // but it is NOT a Unit, and that is the point: CollisionTarget, TapSystem and every door in the game
     // pass over anything that is not a Unit, so to a bird every building is a plain wall.
     //
-    // The prefab carries two colliders. The solid one sits on the Chicken layer, which collides with
+    // The prefab carries two colliders. The solid one sits on the Goose layer, which collides with
     // walls and not with units or other birds. The trigger sits on Default, so units cross it without
     // turning, the way they cross a field, and that crossing is the harvest: an ordinary ResourceSource
     // (Despawn, one hit) next to a CollisionTarget pays and destroys the bird. Every way a bird leaves ends
@@ -17,7 +17,7 @@ namespace LittlePeeps
     // coop does not catch it on the doorstep. Switching back on, the trigger reports any unit already
     // inside it, so nobody flies through a bird unnoticed once the moment is over.
     [RequireComponent(typeof(Rigidbody2D))]
-    public class Chicken : MonoBehaviour
+    public class Goose : MonoBehaviour
     {
         [Tooltip("Flying speed in world units per second. Held every physics step, like a unit's.")]
         [SerializeField, Min(0.1f)] private float speed = 2f;
@@ -54,14 +54,14 @@ namespace LittlePeeps
         // narrower than any real knock.
         private const float SpeedTolerance = 0.01f;
 
-        private static readonly List<Chicken> alive = new();
+        private static readonly List<Goose> alive = new();
 
         // Every bird in flight: a construction site sends home the ones on its spot, and a regrowing tree
         // waits for the ones on its cells.
-        public static IReadOnlyList<Chicken> Alive => alive;
+        public static IReadOnlyList<Goose> Alive => alive;
 
         private Rigidbody2D rb;
-        private ChickenCoop owner;
+        private GooseCoop owner;
         private StuckWatch stuckWatch;
         private float immunityLeft;
         private bool leaving;
@@ -69,21 +69,30 @@ namespace LittlePeeps
         public Vector2 BodyCenter => body != null ? (Vector2)body.bounds.center : (Vector2)transform.position;
         public float BodyRadius => body != null ? body.radius : 0f;
 
+        // From the transform (the feet) to the body circle's centre, off the collider's own fields: its
+        // physics bounds still lag behind a transform that was just moved.
+        private Vector2 BodyOffset => body != null
+            ? (Vector2)(body.transform.TransformPoint(body.offset) - transform.position)
+            : Vector2.zero;
+
         private void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
-            if (body == null) Debug.LogError($"Chicken on '{name}' has no body collider assigned.", this);
-            if (hitbox == null) Debug.LogError($"Chicken on '{name}' has no hitbox collider assigned.", this);
-            if (model == null) Debug.LogError($"Chicken on '{name}' has no model assigned.", this);
+            if (body == null) Debug.LogError($"Goose on '{name}' has no body collider assigned.", this);
+            if (hitbox == null) Debug.LogError($"Goose on '{name}' has no hitbox collider assigned.", this);
+            if (model == null) Debug.LogError($"Goose on '{name}' has no model assigned.", this);
         }
 
         private void OnEnable() => alive.Add(this);
         private void OnDisable() => alive.Remove(this);
 
-        // Runtime injection (ChickenCoop calls this on spawn, since a prefab can't reference a scene object).
-        public void Launch(ChickenCoop coop, Vector2 direction)
+        // Runtime injection (GooseCoop calls this on spawn, since a prefab can't reference a scene object).
+        // It is the BODY that goes to `point`, not the feet below it: the point is clear of every wall only
+        // for what is centred on it, and the coast's outline keeps in only a body that starts inside it.
+        public void Launch(GooseCoop coop, Vector2 point, Vector2 direction)
         {
             owner = coop;
+            transform.position = point - BodyOffset;
             stuckWatch.Reset(transform.position);
             rb.linearVelocity = direction.normalized * speed;
             Face(direction);

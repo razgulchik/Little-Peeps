@@ -190,15 +190,8 @@ namespace LittlePeeps
             }
 
             var footprint = instance.Def.Footprint;
-            if (!StructureExits.TryPickDirection(grid, instance.Cell, footprint, instance.Def.border,
-                                                 exitDirs, releaseJitterDegrees, out dir))
-            {
-                point = default;
-                return false;
-            }
-
-            point = StructureExits.ExitPoint(grid, instance.Cell, footprint, dir, releaseGap);
-            return true;
+            return StructureExits.TryPickExit(grid, instance.Cell, footprint, instance.Def.border, exitDirs,
+                                              releaseGap, releaseJitterDegrees, out point, out dir);
         }
 
         // Random point inside the territory: a land cell within territoryRadiusCells of the footprint

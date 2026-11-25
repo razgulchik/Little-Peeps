@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 2918432509947728045}
   - component: {fileID: 2241168483865668118}
   m_Layer: 0
-  m_Name: ChickenCoop
+  m_Name: GooseCoop
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -92,10 +92,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a6ff3338e1ac3d48fc8fac710f804ff2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  chickenPrefab: {fileID: 4386377681604152477, guid: 56b4ec77d703fee4d00ac6d9b748036f, type: 3}
+  goosePrefab: {fileID: 4386377681604152477, guid: 56b4ec77d703fee4d00ac6d9b748036f, type: 3}
   flockSize: 3
   restTime: 0
-  releasedBy: 1
+  releasedBy: 0
   releaseSound: {fileID: 0}
   pen: {fileID: 5720633744561912970}
   releaseGap: 0.3

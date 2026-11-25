@@ -5,8 +5,8 @@ namespace LittlePeeps
     // The books of one coop's flock: how many birds wait in the pen ready to go, how many rest there and
     // how many are out on the island. Every bird is in exactly one of the three, so the flock never grows
     // or shrinks by being worked; only GrowTo changes its size. Plain C# with no Unity behind it, so the
-    // rule is tested without a scene. ChickenCoop drives it and owns the bodies of the birds that are out.
-    public sealed class ChickenFlock
+    // rule is tested without a scene. GooseCoop drives it and owns the bodies of the birds that are out.
+    public sealed class GooseFlock
     {
         private readonly List<float> rests = new();   // seconds left, one entry per resting bird
 

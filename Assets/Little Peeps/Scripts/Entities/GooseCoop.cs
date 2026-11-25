@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace LittlePeeps
 {
@@ -12,9 +13,10 @@ namespace LittlePeeps
     // A hit that finds nobody ready, or a coop sealed in on every side, lets nothing out and reads Blocked.
     // Registered with SpawnSystem via IStructureSpawner, like the other spawners.
     [RequireComponent(typeof(Structure))]
-    public class ChickenCoop : MonoBehaviour, ICollisionEffect, IStructureSpawner
+    public class GooseCoop : MonoBehaviour, ICollisionEffect, IStructureSpawner
     {
-        [SerializeField] private GameObject chickenPrefab;
+        [FormerlySerializedAs("chickenPrefab")]
+        [SerializeField] private GameObject goosePrefab;
 
         [Tooltip("Birds this coop keeps, before the DenCapacity modifier.")]
         [SerializeField, Min(1)] private int flockSize = 5;
@@ -28,10 +30,10 @@ namespace LittlePeeps
         [Tooltip("Played on a hit that lets birds out. Empty = the hit just knocks like a bounce.")]
         [SerializeField] private SoundDef releaseSound;
 
-        [SerializeField] private ChickenPenView pen;
+        [SerializeField] private GoosePenView pen;
 
         [Header("Release")]
-        [Tooltip("Gap between the building's edge and the bird as it comes out.")]
+        [Tooltip("Gap between the building's edge and the middle of the bird's body as it comes out.")]
         [SerializeField, Min(0f)] private float releaseGap = 0.3f;
 
         [Tooltip("Random spread on the chosen side's direction, so birds don't all leave on exact lines.")]
@@ -44,15 +46,15 @@ namespace LittlePeeps
 
         // The bird's own def, read off the prefab once: DenCapacity is scoped by it, so "more geese" leaves
         // the dens alone. Same as AnimalSpawner.animalDef.
-        private ResourceSourceDef chickenDef;
+        private ResourceSourceDef gooseDef;
 
-        private readonly ChickenFlock flock = new();
-        private readonly List<Chicken> flying = new();
+        private readonly GooseFlock flock = new();
+        private readonly List<Goose> flying = new();
         private readonly List<Vector2> exitDirs = new();   // reused per release
         private bool registered;
 
         // The birds out right now. Read by a sale, which sends them off in a puff.
-        public IReadOnlyList<Chicken> Flying => flying;
+        public IReadOnlyList<Goose> Flying => flying;
 
         // Runtime injection (StructureSystem calls this when placing a structure).
         public void Initialize(SpawnSystem system, ResourceSystem resources, IslandGrid grid, StructureInstance instance)
@@ -65,16 +67,16 @@ namespace LittlePeeps
 
         private void Awake()
         {
-            var source = chickenPrefab != null ? chickenPrefab.GetComponentInChildren<ResourceSource>(true) : null;
-            chickenDef = source != null ? source.Def : null;
+            var source = goosePrefab != null ? goosePrefab.GetComponentInChildren<ResourceSource>(true) : null;
+            gooseDef = source != null ? source.Def : null;
         }
 
         private void Start()
         {
-            if (chickenPrefab == null) Debug.LogError($"ChickenCoop on '{name}' has no chicken prefab assigned.", this);
-            if (pen == null) Debug.LogError($"ChickenCoop on '{name}' has no pen view assigned.", this);
+            if (goosePrefab == null) Debug.LogError($"GooseCoop on '{name}' has no goose prefab assigned.", this);
+            if (pen == null) Debug.LogError($"GooseCoop on '{name}' has no pen view assigned.", this);
             if (grid == null || instance == null || instance.Def == null)
-                Debug.LogError($"ChickenCoop on '{name}' stands on no grid, so it has no exits. Build it through " +
+                Debug.LogError($"GooseCoop on '{name}' stands on no grid, so it has no exits. Build it through " +
                                "StructureSystem, not by hand in the scene.", this);
 
             Warmup();
@@ -96,7 +98,7 @@ namespace LittlePeeps
         public void RefreshFromStats()
         {
             var stats = spawnSystem != null ? spawnSystem.Stats : null;
-            int size = stats != null ? stats.ApplyCount(flockSize, StatId.DenCapacity, source: chickenDef) : flockSize;
+            int size = stats != null ? stats.ApplyCount(flockSize, StatId.DenCapacity, source: gooseDef) : flockSize;
             flock.GrowTo(Mathf.Max(1, size));
             ShowPen();
         }
@@ -120,15 +122,16 @@ namespace LittlePeeps
 
         private int ReleaseReady()
         {
-            if (chickenPrefab == null || grid == null || instance == null || instance.Def == null) return 0;
+            if (goosePrefab == null || grid == null || instance == null || instance.Def == null) return 0;
 
             int released = 0;
             while (flock.Ready > 0
-                   && StructureExits.TryPickDirection(grid, instance.Cell, instance.Def.Footprint, instance.Def.border,
-                                                      exitDirs, releaseJitterDegrees, out Vector2 dir))
+                   && StructureExits.TryPickExit(grid, instance.Cell, instance.Def.Footprint, instance.Def.border,
+                                                 exitDirs, releaseGap, releaseJitterDegrees,
+                                                 out Vector2 point, out Vector2 dir))
             {
                 flock.TakeOut();
-                LetOut(dir);
+                LetOut(point, dir);
                 released++;
             }
 
@@ -136,24 +139,23 @@ namespace LittlePeeps
             return released;
         }
 
-        private void LetOut(Vector2 dir)
+        private void LetOut(Vector2 point, Vector2 dir)
         {
-            Vector2 at = StructureExits.ExitPoint(grid, instance.Cell, instance.Def.Footprint, dir, releaseGap);
-            var go = Instantiate(chickenPrefab, at, Quaternion.identity);
+            var go = Instantiate(goosePrefab, point, Quaternion.identity);
 
             // An animal stands on no cells, so there is nothing for its source to wait on.
             foreach (var source in go.GetComponentsInChildren<ResourceSource>(true))
                 source.Initialize(resourceSystem, spawnSystem, null);
 
-            var chicken = go.GetComponent<Chicken>();
-            flying.Add(chicken);
-            chicken.Launch(this, dir);
+            var goose = go.GetComponent<Goose>();
+            flying.Add(goose);
+            goose.Launch(this, point, dir);
         }
 
         // Called by a bird as it is destroyed, however it left. A no-op for the ones Teardown already took.
-        public void NotifyGone(Chicken chicken)
+        public void NotifyGone(Goose goose)
         {
-            if (!flying.Remove(chicken)) return;
+            if (!flying.Remove(goose)) return;
 
             flock.Return(restTime);
             ShowPen();

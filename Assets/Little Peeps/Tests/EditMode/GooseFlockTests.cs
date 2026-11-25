@@ -4,11 +4,11 @@ namespace LittlePeeps.Tests
 {
     // The flock's books: every bird is ready, out or resting, the flock's size never changes by being
     // worked, and a bird that is out can only be replaced by itself coming back and resting.
-    public class ChickenFlockTests
+    public class GooseFlockTests
     {
-        private static ChickenFlock Flock(int size)
+        private static GooseFlock Flock(int size)
         {
-            var flock = new ChickenFlock();
+            var flock = new GooseFlock();
             flock.GrowTo(size);
             return flock;
         }

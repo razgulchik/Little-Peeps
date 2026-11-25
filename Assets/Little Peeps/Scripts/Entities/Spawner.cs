@@ -299,7 +299,7 @@ namespace LittlePeeps
 
         private void LaunchFromSlot(Slot slot, Unit unit)
         {
-            if (!TryPickSpawnDirection(out Vector2 dir))
+            if (!TryPickLaunch(unit, out Vector2 point, out Vector2 dir))
             {
                 // Surrounded on every side (edges / neighbours / fences): keep the unit resting inside and
                 // try again after another rest.
@@ -307,27 +307,29 @@ namespace LittlePeeps
                 return;
             }
 
-            unit.transform.position = SpawnPosition(dir, unit);
+            unit.transform.position = point;
             unit.Launch(dir, launchSpeedMultiplier, launchBoostDuration);
             unit.MakeSound(exitSound);
 
             FreeSlot(slot);
         }
 
-        // Choose a launch direction toward an OPEN perimeter cell (an exit, see StructureExits). Without
-        // grid context (scene-placed spawner) fall back to a random direction — that path is never
-        // "blocked". Otherwise gather the exits and pick one at random (+ a little jitter); false = the
-        // house is sealed in on every side.
-        private bool TryPickSpawnDirection(out Vector2 dir)
+        // Choose where the unit is put down and where it heads: an OPEN perimeter cell (an exit, see
+        // StructureExits), one at random, with a little jitter on the heading. The gap is the unit's radius
+        // plus launchGap, from the building's FOOTPRINT. False = the house is sealed in on every side.
+        // Without grid context (scene-placed spawner) a random direction — that path is never "blocked".
+        private bool TryPickLaunch(Unit unit, out Vector2 point, out Vector2 dir)
         {
             if (grid == null || instance == null || instance.Def == null)
             {
                 dir = RandomDirection();
+                point = ColliderExit(dir, unit);
                 return true;
             }
 
-            return StructureExits.TryPickDirection(grid, instance.Cell, instance.Def.Footprint, instance.Def.border,
-                                                   allowedDirs, launchJitterDegrees, out dir);
+            return StructureExits.TryPickExit(grid, instance.Cell, instance.Def.Footprint, instance.Def.border,
+                                              allowedDirs, unit.Radius + launchGap, launchJitterDegrees,
+                                              out point, out dir);
         }
 
         private static Vector2 RandomDirection()
@@ -336,15 +338,10 @@ namespace LittlePeeps
             return d.sqrMagnitude < 1e-4f ? Vector2.up : d;
         }
 
-        // Place the unit just outside the structure along dir: where the launch ray leaves the building,
-        // plus unit radius and launchGap. On the grid the building is its FOOTPRINT (StructureExits.
-        // ExitPoint), which is right for any shape. A scene-placed spawner has no footprint and keeps
-        // measuring against its collider box.
-        private Vector2 SpawnPosition(Vector2 dir, Unit unit)
+        // A scene-placed spawner has no footprint, so it measures against its collider box: where the launch
+        // ray leaves the box, plus unit radius and launchGap.
+        private Vector2 ColliderExit(Vector2 dir, Unit unit)
         {
-            if (grid != null && instance != null && instance.Def != null)
-                return StructureExits.ExitPoint(grid, instance.Cell, instance.Def.Footprint, dir, unit.Radius + launchGap);
-
             if (structureCollider == null)
                 return (Vector2)transform.position + dir * launchGap; // fallback: measure from center
 

@@ -186,9 +186,9 @@ namespace LittlePeeps
                     return true;
             }
 
-            var chickens = Chicken.Alive;
-            for (int i = 0; i < chickens.Count; i++)
-                if (chickens[i] != null && ConstructionArea.Overlaps(cells, chickens[i].BodyCenter, chickens[i].BodyRadius))
+            var geese = Goose.Alive;
+            for (int i = 0; i < geese.Count; i++)
+                if (geese[i] != null && ConstructionArea.Overlaps(cells, geese[i].BodyCenter, geese[i].BodyRadius))
                     return true;
             return false;
         }

@@ -45,6 +45,34 @@ namespace LittlePeeps.Tests
             Assert.That(meta.FreePoints, Is.Zero);
         }
 
+        // What colours the prices: taking one upgrade can put another out of reach, returning it brings it back.
+        [Test]
+        public void CanTake_FollowsTheFreePoints()
+        {
+            var meta = new MetaContext { prestigePoints = 3 };
+            Assert.That(meta.CanTake(Houses, 2), Is.True);
+
+            meta.TryTake(Boots, 2);
+            Assert.That(meta.CanTake(Houses, 2), Is.False, "one free point left, the price is two");
+            Assert.That(meta.CanTake(Houses, 1), Is.True, "the last point is enough for a price of one");
+            Assert.That(meta.CanTake(Boots, 1), Is.False, "already taken");
+
+            meta.TryReturn(Boots);
+            Assert.That(meta.CanTake(Houses, 2), Is.True);
+        }
+
+        // Asking is not buying.
+        [Test]
+        public void CanTake_TakesNothing()
+        {
+            var meta = new MetaContext { prestigePoints = 3 };
+
+            meta.CanTake(Boots, 2);
+
+            Assert.That(meta.IsTaken(Boots), Is.False);
+            Assert.That(meta.FreePoints, Is.EqualTo(3));
+        }
+
         // One icon, one upgrade: there is no second level to buy.
         [Test]
         public void Take_Twice_IsRefused()

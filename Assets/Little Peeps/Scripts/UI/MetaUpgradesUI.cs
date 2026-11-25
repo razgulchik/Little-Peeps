@@ -97,7 +97,10 @@ namespace LittlePeeps
             if (pointsText != null) pointsText.text = (prestige != null ? prestige.FreePoints : 0).ToString();
 
             for (int i = 0; i < slots.Count; i++)
-                slots[i].Refresh(prestige != null && prestige.IsTaken(slots[i].Def));
+            {
+                var def = slots[i].Def;
+                slots[i].Refresh(prestige != null && prestige.IsTaken(def), prestige != null && prestige.CanTake(def));
+            }
         }
 
         // One-shot, like ConfirmDialog's answers: the callback is dropped and the button locked BEFORE the

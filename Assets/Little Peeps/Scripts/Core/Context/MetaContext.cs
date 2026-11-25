@@ -71,9 +71,15 @@ namespace LittlePeeps
 
         // A plain id and price rather than GlobalUpgradeDef, so the rules stay testable without a
         // ScriptableObject. PrestigeSystem passes the def's id and Cost.
+        //
+        // The one rule for both the purchase and the price's colour, so the screen can never promise a
+        // purchase that is then refused.
+        public bool CanTake(string id, int cost) =>
+            !string.IsNullOrEmpty(id) && !IsTaken(id) && FreePoints >= cost;
+
         public bool TryTake(string id, int cost)
         {
-            if (string.IsNullOrEmpty(id) || IsTaken(id) || FreePoints < cost) return false;
+            if (!CanTake(id, cost)) return false;
 
             globalUpgrades ??= new Dictionary<string, int>();
             globalUpgrades[id] = cost;

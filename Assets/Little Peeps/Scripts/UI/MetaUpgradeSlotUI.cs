@@ -6,8 +6,9 @@ using UnityEngine.UI;
 
 namespace LittlePeeps
 {
-    // One meta perk on the Ancestral Wisdom screen: its icon on the frame, its price in the corner. Bright when
-    // taken, dim when not. Left click takes it, right click returns it; whether that goes through is
+    // One meta perk on the Ancestral Wisdom screen: its icon on the frame, its price in the corner. The icon is
+    // bright when taken, dim when not; the price shows only while there is something to pay, and its colour says
+    // whether the free points cover it. Left click takes it, right click returns it; whether that goes through is
     // PrestigeSystem's call, made by MetaUpgradesUI, which then redraws every cell. While the pointer rests on
     // it the tip shows its name and description.
     //
@@ -20,13 +21,16 @@ namespace LittlePeeps
 
         [SerializeField] private TMP_Text costLabel;
 
-        [Header("Taken")]
+        [Header("Icon")]
         [SerializeField] private Color takenIconColor = Color.white;
-        [SerializeField] private Color takenCostColor = new Color(0.4196f, 0.5216f, 0.8235f);
-
-        [Header("Not taken")]
         [SerializeField] private Color notTakenIconColor = new Color(1f, 1f, 1f, 0.18f);
-        [SerializeField] private Color notTakenCostColor = new Color(0.1647f, 0.1882f, 0.2353f);
+
+        [Header("Price (hidden once taken)")]
+        [Tooltip("Not taken, and the free points cover the price.")]
+        [SerializeField] private Color affordableCostColor = new Color(0.4196f, 0.5216f, 0.8235f);
+
+        [Tooltip("Not taken, and the free points fall short of the price.")]
+        [SerializeField] private Color unaffordableCostColor = new Color(0.8784f, 0.2824f, 0.2510f);
 
         private Action<GlobalUpgradeDef> onTake;
         private Action<GlobalUpgradeDef> onReturn;
@@ -51,10 +55,13 @@ namespace LittlePeeps
             }
         }
 
-        public void Refresh(bool taken)
+        public void Refresh(bool taken, bool canTake)
         {
             if (icon != null) icon.color = taken ? takenIconColor : notTakenIconColor;
-            if (costLabel != null) costLabel.color = taken ? takenCostColor : notTakenCostColor;
+
+            if (costLabel == null) return;
+            costLabel.enabled = !taken;
+            costLabel.color = canTake ? affordableCostColor : unaffordableCostColor;
         }
 
         public void OnPointerClick(PointerEventData eventData)

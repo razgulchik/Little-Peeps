@@ -93,6 +93,10 @@ namespace LittlePeeps
         public bool IsTaken(GlobalUpgradeDef def) =>
             def != null && metaContext != null && metaContext.IsTaken(def.id);
 
+        // Whether TryTake would go through right now. The screen colours prices by it.
+        public bool CanTake(GlobalUpgradeDef def) =>
+            def != null && metaContext != null && metaContext.CanTake(def.id, def.Cost);
+
         public bool TryTake(GlobalUpgradeDef def) =>
             def != null && metaContext != null && metaContext.TryTake(def.id, def.Cost);
 

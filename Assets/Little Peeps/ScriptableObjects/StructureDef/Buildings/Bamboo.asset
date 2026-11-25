@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
+  m_Name: Bamboo
+  m_EditorClassIdentifier: 
+  id: bamboo
+  displayName: Bamboo
+  description: Lumberjacks harvest Wood. Regrows after harvesting.
+  icon: {fileID: 21300000, guid: 61ee7e3ecc7280e4fb4f31fb0129d093, type: 3}
+  prefab: {fileID: 3185681079539968459, guid: d49215de74f54ac2a37cca7fb6adfa2e, type: 3}
+  placement: 0
+  size: {x: 1, y: 1}
+  footprintMask:
+    cells: 
+  cost:
+  - resourceType: 0
+    amount: 4
+  requiredAge: 1
+  allowedTerrain: 00000000
+  sellRefundPercent: 0.5
+  canSell: 1
+  canMove: 1
+  passable: 1
+  animalsAvoid: 0
+  border: 0
+  maxCount: 0
+  costStepFlat: 1
+  costStepPercent: 0
+  exponentialCostGrowth: 0

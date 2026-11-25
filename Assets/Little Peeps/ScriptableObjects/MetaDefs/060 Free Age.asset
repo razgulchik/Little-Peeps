@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: free_age
   title: Fast Forward
-  icon: {fileID: 21300000, guid: 6ed39871920b48b4899517d3b2dd7686, type: 3}
+  icon: {fileID: 21300000, guid: d8c3f53c537946c09699b40a9c5653a1, type: 3}
   description: 
   cost: 1
   freeAges: 1

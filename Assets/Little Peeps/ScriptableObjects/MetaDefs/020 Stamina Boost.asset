@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: stamina_boost
   title: Stamina Boost
-  icon: {fileID: 21300000, guid: a98d3ee3050af3947b8d54aef4b677ee, type: 3}
+  icon: {fileID: 21300000, guid: ecb5f7bb85264feaae31c159247e4213, type: 3}
   description: 
   cost: 1
   modifiers:

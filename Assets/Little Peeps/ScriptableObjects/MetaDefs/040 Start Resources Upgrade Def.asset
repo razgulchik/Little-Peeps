@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: start_resources
   title: Care Package
-  icon: {fileID: 21300000, guid: bd272768430bc8a4bac4d83c4c4000a0, type: 3}
+  icon: {fileID: 21300000, guid: 286941b7b5574619b38677f5c037fb41, type: 3}
   description: 
   cost: 1
   resources:

@@ -61,6 +61,7 @@ namespace LittlePeeps
         private readonly List<IStructureSpawner> spawners = new();   // live spawners (units + animals)
         private readonly List<Unit> despawnBuffer = new();  // reused snapshot for DespawnAll and RemoveResidents
 
+        private RunContext runContext;
         private RunStats stats;   // injected into spawned units so their speed reflects run modifiers
 
         // Exposed for spawners, which have no other route to the run's stats. Read at the point of use
@@ -72,12 +73,9 @@ namespace LittlePeeps
         // (Unit.MakeSound) — a house's door, a tree's chop.
         public SoundSystem Sounds => soundSystem;
 
-        // The game's rule switches, read by the units this system spawns. Handed in by GameBootstrap before
-        // the first run and kept for every run of the session. Null in tests and in a scene without
-        // bootstrap: every switch then reads as off.
-        public GameSetup Setup { get; private set; }
-
-        public void UseSetup(GameSetup setup) => Setup = setup;
+        // Whether a unit goes home by itself the moment it runs out of stamina, in this run (RunContext.tiredGoHome).
+        // Read by the units this system spawns, as they tire.
+        public bool TiredGoHome => runContext != null && runContext.tiredGoHome;
 
         // Every unit in play — on the field, resting in a house, sitting in a tavern or carried by the cursor
         // (Unit.IsOnField tells them apart). For a construction site looking for the units standing on its spot.
@@ -92,6 +90,7 @@ namespace LittlePeeps
         // can never leave two sheets driving one registry.
         public void Initialize(RunContext run)
         {
+            runContext = run;
             if (stats != null) stats.Changed -= RefreshSpawnersFromStats;
             stats = run.stats;
             if (stats != null) stats.Changed += RefreshSpawnersFromStats;
@@ -149,7 +148,7 @@ namespace LittlePeeps
         }
 
         // THE way a unit vanishes off the island, whatever the reason: a tap on a tired one, stamina run out
-        // with GameSetup's despawnWhenTired on, stuck, the house it was resting in sold. It is in its own
+        // in a run whose tired go home, stuck, the house it was resting in sold. It is in its own
         // house at once and rests there like a unit that walked in, with a puff where it was, so it reads as
         // sent off and not as lost. A house keeps no slot for its residents, so a unit that finds its own full
         // goes to the nearest with room. False when every slot is taken: the unit stays where it is, and

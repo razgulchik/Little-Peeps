@@ -84,6 +84,10 @@ namespace LittlePeeps
         // uses them up.
         public int freeAgesLeft;
 
+        // Whether a unit goes home by itself the moment it runs out of stamina, from TiredGoHomeUpgradeDef. Read
+        // by the units as they tire (SpawnSystem.TiredGoHome).
+        public bool tiredGoHome;
+
         // Structures that stand on the start island beside the house and the pier, from StartStructureUpgradeDef.
         // Read once, as the island is generated (RunManager.StartNewRun).
         public List<StructureDef> startStructures = new();

@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // What a tap does: every unit it is given is boosted — or, if it is out of stamina and GameSetup says so, sent
-    // straight home instead (Unit.TryGoHome). WHOM a tap reaches and WHEN a press is one is the bare hand's business
-    // (BareHand): it owns the button and the ring, so nothing here asks whose the click is.
+    // What a tap does: every unit it is given is boosted — or, if it is out of stamina, sent straight home instead
+    // (Unit.TryGoHome), unless no house has room for it. WHOM a tap reaches and WHEN a press is one is the bare hand's
+    // business (BareHand): it owns the button and the ring, so nothing here asks whose the click is.
     //
     // Every tap answers, through the SoundSystem. A tap that reaches anyone is answered by the reached
     // units themselves (UnitDef.tapSound): the nearest first, then each next one rippleStep later — a ripple
@@ -42,13 +42,8 @@ namespace LittlePeeps
         [SerializeField, Min(0f)] private float rippleStep = 0.05f;
 
         private RunContext runContext;
-        private GameSetup setup;   // what a tap does to a tired unit; null = a tap only boosts
 
-        public void Initialize(RunContext context, GameSetup setup)
-        {
-            runContext = context;
-            this.setup = setup;
-        }
+        public void Initialize(RunContext context) => runContext = context;
 
         // Re-bind after a prestige, so the radius and the multiplier read this run's perks rather than
         // those of a run that ended several prestiges ago.
@@ -69,12 +64,11 @@ namespace LittlePeeps
         {
             float speedMult = BoostMultiplier;
 
-            // A refilling tap leaves nobody tired, so it has nobody to send home.
-            bool sendsTiredHome = setup != null && setup.TapSendsTiredHome && !refreshStamina;
             for (int i = 0; i < units.Count; i++)
             {
+                // A refilling tap leaves nobody tired, so it has nobody to send home.
                 var unit = units[i];
-                bool sentHome = sendsTiredHome && unit.IsTired && unit.TryGoHome();
+                bool sentHome = !refreshStamina && unit.IsTired && unit.TryGoHome();
                 if (!sentHome) unit.Boost(speedMult, boostDuration, refreshStamina);
             }
 

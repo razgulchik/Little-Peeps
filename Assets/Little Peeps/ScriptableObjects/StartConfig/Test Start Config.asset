@@ -37,4 +37,5 @@ MonoBehaviour:
   - resourceType: 4
     amount: 1000
   startingModifiers: []
-  startingUpgrades: []
+  startingUpgrades:
+  - {fileID: 11400000, guid: 546ed710773d4a79b67722abc3c75248, type: 2}

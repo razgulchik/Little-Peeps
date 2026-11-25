@@ -719,7 +719,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fc8fd2328a974354821d0b55f7943afa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  autopilotWhenTired: 1
+  autopilotWhenTired: 0
   despawnWhenTired: 0
   tapSendsTiredHome: 1
 --- !u!4 &118402613

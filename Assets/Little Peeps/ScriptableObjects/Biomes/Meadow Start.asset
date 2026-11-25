@@ -27,13 +27,13 @@ MonoBehaviour:
       chance: 1
       minCount: 2
       maxCount: 3
-      weight: 1
+      weight: 0
       clustered: 1
     - def: {fileID: 11400000, guid: 38dd3e8dcf19226de235374c68f5224c, type: 2}
       chance: 1
       minCount: 2
       maxCount: 3
-      weight: 1
+      weight: 0
       clustered: 0
   tileSet: {fileID: 11400000, guid: 89ca40f95c4d3b94b9241b8dc8c0717a, type: 2}
   displayName: 

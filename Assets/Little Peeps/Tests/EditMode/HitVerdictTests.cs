@@ -429,6 +429,36 @@ namespace LittlePeeps.Tests
             Assert.That(saw.Awaited, Is.EqualTo(Sawmill.End.Left));
         }
 
+        // --- goose coop -----------------------------------------------------------------------------
+        // No prefab and no grid here, so no bird ever comes out: what is asked is whom the coop is for.
+
+        [Test]
+        public void Coop_NoProfessionsListed_IsForEveryone()
+        {
+            var coop = MakeCoop();
+
+            foreach (var type in Everyone) Expect(HitVerdict.Blocked, coop, Worker(type));
+        }
+
+        [Test]
+        public void Coop_OneProfessionListed_IsUselessToTheRest()
+        {
+            var coop = MakeCoop(UnitType.Farmer);
+
+            foreach (var type in Everyone)
+                Expect(type == UnitType.Farmer ? HitVerdict.Blocked : HitVerdict.Useless, coop, Worker(type));
+        }
+
+        [Test]
+        public void Coop_SeveralProfessionsListed_IsForEachOfThem()
+        {
+            var coop = MakeCoop(UnitType.Unassigned, UnitType.Hunter);
+
+            foreach (var type in Everyone)
+                Expect(type == UnitType.Unassigned || type == UnitType.Hunter ? HitVerdict.Blocked : HitVerdict.Useless,
+                       coop, Worker(type));
+        }
+
         // --- trees ----------------------------------------------------------------------------------
 
         [Test]
@@ -775,6 +805,15 @@ namespace LittlePeeps.Tests
             go.AddComponent<BoxCollider2D>().isTrigger = true;
             var rack = go.AddComponent<ToolRack>();   // [RequireComponent] pulls in the CollisionTarget
             SetField(rack, "profession", Profession(UnitType.Lumberjack));
+            return Build(go);
+        }
+
+        private CollisionTarget MakeCoop(params UnitType[] releasedBy)
+        {
+            var go = Make("Coop");
+            go.AddComponent<BoxCollider2D>();
+            var coop = go.AddComponent<GooseCoop>();   // [RequireComponent] pulls in the Structure
+            SetField(coop, "releasedBy", releasedBy);
             return Build(go);
         }
 

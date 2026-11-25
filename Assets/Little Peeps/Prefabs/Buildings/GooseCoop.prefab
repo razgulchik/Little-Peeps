@@ -95,7 +95,7 @@ MonoBehaviour:
   goosePrefab: {fileID: 4386377681604152477, guid: 56b4ec77d703fee4d00ac6d9b748036f, type: 3}
   flockSize: 3
   restTime: 0
-  releasedBy: 0
+  releasedBy: 000000000100000002000000030000000400000005000000
   releaseSound: {fileID: 0}
   pen: {fileID: 5720633744561912970}
   releaseGap: 0.3

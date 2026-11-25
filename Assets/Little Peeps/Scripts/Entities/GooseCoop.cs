@@ -4,7 +4,7 @@ using UnityEngine.Serialization;
 
 namespace LittlePeeps
 {
-    // A building with a fixed flock. A working hit by the releasing profession (a farmer) lets every ready
+    // A building with a fixed flock. A working hit by anyone the coop is for (releasedBy) lets every ready
     // bird out, each through its own random free side, the same exits a house launches through. Out on the
     // island a bird is a moving ResourceSource: the unit that catches it is paid and the bird is back in the
     // pen, where it rests and then waits for the next release. Hitting the coop more cannot replace birds
@@ -24,8 +24,8 @@ namespace LittlePeeps
         [Tooltip("Seconds a bird rests in the pen after it comes back. 0 = ready at once.")]
         [SerializeField, Min(0f)] private float restTime = 5f;
 
-        [Tooltip("The profession whose working hit lets the flock out.")]
-        [SerializeField] private UnitType releasedBy = UnitType.Farmer;
+        [Tooltip("The professions whose working hit lets the flock out. Empty = any peep.")]
+        [SerializeField] private UnitType[] releasedBy;
 
         [Tooltip("Played on a hit that lets birds out. Empty = the hit just knocks like a bounce.")]
         [SerializeField] private SoundDef releaseSound;
@@ -109,7 +109,15 @@ namespace LittlePeeps
         }
 
         // ICollisionEffect — whom the coop is for, the moment aside.
-        public bool Serves(Unit unit) => unit != null && unit.Type == releasedBy;
+        public bool Serves(Unit unit) => unit != null && IsReleasedBy(unit.Type);
+
+        private bool IsReleasedBy(UnitType type)
+        {
+            if (releasedBy == null || releasedBy.Length == 0) return true;
+            for (int i = 0; i < releasedBy.Length; i++)
+                if (releasedBy[i] == type) return true;
+            return false;
+        }
 
         // ICollisionEffect — a tired unit never gets here (CollisionTarget.HandleHit).
         public HitOutcome OnHit(Unit unit, CollisionTarget target)

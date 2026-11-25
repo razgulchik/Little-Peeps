@@ -84,6 +84,10 @@ namespace LittlePeeps
         // uses them up.
         public int freeAgesLeft;
 
+        // Structures that stand on the start island beside the house and the pier, from StartStructureUpgradeDef.
+        // Read once, as the island is generated (RunManager.StartNewRun).
+        public List<StructureDef> startStructures = new();
+
         // Structures a perk has opened this run (UnlockStructurePerkDef), read by StructureDef.LockState
         // for the ones marked lockedUntilPerk. Derived from perksChosen, so it stays rebuildable like the
         // stat sheet: replaying the chosen perks restores it.

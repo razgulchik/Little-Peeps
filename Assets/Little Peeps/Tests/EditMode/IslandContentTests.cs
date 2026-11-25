@@ -16,18 +16,19 @@ namespace LittlePeeps.Tests
         private const int HouseSide = 2;
         private static readonly Footprint House = Footprint.Rect(HouseSide, HouseSide);
         private static readonly Footprint Pier = Footprint.Rect(1, 3);   // the game's pier def
+        private static readonly Footprint[] Tent = { Footprint.Rect(1, 1) };   // a meta perk's start structure
 
         private static IslandRules Rules(int startArea = 36) => new() { startArea = startArea };
 
         private static HashSet<Vector2Int> Set(IEnumerable<Vector2Int> cells) => new(cells);
 
         // Start a populated island: shape, then the starting biome with the house (and the pier, when
-        // given one — without it, growth is free to go anywhere).
-        private static IslandGenerator Start(int seed, IslandBiome biome, int startArea = 36, Footprint pier = default)
+        // given one — without it, growth is free to go anywhere), and any extra start structures.
+        private static IslandGenerator Start(int seed, IslandBiome biome, int startArea = 36, Footprint pier = default, IReadOnlyList<Footprint> extras = null)
         {
             var g = new IslandGenerator(Rules(startArea), seed);
             var candidate = g.GenerateStart();
-            var content = g.Populate(candidate, biome, House, pier);
+            var content = g.Populate(candidate, biome, House, pier, extras);
             Assert.IsNotNull(content, $"seed {seed}: the start could not be populated");
             g.Commit(candidate, content);
             return g;
@@ -261,6 +262,92 @@ namespace LittlePeeps.Tests
                 if (IslandContent.CrossesLane(lane, free.Land)) coveredWithoutRule++;
             }
             Assert.That(coveredWithoutRule, Is.GreaterThan(0), "no seed ever grew in front of the pier — the sweep tests nothing");
+        }
+
+        // --- start extras -------------------------------------------------------------------------------
+
+        // Free cells between the tent and the pier, diagonals counted as steps.
+        private static int GapToPier(IslandSectionContent c, Vector2Int tent)
+        {
+            int steps = int.MaxValue;
+            foreach (var p in c.pier)
+                steps = Math.Min(steps, Math.Max(Math.Abs(p.x - tent.x), Math.Abs(p.y - tent.y)));
+            return steps - 1;
+        }
+
+        private static HashSet<Vector2Int> Sides(IslandSectionContent c, Vector2Int tent)
+        {
+            var result = new HashSet<Vector2Int>();
+            foreach (var d in IslandShape.Dirs) if (c.land.Contains(tent + d)) result.Add(tent + d);
+            return result;
+        }
+
+        // Every start takes the tent, and the food and wood it guarantees stay. From the shipped 36 cells up: the
+        // smallest starts (under 30) are short of room for it. Deterministic per seed like the sweeps: the full run
+        // is Explicit, for after a change to the generator.
+        [TestCase(36, 20)]
+        [TestCase(64, 20)]
+        [TestCase(36, 300, Explicit = true, Category = "Sweep")]
+        [TestCase(64, 300, Explicit = true, Category = "Sweep")]
+        public void Start_StandsATentByThePier_WithItsSidesClear(int size, int seeds)
+        {
+            for (int seed = 0; seed < seeds; seed++)
+            {
+                string at = $"size {size}, seed {seed}";
+                var biome = StartingGrasslands();
+                var g = Start(seed, biome, size, Pier, Tent);
+                Assert.DoesNotThrow(() => IslandContent.ValidateAll(g.Sections), at);
+
+                var c = g.Sections[0].Content;
+                Assert.AreEqual(1, c.extraOrigins.Count, at);
+                var tent = c.extraOrigins[0];
+                CollectionAssert.AreEquivalent(new[] { tent }, c.extras, at);
+                Assert.That(GapToPier(c, tent), Is.InRange(1, 2), $"{at}: one or two free cells between the tent and the pier");
+
+                var walkable = Walkable(g, withBridges: false);
+                Assert.IsTrue(Sides(c, tent).Overlaps(walkable), $"{at}: nobody can leave the tent");
+                Assert.IsFalse(Sides(c, tent).Overlaps(c.Natural()), $"{at}: something natural against the tent");
+                Assert.IsTrue(IslandShape.Connected(walkable), $"{at}: the tent cut the start apart");
+                Assert.That(Count(c, biome.objects[0]), Is.GreaterThanOrEqualTo(2), $"{at}: berries");
+                Assert.That(Count(c, biome.objects[1]), Is.GreaterThanOrEqualTo(2), $"{at}: trees");
+            }
+        }
+
+        [Test]
+        public void Start_KeepsSeveralExtras_ApartAndInOrder()
+        {
+            var two = new[] { Footprint.Rect(1, 1), Footprint.Rect(2, 1) };
+            for (int seed = 0; seed < 20; seed++)
+            {
+                var g = Start(seed, StartingGrasslands(), 64, Pier, two);
+                Assert.DoesNotThrow(() => IslandContent.ValidateAll(g.Sections), $"seed {seed}");
+
+                var c = g.Sections[0].Content;
+                CollectionAssert.AreEquivalent(
+                    new[] { c.extraOrigins[0], c.extraOrigins[1], c.extraOrigins[1] + Vector2Int.right }, c.extras, $"seed {seed}");
+            }
+        }
+
+        // The tent must not close the start off: every age still grows on from it, and keeps clear of its sides.
+        [TestCase(10)]
+        [TestCase(100, Explicit = true, Category = "Sweep")]
+        public void TentSweep_EveryAgeStillGrows(int seeds)
+        {
+            for (int seed = 0; seed < seeds; seed++)
+            {
+                var world = Start(seed, StartingGrasslands(), pier: Pier, extras: Tent);
+                var start = world.Sections[0].Content;
+                var cycle = Cycle();
+                for (int step = 0; step < 8; step++) Expand(world, cycle[step % cycle.Length]);
+
+                Assert.DoesNotThrow(() => IslandContent.ValidateAll(world.Sections), $"seed {seed}");
+                var blocked = IslandContent.CombinedBlocked(Contents(world));
+                var tent = start.extraOrigins[0];
+                bool open = false;
+                foreach (var d in IslandShape.Dirs)
+                    open |= start.land.Contains(tent + d) && !blocked.Contains(tent + d);
+                Assert.IsTrue(open, $"seed {seed}: the tent was shut in");
+            }
         }
 
         // --- growth -----------------------------------------------------------------------------------

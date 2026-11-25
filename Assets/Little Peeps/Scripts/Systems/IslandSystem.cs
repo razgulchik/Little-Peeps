@@ -125,9 +125,11 @@ namespace LittlePeeps
         // The waves' tiles, made once in Play Mode for every run's drawing; null without waves.
         private CoastWaveTiles waveTiles;
 
-        // The run's starting house and pier defs, attached to the footprints the start zone keeps for them.
+        // The run's start structures, attached to the footprints the start zone keeps for them: the house, the
+        // pier, and whatever else the run begins with (RunContext.startStructures).
         private StructureDef house;
         private StructureDef pier;
+        private readonly List<StructureDef> extras = new();
 
         // Generate the island for a new run. RunManager.StartNewRun() owns the timing — IslandSystem
         // never auto-builds in Awake, so generation isn't duplicated or ordered by chance. Seed 0 means
@@ -136,12 +138,17 @@ namespace LittlePeeps
         // biome leaves the start as bare land — no house, no pier.
         //
         // The pier is start content like the house: it stands on the start's east coast for the whole
-        // run, and the generator keeps the sea in front of it open through every age.
-        public void GenerateForRun(int seed = 0, IslandRules rules = null, BiomeDef startBiome = null, StructureDef house = null, StructureDef pier = null)
+        // run, and the generator keeps the sea in front of it open through every age. So are `extras`, each kept
+        // a place beside the pier.
+        public void GenerateForRun(int seed = 0, IslandRules rules = null, BiomeDef startBiome = null, StructureDef house = null, StructureDef pier = null, IReadOnlyList<StructureDef> extras = null)
         {
             if (seed == 0) seed = Random.Range(1, int.MaxValue);
             this.house = house;
             this.pier = pier;
+            this.extras.Clear();
+            if (extras != null)
+                for (int i = 0; i < extras.Count; i++)
+                    if (extras[i] != null) this.extras.Add(extras[i]);
             Build(seed, rules ?? new IslandRules(), startBiome);
         }
 
@@ -242,6 +249,7 @@ namespace LittlePeeps
         {
             house = null;
             pier = null;
+            extras.Clear();
             Build(previewSeed, new IslandRules(), null);
     #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(tilemap);
@@ -293,12 +301,15 @@ namespace LittlePeeps
             IslandSectionContent content = null;
             if (startBiome != null)
             {
+                var extraShapes = new List<Footprint>(extras.Count);
+                foreach (var extra in extras) extraShapes.Add(extra.Footprint);
+
                 content = Generator.Populate(start, startBiome.profile, house != null ? house.Footprint : default,
-                                             pier != null ? pier.Footprint : default);
+                                             pier != null ? pier.Footprint : default, extraShapes);
                 if (content == null)
                     Debug.LogError($"IslandSystem: start biome '{startBiome.name}' does not fit the starting island " +
-                                   $"together with the house and the pier (seed {seed}) — starting as bare land. " +
-                                   $"Loosen its budgets.", this);
+                                   $"together with the house, the pier and {extras.Count} more start structures " +
+                                   $"(seed {seed}) — starting as bare land. Loosen its budgets.", this);
             }
             var section = Generator.Commit(start, content);
             LastSection = section;
@@ -351,7 +362,7 @@ namespace LittlePeeps
 
         // Natural content goes through the regular placement path, so it is registered, sellable (where
         // the def allows) and torn down with the run like anything else. Placement order is the
-        // generator's: house and pier first, then mountains and river, then objects.
+        // generator's: the start structures first, then mountains and river, then objects.
         private void PlaceContent(IslandSection section)
         {
             lastContent.Clear();
@@ -365,7 +376,7 @@ namespace LittlePeeps
             var biome = section.Content.biome;
             bool missing = false;
             var wrongTerrain = new HashSet<StructureDef>();
-            foreach (var (cell, def) in section.Content.Features(house, pier))
+            foreach (var (cell, def) in section.Content.Features(house, pier, extras))
             {
                 if (def == null) { missing = true; continue; }
                 // A def that forbids this biome's ground is a data conflict, not a placement problem:

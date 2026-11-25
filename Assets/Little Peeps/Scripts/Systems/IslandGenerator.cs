@@ -183,14 +183,14 @@ namespace LittlePeeps
 
         // Fill a candidate with a biome's content, against the island as it stands. A non-empty
         // `house` marks the starting zone; a non-empty `pier` stands the pier on its east coast, and
-        // from the commit on no zone may cover the sea in front of it (Propose). Null when the biome's
-        // rules can't be met on this shape — nothing is committed, and the shape rng is untouched
-        // either way (content has its own streams). Safe to call for several candidates and biomes
-        // before choosing one.
-        public IslandSectionContent Populate(IslandCandidate candidate, IslandBiome biome, Footprint house = default, Footprint pier = default)
+        // from the commit on no zone may cover the sea in front of it (Propose); `extras` are more start
+        // structures, each kept a place beside the pier. Null when the biome's rules can't be met on this
+        // shape — nothing is committed, and the shape rng is untouched either way (content has its own
+        // streams). Safe to call for several candidates and biomes before choosing one.
+        public IslandSectionContent Populate(IslandCandidate candidate, IslandBiome biome, Footprint house = default, Footprint pier = default, IReadOnlyList<Footprint> extras = null)
         {
             CheckCurrent(candidate);
-            return IslandContent.Populate(Seed, sections.Count, biome, candidate.cells, Contents(), house, pier);
+            return IslandContent.Populate(Seed, sections.Count, biome, candidate.cells, Contents(), house, pier, extras);
         }
 
         private List<IslandSectionContent> Contents()

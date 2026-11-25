@@ -234,6 +234,82 @@ namespace LittlePeeps
             return null;
         }
 
+        // --- Start extras ----------------------------------------------------------------------------
+
+        // Where an extra start structure (a meta perk's tent) may go, best first. On land nothing has reserved,
+        // beside the pier — or the house, on a start without one: one free cell between them, else two, else as
+        // few as there can be; touching comes last. Of equals the one with the fewest land sides, so it stands on
+        // the shore and leaves the middle to the player, who cannot move it.
+        public static List<HashSet<Vector2Int>> ExtraSlots(IslandSectionContent content, Footprint shape)
+        {
+            var free = new HashSet<Vector2Int>(content.land);
+            free.ExceptWith(content.reserved);
+            var beside = content.pier.Count > 0 ? content.pier : content.house;
+
+            var fits = Fits(free, shape);
+            var keyed = new List<(int gap, int sides, int order, HashSet<Vector2Int> cells)>(fits.Count);
+            for (int i = 0; i < fits.Count; i++)
+            {
+                int gap = Gap(fits[i], beside);
+                keyed.Add((gap > 0 ? gap : int.MaxValue, SideCells(fits[i], content.land).Count, i, fits[i]));
+            }
+            keyed.Sort((a, b) => a.gap != b.gap ? a.gap.CompareTo(b.gap)
+                               : a.sides != b.sides ? a.sides.CompareTo(b.sides)
+                               : a.order.CompareTo(b.order));
+
+            var result = new List<HashSet<Vector2Int>>(keyed.Count);
+            foreach (var slot in keyed) result.Add(slot.cells);
+            return result;
+        }
+
+        // Put every extra on its best slot that keeps the island whole and can be walked out of, and keep its
+        // sides clear of natural features. False when one finds none.
+        private static bool PlaceExtras(IslandSectionContent content, IReadOnlyList<IslandSectionContent> previous, HashSet<Vector2Int> land)
+        {
+            foreach (var shape in content.extraFootprints)
+                if (!PlaceExtra(content, previous, land, shape)) return false;
+            return true;
+        }
+
+        private static bool PlaceExtra(IslandSectionContent content, IReadOnlyList<IslandSectionContent> previous, HashSet<Vector2Int> land, Footprint shape)
+        {
+            foreach (var cells in ExtraSlots(content, shape))
+            {
+                content.extras.UnionWith(cells);
+                var sides = SideCells(cells, content.land);
+                var contents = With(previous, content);
+                if (!sides.IsSubsetOf(CombinedBlocked(contents)) && AccessOk(land, contents))
+                {
+                    content.extraOrigins.Add(IslandShape.Bounds(cells).Min);
+                    content.reserved.UnionWith(cells);
+                    content.reserved.UnionWith(sides);
+                    return true;
+                }
+                content.extras.ExceptWith(cells);
+            }
+            return false;
+        }
+
+        // The cells of `land` that share an edge with `cells`.
+        private static HashSet<Vector2Int> SideCells(HashSet<Vector2Int> cells, HashSet<Vector2Int> land)
+        {
+            var result = new HashSet<Vector2Int>();
+            foreach (var p in cells)
+                foreach (var d in IslandShape.Dirs)
+                    if (land.Contains(p + d) && !cells.Contains(p + d)) result.Add(p + d);
+            return result;
+        }
+
+        // How many free cells lie between two sets of cells, diagonals counted as steps: 0 when they touch.
+        private static int Gap(HashSet<Vector2Int> a, HashSet<Vector2Int> b)
+        {
+            int steps = int.MaxValue;
+            foreach (var p in a)
+                foreach (var q in b)
+                    steps = Math.Min(steps, Math.Max(Math.Abs(p.x - q.x), Math.Abs(p.y - q.y)));
+            return steps - 1;
+        }
+
         // --- Features --------------------------------------------------------------------------------
 
         // Straight interior river cells whose two banks are clear land: where a bridge could go.
@@ -497,8 +573,9 @@ namespace LittlePeeps
         // the content of every earlier zone. A non-empty `house` marks the starting zone: that footprint is
         // reserved in the clearing and the zone is regenerated until every fired rule's minimum is met.
         // A non-empty `pier` is given a slot on the zone's east coast (PierSlot) before anything natural
-        // is placed. Null when no attempt produced a valid zone — the caller decides what to do about it.
-        public static IslandSectionContent Populate(int seed, int index, IslandBiome biome, IReadOnlyCollection<Vector2Int> section, IReadOnlyList<IslandSectionContent> previous, Footprint house = default, Footprint pier = default)
+        // is placed, and each of `extras` one beside it (ExtraSlots). Null when no attempt produced a valid
+        // zone — the caller decides what to do about it.
+        public static IslandSectionContent Populate(int seed, int index, IslandBiome biome, IReadOnlyCollection<Vector2Int> section, IReadOnlyList<IslandSectionContent> previous, Footprint house = default, Footprint pier = default, IReadOnlyList<Footprint> extras = null)
         {
             if (biome == null) throw new ArgumentNullException(nameof(biome));
             biome.Validate();
@@ -521,7 +598,7 @@ namespace LittlePeeps
             for (int attempt = 0; attempt < Attempts; attempt++)
             {
                 var rng = IslandRng.Derive(seed, (ulong)index, IslandRng.Hash(biome.id), (ulong)attempt);
-                var content = new IslandSectionContent(biome, sectionCells, house, pier);
+                var content = new IslandSectionContent(biome, sectionCells, house, pier, extras);
                 content.clearing.UnionWith(clearings[attempt % clearings.Count]);
                 content.reserved.UnionWith(content.clearing);
 
@@ -561,6 +638,9 @@ namespace LittlePeeps
                     content.pierOrigin = pierOrigin;
                     content.reserved.UnionWith(slot);
                 }
+
+                // After the pier, which they stand beside.
+                if (!PlaceExtras(content, previous, land)) continue;
 
                 ReserveFutureGates(content, previous, land);
                 if (!AccessOk(land, With(previous, content))) continue;
@@ -642,6 +722,12 @@ namespace LittlePeeps
                 Check(!c.pier.Overlaps(c.house), "pier on the house");
             }
             else Check(c.pier.Count == 0, "a pier in a zone that was not given one");
+
+            int extraCells = 0;
+            foreach (var shape in c.extraFootprints) extraCells += shape.CellCount;
+            Check(c.extraOrigins.Count == c.extraFootprints.Count && c.extras.Count == extraCells, "a start extra is missing or incomplete");
+            Check(c.extras.IsSubsetOf(c.land) && c.extras.IsSubsetOf(c.reserved), "a start extra on a cell not kept for it");
+            Check(!c.extras.Overlaps(c.house) && !c.extras.Overlaps(c.pier), "a start extra on the house or the pier");
         }
 
         // Every zone against its section, and the island as a whole: access with planned bridges, rivers

@@ -81,6 +81,31 @@ namespace LittlePeeps.Tests
             }
         }
 
+        // A start structure a meta perk adds has to fit the start the game ships with, together with all the
+        // others: one that does not would leave the player on bare land. Its ground must let it stand there too.
+        [Test]
+        public void EveryStartStructureOfTheMetaPerks_FitsTheStartIsland()
+        {
+            var start = Load<StartConfigDef>("StartConfig/Start Config");
+            var structures = Load<GlobalUpgradeCatalogueDef>("MetaDefs/Global Upgrade Catalogue Def").upgrades
+                .OfType<StartStructureUpgradeDef>().Select(u => u.structure).ToList();
+            Assert.That(structures, Is.Not.Empty);
+            Assert.That(structures, Has.None.Null);
+            foreach (var def in structures)
+                Assert.That(def.allowedTerrain == null || def.allowedTerrain.Length == 0 ||
+                            def.allowedTerrain.Contains(start.startBiome.profile.terrain), Is.True, def.name);
+
+            var shapes = structures.Select(s => s.Footprint).ToList();
+            for (int seed = 1; seed <= 50; seed++)
+            {
+                var generator = new IslandGenerator(start.islandRules, seed);
+                var content = generator.Populate(generator.GenerateStart(), start.startBiome.profile,
+                    start.house.Footprint, start.pier.Footprint, shapes);
+                Assert.That(content, Is.Not.Null, $"seed {seed}");
+                Assert.That(content.extraOrigins.Count, Is.EqualTo(structures.Count), $"seed {seed}");
+            }
+        }
+
         [Test]
         public void Offerings_KeepDemandOnIntroducedResources_ThroughTheEndlessTail()
         {

@@ -64,8 +64,9 @@ namespace LittlePeeps
             structureSystem.Initialize(CurrentRun);
             spawnSystem.Initialize(CurrentRun);
 
-            // The island brings its own starting content (house, pier, food, wood) through StructureSystem.
-            if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSeed, startConfig.islandRules, startConfig.startBiome, startConfig.house, startConfig.pier);
+            // The island brings its own starting content (house, pier, food, wood, and what a meta perk adds)
+            // through StructureSystem.
+            if (startConfig != null) islandSystem.GenerateForRun(startConfig.islandSeed, startConfig.islandRules, startConfig.startBiome, startConfig.house, startConfig.pier, CurrentRun.startStructures);
             else                     islandSystem.GenerateForRun();
 
             // Last: the run is fully built, so observers that cache the context can safely re-bind.

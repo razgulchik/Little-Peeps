@@ -26,6 +26,11 @@ namespace LittlePeeps
         // Empty for every other zone.
         public readonly Footprint pierFootprint;
 
+        // Start structures beyond those two (a meta perk's tent), each beside the pier. Like the house, only
+        // their footprints matter here; the defs come with Features, in the same order. Empty for every later
+        // zone.
+        public readonly IReadOnlyList<Footprint> extraFootprints;
+
         public readonly Dictionary<Vector2Int, IslandObjectRule> objects = new();
         public readonly HashSet<Vector2Int> mountains = new();
         public readonly List<Vector2Int> river = new();          // ordered path; empty = no river
@@ -33,24 +38,29 @@ namespace LittlePeeps
         public Vector2Int houseOrigin;
         public readonly HashSet<Vector2Int> pier = new();        // footprint cells
         public Vector2Int pierOrigin;
+        public readonly HashSet<Vector2Int> extras = new();      // footprint cells of all of them
+        public readonly List<Vector2Int> extraOrigins = new();   // one per extra, in extraFootprints' order
         public readonly HashSet<Vector2Int> clearing = new();
         public readonly HashSet<Vector2Int> reserved = new();
         public readonly Dictionary<Vector2Int, (Vector2Int a, Vector2Int b)> bridges = new();  // river cell → its two clear banks
         public readonly HashSet<Vector2Int> mineAccess = new();
         public readonly HashSet<Vector2Int> millAccess = new();
 
-        public IslandSectionContent(IslandBiome biome, IEnumerable<Vector2Int> land, Footprint houseFootprint = default, Footprint pierFootprint = default)
+        public IslandSectionContent(IslandBiome biome, IEnumerable<Vector2Int> land, Footprint houseFootprint = default, Footprint pierFootprint = default,
+                                    IReadOnlyList<Footprint> extraFootprints = null)
         {
             this.biome = biome;
             this.land = new HashSet<Vector2Int>(land);
             this.houseFootprint = houseFootprint;
             this.pierFootprint = pierFootprint;
+            this.extraFootprints = extraFootprints ?? System.Array.Empty<Footprint>();
         }
 
-        // A cell the house or the pier stands on: reserved like a clearing, but not free.
-        public bool Built(Vector2Int p) => house.Contains(p) || pier.Contains(p);
+        // A cell a start structure stands on (the house, the pier, an extra): reserved like a clearing, but not
+        // free.
+        public bool Built(Vector2Int p) => house.Contains(p) || pier.Contains(p) || extras.Contains(p);
 
-        // Natural features block movement (objects, mountains, river); so do the house and the pier.
+        // Natural features block movement (objects, mountains, river); so do the start structures.
         public HashSet<Vector2Int> Natural()
         {
             var result = new HashSet<Vector2Int>(objects.Keys);
@@ -64,21 +74,24 @@ namespace LittlePeeps
             var result = Natural();
             result.UnionWith(house);
             result.UnionWith(pier);
+            result.UnionWith(extras);
             return result;
         }
 
-        // The approved budget counts natural obstructions, not the starting house or the pier.
+        // The approved budget counts natural obstructions, not the start structures.
         public int OpenCells => land.Count - Natural().Count;
 
-        // Everything to instantiate, in placement order: the house and the pier first (their slots are
+        // Everything to instantiate, in placement order: the start structures first (their slots are
         // reserved for them), then the terrain-like features, then the scattered objects. A null def (an
-        // unassigned rule, or no house/pier def for a zone that has one) is handed back as such; the
+        // unassigned rule, or no def for a start structure the zone has) is handed back as such; the
         // caller reports it.
-        public List<(Vector2Int cell, StructureDef def)> Features(StructureDef house, StructureDef pier = null)
+        public List<(Vector2Int cell, StructureDef def)> Features(StructureDef house, StructureDef pier = null, IReadOnlyList<StructureDef> extraDefs = null)
         {
             var result = new List<(Vector2Int, StructureDef)>();
             if (this.house.Count > 0) result.Add((houseOrigin, house));
             if (this.pier.Count > 0) result.Add((pierOrigin, pier));
+            for (int i = 0; i < extraOrigins.Count; i++)
+                result.Add((extraOrigins[i], extraDefs != null && i < extraDefs.Count ? extraDefs[i] : null));
             foreach (var cell in IslandShape.Sorted(mountains)) result.Add((cell, biome.mountain));
             foreach (var cell in river) result.Add((cell, biome.river));
             foreach (var cell in IslandShape.Sorted(objects.Keys)) result.Add((cell, objects[cell].def));

@@ -94,7 +94,7 @@ namespace LittlePeeps.Tests
         private PerkSystem system;
         private PerkCatalogueDef catalogue;
         private RunContext run;
-        private readonly List<PerkDef> created = new();
+        private readonly List<ScriptableObject> created = new();
 
         [SetUp]
         public void SetUp()
@@ -139,6 +139,14 @@ namespace LittlePeeps.Tests
             created.Add(perk);
             catalogue.perks.Add(perk);
             return perk;
+        }
+
+        private StatUpgradeDef Upgrade(string id)
+        {
+            var upgrade = ScriptableObject.CreateInstance<StatUpgradeDef>();
+            upgrade.id = id;
+            created.Add(upgrade);
+            return upgrade;
         }
 
         [Test]
@@ -239,6 +247,39 @@ namespace LittlePeeps.Tests
 
             // Same reading as RollPerks_SurvivesANullRunContext: no run means nothing taken.
             Assert.That(system.RollPerks(0, null), Is.EquivalentTo(new[] { opener }));
+        }
+
+        [Test]
+        public void RollPerks_WithholdsAPerk_FromARunWithoutTheMetaPerkItRequires()
+        {
+            var ordinary = Perk("ordinary");
+            Perk("opened").requiresUpgrade = Upgrade("opener");
+            Configure();
+
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { ordinary }));
+        }
+
+        [Test]
+        public void RollPerks_OffersAPerk_InARunWithTheMetaPerkItRequires()
+        {
+            var opener = Upgrade("opener");
+            var opened = Perk("opened");
+            opened.requiresUpgrade = opener;
+            Configure();
+
+            run.Grant(opener);
+
+            Assert.That(system.RollPerks(0, run), Is.EquivalentTo(new[] { opened }));
+        }
+
+        // Same reading as a perk that requires another one: no run means nothing granted.
+        [Test]
+        public void RollPerks_WithholdsAMetaPerksPerk_WithoutARunContext()
+        {
+            Perk("opened").requiresUpgrade = Upgrade("opener");
+            Configure();
+
+            Assert.That(system.RollPerks(0, null), Is.Empty);
         }
 
         [Test]

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace LittlePeeps
 {
@@ -68,11 +69,17 @@ namespace LittlePeeps
         private Tavern holder;
         private Spawner shelter;
 
+        // The cursor carrying the unit right now (PickUp), or flying it to where it comes down; null = nobody
+        // is. Never together with a building: going into one ends it, like every other way on — back onto the
+        // field, out of the game (LeaveHand).
+        private CarrySystem carrier;
+        private SortingGroup onTop;   // draws a carried unit over the island; made by its first pick-up
+
         // Autopilot: the unit finds its way home by itself. Two ways onto it, each enough on its own:
         //   - tired, with GameSetup's autopilotWhenTired on: from the moment stamina runs out until it is refilled;
         //   - drunk, if a building switched it on (EnterAutopilot — the tavern, for a tired guest it lets
         //     out drunk): for as long as the unit stays drunk. That switch, `autopilot`, is cleared on every
-        //     way off the field and back onto it (LeaveField, Resume, OnEnable).
+        //     way into a building and out of one (GoInside, Resume, OnEnable); being carried leaves it as it is.
         // On autopilot, every bounce looks for a house in sight and leaves toward it (see
         // OnCollisionEnter2D). No destination is kept — each bounce looks again from where the unit is — so
         // a knock from an animal, or a house that filled up meanwhile, only means the next bounce looks again.
@@ -85,9 +92,9 @@ namespace LittlePeeps
 
         // Stamina: seconds of field work left. It ticks down in FixedUpdate the whole time the unit is
         // on the field, boosted or not — a boost makes the outing more productive, never longer — and
-        // stands still while a building holds it (EnterHold). A unit with stamina left is WORKING: it
-        // harvests and refuses every house (unless it is drunk — see IsDrunk). At zero it is TIRED: it
-        // harvests nothing, moves at
+        // stands still while a building holds it (EnterHold) or the cursor carries it (PickUp). A unit with
+        // stamina left is WORKING: it harvests and refuses every house (unless it is drunk — see IsDrunk). At
+        // zero it is TIRED: it harvests nothing, moves at
         // def.tiredSpeedMultiplier of its speed, and the next house with a free slot takes it in. This
         // one flag is what CollisionTarget.HandleHit stops a unit at before the work path, and what a
         // house's door (Spawner.TryEnter) lets it in by. Only a house refills stamina (Launch); a tap
@@ -109,8 +116,8 @@ namespace LittlePeeps
 
         // Whether the unit has stopped getting anywhere (see StuckWatch). A tired one cannot get home from
         // there, so SpawnSystem sweeps for this flag and sends a tired unit home. Ticked in FixedUpdate on
-        // the field only; every way off the field (EnterRest, EnterHold) and back onto it (Launch, Resume)
-        // resets it, so a building never sees the verdict that brought the unit there.
+        // the field only; every way off the field (EnterRest, EnterHold, PickUp) and back onto it (Launch,
+        // Resume) resets it, so a building never sees the verdict that brought the unit there.
         public bool IsStuck => stuckWatch.IsStuck;
         private StuckWatch stuckWatch;
 
@@ -147,9 +154,13 @@ namespace LittlePeeps
         public int BouncesSinceRelease => bouncesSinceRelease;
         public bool IsHeld => holder != null;
 
-        // Out on the island, physics running — not resting in a house, not sitting in a tavern. The body is
-        // switched off exactly while the unit is inside a building (LeaveField) and back on the way out.
+        // Out on the island, physics running — not resting in a house, not sitting in a tavern, not carried by
+        // the cursor. The body is switched off exactly while one of them has the unit (LeaveField) and back on
+        // the way out.
         public bool IsOnField => rb != null && rb.simulated;
+
+        // The cursor has the unit: in sight, but off the field.
+        public bool IsCarried => carrier != null;
 
         // Where the unit is, for whoever takes it off the island. While it rests that is its house: a unit
         // sent home never walked there, and its transform still stands where it vanished.
@@ -200,6 +211,7 @@ namespace LittlePeeps
             rack = null;
             holder = null;
             shelter = null;
+            carrier = null;
             autopilot = false;
             baseSpeed = ResolveBaseSpeed();
             stuckWatch = default;   // a verdict from the previous outing must not survive the pool
@@ -297,7 +309,7 @@ namespace LittlePeeps
             Resume(direction, speedMultiplier, boostDuration);
         }
 
-        // Back onto the field from a building that held the unit (EnterHold) — with the stamina it went
+        // Back onto the field from whoever held the unit (EnterHold, PickUp) — with the stamina it went
         // in with, the profession and the tool it had: nothing here refills or resets, only a house does
         // (Launch). The caller has already put the unit where it steps out. It leaves at its speed *
         // speedMultiplier and a decaying braking force eases it back down over ~boostDuration seconds
@@ -306,9 +318,10 @@ namespace LittlePeeps
         {
             holder = null;                          // out of the tavern or the house, whichever it was in
             shelter = null;
+            LeaveHand();                            // or out of the cursor's hold
             autopilot = false;                      // a building putting it on autopilot says so after this
             bouncesSinceRelease = 0;
-            stuckWatch.Reset(transform.position);   // the building placed us here — that jump is not travel
+            stuckWatch.Reset(transform.position);   // we were put here — that jump is not travel
             ApplyLaunch(direction, speedMultiplier, boostDuration);
         }
 
@@ -376,7 +389,7 @@ namespace LittlePeeps
             stamina = 0f;
             drunkTimer = 0f;
             Unequip();
-            LeaveField();
+            GoInside();
         }
 
         // Put the Drunk status on (see IsDrunk): for `duration` seconds of simulation time the unit moves
@@ -397,7 +410,7 @@ namespace LittlePeeps
         public void EnterHold(Tavern tavern)
         {
             holder = tavern;
-            LeaveField();
+            GoInside();
         }
 
         // The unit is leaving the game from inside a building (SpawnSystem.Despawn: its house sold, run
@@ -416,17 +429,62 @@ namespace LittlePeeps
         // while the unit is drunk, so a sober unit is put on it for nothing.
         public void EnterAutopilot() => autopilot = true;
 
-        // What every way into a building shares: stop, switch physics off, hide. The boost is over, and
-        // the stuck verdict goes too: a unit brought inside BECAUSE it was stuck must not read as stuck
-        // still, or the next sweep would put it into a second slot. The way home is over as well.
+        // The cursor takes the unit off the field (CarrySystem) and keeps it AS IT IS, the tavern's way: the
+        // stamina clock stands still, the profession and the tool stay. Only it stays in sight, drawn on the
+        // given sorting layer over everything standing on the island, and from here on the cursor moves it —
+        // until PutDown, a door that takes it in, or the end of the game for it.
+        public void PickUp(CarrySystem carrier, int sortingLayerId, int sortingOrder)
+        {
+            this.carrier = carrier;
+            LeaveField();
+
+            if (visualRoot == null) return;
+            if (onTop == null) onTop = visualRoot.AddComponent<SortingGroup>();
+            onTop.sortingLayerID = sortingLayerId;
+            onTop.sortingOrder = sortingOrder;
+            onTop.enabled = true;
+        }
+
+        // Back on the field where the cursor put it, heading `direction`; the two numbers are Resume's. The cursor
+        // has only moved it, so the drunk's autopilot outlives the Resume.
+        public void PutDown(Vector2 position, Vector2 direction, float speedMultiplier = 1f, float boostDuration = 0f)
+        {
+            bool wasOnAutopilot = autopilot;
+            transform.position = position;
+            Resume(direction, speedMultiplier, boostDuration);
+            autopilot = wasOnAutopilot;
+        }
+
+        // Out of the cursor's hold, wherever to: the carrier is told, and the unit is drawn among the others
+        // again. Nothing to do for a unit nobody carries.
+        public void LeaveHand()
+        {
+            if (carrier == null) return;
+
+            carrier.Forget(this);
+            carrier = null;
+            if (onTop != null) onTop.enabled = false;
+        }
+
+        // What every way off the field shares: stop and switch physics off. The boost is over, and the stuck
+        // verdict goes too: a unit brought inside BECAUSE it was stuck must not read as stuck still, or the
+        // next sweep would put it into a second slot.
         private void LeaveField()
         {
             launchBoostTimer = 0f;
             stuckWatch.Reset(transform.position);
-            autopilot = false;
 
             rb.linearVelocity = Vector2.zero;
             rb.simulated = false;
+        }
+
+        // What every way into a building shares: off the field, out of sight, the way home over — and no longer
+        // the cursor's, if that is what brought it to the door.
+        private void GoInside()
+        {
+            LeaveHand();
+            LeaveField();
+            autopilot = false;
             if (visualRoot != null) visualRoot.SetActive(false);
         }
 
@@ -441,7 +499,7 @@ namespace LittlePeeps
             // The stamina clock runs whenever the unit is on the field, boosted or not — and only there.
             // Inside a building physics is off and the clock stands still: a resting unit sits at zero
             // anyway (EnterRest), a held one keeps what it went in with (EnterHold) — the whole
-            // difference between a house and a tavern.
+            // difference between a house and a tavern. So does a carried one (PickUp).
             if (rb.simulated && stamina > 0f)
             {
                 stamina -= Time.fixedDeltaTime;
@@ -458,7 +516,7 @@ namespace LittlePeeps
             if (rb.simulated && stuckWindow > 0f)
                 stuckWatch.Tick(transform.position, Time.fixedDeltaTime, stuckRadius, stuckWindow);
 
-            // Inside a building: physics is off, nothing to hold. Any other unit at a standstill is
+            // Inside a building or carried: physics is off, nothing to hold. Any other unit at a standstill is
             // WEDGED — a boar pinned it to a wall and the solver killed both components — and would sit
             // there forever, since nothing else ever writes its velocity. Kick it out in a random
             // direction; the boost is over either way.

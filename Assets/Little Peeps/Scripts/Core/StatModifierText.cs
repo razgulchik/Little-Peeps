@@ -94,6 +94,7 @@ namespace LittlePeeps
             StatId.DenCapacity      => ("ANIMALS PER DEN", StatScope.None),
             StatId.TapRadius        => ("TAP RADIUS", StatScope.None),
             StatId.TapBoostMultiplier => ("TAP BOOST", StatScope.None),
+            StatId.CarryCapacity    => ("PEEPS IN HAND", StatScope.None),
             StatId.ShootRadius      => ("SHOOT RADIUS", StatScope.None),
 
             // The building is the subject ("+1 HOUSE LIMIT"); empty = every limited building.

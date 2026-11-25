@@ -71,6 +71,10 @@ namespace LittlePeeps
                  "inside one perk (Levels on a Stat Perk).")]
         public PerkDef requires;
 
+        [Tooltip("A meta perk (Ancestral Wisdom) the run must have before this one can be offered — for a perk " +
+                 "that only makes sense on top of what the meta perk opens. Empty = no condition.")]
+        public GlobalUpgradeDef requiresUpgrade;
+
         // The resources this perk acts on, read from its data — the card's icon row. Each once, in
         // ResourceType order, so the row does not depend on which modifier happened to name a resource
         // first. Empty for a perk that touches no resource (stamina, speed, a house slot).

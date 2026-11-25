@@ -156,6 +156,71 @@ namespace LittlePeeps.Tests
         [Test]
         public void Tavern_UnlistedWorker_Useless() => Expect(HitVerdict.Useless, MakeTavern(2, UnitType.Farmer), Worker(UnitType.Miner));
 
+        // --- put at the door by the cursor (CollisionTarget.TryTakeIn) --------------------------------
+
+        [Test]
+        public void House_TiredUnitBrought_GoesIn_UsefulAsBrought()
+        {
+            var house = MakeHouse(1);
+            var unit = Tired(UnitType.Farmer);
+
+            var report = Single(house, () => Assert.That(house.TryTakeIn(unit), Is.True));
+
+            Assert.That(report.Unit, Is.SameAs(unit));
+            Assert.That(report.Verdict, Is.EqualTo(HitVerdict.Useful));
+            Assert.That(report.Contact, Is.EqualTo(HitContact.Brought));
+        }
+
+        [Test]
+        public void House_DrunkWorkerBrought_GoesIn() => ExpectTakenIn(MakeHouse(1), Drunk(UnitType.Farmer));
+
+        [Test]
+        public void House_WorkingUnitBrought_IsRefused() => ExpectRefused(MakeHouse(1), Worker(UnitType.Farmer));
+
+        [Test]
+        public void House_Full_TiredUnitBrought_IsRefused()
+        {
+            var house = MakeHouse(1);
+            ExpectTakenIn(house, Tired(UnitType.Farmer));   // takes the only slot
+
+            ExpectRefused(house, Tired(UnitType.Miner));
+        }
+
+        // Going in is leaving the cursor: nobody carries it any more.
+        [Test]
+        public void House_CarriedUnitBrought_IsCarriedNoMore()
+        {
+            var unit = Tired(UnitType.Farmer);
+            unit.PickUp(Make("CarrySystem").AddComponent<CarrySystem>(), 0, 0);
+
+            ExpectTakenIn(MakeHouse(1), unit);
+            Assert.That(unit.IsCarried, Is.False);
+        }
+
+        // The tax is for a working hit, and a unit put at the door has hit nothing.
+        [Test]
+        public void TaxedHouse_WorkingUnitBrought_PaysNoTax()
+        {
+            ExpectRefused(TaxedHouse(1), Worker(UnitType.Farmer));
+            Assert.That(resources.GetResource(ResourceType.Coins), Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void Tavern_SoberWorkerBrought_GoesIn() => ExpectTakenIn(MakeTavern(2, Everyone), Worker(UnitType.Farmer));
+
+        [Test]
+        public void Tavern_DrunkWorkerBrought_IsRefused() => ExpectRefused(MakeTavern(2, Everyone), Drunk(UnitType.Farmer));
+
+        // No door: not a hit either, so the tree keeps its wood.
+        [Test]
+        public void Tree_LumberjackBrought_IsRefused_AndTheTreeStands()
+        {
+            var tree = MakeTree(1);
+
+            ExpectRefused(tree, Worker(UnitType.Lumberjack));
+            Assert.That(tree.GetComponent<ResourceSource>().IsReady, Is.True);
+        }
+
         // --- forge ----------------------------------------------------------------------------------
 
         [Test]
@@ -496,6 +561,25 @@ namespace LittlePeeps.Tests
 
         private static void Expect(HitVerdict verdict, CollisionTarget target, Unit unit)
             => Assert.That(Hit(target, unit).Verdict, Is.EqualTo(verdict), $"{unit.name} on {target.name}");
+
+        private static void ExpectTakenIn(CollisionTarget target, Unit unit)
+        {
+            Assert.That(target.TryTakeIn(unit), Is.True, $"{unit.name} at {target.name}");
+            Assert.That(unit.IsOnField, Is.False, "whoever is taken in is off the field");
+        }
+
+        // Refused at the door: still where it was, and nothing to show for it.
+        private static void ExpectRefused(CollisionTarget target, Unit unit)
+        {
+            int reports = 0;
+            void Count(HitReport _) => reports++;
+
+            target.HitResolved += Count;
+            try { Assert.That(target.TryTakeIn(unit), Is.False, $"{unit.name} at {target.name}"); }
+            finally { target.HitResolved -= Count; }
+
+            Assert.That(reports, Is.EqualTo(0), "a refusal at the door is no hit");
+        }
 
         // One hit, the way a unit crossing the target arrives — and the one report it has to end in.
         private static HitReport Hit(CollisionTarget target, Unit unit)

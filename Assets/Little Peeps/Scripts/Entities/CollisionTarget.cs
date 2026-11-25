@@ -120,14 +120,26 @@ namespace LittlePeeps
         // with no effect). Every way through ends in Resolve — one report per hit.
         private void HandleHit(Unit unit, HitReport report)
         {
+            if (TryEnterAny(unit, report)) return;
+
+            Resolve(unit, unit.IsTired ? HitOutcome.None : Work(unit, report), report);
+        }
+
+        // The player's cursor has put the unit at the door (CarrySystem): the entrances alone are asked, each by
+        // its own rule, as in a hit. True = it is inside. A unit none of them takes has not hit anything — no
+        // gate and no effect sees it, and nothing is reported.
+        public bool TryTakeIn(Unit unit)
+            => unit != null && TryEnterAny(unit, new HitReport { Contact = HitContact.Brought });
+
+        private bool TryEnterAny(Unit unit, HitReport report)
+        {
             for (int i = 0; i < entrances.Length; i++)
                 if (entrances[i].TryEnter(unit))
                 {
                     Resolve(unit, HitOutcome.Worked, report);
-                    return;
+                    return true;
                 }
-
-            Resolve(unit, unit.IsTired ? HitOutcome.None : Work(unit, report), report);
+            return false;
         }
 
         // A hit that came from afar instead of by contact — an arrow. Nobody steps through a door from

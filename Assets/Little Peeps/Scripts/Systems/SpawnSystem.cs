@@ -79,8 +79,8 @@ namespace LittlePeeps
 
         public void UseSetup(GameSetup setup) => Setup = setup;
 
-        // Every unit in play — on the field, resting in a house or sitting in a tavern (Unit.IsOnField tells
-        // them apart). For a construction site looking for the units standing on its spot.
+        // Every unit in play — on the field, resting in a house, sitting in a tavern or carried by the cursor
+        // (Unit.IsOnField tells them apart). For a construction site looking for the units standing on its spot.
         public IReadOnlyList<Unit> ActiveUnits => unitSystem != null ? unitSystem.ActiveUnits : System.Array.Empty<Unit>();
 
         // Injected by RunManager.StartNewRun so units spawned this run carry the run's stat sheet.
@@ -261,12 +261,13 @@ namespace LittlePeeps
         // island goes home instead (SendHome). Every exit goes through here, so this is where a mid-outing
         // profession ends: Unequip before the pool takes the unit — the tool goes back on its rack — and
         // the count comes off the def TrySpawn put it on. A unit inside a tavern or a house gives its
-        // place back the same way (LeaveBuilding).
+        // place back the same way (LeaveBuilding), and one the cursor carries is let go of (LeaveHand).
         public void Despawn(Unit unit)
         {
             if (unit == null) return;
 
             unit.LeaveBuilding();
+            unit.LeaveHand();
             unit.Unequip();
 
             if (unit.def != null)

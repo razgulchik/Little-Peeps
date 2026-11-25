@@ -36,5 +36,10 @@ namespace LittlePeeps
         [Tooltip("Stat modifiers applied at run start (base+modifiers system). Real in-run sources " +
                  "(ages/perks/meta) push their own later; use this for a run's baseline or debug bonuses.")]
         public List<StatModifier> startingModifiers = new();
+
+        [Tooltip("Meta perks every run begins with, as if taken in Ancestral Wisdom — the perks they open are " +
+                 "offered too. For a test preset: no prestige points needed. The profile's own come on top; one " +
+                 "that is in both counts once.")]
+        public List<GlobalUpgradeDef> startingUpgrades = new();
     }
 }

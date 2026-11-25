@@ -3,15 +3,11 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Handles game-object taps: every unit in an AoE radius around the cursor is boosted — or, if it is out
-    // of stamina and GameSetup says so, sent straight home instead (Unit.TryGoHome). A ring (TapRadiusVisual)
-    // follows the cursor every frame so the player sees the tap's area; it shows while the game runs and
-    // the hand is empty — frozen screens (perk pick, age transition) hide it, and so does a build card or
-    // the sell tool in hand, since the click is placement's then. The pier is not clickable. A click on UI
-    // never gets here (InputHandler keeps it out of OnWorldClick), so a button pressed over the island boosts
-    // no one.
+    // What a tap does: every unit it is given is boosted — or, if it is out of stamina and GameSetup says so, sent
+    // straight home instead (Unit.TryGoHome). WHOM a tap reaches and WHEN a press is one is the bare hand's business
+    // (BareHand): it owns the button and the ring, so nothing here asks whose the click is.
     //
-    // Every live tap answers, through the SoundSystem. A tap that reaches anyone is answered by the reached
+    // Every tap answers, through the SoundSystem. A tap that reaches anyone is answered by the reached
     // units themselves (UnitDef.tapSound): the nearest first, then each next one rippleStep later — a ripple
     // spreading from the finger — and only voicesPerTap of them, so a crowd stays a little chord instead of
     // a bang. A tap that reaches nobody plays the soft missSound, so the player hears it landed even on
@@ -19,12 +15,11 @@ namespace LittlePeeps
     // tap's own sounds are not bounces: they claim no unit's hit.
     public class TapSystem : MonoBehaviour
     {
-        [SerializeField] private InputHandler inputHandler;
-        [SerializeField] private TapRadiusVisual radiusVisual;
-
         // Radius and multiplier are BASES: perks scale them through RunStats (StatId.TapRadius,
         // StatId.TapBoostMultiplier). Duration and refreshStamina are still read as they are.
         [Header("Boost")]
+        [Tooltip("The ring round the cursor, world units: how near a unit's body has to come. For now a hold picks " +
+                 "up by the same ring.")]
         [SerializeField] private float tapRadius = 0.5f;
         [SerializeField] private float boostSpeedMultiplier = 2f;
         [SerializeField] private float boostDuration = 5f;
@@ -46,118 +41,63 @@ namespace LittlePeeps
         [Tooltip("Seconds between one answering unit's voice and the next: the ripple. 0 = all at once.")]
         [SerializeField, Min(0f)] private float rippleStep = 0.05f;
 
-        private struct Tapped
-        {
-            public Unit unit;
-            public float distance;   // from the tap point — the ripple's order
-        }
-
         private RunContext runContext;
-        private PlacementController placement;   // owns the click while it holds a tool; null = never does
-        private GameSetup setup;                 // what a tap does to a tired unit; null = a tap only boosts
-        private readonly List<Tapped> tapped = new();   // reused per tap: the units it reached, each once
+        private GameSetup setup;   // what a tap does to a tired unit; null = a tap only boosts
 
-        public void Initialize(RunContext context, PlacementController placement, GameSetup setup)
+        public void Initialize(RunContext context, GameSetup setup)
         {
             runContext = context;
-            this.placement = placement;
             this.setup = setup;
-        }
-
-        // Live gameplay with nothing in hand: building no longer stops the game, so time alone cannot
-        // tell a tap from a placement click any more.
-        private bool CanTap => Time.timeScale != 0f && (placement == null || !placement.HoldsTool);
-
-        private void OnEnable()
-        {
-            inputHandler.OnWorldClick += OnWorldClick;
-            EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
-        }
-
-        private void OnDisable()
-        {
-            inputHandler.OnWorldClick -= OnWorldClick;
-            EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
         }
 
         // Re-bind after a prestige, so the radius and the multiplier read this run's perks rather than
         // those of a run that ended several prestiges ago.
+        private void OnEnable() => EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+        private void OnDisable() => EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
         private void OnRunStarted(RunStartedEvent e) => runContext = e.Run;
 
-        // Drive the cursor ring: visible & following the mouse only in live gameplay.
-        private void Update()
+        // The ring's radius as it is now: resolved on every read, so a perk bought mid-run grows it at once.
+        public float Radius => Resolve(tapRadius, StatId.TapRadius);
+
+        // The boost a tap gives, as it is now: the speed multiplier a unit leaves at and the seconds it eases back
+        // over. The hand gives it to the units it lets go of as well (BareHand).
+        public float BoostMultiplier => Resolve(boostSpeedMultiplier, StatId.TapBoostMultiplier);
+        public float BoostDuration => boostDuration;
+
+        // The tap: `units`, nearest first, each once. None is a tap too — a miss.
+        public void Push(IReadOnlyList<Unit> units)
         {
-            if (radiusVisual == null) return;
-
-            bool active = CanTap && inputHandler.HasMouse;
-            radiusVisual.SetVisible(active);
-            if (!active) return;
-
-            // Resolved every frame, so a perk bought mid-run grows the ring at once. SetRadius rebuilds
-            // the circle only when the value actually changes.
-            radiusVisual.SetRadius(Resolve(tapRadius, StatId.TapRadius));
-            radiusVisual.transform.position = inputHandler.WorldMousePosition;
-        }
-
-        private void OnWorldClick(Vector2 worldPos)
-        {
-            // Frozen screens take no taps, and a click made with a tool in hand places or sells instead.
-            if (!CanTap) return;
-
-            // Units: AoE — every unit whose collider overlaps the tap radius is boosted or sent home, once
-            // however many of its colliders overlap. The collider lives on a child ("Physics"), so resolve
-            // the Unit via GetComponentInParent.
-            var (speedMult, radius, duration, refresh) = GetBoostParams();
-            var hits = Physics2D.OverlapCircleAll(worldPos, radius);
-            tapped.Clear();
+            float speedMult = BoostMultiplier;
 
             // A refilling tap leaves nobody tired, so it has nobody to send home.
-            bool sendsTiredHome = setup != null && setup.TapSendsTiredHome && !refresh;
-            foreach (var hit in hits)
+            bool sendsTiredHome = setup != null && setup.TapSendsTiredHome && !refreshStamina;
+            for (int i = 0; i < units.Count; i++)
             {
-                var unit = hit.GetComponentInParent<Unit>();
-                if (unit == null || WasTapped(unit)) continue;
-
+                var unit = units[i];
                 bool sentHome = sendsTiredHome && unit.IsTired && unit.TryGoHome();
-                if (!sentHome) unit.Boost(speedMult, duration, refresh);
-                tapped.Add(new Tapped { unit = unit, distance = Vector2.Distance(worldPos, unit.transform.position) });
+                if (!sentHome) unit.Boost(speedMult, boostDuration, refreshStamina);
             }
 
-            PlayTapSounds();
-        }
-
-        private bool WasTapped(Unit unit)
-        {
-            for (int i = 0; i < tapped.Count; i++)
-                if (tapped[i].unit == unit) return true;
-            return false;
+            PlayTapSounds(units);
         }
 
         // The tap's answer (see the class comment): the reached units' voices nearest first, one
         // rippleStep apart, or the miss sound when nobody was reached.
-        private void PlayTapSounds()
+        private void PlayTapSounds(IReadOnlyList<Unit> units)
         {
             if (soundSystem == null) return;
-            if (tapped.Count == 0)
+            if (units.Count == 0)
             {
                 soundSystem.Play(missSound);
                 return;
             }
 
-            tapped.Sort(static (a, b) => a.distance.CompareTo(b.distance));
-            int voices = Mathf.Min(voicesPerTap, tapped.Count);
+            int voices = Mathf.Min(voicesPerTap, units.Count);
             for (int i = 0; i < voices; i++)
             {
-                var def = tapped[i].unit.def;
+                var def = units[i].def;
                 if (def != null) soundSystem.Play(def.tapSound, i * rippleStep);
             }
-        }
-
-        private (float speedMult, float radius, float duration, bool refresh) GetBoostParams()
-        {
-            return (Resolve(boostSpeedMultiplier, StatId.TapBoostMultiplier),
-                    Resolve(tapRadius, StatId.TapRadius),
-                    boostDuration, refreshStamina);
         }
 
         // The base as it is until Initialize has handed over a run.

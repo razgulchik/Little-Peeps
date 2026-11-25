@@ -2,10 +2,10 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // A wireframe ring drawn around the tap cursor so the player can see the AoE that a click will boost.
-    // Owns a LineRenderer and rebuilds the circle (in local space) whenever the radius changes; TapSystem
-    // moves this transform to the mouse each frame and toggles visibility. Width/material/color are set on
-    // the LineRenderer in the inspector — this script only owns the circle geometry and the on/off state.
+    // A wireframe ring drawn around the cursor so the player can see the hand's reach: whom a tap will push and
+    // whom a hold will pick up. Owns a LineRenderer and rebuilds the circle (in local space) whenever the radius
+    // changes; BareHand moves this transform to the mouse each frame and toggles visibility. Width/material/color
+    // are set on the LineRenderer in the inspector — this script only owns the circle geometry and the on/off state.
     [RequireComponent(typeof(LineRenderer))]
     public class TapRadiusVisual : MonoBehaviour
     {

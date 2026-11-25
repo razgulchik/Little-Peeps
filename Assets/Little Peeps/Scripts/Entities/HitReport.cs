@@ -32,6 +32,7 @@ namespace LittlePeeps
         Bounce,   // off a solid collider — Point and Side say where
         Pass,     // through a trigger — the unit's own velocity says which way, Point where the middle is
         Ranged,   // from afar (an arrow) — no contact at all
+        Brought,  // put at the door by the player's cursor, and taken in — no contact either
     }
 
     // One hit, once CollisionTarget has run it (CollisionTarget.HitResolved). Raised after every entrance,

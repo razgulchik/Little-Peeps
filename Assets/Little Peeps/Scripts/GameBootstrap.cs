@@ -33,6 +33,7 @@ namespace LittlePeeps
         [SerializeField] private SpawnSystem spawnSystem;
         [SerializeField] private StructureSystem buildingSystem;
         [SerializeField] private TapSystem tapSystem;
+        [SerializeField] private CarrySystem carrySystem;
         [SerializeField] private AgeSystem ageSystem;
         [SerializeField] private AgeSequencer ageSequencer;
         [SerializeField] private PerkSystem perkSystem;
@@ -106,9 +107,13 @@ namespace LittlePeeps
             runManager.StartNewRun();
             RunContext run = runManager.CurrentRun;
 
-            // 4. Wire run-dependent systems. The tap also learns about placement, which owns the click
-            //    whenever a build card or the sell tool is in hand, and about the rule switches.
-            tapSystem.Initialize(run, placementController, gameSetup);
+            // 4. Wire run-dependent systems. The tap also learns about the rule switches.
+            tapSystem.Initialize(run, gameSetup);
+
+            //    Loud but not fatal: without it the hand never has room for anyone, and only taps.
+            if (carrySystem != null) carrySystem.Initialize(run);
+            else Debug.LogError("[GameBootstrap] no CarrySystem assigned — the hand cannot carry units.", this);
+
             ageSystem.Initialize(run);
 
             // Loud but not fatal: without it there is no offering cycle — no quotas, no wrath, no perks

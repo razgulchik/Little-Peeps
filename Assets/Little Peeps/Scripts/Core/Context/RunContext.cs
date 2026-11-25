@@ -41,6 +41,21 @@ namespace LittlePeeps
             return level;
         }
 
+        // The meta perks in effect this run, each once: the ones the profile holds and the ones the start config
+        // gives. Put in by Grant and by nothing else. Read by the perks that wait for one
+        // (PerkDef.requiresUpgrade). Decided as the run is built and never after, so a save needs no more than the
+        // profile and the config.
+        public List<GlobalUpgradeDef> upgrades = new();
+
+        // Put a meta perk into the run. Once: one the config gives and the profile holds as well counts once.
+        public void Grant(GlobalUpgradeDef upgrade)
+        {
+            if (upgrade == null || upgrades.Contains(upgrade)) return;
+
+            upgrades.Add(upgrade);
+            upgrade.ApplyToRun(this);
+        }
+
         // The offering cycle (OfferingSystem): the cycle the run is in (1-based) and the seconds of play it
         // has run for. Plain numbers, kept here rather than on the system so a save can carry them like the
         // age. The seconds are a double for playSeconds' sake, see there.

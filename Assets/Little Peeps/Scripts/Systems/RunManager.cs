@@ -52,6 +52,7 @@ namespace LittlePeeps
                 // Bonus layer: config baseline first; ages/perks add theirs in-run.
                 CurrentRun.stats.Add(startConfig.startingModifiers);
                 SeedStartingResources();
+                GrantStartingUpgrades();
             }
 
             // Then the meta perks bought with prestige — a run-start bonus like the config's, so it goes
@@ -118,6 +119,14 @@ namespace LittlePeeps
                 var r = list[i];
                 if (r != null) CurrentRun.resources[r.resourceType] = r.amount;
             }
+        }
+
+        // The meta perks the config itself gives. After its resources: a meta perk adds to those.
+        private void GrantStartingUpgrades()
+        {
+            var list = startConfig.startingUpgrades;
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++) CurrentRun.Grant(list[i]);
         }
     }
 }

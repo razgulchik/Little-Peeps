@@ -256,6 +256,7 @@ namespace LittlePeeps
             {
                 var shot = shots[i];
                 if (shot.unit != null && shot.unit.isActiveAndEnabled && shot.body != null && shot.body.simulated) continue;
+                if (shot.unit != null && shot.unit.IsCarried) continue;   // the cursor has it: moved, not gone
 
                 shots.RemoveAt(i);
                 leftOtherwise++;

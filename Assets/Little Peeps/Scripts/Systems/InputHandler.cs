@@ -15,7 +15,9 @@ namespace LittlePeeps
     // banner IS UI), and OnRightClick is cancel, which means the same wherever the cursor is.
     // OnWorldRelease closes an OnWorldClick: it fires when the button that pressed on the world comes up,
     // wherever the cursor is by then — like the right-drag, a hold that started on the world may cross
-    // the panel without letting go. A press over UI gets no release.
+    // the panel without letting go. A press over UI gets no release. The two always come in pairs, never two
+    // presses in a row: whoever took the press is told it is over before the next one.
+    // What the left button MEANS is not decided here: PlacementController gives it to the tool in hand.
     //
     // The right button does two things, told apart by how far the cursor travels while it is down — the
     // EventSystem's Drag Threshold, the same line the UI draws between a click and a drag:
@@ -58,6 +60,10 @@ namespace LittlePeeps
         public Vector2 WorldMousePosition => HoldsWorldGrab ? rightPressWorld : ToWorld(Mouse.current);
         public bool HasMouse => Mouse.current != null;
 
+        // Where the cursor is on the screen, in pixels: for telling a click from a drag, which is how far the HAND
+        // has moved and must not depend on the camera. Zero with no pointer device.
+        public Vector2 ScreenMousePosition => Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+
         // The right button went down on the world and is still down.
         private bool HoldsWorldGrab => rightHeld && rightPressOnWorld;
 
@@ -74,6 +80,7 @@ namespace LittlePeeps
 
             if (mouse.leftButton.wasPressedThisFrame)
             {
+                ReleaseWorldPress();   // up and down again inside one frame: the press before this one is over
                 OnAnyClick?.Invoke();
                 if (!IsPointerOverUI())
                 {
@@ -81,12 +88,15 @@ namespace LittlePeeps
                     OnWorldClick?.Invoke(WorldMousePosition);
                 }
             }
-            if (worldPressHeld && !mouse.leftButton.isPressed)
-            {
-                worldPressHeld = false;
-                OnWorldRelease?.Invoke(WorldMousePosition);
-            }
+            if (!mouse.leftButton.isPressed) ReleaseWorldPress();
             HandleRightButton(mouse);
+        }
+
+        private void ReleaseWorldPress()
+        {
+            if (!worldPressHeld) return;
+            worldPressHeld = false;
+            OnWorldRelease?.Invoke(WorldMousePosition);
         }
 
         // Click or drag — see the class comment. A press and release inside one frame is a click.

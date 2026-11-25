@@ -150,6 +150,10 @@ namespace LittlePeeps
             if (perk.requires != null && (context == null || !context.perksChosen.Contains(perk.requires)))
                 return false;
 
+            // A perk a meta perk opens is only ever offered in a run that has it.
+            if (perk.requiresUpgrade != null && (context == null || !context.upgrades.Contains(perk.requiresUpgrade)))
+                return false;
+
             return true;
         }
 

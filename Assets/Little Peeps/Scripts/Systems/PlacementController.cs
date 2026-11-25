@@ -3,19 +3,24 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // Holds the tool in hand and routes building input to it:
+    // Holds the tool in hand and routes the left button (and the right one's cancel) to it:
     //  - a build card's structure (Select)  → PlaceTool
     //  - the sell button's tool (SelectSell) → SellTool
-    //  - nothing (PutDown)                   → the empty hand: no tool, and the click is a tap (TapSystem)
+    //  - nothing (PutDown)                   → the bare hand, which taps and carries the units (BareHand)
     // There is no build mode: the panel is always up during normal play and the game runs underneath,
-    // so "something in hand" (HoldsTool) is what decides whether a left click builds or taps — and
+    // so what is in hand is what decides whether a press builds or goes to the units — and
     // whether the grid shows, as a spot around the cursor (GridOverlay).
+    //
+    // The one place that says whose a press is: the tool in hand gets it, and nothing else listens to the button.
+    // A tool swapped in mid-press takes the release with nothing under way and ignores it, so no press is ever
+    // answered twice: the click that puts up the last building of a limit does not tap the units under it as well.
     //
     // The ONE owner of what is in hand. The build UI only asks (a card, the sell button, the build toggle
     // hiding the panel) and draws what ToolChanged reports — every change goes out, whoever made it, so no
     // widget keeps a copy that could disagree with another's. Right-click puts the tool down. Active only
     // between Begin()/End(), called by PlayingState: any other screen (a perk pick, an age transition, the
-    // end of an offering cycle) empties the hand, and a request made outside normal play is refused.
+    // end of an offering cycle) empties the hand and stops the bare one too, and a request made outside normal
+    // play is refused.
     // Clicks over UI never get here — InputHandler keeps them out of OnWorldClick — so panel buttons don't
     // act on the world.
     //
@@ -29,6 +34,9 @@ namespace LittlePeeps
         [SerializeField] private ResourceSystem resourceSystem;
         [SerializeField] private IslandSystem islandSystem;
         [SerializeField] private GridOverlay gridOverlay;
+
+        [Tooltip("What the left button does with nothing taken from the build panel: taps and carries the units.")]
+        [SerializeField] private BareHand bareHand;
 
         [SerializeField] private PlacementVisuals visuals = new();
 
@@ -47,15 +55,14 @@ namespace LittlePeeps
         public bool HoldsSell => sellTool != null && tool == sellTool;
 
         private PlacementContext context;
-        private readonly IPlacementTool emptyHand = new EmptyHand();   // the default: nothing selected
+        private IPlacementTool emptyHand;   // the default: nothing selected, so the bare hand
         private SellTool sellTool;
         private IPlacementTool tool;
 
         private bool active;
 
-        // A build card or the sell tool is in hand: the next left click in the world is placement's.
-        // False outside normal play and with nothing selected — the click is a tap then.
-        public bool HoldsTool => active && tool != null && tool != emptyHand;
+        // A build card or the sell tool is in hand: the next press in the world is placement's.
+        private bool HoldsTool => active && tool != emptyHand;
 
         private void OnEnable()
         {
@@ -71,20 +78,22 @@ namespace LittlePeeps
             inputHandler.OnRightClick -= OnRightClick;
         }
 
-        // Called by PlayingState.Enter. From here on the build UI may put a tool in hand.
+        // Called by PlayingState.Enter. From here on the bare hand works, and the build UI may put a tool in it.
         public void Begin()
         {
             EnsureTools();
             active = true;
+            tool.Enter();
         }
 
-        // Called by PlayingState.Exit. Whatever was in hand goes down, and the active tool tears down
-        // whatever it owns (a ghost, a tint).
+        // Called by PlayingState.Exit. Whatever was in hand goes down, the active tool tearing down whatever it
+        // owns (a ghost, a tint), and then the bare hand lets go of whatever it holds.
         public void End()
         {
             EnsureTools();
             active = false;
             SwitchTo(emptyHand);
+            tool.Exit();
             gridOverlay.Hide();
         }
 
@@ -140,6 +149,11 @@ namespace LittlePeeps
             context = new PlacementContext(islandSystem, structureSystem, resourceSystem, visuals);
             sellTool = new SellTool(context);
             sellTool.Sold += () => Sold?.Invoke();
+
+            // Loud but not fatal: the panel still builds and sells.
+            if (bareHand == null)
+                Debug.LogError("[PlacementController] no BareHand assigned — the left button does nothing to units.", this);
+            emptyHand = bareHand != null ? (IPlacementTool)bareHand : new NoHand();
             tool = emptyHand;
         }
 
@@ -188,9 +202,9 @@ namespace LittlePeeps
             PutDown();
         }
 
-        // Nothing in hand. A tool that does nothing rather than a null, so every path above can talk to
-        // `tool` without asking first; the click it ignores is TapSystem's (see HoldsTool).
-        private sealed class EmptyHand : IPlacementTool
+        // The bare hand of a scene that has none wired. A tool that does nothing rather than a null, so every path
+        // above can talk to `tool` without asking first.
+        private sealed class NoHand : IPlacementTool
         {
             public void Enter() { }
             public void Exit() { }

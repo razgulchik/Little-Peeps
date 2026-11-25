@@ -109,7 +109,7 @@ namespace LittlePeeps
             for (int i = 0; i < list.Count; i++)
             {
                 var def = list[i];
-                if (def != null && metaContext.IsTaken(def.id)) def.ApplyToRun(run);
+                if (def != null && metaContext.IsTaken(def.id)) run.Grant(def);
             }
         }
 

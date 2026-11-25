@@ -50,6 +50,13 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void CarryCapacity_ReadsAsPeepsInHand()
+        {
+            Assert.That(StatModifierText.Describe(Mod(StatId.CarryCapacity, flat: 3f)),
+                        Is.EqualTo("+3 PEEPS IN HAND"));
+        }
+
+        [Test]
         public void ShootRadius_NamesItsProfession()
         {
             Assert.That(StatModifierText.Describe(Mod(StatId.ShootRadius, percent: 0.5f, unit: UnitType.Hunter)),

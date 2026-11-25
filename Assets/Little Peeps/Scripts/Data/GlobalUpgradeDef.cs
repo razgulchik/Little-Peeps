@@ -40,7 +40,7 @@ namespace LittlePeeps
         // What the data alone says this upgrade gives. Empty here: the base has no data to speak from.
         public virtual string GeneratedDescription() => string.Empty;
 
-        // Put this upgrade into a run that is being built. Called by PrestigeSystem.ApplyUpgrades from
+        // What this upgrade does to a run that is being built. Called by RunContext.Grant, from
         // RunManager.StartNewRun, before any system reads the run.
         public abstract void ApplyToRun(RunContext run);
     }

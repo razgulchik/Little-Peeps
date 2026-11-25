@@ -58,9 +58,10 @@ namespace LittlePeeps
 
         // The player's tap (TapSystem). Unscoped: there is one tap, and it reaches whoever is inside the
         // circle, whatever their profession. Read at the point of use — the radius every frame for the
-        // cursor ring and on every click, the multiplier on every click — so a perk needs no push.
-        TapRadius,          // no scope — radius of the boost circle, world units (base: TapSystem.tapRadius)
-        TapBoostMultiplier, // no scope — speed multiplier a tapped unit leaves at (base: TapSystem.boostSpeedMultiplier)
+        // cursor ring and on every click, the multiplier on every click — so a perk needs no push. The radius is
+        // the whole hand's: a hold picks units up by the same ring (BareHand).
+        TapRadius,          // no scope — radius of the ring at the cursor, world units (base: TapSystem.tapRadius)
+        TapBoostMultiplier, // no scope — speed multiplier a unit leaves at, tapped or let go of (base: TapSystem.boostSpeedMultiplier)
 
         // The bow (ArcherAbility). Scoped by profession like UnitSpeed: a unit only shoots while out
         // working, so it always has one, and "hunters see further" must not reach a future second archer
@@ -82,6 +83,12 @@ namespace LittlePeeps
         // AddHarvest with no source, so yield and production bonuses on that resource reach it. A
         // construction site pays nothing. Empty structure = every building.
         AdditionalResourcePerHit, // scope: (ResourceType, structure) — extra amount one working hit pays
+
+        // How many units the player's hand picks up and carries at once (CarrySystem). A count like HouseCapacity —
+        // "+1" is authored as flat. The base is 0: a hand nothing has given room carries nobody and only taps, so
+        // the first modifier is what OPENS carrying (a meta perk's) and the later ones are room for more. Read at
+        // the point of use — on every press, and while units stick — so a perk needs no push.
+        CarryCapacity,      // no scope — units carried at once (base: 0)
 
         // --- growth points (add as needed; each is one line here + one Apply() at the consumer) ---
         // UnitLaunchBoost, // scope: UnitType — launch speed multiplier
@@ -150,7 +157,7 @@ namespace LittlePeeps
 
             // Listed although they fall through to None anyway, so the choice reads as made rather than
             // forgotten: the one forge needs no Source axis, and "the forge" is not a resource either.
-            // The market's passage and the tap are the same case.
+            // The market's passage, the tap and the hand are the same case.
             StatId.ForgeHeatPerHit  => StatScope.None,
             StatId.ForgeMaxHeat     => StatScope.None,
             StatId.ForgeCoolingTime => StatScope.None,
@@ -158,6 +165,7 @@ namespace LittlePeeps
             StatId.MarketVisitHits  => StatScope.None,
             StatId.TapRadius        => StatScope.None,
             StatId.TapBoostMultiplier => StatScope.None,
+            StatId.CarryCapacity    => StatScope.None,
 
             // ProductionGlobal and any future global stat. NOTE this default is why a forgotten entry
             // above is dangerous: the stat silently becomes global instead of scoped.

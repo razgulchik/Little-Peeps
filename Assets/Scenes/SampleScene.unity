@@ -765,8 +765,6 @@ GameObject:
   m_Component:
   - component: {fileID: 174083671}
   - component: {fileID: 174083670}
-  - component: {fileID: 174083673}
-  - component: {fileID: 174083672}
   m_Layer: 0
   m_Name: TapSystem
   m_TagString: Untagged
@@ -786,8 +784,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 373b2d0da5b94eb4aa7ea18bcfa8d368, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  inputHandler: {fileID: 1556966234}
-  radiusVisual: {fileID: 174083673}
   tapRadius: 0.3
   boostSpeedMultiplier: 5
   boostDuration: 5
@@ -818,7 +814,7 @@ LineRenderer:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 174083669}
+  m_GameObject: {fileID: 871520645}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -924,7 +920,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 174083669}
+  m_GameObject: {fileID: 871520645}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4457f4127e87417ea11d66b06d02dbdd, type: 3}
@@ -2896,6 +2892,7 @@ MonoBehaviour:
   spawnSystem: {fileID: 711440996}
   buildingSystem: {fileID: 42342360}
   tapSystem: {fileID: 174083670}
+  carrySystem: {fileID: 871520641}
   ageSystem: {fileID: 1088972181}
   ageSequencer: {fileID: 1945904891}
   perkSystem: {fileID: 596618327}
@@ -3119,6 +3116,7 @@ MonoBehaviour:
   resourceSystem: {fileID: 1656171579}
   islandSystem: {fileID: 738684714}
   gridOverlay: {fileID: 55594376}
+  bareHand: {fileID: 871520646}
   visuals:
     validColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
     invalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.6}
@@ -3374,6 +3372,113 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1511578415}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &871520640
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 871520642}
+  - component: {fileID: 871520641}
+  m_Layer: 0
+  m_Name: CarrySystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &871520641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 871520640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94146b747af64043bac22ab3e61cdd7c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  islandSystem: {fileID: 738684714}
+  clusterRadius: 0.2
+  followTime: 0.05
+  flySpeed: 25
+  dropGap: 0.1
+  sortingLayerName: Overlay
+  sortingOrder: 1
+  soundSystem: {fileID: 950349391}
+  voiceStep: 0.05
+--- !u!4 &871520642
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 871520640}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1009994986}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &871520645
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 871520647}
+  - component: {fileID: 871520646}
+  - component: {fileID: 174083673}
+  - component: {fileID: 174083672}
+  m_Layer: 0
+  m_Name: BareHand
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &871520646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 871520645}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fe11856294b44ccacc58ec3521144e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inputHandler: {fileID: 1556966234}
+  tapSystem: {fileID: 174083670}
+  carrySystem: {fileID: 871520641}
+  ring: {fileID: 174083673}
+  timing:
+    tapUnder: 0.25
+    holdFrom: 0.45
+    dragPixels: 24
+--- !u!4 &871520647
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 871520645}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1009994986}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!483693784 &876456290
 TilemapRenderer:
   m_ObjectHideFlags: 0
@@ -3516,6 +3621,8 @@ Transform:
   - {fileID: 711440997}
   - {fileID: 950349390}
   - {fileID: 174083671}
+  - {fileID: 871520642}
+  - {fileID: 871520647}
   - {fileID: 1346784183}
   - {fileID: 274669771}
   - {fileID: 1485223155}

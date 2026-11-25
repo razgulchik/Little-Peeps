@@ -2,19 +2,20 @@ using UnityEngine;
 
 namespace LittlePeeps
 {
-    // One building tool: Place or Sell (or PlacementController's empty hand). Exactly one is active at a
-    // time; PlacementController routes input to it and swaps it when the panel selection changes.
+    // What the left button does in the world right now: Place, Sell, or — with nothing taken from the panel — the
+    // bare hand (BareHand). Exactly one is active at a time; PlacementController routes input to it and swaps it
+    // when the panel selection changes.
     //
-    // The contract that matters is Exit: a tool may leave NOTHING behind — no ghost, no tinted structure.
-    // Every switch and every end of normal play go through it, so if a tool forgets to undo something,
+    // The contract that matters is Exit: a tool may leave NOTHING behind — no ghost, no tinted structure, no unit
+    // held. Every switch and every end of normal play go through it, so if a tool forgets to undo something,
     // the leftover outlives the tool that made it.
     public interface IPlacementTool
     {
-        // Becoming the active tool.
+        // Becoming the active tool — or, for the bare hand, normal play beginning or coming back with it in hand.
         void Enter();
 
         // Ceasing to be active (tool switch, or normal play giving way to another screen). Must undo
-        // everything Enter/Tick/Click put on screen.
+        // everything Enter/Tick/Press put on screen.
         void Exit();
 
         // Per-frame preview at the cursor.

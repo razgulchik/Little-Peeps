@@ -423,12 +423,13 @@ namespace LittlePeeps.EditorTools
         // Hand-kept, and only for stats that HAVE an owner: a building's parameters go under
         // Structures/<building>, however they happen to be scoped. Null = no owner, use Category —
         // which is why UnitStamina, unscoped and owned by nobody, files under Global next to
-        // ProductionGlobal: every villager's stamina is one number, and the picker says so. The tap is
-        // not a building but owns its numbers the same way, so it gets a home of its own.
+        // ProductionGlobal: every villager's stamina is one number, and the picker says so. The tap and the
+        // carrying hand are not buildings but own their numbers the same way, so each gets a home of its own.
         private static string Group(StatId id) => id switch
         {
             StatId.TapRadius        => "Tap",
             StatId.TapBoostMultiplier => "Tap",
+            StatId.CarryCapacity    => "Carry",
             StatId.SpawnerRecharge  => "Structures/House",
             StatId.HouseCapacity    => "Structures/House",
             StatId.ForgeHeatPerHit  => "Structures/Forge",
@@ -475,6 +476,7 @@ namespace LittlePeeps.EditorTools
             StatId.StructureLimit => "Build limit",
             StatId.TapRadius => "Radius",
             StatId.TapBoostMultiplier => "Boost multiplier",
+            StatId.CarryCapacity => "Units at once",
             StatId.ShootRadius => "Shoot radius",
             StatId.YieldPerStructure => "Yield per building",
             StatId.AdditionalResourcePerHit => "Extra per building hit",
@@ -506,8 +508,9 @@ namespace LittlePeeps.EditorTools
                 StatId.MarketVisitHits => "Counted hits one unit gets per market visit; each pays that worker's coins. Rounds DOWN - author Flat +1 for one more hit.",
                 StatId.DenCapacity => "Animals one den (or the stable) keeps out at once. Source = the ANIMAL (Boar, Fox, Alpaka); empty = every den and the stable. Rounds DOWN: +50% on a 1-animal den does nothing, Flat +1 or +100% doubles it.",
                 StatId.StructureLimit => "How many of a building may stand at once (its Max Count). Never limits a building left at Max Count 0. Structure empty = every limited building. Rounds DOWN - author Flat +1 for one more.",
-                StatId.TapRadius => "Radius of the tap boost circle (and the cursor ring), in world units. Flat adds units, percent scales the radius.",
-                StatId.TapBoostMultiplier => "Speed multiplier a tapped unit leaves at, easing back over the boost duration. Percent scales the whole multiplier (+50% turns x2 into x3); never drops below x1.",
+                StatId.TapRadius => "Radius of the ring at the cursor, in world units: whom a tap boosts, and whom a hold picks up. Flat adds units, percent scales the radius.",
+                StatId.TapBoostMultiplier => "Speed multiplier a unit leaves at, tapped or let go of by the hand, easing back over the boost duration. Percent scales the whole multiplier (+50% turns x2 into x3); never drops below x1.",
+                StatId.CarryCapacity => "How many units the hand picks up and carries at once. Base is 0, so the first Flat +N OPENS carrying: until then the hand only taps. Rounds DOWN - author Flat +1 for one more.",
                 StatId.ShootRadius => "How far a unit with a bow (the Hunter) sees a target, in world units, from its feet to the animal's. Flat adds units, percent scales the radius.",
                 StatId.YieldPerStructure => "Yield bonus to the resource for EVERY such building standing (construction sites count): +5% with 3 mills = +15%, added to the other yield percents, all taken off the base. PERCENT ONLY - a Flat value does nothing. Structure empty = every building.",
                 StatId.AdditionalResourcePerHit => "Resource every working hit on the building pays ON TOP of whatever it pays already (a house pays nothing). Base is 0: author Flat for the amount; a percent only scales that flat. Not paid when the hit is refused (overheated forge, spent market visit) or by a construction site. Structure empty = every building.",

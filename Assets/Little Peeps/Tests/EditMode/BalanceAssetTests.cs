@@ -101,6 +101,16 @@ namespace LittlePeeps.Tests
             Assert.That(previousRates.Keys, Is.EquivalentTo(System.Enum.GetValues(typeof(ResourceType))));
         }
 
+        // A perk that waits for a meta perk nobody can take would silently never be offered.
+        [Test]
+        public void EveryPerkThatWaitsForAMetaPerk_WaitsForOneTheScreenOffers()
+        {
+            var offered = Load<GlobalUpgradeCatalogueDef>("MetaDefs/Global Upgrade Catalogue Def").upgrades;
+            foreach (var perk in Load<PerkCatalogueDef>("Perks/Perk Catalogue Def").perks)
+                if (perk.requiresUpgrade != null)
+                    Assert.That(offered, Does.Contain(perk.requiresUpgrade), perk.name);
+        }
+
         [Test]
         public void DuplicateOfferingRows_RequireFullPayment_AndRefusalSpendsNothing()
         {

@@ -13,8 +13,9 @@ namespace LittlePeeps
     // player chooses while looking at the island as it is, with the candidates drawn onto it — the
     // transition that follows changes exactly what the choice is about.
     //
-    // Input block: timeScale 0 stops the sim and makes TapSystem ignore world clicks. Camera pan/zoom
-    // run on unscaled time, so the player can look around the offers while they decide.
+    // Input block: timeScale 0 stops the sim, and leaving normal play has taken the button from the hand
+    // (PlayingState.Exit). Camera pan/zoom run on unscaled time, so the player can look around the offers
+    // while they decide.
     //
     // Built per request by GameplayContainerState and discarded after, so holding the RunContext
     // directly is right here (the run cannot be replaced while the game is frozen: a run ends only at the

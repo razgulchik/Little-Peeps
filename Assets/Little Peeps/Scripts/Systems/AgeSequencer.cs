@@ -16,8 +16,8 @@ namespace LittlePeeps
     // of the rise faster, the second jumps to its finale, and one on the banner closes it — though not in
     // the banner's first moments (bannerTapGrace), or the last tap of a quick double tap would take it away
     // unread. Taps come from InputHandler.OnAnyClick, which reports clicks whatever the time scale and
-    // wherever they land — over UI too, since the banner IS UI; TapSystem, which ignores its world clicks
-    // at timeScale 0, never sees them as boosts.
+    // wherever they land — over UI too, since the banner IS UI; the hand, which has no button outside normal
+    // play (PlayingState), never sees them as boosts.
     //
     // Pure choreography, deliberately: every step here takes a KNOWN amount of time. A step that waits on a
     // human is a mode, not a beat in an animation — the zone pick is one, and runs BEFORE this chain: it is

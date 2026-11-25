@@ -8,8 +8,8 @@ namespace LittlePeeps
     // offerings (OfferingSystem). The age itself is already bought and applied by the time this state is
     // entered — ZoneSelectionState does that, and it is the only thing that builds one of these.
     //
-    // Input block: timeScale 0 stops the sim AND makes TapSystem ignore world clicks (it early-returns at
-    // timeScale 0), so boost taps can't fire mid-transition — no UI-raycast juggling needed. The
+    // Input block: timeScale 0 stops the sim, and leaving normal play has taken the button from the hand
+    // (PlayingState.Exit), so boost taps can't fire mid-transition — no UI-raycast juggling needed. The
     // sequencer runs on unscaled time, so the rise and the banner still animate while frozen, and it takes
     // its own taps (speed-up, skip) from InputHandler, which reports clicks at any time scale.
     public class AgeTransitionState : IState

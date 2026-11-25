@@ -21,7 +21,7 @@
 > `PixelSnapText`) и тень текста на панели эпохи пресетами шрифтов: **2026-10-23**, сверено с `Canvas.prefab`. Отклик
 > на удары (`Systems/BumpVfxSystem`, `CoastBump` на `Ground`, `BumpView` / `LeanView` на префабах, `FX_Bump*` и
 > `FX_Coast_Ripple`): **2026-10-28**, сверено со сценой и префабами. Уровни перков и мета-перков внутри одного
-> ассета, Flat / Percent выбором, цифра уровня в ячейке `PerkSlot`: **2026-10-29**, сверено с кодом и `PerkSlot.prefab`. Своя вода (`WaterSystem`, волны, тень острова, `WaterProjection`): **2026-11-04**, сверено со сценой и префабами. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> ассета, Flat / Percent выбором, цифра уровня в ячейке `PerkSlot`: **2026-10-29**, сверено с кодом и `PerkSlot.prefab`. Своя вода (`WaterSystem`, волны, тень острова, `WaterProjection`): **2026-11-04**, сверено со сценой и префабами. Забег, престиж и мета-перки (очки за время, бесплатные эпохи, тестовый режим): **2026-11-25**, сверено со сценой, ассетами и `Canvas.prefab`; в тот же день — гусятник, мост, бамбук, протяжка забора, горы, камень, рынок, пуф, налог, поля перков и эффекты подбора, окно зон, окно перков, карточка стройки, подъём острова и берег, сверено со сценой, ассетами и префабами. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -49,6 +49,7 @@ SampleScene
 ├── CinemachineCamera           → CinemachineCamera (vcam): Follow = CameraTarget + CinemachineFollow (damping)
 │                                  + CinemachinePixelPerfect + CinemachineImpulseListener   ← тряска при подъёме острова
 ├── EventSystem                 → EventSystem + InputSystemUIInputModule  (ОБЯЗАТЕЛЕН: uGUI-кнопки + правило «мышь над UI ≠ мышь над миром»)
+├── TestMode                    → TestMode           (пресеты для плей-теста; включается в меню, см. «Тестовый режим»)
 ├── Input                       → InputHandler, GameHotkeys
 ├── Global Light 2D             → Light2D
 ├── Bootstrap                   → GameBootstrap, SaveSystem
@@ -92,6 +93,9 @@ SampleScene
 │   │   └── Water (выключен)    → Tilemap + TilemapRenderer
 │   └── GridOverlay             → MeshFilter + MeshRenderer + GridOverlay   (Transform строго 0,0,0, без поворота/масштаба)
 ├── SceneGridGizmo (выключен)   → SceneGridGizmo     (сетка только для Scene view, в игре не участвует)
+├── WaterGradient               → префаб `Prefabs/Elements/WaterGradient`: Canvas (Screen Space — Camera, слой Water, Order 1)
+│                                  + CanvasScaler 640×360 — градиент поверх моря, под островом; Up, Side Left, Side Right,
+│                                  Light — Image с выключенным Raycast. Render Camera — Main Camera (назначена в сцене)
 ├── ZonePreviewOverlay          → MeshFilter + MeshRenderer + ZonePreviewOverlay   (заливка зоны под карточкой при выборе)
 ├── IslandRise                  → IslandRisePlayer   (Transform 0,0,0; в рантайме его дети — дублёры тайлов,
 │                                  излучатели эффектов, «Rise voices» и CinemachineImpulseSource)
@@ -107,7 +111,8 @@ SampleScene
     │   │   │                       всю панель: нарезка сверху держит эпоху и разделитель, тянется низ. Padding
     │   │   │                       0/0/45/49 (сверху рамка эпохи, снизу место под кнопку), Upper Center, Control
     │   │   │                       Child Size W+H. Высота 93 + 14 × строк цены: 107 / 121 / 135 при 1–3 строках
-    │   │   │                       (121 — как на макете); 94 на последней эре (Cost выключен) и в редакторе (Cost пуст)
+    │   │   │                       (121 — как на макете); 94 на последней эре (Cost выключен) и в редакторе (Cost пуст);
+    │   │   │                       107 — бесплатная эпоха (вместо Cost — Free)
     │   │   ├── Age             → Image (panel_age_actual, Sliced) + LayoutElement (Ignore Layout)
     │   │   │   │                 (рамка эпохи 73×35 в (3, −3), вне раскладки)
     │   │   │   ├── Title       → TMP_Text, m6x11plus 18, #C69F67     («AGE IV»; y −4, 73×22)
@@ -120,6 +125,8 @@ SampleScene
     │   │   │                     между пикселями экрана и текст мылится
     │   │   ├── Cost            → Image + Grid Layout Group + AgeCostPanel  (ценник, юниты в рантайме; 2 колонки,
     │   │   │                     ячейки 34×13, Spacing 3×1, Padding 0 — свою высоту сетка считает сама)
+    │   │   ├── Free (выключен) → TMP_Text «FREE», m6x11plus 9, #BE9F85, по центру + PixelSnapText + LayoutElement
+    │   │   │                     (Preferred Height 13) — стоит вместо Cost, пока следующая эпоха бесплатна; включает AgeCostPanel
     │   │   └── AdvanceButton   → Image (bttn_age_expand) + Button + LayoutElement (Ignore Layout)
     │   │       │                 (родные 69×43, по центру, 4 px от низа: прибита к низу AgePanel и едет с ним;
     │   │       │                  от последней строки цены 2 px)
@@ -132,7 +139,7 @@ SampleScene
     │   │                           вкладки перекрываются на 3 px, как на макете; кнопки вкладок в рантайме
     │   ├── BuildPalette        → CanvasGroup + Image (card_panel, Sliced) + BuildPaletteUI   (справа внизу (−47, 4), 440×64)
     │   │   └── Viewport        → Image + RectMask2D + BuildPanelScroller   (тянется по ширине палитры)
-    │   │       └── CardRow     → Horizontal Layout Group       (карточки построек в рантайме)
+    │   │       └── CardRow     → BuildCardRow   (Horizontal Layout Group, который ещё держит порядок отрисовки; карточки в рантайме)
     │   ├── BuildToggle         → Image + Button + BuildPanelToggle   (правый нижний угол (−9, 19), 32×40: прячет /
     │   │                         показывает SellButton, BuildTabs и BuildPalette — не режим, игра идёт и так и так)
     │   ├── ResourceBar         → Image + Grid Layout Group + ResourcePanel   (ResourceUnit на ресурс, в рантайме)
@@ -175,12 +182,17 @@ SampleScene
     │   │                         ← и НЕ выключать — ни его, ни экраны: их прячет UIVisibility, а выключенный
     │   │                           экран не покажется вовсе (выбор зоны зависнет на паузе)
     │   ├── PerkScreen          → CanvasGroup + PerkSelectionUI
-    │   │   └── Panel           → Image (затемнение — перехватывает ввод, это модальное окно)
-    │   │       ├── TitleText   → TMP_Text
-    │   │       └── CardColumn  → Vertical Layout Group         (перк-карточки в рантайме)
+    │   │   ├── Panel           → Image (затемнение — перехватывает ввод, это модальное окно)
+    │   │   └── Window          → только RectTransform: по центру, Pivot (0, 1), (−126, 170), 252×346
+    │   │       │                 ← окно по макету `Sprites/UI/God Blessings/Gods Blessings.png`
+    │   │       ├── BaseTop / BaseBottom → Image (blessings_base, Sliced) 252×66 и 252×280 — фон двумя частями
+    │   │       ├── Title       → TMP_Text «Gods Blessings», m6x11plus 18, #FFC35A + PixelSnapText
+    │   │       ├── Subtitle    → TMP_Text «Choose wisely, …», 12, #887262 + PixelSnapText
+    │   │       └── Cards       → только RectTransform (13, −71) 226×264 — место под три карточки; раскладывает код,
+    │   │                         Layout Group сюда не вешать
     │   ├── ZoneScreen          → CanvasGroup + ZoneSelectionUI
     │   │   └── Panel           → Image (прозрачная, **Raycast Target ВЫКЛ** — иначе при выборе зоны остров не перетащить)
-    │   │       └── CardRow     → Horizontal Layout Group       (зон-карточки в рантайме)
+    │   │       └── CardRow     → Horizontal Layout Group       (низ экрана по центру, отступ 16, промежуток 4; карточки в рантайме)
     │   └── OfferingWindow      → Image (чёрный α 0.7 — затемнение, глотает клики) + CanvasGroup + OfferingWindow
     │       │                     ← окно конца цикла по макету `Sprites/UI/Offering Window/Gods Blessing.png`;
     │       │                     растянут на весь Canvas; весь текст — m6x11plus, на каждой надписи PixelSnapText
@@ -256,20 +268,23 @@ SampleScene
 | | | ageSequencer, perkSystem | AgeSequencer, PerkSystem |
 | | | **placementController** | PlacementController — стройка; его же бутстрап отдаёт `TapSystem` кодом, чтобы клик с инструментом в руке не был тапом |
 | | | **uiRoot** | **UIRoot на Canvas** — единственная ссылка из сцены в Канвас. Всё, что UI нужно из сцены, бутстрап отдаёт ему кодом, набором `UIServices`: resourceSystem, ageSystem, offeringSystem, runManager, placementController и два поля ниже |
+| | | testMode | `TestMode` — пресеты плей-теста. Пусто — при включённом тестовом режиме предупреждение, игра идёт на боевых |
 | | | cameraController, zonePreview | `CameraController`, `ZonePreviewOverlay` — бутстрап сам их не использует, только передаёт в UI: выбор зоны двигает камеру и рисует зону на острове. Пусто — предупреждение `[UIServices] … is not assigned`, карточки зон без камеры и превью |
 | Bootstrap | SaveSystem | — | (полей нет; запись на диск пока заглушка) |
+| TestMode | TestMode | startConfig, offeringSchedule | `StartConfig/Test Start Config`, `OfferingDef/Test Offering Schedule Def` — чем заменить боевые в тестовом режиме. Пусто = боевой |
 | Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem, spawnSystem** | ResourceSystem, Island, StructureSystem, SpawnSystem (spawnSystem обязателен — иначе NPE в StartNewRun) |
-| | | **startConfig** | `ScriptableObjects/StartConfig/Start Config` — сид и правила острова, стартовый биом, дом, пирс, стартовые ресурсы и модификаторы. Пусто = случайный остров без дома и пирса, ноль ресурсов |
+| | | **startConfig** | `ScriptableObjects/StartConfig/Start Config` — сид и правила острова, стартовый биом, дом, пирс, стартовые ресурсы, модификаторы и мета-перки. Пусто = случайный остров без дома и пирса, ноль ресурсов |
 | Systems/ResourceSystem | ResourceSystem | logChanges | вкл/выкл лог ресурсов в консоль (дебаг) |
 | Systems/StructureSystem | **StructureSystem** | **islandSystem, resourceSystem, spawnSystem** | Island, ResourceSystem, SpawnSystem (без SpawnSystem стройплощадка не видит юнитов на месте и ставит здание сразу) |
 | | | siteLook → blueprintColor, groundColor | вид стройплощадки, пока у неё нет своего арта: множитель спрайтов чертежа (белый α0.45 — альфа = насколько прозрачен) и подложка по клеткам (песочный α0.25) — дефолты |
 | | | siteLook → groundSortingLayer, groundSortingOrder | Ground, 1000 — подложка под ореолом госта (1001), чтобы гост над площадкой читался |
-| | | siteLook → fenceThickness | 0.25 клетки — ширина полосы площадки забора вдоль ребра |
+| | | siteLook → fenceThickness | в сцене 0.3 клетки (дефолт 0.25) — ширина полосы площадки забора вдоль ребра |
 | Systems/SpawnSystem | **SpawnSystem** | **unitPool, unitSystem** | UnitPool, UnitSystem |
 | | | islandSystem | Island (впрыскивается в юнитов — задел на будущее island-aware поведение) |
 | | | soundSystem | SoundSystem (юниты берут его отсюда для своих звуков; пуф тоже звучит через него) |
 | | | stuckSweepInterval | 0.5 с (дефолт): как часто ищутся застрявшие юниты — их отправляют в ближайший дом |
-| | | puffFx, puffParticles | «пуф», с которым исчезают лишние жители проданного дома и звери проданной норы: префаб ParticleSystem как общий эмиттер (World space, Looping, без своей эмиссии) и частиц на пуф (8). **В сцене пусто** — исчезают без эффекта |
+| | | puffFx, smallPuffFx | `Prefabs/FX/FX_Puff` и `FX_Puff_Small` — «пуф», с которым жители и звери исчезают с острова, и маленький для гусей (отдельный лист: уменьшенный большой сбил бы пиксели). Общие эмиттеры (World space, Looping, без своей эмиссии). Пусто — исчезают без эффекта |
+| | | puffParticles | в сцене 1 (дефолт 8) — частиц на пуф любого размера: клуб нарисован флипбуком целиком |
 | | | puffSound | SoundDef пуфа — в сцене `SoundDef/Puff_Air` (3 варианта звука, `Sound/Puff`) |
 | Systems/UnitSystem | UnitSystem | — | (полей нет) |
 | Systems/UnitPool | UnitPool | — | (полей нет; юниты инстанцируются его детьми) |
@@ -278,7 +293,10 @@ SampleScene
 | Systems/OfferingSystem | **OfferingSystem** | **schedule** | `ScriptableObjects/OfferingDef/Offering Schedule Def`. Пусто или без циклов — предупреждение, цикл выключен |
 | | | **resourceSystem** | ResourceSystem — из неё платится квота |
 | Systems/PrestigeSystem | **PrestigeSystem** | **saveSystem** | SaveSystem (на `Bootstrap`) |
-| | | formula | выплата: очки за эпоху + кривая по всему собранному; платится только то, что бьёт рекорды профиля. Выплата — при каре богов, в любой эпохе |
+| | | formula → agePoints | очки за вход в каждую эпоху по порядку: элемент 0 — Age II. Эпохи за концом списка платят последний элемент, пустой список — ничего. В сцене по 1 на каждую. Платится только то, что бьёт рекорд профиля |
+| | | formula → minutesPerInterval, pointsPerInterval | 5 и 1 — очки за время: за каждые целые 5 минут живой игры, в каждом забеге, без рекорда. Остаток сгорает вместе с забегом; на любом экране поверх игры время стоит. 0 минут = время не платит |
+| | | formula → weights, defaultWeight, coefficient, exponent | очки за собранное, тоже только сверх рекорда. **В сцене coefficient 0 — сбор очков не даёт** |
+| | | — | выплата — при каре богов, в любой эпохе; забег, не побивший рекордов, получает только за время |
 | | | upgrades | `Global Upgrade Catalogue Def` (GlobalUpgradeCatalogueDef) — мета-перки в порядке мета-экрана |
 | Systems/AgeSystem | **AgeSystem** | **ages, resourceSystem** | список AgeDef-ассетов по порядку (начинается с Age II — у Age I дефа нет); ResourceSystem |
 | Systems/AgeSequencer | AgeSequencer | islandSystem | Island |
@@ -287,7 +305,7 @@ SampleScene
 | | | inputHandler | InputHandler на `Input` (тапы: ×3, пропуск, закрыть баннер; пусто = без тапов). Слушает `OnAnyClick` — клики и поверх UI, баннер сам UI |
 | | | — (баннер) | своих полей нет: баннер (`Canvas/AgeTransition` + `BannerText`) назначен на `UIRoot`, бутстрап отдаёт его кодом (`AgeSequencer.Initialize`) |
 | | | bannerFade, titleHold, bannerTapGrace | 0.5, 2, 0.4 (сек, дефолты): проявление/угасание баннера, сколько он висит, через сколько его можно закрыть тапом |
-| IslandRise | **IslandRisePlayer** | **profile** | ассет `ScriptableObjects/Profiles/Island Rise Profile` — все ручки подъёма (тайминги, кривые, эффекты, звук, тряска) |
+| IslandRise | **IslandRisePlayer** | **profile** | ассет `ScriptableObjects/Profiles/Island Rise Profile` — все ручки подъёма (тайминги, кривые, эффекты, звук, тряска). Слоты эффектов: bubblesFx `FX_Rise_Bubble_Glint` (1 → 3 пузыря в секунду к выныриванию), splashFx `FX_Rise_Spray`, touchDownFx `FX_Rise_Touch`, popFx `FX_Rise_Pop`, finaleFx `FX_Rise_Finale` (доля клеток 0.6). Остальные `FX_Rise_*` — запасные варианты |
 | | | **islandSystem** | Island |
 | Systems/TapSystem | **TapSystem** | **inputHandler** | InputHandler |
 | | | radiusVisual | TapRadiusVisual на этом же объекте (ширина, материал и цвет кольца — на его LineRenderer). Кольцо видно, пока игра идёт и рука пуста: с карточкой или Sell в руке клик — стройки, и кольцо прячется |
@@ -297,9 +315,12 @@ SampleScene
 | | | tapVolume, tapPitchJitter | 0.6 и ±0.05 (дефолты): громкость щелчка и случайный разброс высоты на каждый тап, 0 = всегда одинаково |
 | Systems/PlacementController | **PlacementController** | **inputHandler, structureSystem, resourceSystem, islandSystem, gridOverlay** | соответствующие компоненты (gridOverlay — на `Island/GridOverlay`). Камеры нет: курсор в мире берёт у `InputHandler` |
 | | | visuals → validColor, invalidColor, sellHoverColor | цвета госта/наведения: гост валид/невалид, красный при продаже (есть дефолты) |
+| | | visuals → glideDuration, glideEase, flightScale | 0.07 с, OutCubic, 0.9 — доезд призрака забора до нового ребра и его масштаб в пути (0 с = прыгает) |
+| | | visuals → snapScale, snapDuration | кривая 1.12 → 0.97 → 1 за 0.12 с — щелчок призрака на ребро (последний ключ кривой держать на 1) |
 | | | visuals → territoryValidColor, territoryInvalidColor, territorySortingLayer, territorySortingOrder | ореол занимаемой территории госта: зелёный/красный α0.18, слой Ground/1001 (дефолты) |
 | Systems/HarvestVfxSystem | HarvestVfxSystem | viewCamera | Main Camera (опц. — пусто = `Camera.main` в `Awake`; нужна только чтобы не играть эффекты за экраном) |
-| | | offscreenMargin | 0.1 (дефолт) — запас вокруг экрана в долях вьюпорта |
+| | | offscreenMargin | в сцене 0.033 (дефолт 0.1) — запас вокруг экрана в долях вьюпорта |
+| | | resources | `ResourceIconSet/Resource Icon Set` — эффект подбора каждого ресурса, для источников без своего и для налога. Пусто = играют только эффекты дефов |
 | | HarvestNumbers | **numberPrefab** | `Prefabs/FX/FX_HarvestNumber` (без него цифр нет, в консоли ошибка) |
 | | | motion | `ScriptableObjects/HarvestNumberMotionDef/Harvest Number Motion` — вся подгонка ощущения: lifetime (0.9 с), travel (0, 0.8), кривые полёта/масштаба/альфы, spawnOffset, spawnJitter (0.15, 0.1) |
 | | | viewCamera, offscreenMargin | как выше |
@@ -316,7 +337,7 @@ SampleScene
 | CameraController | **CameraController** | **cameraTarget, vcam** | пустой `CameraTarget` (его и двигаем); CinemachineCamera — зум пишется в её `Lens > Orthographic Size`, значение в сцене перезаписывается стартовым видом |
 | | | **islandSystem, viewCamera, inputHandler** | Island (кламп по острову); viewCamera = Main Camera (только для перевода пикселей перетаскивания в мир); inputHandler = InputHandler на `Input` — от него перетаскивание ПКМ. **Пусто — остров правой не двигается, молча** |
 | | | zoomLevels, startZoomLevel | виды зума на `+` / `−`: Ortho Size от дальнего к ближнему — 16.875 / 11.25 / 8.4375 (×2 / ×3 / ×4 на 1080p); старт = 1 (классика) — дефолты. Любое значение безопасно: до целого масштаба пикселей его округляет `CinemachinePixelPerfect` |
-| | | panSpeed, edgePanEnabled, edgeThickness | скорость WASD/стрелок (12), вкл. край-скролл, толщина края в px (12) — дефолты |
+| | | panSpeed, edgePanEnabled, edgeThickness | скорость WASD/стрелок (12), край-скролл (в сцене **выключен**, дефолт вкл), толщина края в px (12) |
 | | | boundsMargin | насколько центр (= цель) может уйти за край острова (4) — дефолт |
 | Main Camera | **CinemachineBrain** | Ignore Time Scale ✓ | пишет позицию из активной vcam — и при `timeScale = 0` |
 | Main Camera | **PixelPerfectCamera** | Assets PPU 16, Reference Resolution 640×360, Upscale Render Texture ✗ | целый масштаб пикселей под экран. 640×360 = ширина Канваса → в классическом виде пиксель мира = пиксель UI. Upscale RT не включать — лесенкой станут наклоны, рябь, частицы |
@@ -329,13 +350,15 @@ SampleScene
 | | | coastWaves, waveHorizontalTilemap, waveVerticalTilemap | `TileSet/Coast Wave Set` (кадры пены художницы и их тайминг), `Grid/WaveHorizontal`, `Grid/WaveVertical`. Рисуются только в Play Mode. Пусто = без волн |
 | | | coastShadowTile, coastShadowTilemap | `Tiles/Water/water_shadow_island`, `Grid/CoastShadow` — тень острова: один тайл под каждой полосой кромки. Пусто = без тени |
 | | | projectionDark, projectionLight | спрайты `Water/water_shadow_bldngs` и `Water/water_reflect_bldings` — проекции построек на воде, общие для всех. Пивот сверху по центру: от него блок свисает с футпринта. Пусто = без проекций |
-| | | **tileSet, biomes** | `TileSet/Base Tile Set` — тайлы для биома без своего тайлсета; биомы, из которых эпоха предлагает зоны (Meadow, Forest, Desert) |
-| | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → `TileSet/Brdr Set Meadow` → `Grid/BordersMeadow`; `Forest` → `TileSet/Brdr Set Forest` → `Grid/BordersForest`. Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / обеими кромками), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / кромки — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
+| | | **tileSet, biomes** | `TileSet/Tile Set Meadow` — тайлы для биома без своего тайлсета; биомы, из которых эпоха предлагает зоны (Meadow, Forest, Desert) |
+| | | **borders** | мягкие границы между биомами, **СВЕРХУ ВНИЗ**: `Grass` → `TileSet/Brdr Set Meadow` → `Grid/BordersMeadow`; `Forest` → `TileSet/Brdr Set Autumn` → `Grid/BordersForest` (лес сейчас осенний). Порядок строк = кто кого накрывает (биом без строки — в самом низу, это пустыня). Строку луга держать даже без арта, иначе лес сочтёт луг нижним и наползёт на него. **Слой и Order тайлмапов границ ставит код по этому списку** (слой сортировки — как у `Ground`, то есть Island; над Ground / Decor / обеими кромками), введённое в инспекторе не важно. Повтор биома, общий тайлмап у двух строк или тайлмап земли / кромки — ошибка в консоли, строка не рисуется (общий с декором — не рисуется декор). Тайлмапы границ: материал `Materials/BendMaterial`, как у Ground (иначе не гнутся при подъёме острова), без коллайдера |
 | | | **structureSystem** | StructureSystem — через неё зона получает природное содержимое (деревья, реки, стартовый дом) |
 | | | cellSize, previewSeed | 1; сид для редакторского превью «Generate Island» (контекстное меню). Забег берёт сид из StartConfig |
 | Island/Grid/Ground | CoastBump | southOutline, sideOutline, northOutline | 4 / 1 / 0 — на сколько арт-пикселей сдвинуть точку удара к воде: кромка берега нарисована на клетках воды (полоса под южным краем, столбик у восточного и западного, на севере ничего) |
 | | | pixelsPerUnit | 16 |
 | | | minDistance, minInterval | 0.75 и 0.25 с — рябь ближе этого к показанной меньше этого назад пропускается. Троттлинг по МЕСТУ, а не по объекту: берег — один объект на весь остров |
+| | | bulgePixels, bulgeReach | 2 px и 2 клетки — насколько берег выгибается к воде под ударом и как далеко в стороны; 0 px = не выгибается. Гнутся тайлы с материалом `BendMaterial`, коллайдер стоит |
+| | | bulgeFrequency, bulgeDamping | 8 Гц и 0.35 — пружина: чем выше частота, тем жёстче берег; 1 у затухания = без качания |
 | Island/GridOverlay | **GridOverlay** | **islandSystem** | Island. Сетка — **пятно у курсора**, и только пока в руке карточка или Sell; весь остров она не покрывает |
 | | | lineColor, lineWidth | в сцене синий (0.08, 0.41, 0.80) α0.64; 0.04 (дефолт — белый α0.6) |
 | | | occupiedColor | заливка занятых клеток (территория структур), белый α0.12 (дефолт) |
@@ -393,8 +416,9 @@ SampleScene
 | Canvas/Hud/AgePanel | AgeAdvancePanel | titleLabel, bonusValueLabel, bonusTextLabel | `Age/Title`, `Age/BonusValue`, `Age/BonusText`. Бонус из данных («+10% ALL PRODUCTION») делится по первому пробелу: число — в первой строке, остальное — во второй |
 | | | noBonusText, nextAgeButton | «NO BONUS» — у эпохи без бонуса (Age I без AgeDef или пустой бонус в данных): одна строка посередине между строками бонуса, высоту скрипт берёт из их позиций в префабе; `AdvanceButton` |
 | Canvas/Hud/AgePanel/Cost | AgeCostPanel | unitPrefab, container, iconSet | `Prefabs/Elements/ResourceUnit Variant For Age` (не сам ResourceUnit — см. его раздел), себя (Grid Layout Group), ResourceIconSet |
-| | | unaffordableColor, visibilityRoot | #9B211E — сумма, которой не хватает (её иконку ещё и обводит кольцо); что гасить после последней эпохи, когда покупать больше нечего (пусто = сам Cost) |
-| Canvas/Screens/PerkScreen | PerkSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/PerkCardUI`, `Panel/CardColumn` |
+| | | unaffordableColor, visibilityRoot | #9B211E — сумма, которой не хватает (её иконку ещё и обводит кольцо); что гасить, когда цены нет: следующая эпоха бесплатна или покупать больше нечего (пусто = сам Cost) |
+| | | freeLabel | `AgePanel/Free` — надпись вместо цены бесплатной эпохи. Должна лежать вне visibilityRoot, иначе погаснет вместе с ценой |
+| Canvas/Screens/PerkScreen | PerkSelectionUI | cardPrefab, cardContainer, spacing | префаб `Prefabs/Elements/PerkCardUI`, `Window/Cards`, 3 px между карточками. Окно на три карточки, меньше — по центру |
 | Canvas/Screens/ZoneScreen | ZoneSelectionUI | cardPrefab, cardContainer | префаб `Prefabs/Elements/ZoneCardUI`, `Panel/CardRow` |
 | | | focusOffsetY | 0.15 (дефолт) — насколько выше центра экрана встаёт зона под карточкой |
 | Canvas/Screens/OfferingWindow | **OfferingWindow** | **payButton, wrathButton** | `Window/PayButton` (его Button), `Window/WrathButton` (его HoldButton). Без любой из них окно не может спросить — `OfferingEndState` тогда не замораживает игру, а берёт что может |
@@ -405,11 +429,13 @@ SampleScene
 | надписи окна | PixelSnapText | — | полей нет: ставит каждую строку TMP на целый пиксель (центр по краям букв, базовую линию от верхнего края). Рамка надписи должна стоять на целых пикселях, шрифт — в чётком размере |
 | Canvas/HintView | HintView | titleText, bodyText, costContainer, footerText | свои дети; секция с пустым содержимым прячется сама. Встаёт над элементом или слева от него — как попросит источник (`HintShowEvent.Side`; карточки стройки — сверху, ячейки перков — слева) |
 | | | costPrefab, iconSet, unaffordableColor | ResourceUnit, ResourceIconSet, #9B211E — цена, которую не потянуть |
-| | | maxWidth, gap, screenMargin, showDelay, chainWindow | 160, 4, 2, 0.25 с, 0.3 с (дефолты): ширина до переноса, отступ от элемента и от края экрана, задержка появления, окно «перехода» между соседними элементами без задержки |
+| | | maxWidth, gap, screenMargin, showDelay, chainWindow | 160, 10 (дефолт 4), 2, 0.25 с, 0.3 с: ширина до переноса, отступ от элемента и от края экрана, задержка появления, окно «перехода» между соседними элементами без задержки |
 | Canvas/MetaScreen | **MetaUpgradesUI** | slotPrefab, slotContainer, pointsText, tip, playButton | префаб `Prefabs/Elements/MetaUpgradeSlot`, `Grid`, `Points/PointsText`, `Tip`, `NextIslandButton` |
+| префаб MetaUpgradeSlot | MetaUpgradeSlotUI | icon, costLabel | `Icon`, `Cost` (цена в углу; у купленного скрыта) |
+| | | takenIconColor, notTakenIconColor | белый и белый α 0.18 — иконка купленного и некупленного |
+| | | affordableCostColor, unaffordableCostColor | #6B85D2 — свободных очков на цену хватает, #E04840 — нет |
 | Canvas/MetaScreen/Tip | **MetaUpgradeTipUI** | text | `Tip/Text` |
-| | | pointsText, pointsFormat | `PointsText`, `Prestige points: {0}` |
-| | | **playButton** | `PlayButton` — следующий забег |
+| | | titleColor, maxWidth, offset, screenMargin | #A8B4D6 — цвет названия; 83 — ширина до переноса; (0, −2) — левый верхний угол подсказки от правого верхнего угла ячейки; 2 — отступ от края экрана |
 | Canvas/ConfirmDialog | ConfirmDialog | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию. Сейчас не вызывается: окно конца цикла — `Screens/OfferingWindow`. На `UIRoot` ссылки на него больше нет |
 
 #### Новый элемент Канваса, которому нужна система
@@ -499,6 +525,7 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 ├── Visual    (origin у основания — от него сквош и наклон)
 │   └── Model → SpriteRenderer (пивот у основания) + SpriteShadow   (+ декор детьми)
 ├── Fx_Anchor (пустышка: откуда вылетает отклик сбора — у источников, см. fxAnchor)
+├── TaxFx_Anchor (пустышка: откуда вылетает налог, — у дома, см. taxFxAnchor)
 └── Physics   → Collider2D (Box / Circle / Polygon — по форме)
 ```
 - Rigidbody2D всегда на ROOT, чтобы `OnCollisionEnter2D`/`OnTriggerEnter2D` доходили до скрипта.
@@ -510,13 +537,15 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
   alpha (30/255). У госта стройки тени нет by design.
 - **WaterProjection** — на КОРЕНЬ префаба (не на Model): тёмный и светлый блоки на воде перед постройкой, суша закрывает
   их сама. Спрайты общие (`IslandSystem.projectionDark`, `projectionLight`); поле lightInsetPixels (2) — на сколько
-  арт-пикселей светлый блок уже тёмного с каждой стороны. Стоит на House, Market, Mill, RicePaddy, Sawmill, Smithy, Stable, Tavern
+  арт-пикселей светлый блок уже тёмного с каждой стороны. Стоит на House, Market, Mill, RicePaddy, Sawmill, Smithy, Stable, Tavern, GooseCoop
   и 5 стойках; у пирса, пшеницы, забора и природы его нет. У госта и чертежа стройки проекций нет by design.
 
 Компоненты поведения (на корне, комбинируются):
 
 | Компонент | Поле | Что назначить |
 |-----------|------|---------------|
+| **Structure** (у любой постройки) | def | её StructureDef |
+| | taxFxAnchor | откуда вылетает налог — ресурс, который постройка доплачивает за удар по перку (`AdditionalResourcePerHit`, перк Taxes). Пусто = корень. Отдельно от fxAnchor источника; сейчас назначен у House (`TaxFx_Anchor`) |
 | **Spawner** (дом: выпускает юнитов) | spawnSystem | SpawnSystem в сцене *(или впрыснется в рантайме при постройке)* |
 | | unitDef | UnitDef — какой юнит живёт в доме |
 | | capacity | число слотов (≥1) — база, перки растят статом `HouseCapacity` |
@@ -551,6 +580,16 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 | | newLogDelay, dropTime, dropPixels | 0.3 с после раскола, 0.2 с падения, с 4 px — новое бревно падает, а не проявляется |
 | | halfBack, halfFront | `Visual/Half_Back`, `Visual/Half_Front` — половинки, рендереры ВЫКЛЮЧЕНЫ, стоят там, где ложится раскол |
 | | splitTime, backRollPixels, frontRollPixels | 0.45 с; задняя откатывается на 5 px назад, передняя на 8 px вперёд, обе гаснут |
+| **GooseCoop** (гусятник) | goosePrefab | `Prefabs/Nodes/Goose` |
+| | flockSize, restTime | 3 птицы (база, перк Geese x3 — стат `DenCapacity` со скоупом Goose); 0 с — отдых пойманной птицы в загоне, 0 = готова сразу |
+| | releasedBy | профессии, чей рабочий удар выпускает стаю; в префабе все, вместе с Unassigned. Пустой список = любой пип |
+| | releaseGap, releaseJitterDegrees | 0.3 и 25° — выход через свободную сторону: разброс крутит только полёт, а не точку выхода |
+| | releaseSound, pen | звук выпуска (пусто); `Visual` (его GoosePenView) |
+| **GoosePenView** (птицы в загоне) | modelTemplate, penArea, turnInterval | `Visual/Pen Bird Template` (выключен), прямоугольник загона (0.125, 0.3125) 0.625×0.25 — жёлтая рамка гизмо, 0.6–2.5 с между поворотами |
+| **WaterBed** (река) | wall | `Physics` (его BoxCollider2D) — гаснет, пока над клеткой стоит мост |
+| **MountainVisual** (гора) | model, topLeft … bottomRight | `Visual/Model`, девять кусков `mountain_9tiles` в порядке чтения листа |
+| | northWestCorner …, innerNorthWest … | рендереры `Visual/Corner NW / NE / SW / SE` и их спрайты внутренних углов. **Спрайты пока пусты** — углы не рисуются, ждут арт |
+| **RandomVariant** (камень) | variants | `Model_Ready/Variant_1…3` — при спавне остаётся включён один; в префабе включён первый |
 | **VisitZone** (проход рынка) | hitsPerVisit | 3 засчитанных удара за заход — база, стат `MarketVisitHits` сверху |
 | **Pier** | — | маркер без полей (см. «Пирс») |
 | **BumpView** (отклик на отскок: сквош + волна) | squashTarget | `Visual`. Пусто = без сквоша, только волна (так у Pier и RicePaddy) |
@@ -558,7 +597,7 @@ Root          → Rigidbody2D (Static) + Structure  [+ компоненты по
 | | waves | вкл (дефолт) — волна из задетой грани через `BumpVfxSystem`. **Выкл у BaseTree и Rock**: у ресурсов только тряска, лес в дугах — шум |
 | | blockedSquash, uselessSquash | 0.5 и 0.35 — доля сквоша у удара Blocked (для этого юнита, но мешает) и Useless (не для него) |
 | | minInterval | 0.15 с — удары внутри интервала после показанного пропускаются, но более сильный вердикт проходит всегда |
-| **LeanView** (наклон проходимого за юнитом: BaseWheat, Bush, пять `Rack_*`) | leanTarget | `Visual` (origin на линии земли) |
+| **LeanView** (наклон проходимого за юнитом: BaseWheat и его вариант Bamboo, Bush, Mushrooms, пять `Rack_*`) | leanTarget | `Visual` (origin на линии земли) |
 | | maxTilt, maxStretch, squatOnly | 8°, 0.06 высоты, выкл — наклон вбок, вытягивание вверх по экрану / приседание вниз; squatOnly — только приседание |
 | | frequency, damping | 3 Гц, 0.3 — пружина: качается и успокаивается |
 | | blockedLean, uselessLean | 0.6 и 0.6 — доля наклона у прохода Blocked / Useless |
@@ -579,6 +618,16 @@ Root                → Rigidbody2D (Static) + Structure + ResourceSource + Reso
 > `GetComponentsInChildren`, который не видит выключенные объекты. Начальное состояние выставит код;
 > выключенный в префабе `Model_Harvested` просто убирает мигание в первый кадр.
 > `Never`-источники (не истощаются) и `Despawn` (исчезают) второй рут не используют.
+> Источник, который теряет тело (дерево, берёза, камень), отрастает, только когда на клетках его постройки никого нет:
+> ни жителя, ни гуся. Отладка в Play (правая кнопка по заголовку компонента): `ResourceSource` → Deplete Now / Regrow Now,
+> `Structure` → Deplete Sources / Regrow Sources (вся клетка леса сразу).
+
+**Камень** (`Prefabs/Nodes/Rock`): `Model_Ready` — `RandomVariant` с тремя раскладками (`Variant_1` включён, остальные
+выключены), у каждого куска свой SpriteRenderer (Entities) + SpriteShadow; `Model_Harvested` — щебень на слое Ground,
+`swapStateVisuals` вкл.
+
+**Бамбук** (`Prefabs/Nodes/Bamboo`) — вариант префаба `BaseWheat`: другие def, спрайты и ResourceSourceDef, всё
+остальное от пшеницы.
 
 **Лес** (`BaseForest`) = `Structure` + `DualVisual` с двумя раскладками деревьев (`Visual Left` / `Visual Right`) —
 какая включится, решает чётность ряда, чтобы соседние леса вставали «кирпичиком». Каждое дерево внутри —
@@ -587,7 +636,7 @@ Root                → Rigidbody2D (Static) + Structure + ResourceSource + Reso
 **Река** (`Prefabs/Nodes/River`) — одна клетка русла, ставит только генератор (у дефа `isWater` вкл,
 `canSell` выкл). Кусок и поворот выбирает код по соседним клеткам реки:
 ```
-Root          → Rigidbody2D (Static) + Structure + RiverVisual
+Root          → Rigidbody2D (Static) + Structure + RiverVisual + WaterBed (wall → Physics)
 ├── Visual    (Y 0.5 — центр клетки: модель крутится вокруг своей позиции)
 │   └── Model → SpriteRenderer (Sorting Layer Default — над всеми тайлмапами земли, под всем, что стоит)
 │               + SpriteShadow с выключенным Cast Shadow
@@ -603,6 +652,32 @@ Root          → Rigidbody2D (Static) + Structure + RiverVisual
   в тех же ориентациях — иначе повороты перепутаются.
 - Спрайт в самом `Model` — любой из трёх, в игре его заменит `RiverVisual`.
 - Тень на реке не нужна: тень — ребёнок модели и крутилась бы вместе с куском.
+- Материал `Model` — `Materials/RiverMaterial`: блики в глубине шейдером, **временно**, до кадров художницы. Спрайт реки
+  должен быть отдельной текстурой, не куском листа; цвета мелководья и глубины в материале — как в арте.
+
+**Мост** (`Prefabs/Buildings/Bridge`, 1×1) — ставится только на клетку реки (у дефа `onWater` и `passable` вкл); река
+остаётся под ним, гаснет только её стенка (`WaterBed`), и только когда мост достроен:
+```
+Root      → Structure   (ни Rigidbody2D, ни коллайдера: по мосту ходят, отскакивать не от чего)
+└── Visual/Model → SpriteRenderer (Default, Order 1 — поверх реки; Y −0.0625)
+```
+
+**Гора** (`Prefabs/Nodes/Mountain`) — клетка массива, ставит только генератор; кусок и углы выбирает код по восьми
+соседям:
+```
+Root          → Rigidbody2D (Static) + Structure + MountainVisual
+├── Visual    (Y 0.5 — центр клетки)
+│   ├── Model → SpriteRenderer (Default, Order 0)
+│   └── Corner NW / NE / SW / SE → SpriteRenderer (Default, Order 1, компонент выключен) — внутренние углы поверх куска
+└── Physics   → BoxCollider2D 1×1, Offset Y 0.5
+```
+- Спрайты с пивотом по центру, без тени. Угол рисуется только своими пикселями, без дыр внутри; `flipX` нельзя — свет слева.
+- Горой клетку делает сам `MountainVisual` на корне, отдельной галочки в дефе нет.
+
+**Рынок** (`Prefabs/Buildings/Market`, 3×3): пять спрайтов под `Visual` (`Tower_Up`, `Wall_Up`, `Flags`, `Tower_Bottom`,
+`Wall_Bottom`), все на Entities с Order 0 — порядок даёт Y-сортировка, поэтому юнит в проходе идёт между стенами. Проход
+горизонтальный: стены — два BoxCollider2D 3×1 на `Physics`, между ними `Passage` (триггер 2.73×1.22 + свой
+Rigidbody2D Static + VisitZone).
 
 **Лесопилка** (`Prefabs/Buildings/Sawmill`, 3×1) — диск идёт МЕЖДУ частями бревна и стола, поэтому порядок задаёт
 `SortingGroup` на `Visual`, а не Y: лесопилка сортируется как одно здание по своему основанию, внутри — `sortingOrder`:
@@ -627,6 +702,27 @@ Root            → Rigidbody2D (Static) + Structure + ResourceSource (def Sawmi
   размещения показывает префаб как есть.
 - Арт — заглушка (`Sprites/GamePlay/Buildings/Sawmill/`), иконка карточки склеена из тех же кусков.
 
+### Гусятник и гуси (GooseCoop, Goose)
+```
+GooseCoop (2×1)  → Rigidbody2D (Static) + Structure + GooseCoop + BumpView (squashTarget → Visual) + WaterProjection
+├── Visual       → SortingGroup (Entities, 0) + GoosePenView
+│   ├── Model    → SpriteRenderer (order 0) + SpriteShadow (0, 2 px)
+│   └── Pen Bird Template (выключен) → SpriteRenderer (order 2) + SpriteShadow   ← образец птицы в загоне, копии в рантайме
+└── Physics      → BoxCollider2D 1.9×0.9 (Y 0.5)
+
+Goose            → Rigidbody2D (DYNAMIC, Gravity 0, Continuous, Freeze Rotation Z) + CollisionTarget
+│                  + ResourceSource (def Goose, fxAnchor → Fx_Anchor) + Goose
+├── Model        → SpriteRenderer (Entities, арт смотрит ВПРАВО — код отражает по полёту) + SpriteShadow
+├── Physics      → CircleCollider2D 0.125 + Unit Physics Material 2D, слой **Goose** — отскакивает от стен
+├── Hitbox       → CircleCollider2D 0.1875, Is Trigger ВКЛ, слой **Default** — по нему гуся ловят юниты
+└── Fx_Anchor
+```
+- **Слой Goose (7)** в матрице Physics 2D: Goose×Unit и Goose×Goose OFF — пипы летят сквозь птицу, её ловит только Hitbox.
+- Поля `Goose`: speed (2), body → `Physics`, hitbox → `Hitbox`, model, releaseImmunity (1.5 с после выпуска не поймать),
+  minBounceAngle (10°) и bounceJitterDegrees (3°) — как у юнита, stuckRadius (1) и stuckWindow (5 с) — застрявший летит домой.
+- Кто и сколько получает за гуся — `ResourceSourceDef/Goose`: Unassigned 1, Farmer 1, Hunter 2 еды; `Despawn`, один удар.
+- Продали гусятник — гуси на острове исчезают малым пуфом. Стройплощадка или закрывшаяся река под птицей — птица домой.
+
 ### Звери (Boar, Fox, Alpaka — подвижные ресурсные ноды)
 Зверь — **не юнит и не Structure**: у него нет дефа постройки, клетки на гриде и здоровья.
 ```
@@ -647,10 +743,11 @@ Root          → Rigidbody2D (KINEMATIC, Gravity Scale 0) + CollisionTarget + R
   до конца забега; продали нору — её звери исчезают с «пуфом». На клетки стройплощадки зверь не заходит, а
   стоящий на них уходит сам; площадка в клетках ждёт, пока зверей на ней не останется (площадка забора не ждёт).
 
-### FX_Pickup_* (эффект сбора — по одному на источник)
-Префаб с одной `ParticleSystem`: колосок из поля, бревно из дерева, монета с рынка. Кладётся в
-`ResourceSourceDef.pickupFx`. **Не в сцену и не в префаб ноды** — систему инстанцирует
-`HarvestVfxSystem`, по одному общему эмиттеру на деф, и переиспользует до конца сессии.
+### FX_Pickup_* (эффект сбора)
+Префаб с одной `ParticleSystem`: колосок из поля, бревно из дерева, монета с рынка. Обычный эффект ресурса — в
+`ResourceIconSet` (поле `pickupFx` в строке ресурса); свой у источника — в `ResourceSourceDef.pickupFx`, он главнее.
+**Не в сцену и не в префаб ноды** — систему инстанцирует `HarvestVfxSystem`, по одному общему эмиттеру на ПРЕФАБ
+эффекта (пшеница и мельница с одним колоском делят один), и переиспользует до конца сессии.
 
 Три требования, которые система проверяет и о нарушении пишет в консоль с именем ассета:
 
@@ -660,12 +757,12 @@ Root          → Rigidbody2D (KINEMATIC, Gravity Scale 0) + CollisionTarget + R
 | **Main → Looping** | **ON** | система играется один раз и дальше кормится вручную; не-зацикленная сама остановится после Duration и молча проглотит все последующие сборы |
 | **Emission → Rate over Time / Distance** | **0** | иначе эмиттер будет сыпать частицы в точке последнего сбора между ударами (это warning, не ошибка) |
 
-Сколько частиц за сбор — не в префабе, а в `ResourceSourceDef.pickupFxCount`.
+Сколько частиц за сбор — не в префабе, а в `pickupFxCount` рядом с эффектом (в дефе или в `ResourceIconSet`; меньше 1 = 1).
 Смещение относительно якоря ноды — **Shape → Position** внутри самого префаба: якорь отвечает
 «откуда вообще идёт отклик у этого объекта», точная посадка эффекта — дело эффекта.
 Слой сортировки — в модуле **Renderer**: `Overlay`, `Order in Layer` = 0 (цифра идёт поверх, см. ниже).
 
-В плеймоде живые эмиттеры видны детьми объекта `Systems/HarvestVfxSystem` как `PickupFx_Wheat`, `PickupFx_Tree` —
+В плеймоде живые эмиттеры видны детьми объекта `Systems/HarvestVfxSystem` как `PickupFx_<имя префаба эффекта>` —
 удобно крутить на живую, но правки на них не сохраняются, это копии; править надо префаб.
 
 ### FX_HarvestNumber (всплывающая цифра — одна на всю игру)
@@ -705,6 +802,17 @@ Root → TextMeshPro (МИРОВОЙ, НЕ TextMeshProUGUI)
   (`m_SortingLayerID: -661730883`, `m_SortingLayer: -2`).
 - Листы — заглушки, сгенерированные скриптом; художник перерисует их в той же раскладке.
 
+### FX_Puff, FX_Puff_Small (пуф исчезновения)
+Одна `ParticleSystem`, одна частица на пуф — флипбук из 6 кадров, Lifetime 0.4, слой Overlay, Order 0. Кладутся в
+`SpawnSystem.puffFx` / `smallPuffFx`; требования общих эмиттеров те же, что у `FX_Pickup_*`.
+
+| Префаб | Материал → лист | Кадр, Start Size | Для кого |
+|--------|-----------------|------------------|----------|
+| `FX_Puff` | `M_Puff` → `Misc/Bump/fx_puff` | 32×32, 2 | жители и звери |
+| `FX_Puff_Small` | `M_Puff_Small` → `Misc/Bump/fx_puff_small` | 16×16, 1 | гуси |
+
+Листы — заглушки, перерисовывать в той же раскладке (кадр / 16 = Start Size, чтобы пиксель ложился на пиксель).
+
 ### BaseFence / заборы (Structure на РЕБРЕ грида)
 Забор не занимает клетку — он стоит на **ребре** (границе между двумя клетками). Это один префаб с
 **двумя позами-детьми**; нужную включает `DualVisual` по ориентации ребра.
@@ -726,8 +834,13 @@ Root              → Rigidbody2D (Static) + Structure + DualVisual (firstRoot =
 - В `StructureDef` забора выставить **placement = Edge** (`size`/`border` для рёбер не используются).
 - Тот же префаб служит превью: ghost = его инстанс с выключенными коллайдерами и поведением, тинт
   green/red на обоих рендерерах.
-- **Sell:** клик «выигрывает» забор, когда курсор ближе 0.3 клетки к линии ребра (иначе берётся
-  структура в клетке под курсором).
+- Забор не встаёт **внутри** постройки (обе клетки ребра — одной и той же), а постройка — поверх забора.
+- **Призрак** держит своё ребро, пока курсор не подойдёт к другой линии (0.15 клетки), и притягивается к концу стены
+  (1.25 клетки): продолжает её прямо, а при уходе в сторону (0.3 клетки) предлагает поворот.
+- **Протяжка:** зажать и вести по линиям сетки — призраки всей линии (зелёные встанут, красные нет: место, лимит, деньги
+  по растущей цене), стройка и оплата на отпускании. Назад по линии — стирает, ПКМ — отмена, над UI замирает.
+- **Sell:** выигрывает ближайший забор не дальше 0.35 клетки от его отрезка (иначе берётся структура в клетке под
+  курсором). Нажал на забор — протяжка сноса: только заборы, продажа на отпускании; нажал на постройку — продана сразу.
 
 ### BuildCard (префаб карточки, инстанцирует BuildPaletteUI в рантайме — при первом открытии её вкладки)
 ```
@@ -737,22 +850,62 @@ Root → Image + Button + CanvasGroup + BuildCardUI
     ├── Artwork           → CanvasGroup
     │   ├── Thickness     → Image
     │   ├── SelectionFrame (выкл)       → Image
-    │   ├── CardBody      → Image
+    │   ├── CardBody      → Image + RectMask2D
+    │   │   └── Info      → CanvasGroup         (видна у раскрытой карточки — той, что в руке)
+    │   │       ├── Title, Description, BuildsOn → TMP_Text
+    │   │       └── Terrains → Horizontal Layout Group
+    │   │           └── Grass / Forest / Desert → Image + Light, DarkTopRight, DarkBottomLeft (Image)
     │   ├── ItemContainer → Image
     │   │   ├── IconSelectionPlaceholder (выкл) → Image
     │   │   └── BuildingIcon            → Image
-    │   ├── ResourcePanel → Image
-    │   │   ├── ResourceIcon            → Image
-    │   │   └── Cost                    → TMP_Text
+    │   ├── ResourceUnit  → вложенный префаб `ResourceUnit` — цена
     │   └── ShineViewport → RectMask2D
     │       └── Shine (выкл)            → Image
     └── LockedOverlay (выкл)            → Image
         └── LockedText                  → TMP_Text
 ```
-Поля `BuildCardUI` названы по детям (cardBody → `CardBody`, iconImage → `BuildingIcon`, costText → `Cost`,
-lockedOverlay → `LockedOverlay` и т. д.); `countText` («Count: 1 of 2») — опционален. Размеры, наведение,
-наклон и блик — в ассете `ScriptableObjects/BuildMode/Build Card Motion Profile` (поле motionProfile), иконки
-ресурсов — ResourceIconSet (iconSet), точка подсказки — hintAnchor.
+Поля `BuildCardUI` названы по детям (cardBody → `CardBody`, iconImage → `BuildingIcon`, costUnit → `ResourceUnit`,
+infoGroup → `Info`, titleText, descriptionText, lockedOverlay → `LockedOverlay` и т. д.); terrainChips — пары {земля,
+объект из `Terrains`}; `countText` («Count: 1 of 2») — опционален, в префабе пуст. Размеры (в покое 54×70, наведение
+66×82, раскрытая 138×90), наклон и блик — в ассете `ScriptableObjects/BuildMode/Build Card Motion Profile` (поле
+motionProfile), иконки ресурсов — ResourceIconSet (iconSet). showHint выключен: подсказку над карточкой заменила
+раскрытая карточка; hintAnchor — её точка, если включить.
+
+Не хватает ресурсов — арт карточки (всё под `artwork`, кроме цены и рамки «в руке») становится серым материалом
+`Materials/M_UI_Greyscale` (поле unaffordableMaterial профиля), число цены — #9B211E (unaffordableCostColor). Запертая
+карточка цвета сохраняет: её закрывает `LockedOverlay`.
+
+### PerkCardUI (карточка перка, инстанцирует PerkSelectionUI в рантайме)
+```
+Root (226×86)     → Image (прозрачная, Raycast ВКЛ — вся карточка и есть кнопка) + PerkCardUI
+└── Visual        (сжимается при нажатии — scaleTarget)
+    ├── Shadow, Panel, PanelLit (выкл) → Image (Sliced)   (PanelLit — вид под курсором, hoverHighlight)
+    ├── IconFrame   → Image 67×66       (рамка места под иконку)
+    ├── RarityFrame → Image 31×31       (цветная рамка: спрайт по редкости перка, таблица rarityFrames)
+    ├── Icon        → Image 29×29
+    ├── Level       → TMP_Text + PixelSnapText   (римская цифра уровня)
+    ├── Title, Description → TMP_Text + PixelSnapText
+    ├── Resources   → Grid Layout Group (ячейка 13×13, 3 в ряд)   (иконки ресурсов перка — в рантайме)
+    └── Claim       → Image (hold_to_claim, Sliced) + RectMask2D
+        ├── Fill    → Image             (заливка удержания; её размер в префабе — полная, якорь слева)
+        └── Label   → TMP_Text «Hold to Claim»
+```
+Числа в описании красит код (numberColor, #68D500) — теги цвета в текст не писать. holdDuration 0.5 с.
+
+### ZoneCardUI (карточка зоны, инстанцирует ZoneSelectionUI в рантайме)
+```
+Root (72×116)     → ZoneCardUI          (место в ряду — за Layout Group, двигать нельзя)
+└── Body          (всё, что нарисовано; выбранная карточка поднимается на focusLift = 5 px)
+    ├── Focus Frame (выкл) → Image (frame_focus, Sliced, на 1 px шире со всех сторон)
+    ├── Background  → Image (card_biome_choose, Sliced, Raycast ВКЛ)
+    ├── Title       → TMP_Text 18, #E3CC81 + PixelSnapText
+    ├── Collage Window (32×32) → RectMask2D + ZoneCollageView   (окно на коллаж; speed 10 px/с)
+    │   └── Collage → Image 64×64       (якорь и пивот — левый верхний угол, спрайт родного размера)
+    ├── Collage Frame → Image (icon_biome_frame, Sliced) 36×36
+    └── Description → TMP_Text 11, #BEA085 + PixelSnapText
+```
+Окно едет по коллажу по часовой, пока курсор на карточке; сколько — разница размеров коллажа и окна, отдельной
+настройки нет. Коллаж биома — `BiomeDef.collage`, текст — `BiomeDef.description`.
 
 ### BuildTabUi (префаб вкладки, инстанцирует BuildTabBar в рантайме — по кнопке на непустую вкладку)
 ```
@@ -829,25 +982,25 @@ Label стоит после Icon — цифра рисуется поверх к
 
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
-| **StartConfig** | LittlePeeps/StartConfig | islandSeed (0 = случайный), islandRules (правила генерации), startBiome, house, pier, startingResources, startingModifiers. Один на игру — в `RunManager.startConfig` |
-| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, passable / animalsAvoid, isWater (река: по нему клетки реки стыкуются, а мельница ищет берег), needsWaterSide (мельница), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую) |
-| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), **depletion** (Never / Despawn / Regrow), hitsToDeplete, regrowTime, keepBodyWhileDepleted, **pickupFx** (префаб FX_Pickup_*; пусто = только цифра) + **pickupFxCount**. `pickupFx` — единственный визуал в дефе, и намеренно: он отвечает на вопрос «что именно добыли», а на него нельзя ответить типом ресурса. Один тип дефа для статичных нод и зверей |
-| **UnitDef** | LittlePeeps/UnitDef | id, prefab (→ BaseUnit), speed, profession (с какой профессией рождается — `Unassigned`, настоящую даёт стойка) |
+| **StartConfig** | LittlePeeps/StartConfig | islandSeed (0 = случайный), islandRules (правила генерации), startBiome, house, pier, startingResources, startingModifiers, **startingUpgrades** (мета-перки, которые забег получает без очков, как купленные: перки, которым они нужны, тоже выпадают; то, что есть и здесь, и в профиле, считается один раз). Боевой — `Start Config` в `RunManager.startConfig`, `Test Start Config` — для тестового режима |
+| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, passable / animalsAvoid, isWater (река: по нему клетки реки стыкуются, а мельница ищет берег), needsWaterSide (мельница), **onWater** (мост: каждая клетка футпринта — клетка реки, река остаётся под ним; включать вместе с passable), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую) |
+| **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), **depletion** (Never / Despawn / Regrow), hitsToDeplete, regrowTime, keepBodyWhileDepleted, **pickupFx** (префаб FX_Pickup_*; пусто = эффект ресурса из `ResourceIconSet`) + **pickupFxCount**. `pickupFx` — единственный визуал в дефе, и намеренно: он отвечает на вопрос «что именно добыли», когда тип ресурса этого не скажет. Один тип дефа для статичных нод и зверей |
+| **UnitDef** | LittlePeeps/UnitDef | id, prefab (→ BaseUnit), speed, stamina (секунды работы за вылет), tiredSpeedMultiplier (скорость уставшего), profession (с какой профессией рождается — `Unassigned`, настоящую даёт стойка) |
 | **ProfessionDef** | LittlePeeps/ProfessionDef | type (UnitType), frames[] — кадры ходьбы этой профессии |
-| **BiomeDef** | LittlePeeps/BiomeDef | profile (параметры генерации зоны), tileSet, displayName, icon, previewColor (заливка зоны при выборе) |
-| **IslandTileSet** | LittlePeeps/IslandTileSet | тайлы земли (светлые/тёмные клетки), углы суши, кромка — полосы под сушей (горизонтальная) и столбики по бокам (вертикальная); слотов внутренних углов нет: угол залива собирается из полосы и столбика; **decorLight / decorDark** (декор для светлых / тёмных клеток) и decorChance (доля клеток с декором, 0.3) |
-| **TerrainBorderSet** | LittlePeeps/TerrainBorderSet | граница одного биома, кладётся тайлмапом из строки `IslandSystem.borders`. **edgeAllRound** — край по всему краю биома (и к биомам выше, и к воде), а не только к тем, что он накрывает; **overSea** — кайма и на клетки воды вдоль берега. На биом выше кайма не ложится никогда — это его граница. 8 слотов **Over** — кайма на клетке нижнего биома (4 стороны + 4 вогнутых угла); 8 слотов **Edge** — край на своей клетке. В подсказке слота — имя файла художника. Спрайты: **Pivot = Center**, иначе граница съезжает (с Bottom Center — на полклетки вверх). В проекте: `TileSet/Brdr Set Forest` и `TileSet/Brdr Set Meadow` (у обоих обе галочки включены), тайлы в `Tiles/BordersForest` и `Tiles/BordersMeadow` |
+| **BiomeDef** | LittlePeeps/BiomeDef | profile (параметры генерации зоны), tileSet, displayName (пусто = имя ассета), **description** (строка на карточке зоны), **collage** (кусок биома из игровых тайлов, 64×64 — больше окна карточки), previewColor (заливка зоны при выборе). Стартовому биому (`Meadow Start`) карточка не нужна — эти поля у него пусты |
+| **IslandTileSet** | LittlePeeps/IslandTileSet | тайлы земли (светлые/тёмные клетки), углы суши, кромка — полосы под сушей (горизонтальная) и столбики по бокам (вертикальная); слотов внутренних углов нет: угол залива собирается из полосы и столбика; **decorLight / decorDark** (декор для светлых / тёмных клеток) и decorChance (доля клеток с декором, 0.3). В проекте: `TileSet/Tile Set Meadow`, `Tile Set Desert`, `Tile Set Autumn` (сейчас у биома Forest) и `Tile Set Forest` (запасной) |
+| **TerrainBorderSet** | LittlePeeps/TerrainBorderSet | граница одного биома, кладётся тайлмапом из строки `IslandSystem.borders`. **edgeAllRound** — край по всему краю биома (и к биомам выше, и к воде), а не только к тем, что он накрывает; **overSea** — кайма и на клетки воды вдоль берега. На биом выше кайма не ложится никогда — это его граница. 8 слотов **Over** — кайма на клетке нижнего биома (4 стороны + 4 вогнутых угла); 8 слотов **Edge** — край на своей клетке. В подсказке слота — имя файла художника. Спрайты: **Pivot = Center**, иначе граница съезжает (с Bottom Center — на полклетки вверх). В проекте: `TileSet/Brdr Set Meadow`, `Brdr Set Autumn` (сейчас у леса) и `Brdr Set Forest` (запасной), у всех обе галочки включены; тайлы в `Tiles/BordersMeadow`, `BordersAutumn`, `BordersForest` |
 | **BuildPaletteDef** | LittlePeeps/BuildPalette | tabs: вкладки нижней панели, у каждой name, icon, structures (список StructureDef). Порядок вкладок = порядок кнопок и цифр 1–9, порядок structures = порядок карточек; пустая вкладка кнопку не получает. Группировка живёт здесь, на StructureDef категории нет |
 | **AgeDef** | LittlePeeps/AgeDef | title (только в лог — на баннере номер римскими цифрами), resourceCost[] (цена), modifiers[] (StatModifier — бонусы эпохи: стат, скоупы, Kind Flat / Percent и одно значение), bonusOverride (текст вместо сгенерированного описания). Порядок задаётся списком `AgeSystem.ages`, начиная с Age II |
-| **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon, **grade** (Common — обычные подношения и стартовый выбор; Special — только подношения особых циклов; наборы не смешиваются, а если особых не осталось, особый цикл даёт обычные), weight (шанс выпасть), minAge (с какой эпохи предлагается), requires (перк, который должен быть взят хоть на уровне 1, — один перк открывает другой; не для уровней). Stat Perk — **levels** (сколько раз берётся за забег; взял — тот же перк выпадает следующим уровнем, пока не взят последний) и modifiers[]: стат, скоупы, Kind (Flat / Percent) и строка **Level N** на каждый уровень — сколько добавляет ИМЕННО этот уровень, не итог (0 — на нём не растёт; число строк следует за levels, новый уровень повторяет последний шаг). Карточка пишет шаг и итог: `+20% TAP RADIUS [TOTAL +40%]`; ручное description у перка с уровнями не ставить — оно одно на все уровни (инспектор предупредит и покажет тексты уровней II+). Unlock Structure Perk — structure (снимает `lockedUntilPerk`), один уровень. Особые сейчас: Good rest, Bigger Houses, Unlock Rice Paddy |
-| **Offering Schedule** | LittlePeeps/Offering Schedule | цикл подношений, для `OfferingSystem.schedule`: segmentSeconds (длина одного отрезка-«года» в секундах игры, одна на весь забег — лента всегда едет с одной скоростью; пауза не идёт), cycles[] (по порядку, первый элемент = цикл 1: segments — сколько отрезков длится цикл, не меньше одного; resources — квота; ресурс эпохой не проверяется — не просить его раньше, чем обычный игрок до неё дойдёт), growthPastEnd (после списка повторяется последний цикл: квота ×рост за каждый лишний цикл, округление вверх, длина — как есть), specialEvery (каждый N-й цикл особый, 0 = нет). В проекте `OfferingDef/Offering Schedule Def`, **тестовые** значения: 10 с × 6 отрезков = 60 с на цикл, дерево 10 → дерево 20 → еда 10, ×1.25, каждый 3-й; настоящие числа — за Даниилом |
+| **Перки** | LittlePeeps/Perks/Stat Perk, …/Unlock Structure Perk | общее: id, title, description, icon (карточка, 29×29), **smallIcon** (ячейка в HUD, 20×20 — отдельный рисунок), **rarity** (цвет рамки на карточке, только вид: на шанс не влияет), **grade** (Common — обычные подношения и стартовый выбор; Special — только подношения особых циклов; наборы не смешиваются, а если особых не осталось, особый цикл даёт обычные), weight (шанс выпасть), minAge (с какой эпохи предлагается), requires (перк, который должен быть взят хоть на уровне 1, — один перк открывает другой; не для уровней), **requiresUpgrade** (мета-перк, который должен быть у забега, — для перка, имеющего смысл только поверх него; сейчас у Handful, ему нужен Peep Magnetism). Stat Perk — **levels** (сколько раз берётся за забег; взял — тот же перк выпадает следующим уровнем, пока не взят последний) и modifiers[]: стат, скоупы, Kind (Flat / Percent) и строка **Level N** на каждый уровень — сколько добавляет ИМЕННО этот уровень, не итог (0 — на нём не растёт; число строк следует за levels, новый уровень повторяет последний шаг). Карточка пишет шаг и итог: `+20% TAP RADIUS [TOTAL +40%]`; ручное description у перка с уровнями не ставить — оно одно на все уровни (инспектор предупредит и покажет тексты уровней II+). Unlock Structure Perk — structure (снимает `lockedUntilPerk`), один уровень. Особых сейчас нет: все перки Common |
+| **Offering Schedule** | LittlePeeps/Offering Schedule | цикл подношений, для `OfferingSystem.schedule`: segmentSeconds (длина одного отрезка-«года» в секундах игры, одна на весь забег — лента всегда едет с одной скоростью; пауза не идёт), cycles[] (по порядку, первый элемент = цикл 1: segments — сколько отрезков длится цикл, не меньше одного; resources — квота; ресурс эпохой не проверяется — не просить его раньше, чем обычный игрок до неё дойдёт), growthPastEnd (после списка повторяется последний цикл: квота ×рост за каждый лишний цикл, округление вверх, длина — как есть), specialEvery (каждый N-й цикл особый, 0 = нет). В проекте `OfferingDef/Offering Schedule Def` — боевое: отрезок 10 с, 10 циклов (первые три 90 / 120 / 150 с, дальше по 120), рост ×1.3, **specialEvery 0 — особых циклов нет**; квоты и баланс — в ARCHITECTURE (*Balance baseline*), числа — за Даниилом. `OfferingDef/Test Offering Schedule Def` — для тестового режима |
 | **PerkCatalogueDef** | LittlePeeps/Perk Catalogue | perks — список перков для `PerkSystem.catalogue` |
-| **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Start Age | общее: id, title, icon (картинка ячейки), description (пусто — текст хинта строится из данных), **cost** (цена в очках, число в углу ячейки); уровней нет, одна иконка — один апгрейд. Stat Upgrade — modifiers[] (обычные StatModifier); Start Resources — resources; Start Age — zoneBiome (каким биомом растёт пропущенная эпоха, +1 эпоха за апгрейд) |
+| **Мета-перки** | LittlePeeps/Meta/Stat Upgrade, …/Start Resources, …/Start Perk Pick, …/Free Age | общее: id, title, icon (картинка ячейки), description (пусто — текст хинта строится из данных), **cost** (цена в очках, число в углу ячейки); уровней нет, одна иконка — один апгрейд. Stat Upgrade — modifiers[] (обычные StatModifier); Start Resources — resources; Free Age — freeAges (сколько первых эпох забега бесплатны, несколько апгрейдов складываются; кнопку жмёт и зону выбирает игрок, бонус и престиж — как у купленной). Peep Magnetism — обычный Stat Upgrade со статом `CarryCapacity` (сколько пипов унесёт рука) |
 | **GlobalUpgradeCatalogueDef** | LittlePeeps/Meta/Upgrade Catalogue | upgrades — мета-перки в порядке мета-экрана, для `PrestigeSystem.upgrades` |
 | Island Rise Profile | LittlePeeps/Island Rise Profile | все ручки подъёма острова: тайминги, кривые прыжка и сплющивания, эффекты, звуки, тряска |
 | Harvest Number Motion | LittlePeeps/Harvest Number Motion | полёт всплывающей цифры: lifetime, travel, кривые, разброс |
-| Build Card Motion Profile | LittlePeeps/UI/Build Card Motion Profile | размеры и анимации карточки стройки |
-| ResourceIconSet | LittlePeeps/ResourceIconSet | icons — иконка на каждый ресурс (HUD, ценники, подсказки) |
+| Build Card Motion Profile | LittlePeeps/UI/Build Card Motion Profile | размеры и анимации карточки стройки; unaffordableMaterial и unaffordableCostColor — вид карточки, на которую не хватает |
+| ResourceIconSet | LittlePeeps/ResourceIconSet | icons — строка на каждый ресурс: icon (HUD, ценники, подсказки, карточки перков), **pickupFx** + **pickupFxCount** (эффект подбора ресурса по умолчанию, см. FX_Pickup_*) |
 
 > Координаты сетки **знаковые** и не зависят от того, какие клетки существуют: центр клетки `c` = мир `(c+0.5)·cellSize`.
 > Дом 2×2 на `cell=(-1,-1)` занимает `(-1,-1)…(0,0)` и центрируется в мировом нуле.
@@ -886,10 +1039,10 @@ Label стоит после Icon — цифра рисуется поверх к
 Панель стройки открыта всю живую игру, остров работает под ней.
 
 - **Когда работает:** `PlayingState.Enter` → `PlacementController.Begin`, `Exit` → `End`. Любой другой экран (выбор
-  зоны или перка, подъём острова, вопрос о престиже, мета-экран) начинается с того, что инструмент из руки кладётся.
+  зоны или перка, подъём острова, окно конца цикла, мета-экран) начинается с того, что инструмент из руки кладётся.
 - **Что в руке — знает только `PlacementController`.** Виджеты панели лишь просят (`Select` / `SelectSell` /
   `PutDown`) и рисуют подсветку по его событию `ToolChanged`, своих копий не держат; вне живой игры просьбы отклоняются:
-  - карточка → **PLACE** (гост под курсором, клик ставит; инструмент остаётся в руке, можно ставить дальше),
+  - карточка → **PLACE** (гост под курсором, клик ставит, забор ещё и протягивается; инструмент остаётся в руке, можно ставить дальше),
   - кнопка Sell → **SELL** (наведение красит постройку, клик продаёт с возвратом `sellRefundPercent` от цены предыдущей копии — при росте цены возвращается то, что за эту копию заплатили),
   - ничего не выбрано → **пустая рука**: клик — это тап (`TapSystem`).
   - ПКМ, повторный клик по выбранной карточке / Sell, спрятанная панель или карточка, упёршаяся в лимит, — назад к пустой руке.
@@ -901,6 +1054,7 @@ Label стоит после Icon — цифра рисуется поверх к
   - **выпускает, но не впускает:** юниты, стоявшие на месте в момент постановки, проходят сквозь стену, пока каждый не
     выйдет целиком; остальные отскакивают, как от здания. Удар о площадку ничего не платит;
   - звери на клетки площадки не заходят, стоящие уходят сами; площадка в клетках ждёт и их (забора это не касается);
+    гусь над площадкой улетает домой;
   - вид: полупрозрачный чертёж здания (его спрайты, умноженные на `siteLook.blueprintColor`) над подложкой
     `siteLook.groundColor` — настраивается на `StructureSystem` (см. checklist);
   - как только внутри никого — на том же месте встаёт настоящий префаб.
@@ -908,9 +1062,9 @@ Label стоит после Icon — цифра рисуется поверх к
   Площадка уже занимает клетки, считается в лимите и цене, а продаётся как готовое здание. Генерируемое
   (содержимое зон, стартовый дом, пирс) встаёт сразу, без площадки. **Отложено:** стройка ударами юнитов снаружи,
   арт лесов, звук стука.
-- **Продажа идёт в живой игре:** таверна выпускает гостей пьяными там, где стояла; звери проданной норы исчезают с
-  пуфом; лишние жители проданного дома (сколько не помещается в оставшиеся дома) исчезают с пуфом, ближайшие к нему
-  первыми. Эффект и звук пуфа — поля `SpawnSystem` (`puffFx`, `puffSound`), в сцене пока пусто.
+- **Продажа идёт в живой игре:** таверна выпускает гостей пьяными там, где стояла; звери проданной норы и гуси проданного
+  гусятника исчезают с пуфом; проданный мост выпускает тех, кто на нём, и никого больше не впускает; лишние жители проданного дома (сколько не помещается в оставшиеся дома) исчезают с пуфом, ближайшие к нему
+  первыми. Эффект и звук пуфа — поля `SpawnSystem` (`puffFx`, `smallPuffFx`, `puffSound`).
 - **Кнопка `BuildToggle` / клавиша B** только прячут и показывают `SellButton`, `BuildTabs` и `BuildPalette`
   (`BuildPanelToggle` хранит это между экранами и забегами); клавиши X и 1–9 спрятанную панель показывают.
 - **`EventSystem` обязателен** — клики над UI до `PlacementController` и `TapSystem` не доходят (`InputHandler` не пускает их в `OnWorldClick`, спрашивая EventSystem), а uGUI-кнопки без него не нажимаются. ПКМ работает и над панелью.
@@ -932,9 +1086,9 @@ Script Execution Order настраивать **не нужно** (это кос
 
 1. `GameBootstrap.Awake`: загрузка MetaContext (с диска пока не читается — каждый запуск с чистого профиля), проводка систем
    и UI (набор `UIServices` → каждому `IUIElement` под Канвасом, баннер → `AgeSequencer`);
-   `RunManager.StartNewRun()` → RunContext, стартовые модификаторы и ресурсы из StartConfig плюс купленные мета-перки,
-   `IslandSystem.GenerateForRun` → стартовая зона с домом и пирсом; мета-перк Start Age сразу пропускает эпохи (остров
-   растёт без анимации). App FSM → `Boot → GameplayContainer → Playing`. Камера — в центре острова, музыка — с первого кадра.
+   включён тестовый режим — до первого забега подставляются его пресеты (предупреждение `[TEST MODE]` в консоли);
+   `RunManager.StartNewRun()` → RunContext, стартовые модификаторы, ресурсы и мета-перки из StartConfig плюс купленные
+   мета-перки, `IslandSystem.GenerateForRun` → стартовая зона с домом и пирсом. App FSM → `Boot → GameplayContainer → Playing`. Камера — в центре острова, музыка — с первого кадра.
 2. На экране: юниты вылетают из домов и отскакивают; `Unassigned` берут инструмент на стойке и работают профессией;
    удар по ноде платит по её `workerYields`; вокруг нор гуляют звери; уставшие возвращаются в дом. Тап — буст юнитов в
    радиусе со щелчком.
@@ -942,7 +1096,8 @@ Script Execution Order настраивать **не нужно** (это кос
 4. Панель стройки внизу открыта всё время, игра под ней идёт: карточка в руке → сетка пятном у курсора и гост,
    клик ставит стройплощадку, которая становится зданием, когда с места все уйдут; Sell продаёт; ПКМ — пустая рука,
    клик снова тап. B прячет / показывает панель.
-5. **Expand Island** (`AgeAdvancePanel`) активна, когда хватает ресурсов: клик → выбор зоны → зона поднимается из моря →
+5. **Expand Island** (`AgeAdvancePanel`) активна, когда хватает ресурсов или эпоха бесплатна (мета-перк Free Age — вместо
+   цены «FREE»): клик → выбор зоны → зона поднимается из моря →
    баннер «Age N» → снова игра (перка за эпоху нет). Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
 6. **Цикл подношений** идёт с первой секунды: лента сверху ползёт к кружку, под засечками годы с начала забега (1, 2,
    3, 4 …); на любом экране поверх игры часы и лента стоят. Перед отъездом большого ромба полоса наползает на точки
@@ -952,12 +1107,34 @@ Script Execution Order настраивать **не нужно** (это кос
 7. Ромб дошёл до кружка → пауза, затемнение и окно «Gods Demand the Offering» с квотой (красным — чего не хватает):
    **Pay the Offering** (бледная и не жмётся, если не хватает) → выбор перка (в особом цикле — особые перки) и
    следующий цикл, на стоянке снова большой ромб с руками; **Face the Wrath** — держать секунду, заливка тёмно-красным
-   растёт слева направо (отпустил или увёл курсор — сброс) → очки престижа → мета-экран (тратим очки на мета-перки) →
-   **Play** → новый забег с цикла 1 и года 1; камера снова в центре острова.
+   растёт слева направо (отпустил или увёл курсор — сброс) → очки престижа (новые эпохи сверх рекорда и
+   время игры) → мета-экран (тратим очки на мета-перки; цена синяя — хватает, красная — нет, у купленного скрыта) →
+   **Next Island** → новый забег с цикла 1 и года 1; камера снова в центре острова.
+
+## Тестовый режим
+
+Пресеты для плей-теста без перестановки боевых ссылок и правки боевых ассетов.
+
+- **Включается** галочкой в меню **Little Peeps → Test Mode**. Она хранится на машине (EditorPrefs): сцену не пачкает, к
+  остальным не уезжает, в билде режим всегда выключен. Переключённая во время Play — действует со следующего Play.
+- **Что подменяет** — поля объекта `TestMode` в сцене: `startConfig` (что получает забег) и `offeringSchedule` (расписание
+  подношений). Пустое поле = боевой ассет. Держится все забеги сессии Play; в консоли — предупреждение `[TEST MODE]` со
+  списком подмен.
+- Проверить мета-перк без очков — положить его в `startingUpgrades` у `Test Start Config`.
+
+## Инструменты редактора (меню Little Peeps)
+
+- **Little Peeps → Footprint Grid In Prefabs** — разметка в Prefab Mode (на машину, в EditorPrefs): клетки постройки по её
+  StructureDef, пиксельная сетка, у выделенного спрайта — рамка холста (зелёная, если лежит ровно по клеткам) и линия, по
+  которой он сортируется. Всё считается от КОРНЯ: его игра и ставит, двигать нужно `Visual` / `Model`. Префаб без дефа и
+  забор разметки не получают.
+- **Little Peeps → Test Mode** — см. «Тестовый режим».
+- **Window → Little Peeps → Harvest Feedback / Island Rise** — просмотр отклика сбора и подъёма острова без Play.
+- Инспектор StructureDef внизу показывает, как растёт цена (первые восемь, в обоих режимах роста).
 
 ## Project settings — важное (не в сцене, но влияет)
 
-- **Physics 2D → Layer Collision Matrix:** Unit×Unit **OFF** (юниты проходят сквозь друг друга), Unit×Default **ON**.
+- **Physics 2D → Layer Collision Matrix:** Unit×Unit **OFF** (юниты проходят сквозь друг друга), Unit×Default **ON**; слой 7 **Goose**: Goose×Unit и Goose×Goose **OFF**, Goose×Default **ON**.
 - **Physics 2D → Bounce Threshold = 0.1** (иначе скольжение на малых скоростях).
 - **Y-сортировка:** на URP 2D Renderer-ассете (`Assets/Settings/Renderer2D.asset`) — Transparency Sort Mode = Custom Axis, Axis (0,1,0). Юниты и постройки — на одном Sorting Layer (`Entities`) с равным Order, сортируются по Y динамически.
 - **Sorting Layers** снизу вверх: Water, Island, Ground, Default, Entities, Overlay, Mesh. **Island** — все тайлмапы острова (земля, кайма, декор, границы, волны, тень острова; на нём же проекции построек); **Ground** — то, что лежит на земле (рисовое поле, пни, стерня, щебень, пустые кусты), а ещё превью зоны, подсветка территории госта (Order 1001) и подложка стройплощадки (Order 1000). Сетка стройки — на Mesh, поверх всего. Так лежащее на земле всегда над тайлами, какой бы Order ни стоял у тех и других.
@@ -966,8 +1143,8 @@ Script Execution Order настраивать **не нужно** (это кос
 ## Бонусы (RunStats) — коротко
 
 Прибавки к параметрам (`ProductionGlobal`, `ResourceYield`, `UnitSpeed`, `HouseCapacity`, `TapRadius`, …) задаются списками
-`StatModifier` (Kind Flat / Percent + значение): в `AgeDef.modifiers`, `StartConfig.startingModifiers`; в Stat-перках и
-Stat-мета-перках — `LevelledModifier`, те же поля с шагом на каждый уровень. Слой живёт в
+`StatModifier` (Kind Flat / Percent + значение): в `AgeDef.modifiers`, `StartConfig.startingModifiers` и Stat-мета-перках; в Stat-перках —
+`LevelledModifier`, те же поля с шагом на каждый уровень. Слой живёт в
 `RunContext.stats` и сбрасывается на престиже. База — в конфигах и компонентах (`UnitDef.speed`, `ResourceSourceDef.workerYields`,
 `Spawner.capacity` …), бонус — отдельным слоем. Подробности для дизайнера: **BONUS_SYSTEM_GUIDE.md**.
 

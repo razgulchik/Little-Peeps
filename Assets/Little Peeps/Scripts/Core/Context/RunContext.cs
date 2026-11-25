@@ -43,13 +43,15 @@ namespace LittlePeeps
 
         // The offering cycle (OfferingSystem): the cycle the run is in (1-based) and the seconds of play it
         // has run for. Plain numbers, kept here rather than on the system so a save can carry them like the
-        // age.
+        // age. The seconds are a double for playSeconds' sake, see there.
         public int offeringCycle = 1;
-        public float offeringElapsed;
+        public double offeringElapsed;
 
         // Seconds of normal play so far — every screen over the game stops it, like the offering clock.
         // Counted by GameplayContainerState, read by PrestigeFormula. A double: it runs for the whole run,
-        // and a long float sum of frame times drifts.
+        // and a long float sum of frame times drifts. offeringElapsed must be one too: a run can only end
+        // where a cycle ends, which may be exactly on a paid interval, and a cycle clock that had drifted
+        // ahead of this one would end it a moment short and lose the point.
         public double playSeconds;
 
         // Perk picks the run is owed at its start, shown one after another before play begins: one from

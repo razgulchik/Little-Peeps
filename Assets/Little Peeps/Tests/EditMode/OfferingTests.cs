@@ -174,6 +174,57 @@ namespace LittlePeeps.Tests
         }
     }
 
+    // The cycle clock against the run's play time. A run can only end where a cycle ends, and a cycle may end
+    // exactly on a paid interval: the two clocks count the same frames, so the cycle must never be over while
+    // the play time is still a moment short. A float cycle clock was, at these frame rates.
+    public class OfferingClockTests
+    {
+        private GameObject go;
+        private OfferingScheduleDef schedule;
+
+        [SetUp]
+        public void SetUp()
+        {
+            go = new GameObject("Offering clock test");
+            schedule = ScriptableObject.CreateInstance<OfferingScheduleDef>();
+            schedule.segmentSeconds = 10f;
+            foreach (int segments in new[] { 9, 12, 15, 12, 12 })   // ten minutes in all
+                schedule.cycles.Add(new OfferingQuota { segments = segments });
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(schedule);
+        }
+
+        [TestCase(57)]
+        [TestCase(60)]
+        [TestCase(75)]
+        [TestCase(144)]
+        [TestCase(324)]
+        public void ARunThatEndsOnAnInterval_IsPaidForIt(int framesPerSecond)
+        {
+            var run = new RunContext();
+            var offerings = go.AddComponent<OfferingSystem>();
+            offerings.UseSchedule(schedule);
+            offerings.Initialize(run);
+
+            // Frame by frame, both clocks on the same delta time — GameplayContainerState's Tick.
+            float deltaTime = 1f / framesPerSecond;
+            while (run.offeringCycle <= schedule.cycles.Count)
+            {
+                run.playSeconds += deltaTime;
+                offerings.Advance(deltaTime);
+                if (offerings.IsOver) offerings.NextCycle();
+            }
+
+            var formula = new PrestigeFormula { minutesPerInterval = 5f, pointsPerInterval = 1 };
+            Assert.That(formula.TimePoints(run), Is.EqualTo(2), $"{run.playSeconds:0.0000} s played");
+        }
+    }
+
     // The end-of-cycle window freezes the game and waits, so a path that reaches it with no way to answer
     // is a softlock — and one that ends the run unasked is worse. Only the refusal paths are pinned, for
     // PerkSelectionStateTests' reason: the rest hangs off RunManager.CurrentRun, which only StartNewRun fills.

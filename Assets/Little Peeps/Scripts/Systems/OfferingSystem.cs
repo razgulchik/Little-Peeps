@@ -57,8 +57,8 @@ namespace LittlePeeps
 
         // The current cycle's length — its own number of segments, so it changes from cycle to cycle.
         public float Duration => schedule != null && run != null ? schedule.SecondsOf(run.offeringCycle) : 0f;
-        public float Elapsed => run != null ? run.offeringElapsed : 0f;
-        public float TimeLeft => run != null ? Mathf.Max(0f, Duration - run.offeringElapsed) : 0f;
+        public float Elapsed => run != null ? (float)run.offeringElapsed : 0f;
+        public float TimeLeft => run != null ? Mathf.Max(0f, (float)(Duration - run.offeringElapsed)) : 0f;
 
         // The time strip's unit: one segment in seconds, the same for every cycle. Every cycle is a whole
         // number of segments, so every cycle starts and ends on a tick of the strip.
@@ -112,7 +112,7 @@ namespace LittlePeeps
         public void Advance(float deltaTime)
         {
             if (!IsActive || deltaTime <= 0f) return;
-            run.offeringElapsed = Mathf.Min(run.offeringElapsed + deltaTime, Duration);
+            run.offeringElapsed = System.Math.Min(run.offeringElapsed + deltaTime, Duration);
         }
 
         // Pay the whole quota out of the stock. False — and nothing spent — when it cannot be paid in full.
@@ -134,7 +134,7 @@ namespace LittlePeeps
             if (run == null) return;
 
             run.offeringCycle++;
-            run.offeringElapsed = 0f;
+            run.offeringElapsed = 0.0;
         }
     }
 }

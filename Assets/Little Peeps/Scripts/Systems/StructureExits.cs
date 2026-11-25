@@ -126,9 +126,14 @@ namespace LittlePeeps
         }
 
         // An occupant closes a cell unless its def says units pass through it. No def (an occupant
-        // registered without one, as the grid tests do) is read as solid — the safe default.
+        // registered without one, as the grid tests do) is read as solid — the safe default. A bridge still
+        // going up is solid too: until it stands, the river under it is a wall.
         private static bool IsSolid(StructureInstance occupant)
-            => occupant != null && (occupant.Def == null || !occupant.Def.passable);
+        {
+            if (occupant == null) return false;
+            if (occupant.Def == null || !occupant.Def.passable) return true;
+            return occupant.Def.onWater && occupant.UnderConstruction;
+        }
 
         // Slab test: does the ray center + dir * t (t >= 0) pass through the box [x0,x1]x[y0,y1], and at
         // what t does it leave? A ray starting inside leaves at its first wall.

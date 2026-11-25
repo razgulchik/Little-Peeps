@@ -113,6 +113,15 @@ namespace LittlePeeps
             Destroy(gameObject);
         }
 
+        // Every bird whose centre is over the area: a wall has come up there. The centre and not the whole body,
+        // so a bird that only bounces off the wall from outside is left alone.
+        public static void SendHomeFrom(IReadOnlyList<Rect> area)
+        {
+            for (int i = 0; i < alive.Count; i++)
+                if (alive[i] != null && ConstructionArea.Overlaps(area, alive[i].BodyCenter, 0f))
+                    alive[i].GoHome();
+        }
+
         // The coop hears about every way out here, so ResourceSource never has to know what a coop is.
         private void OnDestroy()
         {

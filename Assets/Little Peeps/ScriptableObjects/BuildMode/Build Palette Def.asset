@@ -42,3 +42,4 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 0e5e3cee86e47fb41b2188256e4d50ad, type: 3}
     structures:
     - {fileID: 11400000, guid: c8f68e7787825554eb5bdc5e4a8f59da, type: 2}
+    - {fileID: 11400000, guid: 0989c229d2ec4605a245e8e7d2d20330, type: 2}

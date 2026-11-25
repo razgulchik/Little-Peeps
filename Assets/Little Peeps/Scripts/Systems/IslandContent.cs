@@ -13,7 +13,8 @@ namespace LittlePeeps
     //    for zones that don't exist yet (gates along the coast, bank cells for bridges).
     //  - Access is checked with the PLANNED bridges counted as walkable: a river may cut land off as long
     //    as a marked crossing would restore it. That is the prototype's rule and a design decision of the
-    //    game (2026-09-18); bridges themselves are a later, unrelated feature.
+    //    game (2026-09-18). The player builds the bridges (StructureDef.onWater), on any river cell: a
+    //    marked one is only where a bridge is sure to help.
     //
     // Content draws from its own rng streams (IslandRng.Derive), never from the shape's, so retrying a
     // zone's content leaves the island's future shapes untouched.

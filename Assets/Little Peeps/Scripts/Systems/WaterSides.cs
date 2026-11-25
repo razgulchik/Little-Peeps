@@ -62,13 +62,17 @@ namespace LittlePeeps
             return !isWater(right.Value + Vector2Int.right) && isWater(left.Value + Vector2Int.left);
         }
 
-        // A cell of the placed island is water when the structure standing on it is (the river). The sea
-        // is no cell at all, so it never counts — a watermill wants a river.
+        // A cell of the placed island is water when the structure standing on it is (the river), or the one
+        // beneath it — the river runs on under a bridge. The sea is no cell at all, so it never counts — a
+        // watermill wants a river.
         public static bool IsWater(IslandGrid grid, Vector2Int cell)
         {
-            var occupant = grid.GetCell(cell)?.occupant;
-            return occupant != null && occupant.Def != null && occupant.Def.isWater;
+            var land = grid.GetCell(cell);
+            return land != null && (IsWater(land.occupant) || IsWater(land.beneath));
         }
+
+        public static bool IsWater(StructureInstance structure)
+            => structure != null && structure.Def != null && structure.Def.isWater;
 
         // Below the lowest footprint cell of every column.
         private static bool SouthAlongWater(Vector2Int origin, Footprint footprint, Func<Vector2Int, bool> isWater)

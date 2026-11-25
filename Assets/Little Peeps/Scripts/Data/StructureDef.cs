@@ -103,6 +103,13 @@ namespace LittlePeeps
                  "the river's cells are taken, so a border ring could never reach them.")]
         public bool needsWaterSide = false;
 
+        // Built OVER water — a bridge. Its footprint takes river cells and nothing else, and the river stays
+        // where it is underneath (IslandGrid.Cell.beneath): still drawn, still water to whatever stands beside
+        // it, only no wall any more while the bridge stands (WaterBed).
+        [Tooltip("Built over water and only there: every footprint cell must be a bare river cell. The river " +
+                 "stays underneath and lets units across while this stands. Tick Passable too.")]
+        public bool onWater = false;
+
         // Required clear margin (in cells) around the footprint: those cells must be on-island and free
         // of OTHER bordered structures. Keeps spawner-buildings off the map edge and apart from each
         // other (e.g. house = 1); passive structures like trees/fields use 0 (no margin, may sit anywhere).

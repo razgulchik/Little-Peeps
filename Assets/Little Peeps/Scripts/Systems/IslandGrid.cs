@@ -27,6 +27,10 @@ namespace LittlePeeps
         {
             public TerrainType terrain;
             public StructureInstance occupant;
+
+            // What the occupant was built over, still standing there: the river under a bridge. Null under
+            // anything that stands on the ground. Written by Place and Remove alone.
+            public StructureInstance beneath;
         }
 
         private readonly Dictionary<Vector2Int, Cell> cells;
@@ -62,6 +66,11 @@ namespace LittlePeeps
         // (be land) and be unoccupied, and every footprint cell must be an allowed terrain. Empty/null
         // allowedTerrain = any.
         public bool CanPlace(Vector2Int origin, Footprint footprint, TerrainType[] allowedTerrain, int border = 0)
+            => CanPlace(origin, footprint, allowedTerrain, border, onWater: false);
+
+        // `onWater` (StructureDef.onWater) turns the occupancy rule of the footprint's own cells around: each
+        // must hold water, bare — under a bridge the occupant is the bridge, so nothing goes over it twice.
+        private bool CanPlace(Vector2Int origin, Footprint footprint, TerrainType[] allowedTerrain, int border, bool onWater)
         {
             // A structure claims its footprint GROWN by `border` on every side — the border is just extra
             // claimed territory, not a separate thing (a 2x2 house with border 1 claims 4x4; an L-shaped
@@ -77,7 +86,10 @@ namespace LittlePeeps
 
                     var cell = GetCell(new Vector2Int(origin.x + x, origin.y + y));
                     if (cell == null) return false;            // off-island (footprint or claimed border)
-                    if (cell.occupant != null) return false;   // occupied (footprint or claimed border)
+
+                    // occupied (footprint or claimed border) — or, for what stands on water, dry
+                    bool overWater = onWater && footprint.Contains(x, y);
+                    if (overWater ? !WaterSides.IsWater(cell.occupant) : cell.occupant != null) return false;
 
                     if (footprint.Contains(x, y) && !IsTerrainAllowed(cell.terrain, allowedTerrain)) return false;
                     if (HasFenceInside(origin, footprint, border, x, y)) return false;
@@ -100,12 +112,12 @@ namespace LittlePeeps
         }
 
         // The whole placement rule for `def` at origin: the cell rule above, plus what the def adds on top —
-        // a watermill needs a side along the river (WaterSides). Every placement path asks this one (build,
+        // a bridge stands on the river, a watermill needs a side along it (WaterSides). Every placement path asks this one (build,
         // move, generated content), so the ghost can never promise a spot the builder refuses.
         public bool CanPlace(Vector2Int origin, StructureDef def)
         {
             var footprint = def.Footprint;
-            if (!CanPlace(origin, footprint, def.allowedTerrain, def.border)) return false;
+            if (!CanPlace(origin, footprint, def.allowedTerrain, def.border, def.onWater)) return false;
             return !def.needsWaterSide || WaterSides.Find(this, origin, footprint) != WaterSide.None;
         }
 
@@ -119,22 +131,27 @@ namespace LittlePeeps
             return false;
         }
 
-        // Mark the structure's whole claimed territory (footprint grown by its def.border) as occupied.
+        // Mark the structure's whole claimed territory (footprint grown by its def.border) as occupied. One
+        // built over water keeps what it covers beneath it.
         public void Place(Vector2Int origin, Footprint footprint, StructureInstance structureInstance)
         {
             int border = structureInstance.Def != null ? structureInstance.Def.border : 0;
+            bool onWater = structureInstance.Def != null && structureInstance.Def.onWater;
             Vector2Int s = footprint.Size;
             for (int x = -border; x < s.x + border; x++)
                 for (int y = -border; y < s.y + border; y++)
                 {
                     if (!footprint.Claims(x, y, border)) continue;
                     var cell = GetCell(new Vector2Int(origin.x + x, origin.y + y));
-                    if (cell != null) cell.occupant = structureInstance;
+                    if (cell == null) continue;
+                    if (onWater && footprint.Contains(x, y)) cell.beneath = cell.occupant;
+                    cell.occupant = structureInstance;
                 }
         }
 
-        // Clear the structure's whole claimed territory (footprint grown by its border). The border is
-        // read from the occupant at origin, so callers still pass only origin + footprint.
+        // Clear the structure's whole claimed territory (footprint grown by its border): what it covered takes
+        // its cell back, any other cell is left empty. The border is read from the occupant at origin, so
+        // callers still pass only origin + footprint.
         public void Remove(Vector2Int origin, Footprint footprint)
         {
             var occupant = GetCell(origin)?.occupant;
@@ -145,7 +162,9 @@ namespace LittlePeeps
                 {
                     if (!footprint.Claims(x, y, border)) continue;
                     var cell = GetCell(new Vector2Int(origin.x + x, origin.y + y));
-                    if (cell != null && cell.occupant == occupant) cell.occupant = null;
+                    if (cell == null || cell.occupant != occupant) continue;
+                    cell.occupant = cell.beneath;
+                    cell.beneath = null;
                 }
         }
 

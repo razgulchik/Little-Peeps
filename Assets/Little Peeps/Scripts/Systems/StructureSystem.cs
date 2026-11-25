@@ -60,6 +60,7 @@ namespace LittlePeeps
             instance.RuntimeObject = CreateStructure(instance);
             instance.UnderConstruction = false;
             RefreshNeighbours(instance);
+            OpenWater(instance);
             if (site != null) Destroy(site.gameObject);
         }
 
@@ -90,7 +91,7 @@ namespace LittlePeeps
         {
             if (!islandSystem.Grid.CanPlace(cell, def))
             {
-                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, border overlap, a fence across it, or no side along water) — skipped.", this);
+                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, border overlap, a fence across it, no side along water, or not over water) — skipped.", this);
                 return null;
             }
             return Build(def, cell);
@@ -104,6 +105,7 @@ namespace LittlePeeps
             var instance = new StructureInstance { Def = def, Cell = cell };
             instance.RuntimeObject = CreateStructure(instance);
             Register(instance);
+            OpenWater(instance);
             return instance;
         }
 
@@ -142,6 +144,14 @@ namespace LittlePeeps
             foreach (var coop in go.GetComponentsInChildren<GooseCoop>(true)) coop.Initialize(spawnSystem, resourceSystem, grid, instance);
             foreach (var tavern in go.GetComponentsInChildren<Tavern>(true)) tavern.Initialize(resourceSystem, grid, instance);
 
+            // Water gets its cells too: who is on them decides when it is a wall again after a bridge.
+            if (go.TryGetComponent<WaterBed>(out var water))
+            {
+                var cells = new List<Rect>();
+                ConstructionArea.CellRects(grid, cell, def.Footprint, cells);
+                water.Initialize(spawnSystem, cells);
+            }
+
             // A forest picks its interlocking layout by the row it lands on, a watermill its art by the river,
             // a river cell its piece by the river beside it.
             ApplyPlacementVisual(go, grid, cell, def.Footprint);
@@ -164,9 +174,37 @@ namespace LittlePeeps
         private void Register(StructureInstance instance)
         {
             islandSystem.Grid.Place(instance.Cell, instance.Def.Footprint, instance);
-            run.structures[instance.Cell] = instance;
+            RegistryOf(instance.Def)[instance.Cell] = instance;
             RefreshNeighbours(instance);
             Recount(instance.Def, +1);
+        }
+
+        // Which of the run's registries a cell structure is kept in: one built over water shares its cell with
+        // the water, so it has its own (RunContext.bridges).
+        private Dictionary<Vector2Int, StructureInstance> RegistryOf(StructureDef def) =>
+            def.onWater ? run.bridges : run.structures;
+
+        // The river under a bridge stays where it is and only stops being a wall, from the moment the bridge
+        // stands until it goes. Both are called while the bridge is on the grid, which is what knows the water
+        // beneath it; both do nothing for what stands on the ground.
+        private void OpenWater(StructureInstance bridge) => ForWaterBeneath(bridge, bed => bed.Open());
+
+        // After a site sold before it stood, the water was never opened — closing it again changes nothing.
+        private void CloseWater(StructureInstance bridge) => ForWaterBeneath(bridge, bed => bed.Close());
+
+        private void ForWaterBeneath(StructureInstance bridge, System.Action<WaterBed> act)
+        {
+            if (!bridge.Def.onWater) return;
+
+            var grid = islandSystem.Grid;
+            var footprint = bridge.Def.Footprint;
+            for (int x = 0; x < footprint.Size.x; x++)
+                for (int y = 0; y < footprint.Size.y; y++)
+                {
+                    if (!footprint.Contains(x, y)) continue;
+                    var water = grid.GetCell(bridge.Cell + new Vector2Int(x, y))?.beneath?.RuntimeObject;
+                    if (water != null && water.TryGetComponent<WaterBed>(out var bed)) act(bed);
+                }
         }
 
         // The one writer of RunContext.standing. Paired with Register/RegisterEdge and Remove*. Announced so the
@@ -236,11 +274,18 @@ namespace LittlePeeps
                     var cell = changed.Cell + new Vector2Int(x, y);
                     foreach (var d in around)
                     {
-                        var neighbour = grid.GetCell(cell + d)?.occupant;
-                        if (neighbour == null || neighbour == changed || neighbour.RuntimeObject == null) continue;
-                        ApplyPlacementVisual(neighbour.RuntimeObject.gameObject, grid, neighbour.Cell, neighbour.Def.Footprint);
+                        var land = grid.GetCell(cell + d);
+                        if (land == null) continue;
+                        RefreshNeighbour(changed, land.occupant);
+                        RefreshNeighbour(changed, land.beneath);   // a river joins on under its bridge
                     }
                 }
+        }
+
+        private void RefreshNeighbour(StructureInstance changed, StructureInstance neighbour)
+        {
+            if (neighbour == null || neighbour == changed || neighbour.RuntimeObject == null) return;
+            ApplyPlacementVisual(neighbour.RuntimeObject.gameObject, islandSystem.Grid, neighbour.Cell, neighbour.Def.Footprint);
         }
 
         // Sell the structure occupying `cell` (any footprint cell): refund a fraction of its build
@@ -263,8 +308,9 @@ namespace LittlePeeps
             var instance = grid.GetCell(cell)?.occupant;
             if (instance == null) return false;
 
+            CloseWater(instance);   // while the grid still knows what it covers
             grid.Remove(instance.Cell, instance.Def.Footprint);
-            run.structures.Remove(instance.Cell);
+            RegistryOf(instance.Def).Remove(instance.Cell);
             RefreshNeighbours(instance);
             Recount(instance.Def, -1);
             ReleaseOccupants(instance.RuntimeObject);
@@ -422,12 +468,20 @@ namespace LittlePeeps
         // Grid cells are freed even though IslandSystem is about to throw the whole grid away: EndRun has
         // to be correct on its own, not only when a StartNewRun happens to follow it.
         //
-        // run.structures + run.fences are the complete picture: every structure that exists is in one of
-        // them from the moment it is built until it is removed — nothing is ever held off the grid.
+        // run.structures + run.bridges + run.fences are the complete picture: every structure that exists is in
+        // one of them from the moment it is built until it is removed — nothing is ever held off the grid.
+        // Bridges go before what they cover.
         public void ClearAll()
         {
             if (run == null) return;
             var grid = islandSystem != null ? islandSystem.Grid : null;
+
+            foreach (var instance in run.bridges.Values)
+            {
+                if (grid != null) grid.Remove(instance.Cell, instance.Def.Footprint);
+                DestroyWithTeardown(instance.RuntimeObject);
+            }
+            run.bridges.Clear();
 
             foreach (var instance in run.structures.Values)
             {

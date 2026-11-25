@@ -28,10 +28,7 @@ namespace LittlePeeps
     // until each of them is out. Nobody else gets in. Once nobody is inside, the real building is put up
     // in its place (StructureSystem.CompleteSite), so a building never appears on top of anyone.
     //
-    // "Lets out, never lets in" is done by naming the exceptions, not by guessing directions: every
-    // insider gets Physics2D.IgnoreCollision against the wall, and gets the wall back the moment its body
-    // has fully left the area. Who is inside is plain geometry (ConstructionArea) over the live units, not
-    // a physics query.
+    // "Lets out, never lets in" is OneWayWall's.
     //
     // Animals are kinematic: no wall stops them, only the cells they refuse to step onto. So for them the
     // same "out, never in" comes from the grid — a site's cells refuse animals (StructureInstance.
@@ -47,16 +44,10 @@ namespace LittlePeeps
     [RequireComponent(typeof(Structure))]
     public class ConstructionSite : MonoBehaviour
     {
-        // How far past the area's edge a body must be before the wall closes behind it, so a unit that has
-        // just slipped out is not caught by the wall it is still brushing.
-        private const float ExitMargin = 0.05f;
-
         private static Sprite square;   // shared 1x1 white sprite the ground squares are scaled from
 
         private readonly List<Rect> area = new();
-        private readonly List<Unit> insiders = new();
-        private Collider2D wall;
-        private SpawnSystem spawns;
+        private OneWayWall wall;
         private bool clearOfAnimals;
         private Action onReady;
 
@@ -104,82 +95,35 @@ namespace LittlePeeps
         private void Begin(Collider2D wall, IReadOnlyList<Rect> rects, SpawnSystem spawns, bool clearOfAnimals,
                            Action onReady)
         {
-            this.wall = wall;
-            this.spawns = spawns;
             this.clearOfAnimals = clearOfAnimals;
             this.onReady = onReady;
             area.Clear();
             for (int i = 0; i < rects.Count; i++) area.Add(rects[i]);
+            this.wall = new OneWayWall(wall, area, spawns);
 
             // Before the next physics step: the site is placed from a click (Update), and every FixedUpdate of
             // the next frame — the simulation's included — comes after this, so no insider ever touches the wall.
-            AdoptUnitsInside();
-            SendGeeseHome();
+            this.wall.AdoptUnitsInside();
+            Goose.SendHomeFrom(area);
         }
 
         // Physics time, like the units: a frozen screen (perk pick, age transition) holds the site as it is.
         private void FixedUpdate()
         {
-            SendGeeseHome();
+            Goose.SendHomeFrom(area);   // for as long as the site stands: a bird can get in past the wall too
 
-            for (int i = insiders.Count - 1; i >= 0; i--)
-            {
-                var unit = insiders[i];
-                if (unit == null || !unit.IsOnField)
-                {
-                    // Off the island (despawned in a puff, the run ending) — there is no body here to let
-                    // through any more. Give the wall back only to a body that still exists in the physics.
-                    if (unit != null && unit.Body != null && unit.Body.isActiveAndEnabled)
-                        Physics2D.IgnoreCollision(unit.Body, wall, false);
-                    insiders.RemoveAt(i);
-                    continue;
-                }
-
-                if (ConstructionArea.Overlaps(area, unit.BodyCenter, unit.BodyRadius + ExitMargin)) continue;
-
-                Physics2D.IgnoreCollision(unit.Body, wall, false);   // out: from now on it is a wall to this unit too
-                insiders.RemoveAt(i);
-            }
-            if (insiders.Count > 0) return;
+            if (wall.LetOut()) return;
 
             // Empty by the books — unless someone stepped onto the spot past the wall: a house next door
             // launching through a side the site does not close (a field's site, say, keeps the field's
             // passable verdict on the grid). Such a unit is let out like the rest before anything is built.
-            AdoptUnitsInside();
-            if (insiders.Count > 0) return;
+            wall.AdoptUnitsInside();
+            if (wall.LetOut()) return;
             if (clearOfAnimals && AnAnimalStandsInside()) return;   // it walks off on its own — the cells refuse only newcomers
 
             var ready = onReady;
             onReady = null;   // once: the building replaces this object, but never twice even if it lingers a frame
             ready?.Invoke();
-        }
-
-        // Every live unit whose body touches the area and is not yet let through becomes an insider.
-        private void AdoptUnitsInside()
-        {
-            if (spawns == null || wall == null) return;
-
-            var units = spawns.ActiveUnits;
-            for (int i = 0; i < units.Count; i++)
-            {
-                var unit = units[i];
-                if (unit == null || !unit.IsOnField || unit.Body == null || insiders.Contains(unit)) continue;
-                if (!ConstructionArea.Overlaps(area, unit.BodyCenter, unit.BodyRadius)) continue;
-
-                Physics2D.IgnoreCollision(unit.Body, wall, true);
-                insiders.Add(unit);
-            }
-        }
-
-        // Every bird whose centre is on the spot. The centre and not the whole body, so a bird that only
-        // bounces off the wall from outside is left alone. A bird can get in past the wall the way a unit
-        // can (see FixedUpdate), so this runs for as long as the site stands.
-        private void SendGeeseHome()
-        {
-            var geese = Goose.Alive;
-            for (int i = 0; i < geese.Count; i++)
-                if (geese[i] != null && ConstructionArea.Overlaps(area, geese[i].BodyCenter, 0f))
-                    geese[i].GoHome();
         }
 
         // Whether an animal stands on the spot: its feet (the transform, where the grid reads it too) on any

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: 070 Magnet
   m_EditorClassIdentifier: 
   id: magnet
-  title: Magnet
-  icon: {fileID: 21300000, guid: f6339f9ab67fb7b4094f950b136f79d1, type: 3}
+  title: Peep Magnetism
+  icon: {fileID: 21300000, guid: 678b597141feebd4ebb1e2544d47b75c, type: 3}
   description: Hold the left button to gather peeps and carry them
   cost: 1
   modifiers:

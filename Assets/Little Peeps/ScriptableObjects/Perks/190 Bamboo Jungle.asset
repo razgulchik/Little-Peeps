@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e973301fb97ea243bc8d9ab01f237fe, type: 3}
+  m_Name: 190 Bamboo Jungle
+  m_EditorClassIdentifier: 
+  id: bamboo_jungle
+  title: Bamboo Jungle
+  description: +300% BAMBOO GROW SPEED
+  icon: {fileID: 21300000, guid: 9506894920ee0ee4787456a7bcd79b85, type: 3}
+  smallIcon: {fileID: 21300000, guid: b1f9512e006b81149b66acab48c35e2d, type: 3}
+  grade: 0
+  rarity: 3
+  weight: 1
+  minAge: 0
+  requires: {fileID: 0}
+  requiresUpgrade: {fileID: 0}
+  levels: 1
+  modifiers:
+  - id: 5
+    unitScope: 0
+    anyProfession: 0
+    resourceScope: 0
+    sourceScope: {fileID: 11400000, guid: 8588210999f34a76837feeea382e6025, type: 2}
+    structureScope: {fileID: 0}
+    kind: 1
+    steps:
+    - -0.75

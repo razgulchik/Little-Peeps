@@ -28,8 +28,7 @@ namespace LittlePeeps
         }
 
         // Perk ids are what a save will store, so a duplicate or an empty one is a bug that only shows
-        // up much later and looks like a lost perk. Both are cheap to catch here, once, at startup —
-        // the same trap the empty `id` on Tree.asset / Wheat.asset already set for ResourceSourceDef.
+        // up much later and looks like a lost perk. Both are cheap to catch here, once, at startup.
         private void ValidateCatalogue()
         {
             var seen = new HashSet<string>();

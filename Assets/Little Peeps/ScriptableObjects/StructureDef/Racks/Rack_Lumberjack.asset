@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
   m_Name: Rack_Lumberjack
   m_EditorClassIdentifier: 
-  id: rack_lumberjack
+  id: lumberjack_rack
   displayName: Lumberjack's Rack
   description: Equips one lumberjack to chop trees for Wood.
   icon: {fileID: 21300000, guid: ca52de610add98e4388177e37bd57218, type: 3}

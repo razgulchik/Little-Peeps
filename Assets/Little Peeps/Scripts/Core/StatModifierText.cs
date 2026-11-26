@@ -139,8 +139,8 @@ namespace LittlePeeps
             return string.Join(", ", parts);
         }
 
-        // ResourceSourceDef.id is the authored identifier, but it is blank on every source shipped so
-        // far — the asset name ("Tree", "Wheat") is what actually reads, so it is the fallback.
+        // A source has no name for the player, so its id stands in for one; the asset name covers a
+        // source whose id was left blank.
         private static string SourceName(ResourceSourceDef def) =>
             !string.IsNullOrEmpty(def.id) ? def.id : def.name;
 

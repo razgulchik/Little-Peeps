@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
   m_Name: Hole_Boar
   m_EditorClassIdentifier: 
-  id: hole_boar
+  id: boar_hole
   displayName: Boar Hole
   description: 
   icon: {fileID: 21300000, guid: 0b36a4b7ce6ca3146a25bd03a6873ff5, type: 3}

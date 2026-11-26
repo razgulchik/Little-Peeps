@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Meadow Start
   m_EditorClassIdentifier: 
   profile:
-    id: meadow-start
+    id: meadow_start
     terrain: 0
     openPercent: 80
     mountainPercent: 0

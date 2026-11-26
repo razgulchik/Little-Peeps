@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
   m_Name: Rack_Farmer
   m_EditorClassIdentifier: 
-  id: rack_farmer
+  id: farmer_rack
   displayName: Farmer's Rack
   description: Equips a farmer to reap crops and shear alpacas.
   icon: {fileID: 21300000, guid: e819d9f033f772e4690597ab6db4c601, type: 3}

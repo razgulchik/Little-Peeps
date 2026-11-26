@@ -13,10 +13,11 @@ namespace LittlePeeps
     // (Despawn, one hit) next to a CollisionTarget pays and destroys the bird. Every way a bird leaves ends
     // in OnDestroy, so the coop puts it back in the pen the same way each time.
     //
-    // A bird just let out cannot be caught for a moment: its trigger stays off, so the farmer who hit the
-    // coop does not catch it on the doorstep. Switching back on, the trigger reports any unit already
-    // inside it, so nobody flies through a bird unnoticed once the moment is over.
-    [RequireComponent(typeof(Rigidbody2D))]
+    // A bird just let out cannot be caught for a moment: its trigger and its ArrowTarget stay off, so neither
+    // the peep who hit the coop nor a hunter standing by takes it on the doorstep. Switching back on,
+    // the trigger reports any unit already inside it, so nobody flies through a bird unnoticed once the
+    // moment is over.
+    [RequireComponent(typeof(Rigidbody2D), typeof(ArrowTarget))]
     public class Goose : MonoBehaviour
     {
         [Tooltip("Flying speed in world units per second. Held every physics step, like a unit's.")]
@@ -31,7 +32,7 @@ namespace LittlePeeps
         [Tooltip("Flipped to face the way the bird flies. The art must face right.")]
         [SerializeField] private SpriteRenderer model;
 
-        [Tooltip("Seconds after leaving the coop during which the bird cannot be caught. 0 = off.")]
+        [Tooltip("Seconds after leaving the coop during which the bird can be neither caught nor shot. 0 = off.")]
         [SerializeField, Min(0f)] private float releaseImmunity = 1.5f;
 
         [Header("Bounce")]
@@ -61,6 +62,7 @@ namespace LittlePeeps
         public static IReadOnlyList<Goose> Alive => alive;
 
         private Rigidbody2D rb;
+        private ArrowTarget arrowTarget;
         private GooseCoop owner;
         private StuckWatch stuckWatch;
         private float immunityLeft;
@@ -78,6 +80,7 @@ namespace LittlePeeps
         private void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
+            arrowTarget = GetComponent<ArrowTarget>();
             if (body == null) Debug.LogError($"Goose on '{name}' has no body collider assigned.", this);
             if (hitbox == null) Debug.LogError($"Goose on '{name}' has no hitbox collider assigned.", this);
             if (model == null) Debug.LogError($"Goose on '{name}' has no model assigned.", this);
@@ -98,16 +101,24 @@ namespace LittlePeeps
             Face(direction);
 
             immunityLeft = releaseImmunity;
-            if (hitbox != null) hitbox.enabled = immunityLeft <= 0f;
+            SetCatchable(immunityLeft <= 0f);
         }
 
-        // Back to the pen unpaid: stuck, or the player built on top of the bird. Physics goes off at once,
-        // so nothing can harvest it in the moment before the deferred Destroy.
+        // Both ways to take a bird, by body and by arrow, always together.
+        private void SetCatchable(bool catchable)
+        {
+            if (hitbox != null) hitbox.enabled = catchable;
+            arrowTarget.enabled = catchable;
+        }
+
+        // Back to the pen unpaid: stuck, or the player built on top of the bird. Physics goes off at once and
+        // the bird is no longer a target, so nothing can harvest it in the moment before the deferred Destroy.
         public void GoHome()
         {
             if (leaving) return;
             leaving = true;
             rb.simulated = false;
+            SetCatchable(false);
 
             if (owner != null) owner.Puff(transform.position);
             Destroy(gameObject);
@@ -132,10 +143,12 @@ namespace LittlePeeps
         // pinned to a stop would otherwise never move again.
         private void FixedUpdate()
         {
+            if (leaving) return;   // a second step in the frame it left: the immunity must not run out now
+
             if (immunityLeft > 0f)
             {
                 immunityLeft -= Time.fixedDeltaTime;
-                if (immunityLeft <= 0f && hitbox != null) hitbox.enabled = true;
+                if (immunityLeft <= 0f) SetCatchable(true);
             }
 
             if (stuckWindow > 0f && stuckWatch.Tick(transform.position, Time.fixedDeltaTime, stuckRadius, stuckWindow))

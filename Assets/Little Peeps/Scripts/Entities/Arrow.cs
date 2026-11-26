@@ -3,13 +3,14 @@ using UnityEngine;
 namespace LittlePeeps
 {
     // An arrow in flight (ArcherAbility shoots it). It follows its target — re-aimed every frame, so a
-    // walking animal is still hit — and on arrival lands the shooter's hit on it through the target's
-    // CollisionTarget.HitFromRange: the payout and the depletion are the animal's ResourceSource's, as for
-    // a hit by contact. No collider and no physics: the arrow cannot miss and cannot hit anything else.
+    // walking animal is still hit — and on arrival lands the shooter's hit on it (ArrowTarget.Hit): the payout
+    // and the depletion are the animal's ResourceSource's, as for a hit by contact. No collider and no
+    // physics: the arrow cannot miss and cannot hit anything else.
     //
     // It lands only if the hit still means what it meant at the shot. The target gone (another arrow or a
-    // hunter's body got it first, its den was sold) or the shooter no longer the same hunter (gone home,
-    // back in the pool) — the arrow just vanishes, paying nobody.
+    // hunter's body got it first, its den was sold), no longer to be shot (ArrowTarget off) or the
+    // shooter no longer the same hunter (gone home, back in the pool) — the arrow just vanishes, paying
+    // nobody.
     //
     // The art faces right (+X); the arrow turns along its flight.
     public class Arrow : MonoBehaviour
@@ -20,7 +21,7 @@ namespace LittlePeeps
 
         private Unit shooter;
         private ProfessionDef profession;   // the shooter's at the shot — the arrow pays only that hunter
-        private CollisionTarget target;
+        private ArrowTarget target;
         private Vector3 aimOffset;          // from the target's feet to the middle of its body
         private float speed;
         private float flight;
@@ -28,7 +29,7 @@ namespace LittlePeeps
         // Set off from where it was instantiated toward `target`. Aims at the middle of the target's body
         // (its collider's bounds), measured once here and carried along — the animal's feet are its
         // transform and would read as a shot into the ground.
-        public void Launch(Unit shooter, CollisionTarget target, float speed)
+        public void Launch(Unit shooter, ArrowTarget target, float speed)
         {
             this.shooter = shooter;
             profession = shooter != null ? shooter.Profession : null;
@@ -50,7 +51,7 @@ namespace LittlePeeps
         private void Update()
         {
             flight += Time.deltaTime;
-            if (target == null || flight > MaxFlightSeconds)
+            if (target == null || !target.isActiveAndEnabled || flight > MaxFlightSeconds)
             {
                 Destroy(gameObject);
                 return;
@@ -74,7 +75,7 @@ namespace LittlePeeps
         {
             // `!= null` on the shooter, not `?.`: a destroyed unit only reads as null through Unity's operator.
             if (shooter != null && shooter.isActiveAndEnabled && shooter.Profession == profession)
-                target.HitFromRange(shooter);
+                target.Hit(shooter);
             Destroy(gameObject);
         }
 

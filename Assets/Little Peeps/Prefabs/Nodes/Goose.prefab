@@ -112,6 +112,7 @@ GameObject:
   - component: {fileID: 3365723563335728599}
   - component: {fileID: 5458536799924116997}
   - component: {fileID: 7451911977971325000}
+  - component: {fileID: 8297748189116318204}
   m_Layer: 7
   m_Name: Goose
   m_TagString: Untagged
@@ -215,6 +216,18 @@ MonoBehaviour:
   bounceJitterDegrees: 3
   stuckRadius: 1
   stuckWindow: 5
+--- !u!114 &8297748189116318204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4386377681604152477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02efe2cf697348369240d652b39b8a20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &5570942597378810187
 GameObject:
   m_ObjectHideFlags: 0

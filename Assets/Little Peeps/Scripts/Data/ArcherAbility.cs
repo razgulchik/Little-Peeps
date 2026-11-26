@@ -8,9 +8,10 @@ namespace LittlePeeps
     // ResourceSource pays and depletes exactly as if the unit had run into it (CollisionTarget.
     // HitFromRange). The unit keeps walking and bouncing the whole time; shooting never stops it.
     //
-    // WHO is a target is the yield table, not a list here: an animal whose ResourceSource accepts the
-    // shooter's profession (ResourceSource.Accepts — paid by that profession, and ready). For the hunter
-    // that is the boar and the fox today; give the alpaca a hunter yield and hunters shoot alpacas.
+    // WHAT can be shot at all is an ArrowTarget, and WHO shoots it is the yield table, not a list here: the
+    // target's ResourceSource must accept the shooter's profession (paid by that profession, and ready). For
+    // the hunter that is the boar, the fox and the goose today. The alpaca is livestock, shorn and never
+    // killed: it carries no ArrowTarget, so no yield makes it one.
     //
     // Numbers and mechanics live here, the per-unit state (the cooldown) in Bow — see ProfessionAbility.
     [CreateAssetMenu(menuName = "LittlePeeps/Abilities/Archer")]
@@ -40,11 +41,11 @@ namespace LittlePeeps
         }
 
         // The nearest animal within radius that pays this unit's profession right now; false = none.
-        // Measured feet to feet, from the transforms. Distance first, the components only for the few in
+        // Measured feet to feet, from the transforms. Distance first, the yield only for the few in
         // range — the list is every animal on the island. The radius is the run's ShootRadius on top of
         // the asset's, resolved on every search and never written back: this asset is shared by every
         // hunter, and a Play Mode write would stay in it.
-        private bool TryFindTarget(Unit unit, out CollisionTarget target)
+        private bool TryFindTarget(Unit unit, out ArrowTarget target)
         {
             target = null;
             Vector2 from = unit.transform.position;
@@ -52,24 +53,22 @@ namespace LittlePeeps
             float range = stats != null ? stats.Apply(radius, StatId.ShootRadius, unit.Type) : radius;
             float best = range * range;
 
-            var animals = AnimalWander.Alive;
-            for (int i = 0; i < animals.Count; i++)
+            var candidates = ArrowTarget.Alive;
+            for (int i = 0; i < candidates.Count; i++)
             {
-                var animal = animals[i];
-                float d = ((Vector2)animal.transform.position - from).sqrMagnitude;
-                if (d > best) continue;
-                if (!animal.TryGetComponent(out ResourceSource source) || !source.Accepts(unit.Type)) continue;
-                if (!animal.TryGetComponent(out CollisionTarget hit)) continue;
+                var candidate = candidates[i];
+                float d = ((Vector2)candidate.transform.position - from).sqrMagnitude;
+                if (d > best || !candidate.Accepts(unit.Type)) continue;
 
                 best = d;
-                target = hit;
+                target = candidate;
             }
             return target != null;
         }
 
         // Loose the arrow from the unit's body toward the target. False when there is no arrow to shoot
         // (no prefab) — the cooldown is then not spent.
-        private bool Fire(Unit unit, CollisionTarget target)
+        private bool Fire(Unit unit, ArrowTarget target)
         {
             if (arrowPrefab == null) return false;
 

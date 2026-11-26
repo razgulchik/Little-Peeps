@@ -389,6 +389,41 @@ namespace LittlePeeps.Tests
             Assert.IsTrue(grid.CanPlace(C(0, 0), L, null));
         }
 
+        // --- joining a fence (the fence ghost's click) ---------------------------------------------
+        // A free edge joins a fence when a standing fence meets it at either end — a wall's end, its middle
+        // or a corner alike. Standing on the fence, or alongside it with no corner shared, is not joining.
+
+        [Test]
+        public void JoinsFence_True_AtEitherEndOfAWall_AndAtItsMiddle()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            PutFence(grid, H(-1, 0));
+            PutFence(grid, H(0, 0));   // a wall from node (-1,0) to (1,0), jointed at (0,0)
+
+            Assert.IsTrue(grid.JoinsFence(H(1, 0)), "carried on past the east end");
+            Assert.IsTrue(grid.JoinsFence(V(-1, 0)), "turned up at the west end");
+            Assert.IsTrue(grid.JoinsFence(V(0, -1)), "a T under the joint in the middle");
+        }
+
+        [Test]
+        public void JoinsFence_False_OnTheFence_AlongsideIt_AndAwayFromIt()
+        {
+            var grid = TestIsland.Square(-2, 2);
+            PutFence(grid, H(0, 0));   // from node (0,0) to (1,0)
+
+            Assert.IsFalse(grid.JoinsFence(H(0, 0)), "standing on the fence itself");
+            Assert.IsFalse(grid.JoinsFence(H(0, 1)), "alongside, a cell above: no corner shared");
+            Assert.IsFalse(grid.JoinsFence(V(2, 0)), "a node past the end");
+        }
+
+        [Test]
+        public void JoinsFence_False_WithNoFenceAnywhere()
+        {
+            var grid = TestIsland.Square(-2, 2);
+
+            Assert.IsFalse(grid.JoinsFence(H(0, 0)));
+        }
+
         // --- coordinate round-trips ----------------------------------------------------------------
 
         [Test]

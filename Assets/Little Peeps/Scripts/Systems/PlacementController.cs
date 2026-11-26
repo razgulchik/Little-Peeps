@@ -35,6 +35,9 @@ namespace LittlePeeps
         [SerializeField] private IslandSystem islandSystem;
         [SerializeField] private GridOverlay gridOverlay;
 
+        [Tooltip("Plays the fence ghost's snap click (Visuals → Snap Sound). Empty = silent.")]
+        [SerializeField] private SoundSystem soundSystem;
+
         [Tooltip("What the left button does with nothing taken from the build panel: taps and carries the units.")]
         [SerializeField] private BareHand bareHand;
 
@@ -145,7 +148,7 @@ namespace LittlePeeps
         {
             if (context != null) return;
 
-            visuals.Init(structureSystem);
+            visuals.Init(structureSystem, soundSystem);
             context = new PlacementContext(islandSystem, structureSystem, resourceSystem, visuals);
             sellTool = new SellTool(context);
             sellTool.Sold += () => Sold?.Invoke();

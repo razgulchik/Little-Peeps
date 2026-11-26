@@ -283,6 +283,21 @@ namespace LittlePeeps
             return cellA?.occupant == null || cellA.occupant != cellB?.occupant;
         }
 
+        // A fence stands on one of the four edges that meet at `node`. A site counts: a fence stands from
+        // the moment it is paid for (StructureSystem.PlaceEdgeStructure).
+        public bool FenceAt(Vector2Int node)
+        {
+            for (int i = 0; i < 4; i++)
+                if (edges.ContainsKey(Edge.AtNode(node, i))) return true;
+            return false;
+        }
+
+        // `edge` is free and a standing fence meets it at either end — a wall's end, its middle or a corner
+        // alike: a fence here would join one. Running alongside a fence with no corner shared is not
+        // joining. What the fence ghost clicks on (PlacementVisuals).
+        public bool JoinsFence(Edge edge) =>
+            !edges.ContainsKey(edge) && (FenceAt(edge.anchor) || FenceAt(edge.End));
+
         // --- Lattice nodes (cell corners) — what a drawn fence stroke walks along ----------------------
         // Node (x,y) is the corner at world (x*cs, y*cs): the same lattice Edge anchors live on, so the
         // segment between two neighbouring nodes IS an edge (Edge.Between).

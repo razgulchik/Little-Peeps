@@ -3068,6 +3068,7 @@ MonoBehaviour:
   resourceSystem: {fileID: 1656171579}
   islandSystem: {fileID: 738684714}
   gridOverlay: {fileID: 55594376}
+  soundSystem: {fileID: 950349391}
   bareHand: {fileID: 871520646}
   visuals:
     validColor: {r: 0.4, g: 1, b: 0.4, a: 0.6}
@@ -3110,6 +3111,7 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
     snapDuration: 0.12
+    snapSound: {fileID: 11400000, guid: 0861306e3ccf4fc597057b73656fb3d4, type: 2}
     territoryValidColor: {r: 0.4, g: 1, b: 0.4, a: 0.18}
     territoryInvalidColor: {r: 1, g: 0.4, b: 0.4, a: 0.18}
     territorySortingLayer: Ground

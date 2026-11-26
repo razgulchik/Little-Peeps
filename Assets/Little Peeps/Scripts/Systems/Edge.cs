@@ -39,6 +39,15 @@ namespace LittlePeeps
                 : new Edge(new Vector2Int(a.x, Mathf.Min(a.y, b.y)), false);
         }
 
+        // The four edges that meet at lattice node `node`, by `i`: 0 east, 1 north, 2 west, 3 south.
+        public static Edge AtNode(Vector2Int node, int i) => i switch
+        {
+            0 => new Edge(node, true),
+            1 => new Edge(node, false),
+            2 => new Edge(node + Vector2Int.left, true),
+            _ => new Edge(node + Vector2Int.down, false),
+        };
+
         public bool Equals(Edge other) => anchor == other.anchor && horizontal == other.horizontal;
         public override bool Equals(object obj) => obj is Edge other && Equals(other);
         public override int GetHashCode() => (anchor.GetHashCode() * 397) ^ (horizontal ? 1 : 0);

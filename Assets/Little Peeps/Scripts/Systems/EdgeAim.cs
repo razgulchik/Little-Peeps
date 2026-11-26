@@ -130,7 +130,7 @@ namespace LittlePeeps
 
             for (int i = 0; i < 4; i++)
             {
-                Edge edge = EdgeAt(node, i);
+                Edge edge = Edge.AtNode(node, i);
                 if (grid.GetEdge(edge) != null)
                 {
                     fences++;
@@ -146,7 +146,7 @@ namespace LittlePeeps
             }
             if (fences != 1 || nearest == float.MaxValue) return false;
 
-            Edge offered = EdgeAt(node, Offered(grid, node, world, wall));
+            Edge offered = Edge.AtNode(node, Offered(grid, node, world, wall));
             if (grid.CanPlaceEdge(offered)) free = offered;
             return true;
         }
@@ -166,15 +166,6 @@ namespace LittlePeeps
             if (alongX) return across > 0f ? 1 : 3;
             return across > 0f ? 0 : 2;
         }
-
-        // The four edges that meet at a node: east, north, west, south.
-        private static Edge EdgeAt(Vector2Int node, int i) => i switch
-        {
-            0 => new Edge(node, true),
-            1 => new Edge(node, false),
-            2 => new Edge(node + Vector2Int.left, true),
-            _ => new Edge(node + Vector2Int.down, false),
-        };
 
         private static bool Touches(Edge edge, Vector2Int node) => edge.anchor == node || edge.End == node;
     }

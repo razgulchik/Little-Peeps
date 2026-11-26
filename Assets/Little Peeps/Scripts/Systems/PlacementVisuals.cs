@@ -19,6 +19,7 @@ namespace LittlePeeps
     // borrowed, so its original colours are remembered and put back. Drop shadows (SpriteShadow) follow
     // one rule throughout: a shadow belongs to what stands on the ground. The ghost never has one, and no
     // tint ever recolours one.
+    // The fence ghost's click lives here too, as part of what the ghost shows: a ghost latching on.
     //
     // A plain [Serializable] class, not a MonoBehaviour: the colours stay inspector-authored on the
     // PlacementController that owns it, but none of the drawing code sits in the controller any more.
@@ -31,7 +32,8 @@ namespace LittlePeeps
         [SerializeField] private Color sellHoverColor = new Color(1f, 0.4f, 0.4f, 0.6f);   // tint of the structure under the cursor in Sell mode
 
         // A fence ghost does not jump between edges: it comes unstuck (shrinks a touch), travels, and snaps
-        // onto the new edge (a short scale pop). A stroke's new segment appears with the same snap.
+        // onto the new edge (a short scale pop, and a click if it joins a fence). A stroke's new segment
+        // appears with the same snap.
         [Header("Fence ghost motion")]
         [Tooltip("Seconds the fence ghost takes to travel to a new edge. 0 = it jumps, and still snaps.")]
         [SerializeField, Min(0f)] private float glideDuration = 0.07f;
@@ -51,6 +53,13 @@ namespace LittlePeeps
         [Tooltip("Seconds the snap takes. 0 = no snap.")]
         [SerializeField, Min(0f)] private float snapDuration = 0.12f;
 
+        [Header("Fence sound")]
+        [Tooltip("Heard when a ghost snaps on and latches onto a fence: onto a free edge a standing fence " +
+                 "meets at either end (IslandGrid.JoinsFence), and every segment of a stroke after its first " +
+                 "— each latches onto the one before. Red ghost or green, and with snapDuration 0 too. A " +
+                 "ghost led about the island in the open lands silently. Empty = silent.")]
+        [SerializeField] private SoundDef snapSound;
+
         [Header("Territory halo (ghost)")]
         [SerializeField] private Color territoryValidColor = new Color(0.4f, 1f, 0.4f, 0.18f);
         [SerializeField] private Color territoryInvalidColor = new Color(1f, 0.4f, 0.4f, 0.18f);
@@ -60,6 +69,9 @@ namespace LittlePeeps
         // Needed for AnchorOnFootprint, which the builder also uses — sharing it is what makes the preview
         // land exactly where the real structure will.
         private StructureSystem structureSystem;
+
+        // Plays snapSound. Null = silent.
+        private SoundSystem soundSystem;
 
         private GameObject ghost;
         private SpriteRenderer[] ghostRenderers;       // every renderer to tint (the prefab's sprites for a cell ghost, 2 poses for a fence)
@@ -88,9 +100,10 @@ namespace LittlePeeps
         public bool HasGhost => ghost != null;
 
         // Called by PlacementController.Begin, before any drawing happens.
-        public void Init(StructureSystem structureSystem)
+        public void Init(StructureSystem structureSystem, SoundSystem soundSystem)
         {
             this.structureSystem = structureSystem;
+            this.soundSystem = soundSystem;
         }
 
         // --- ghost ------------------------------------------------------------------------------------
@@ -195,7 +208,9 @@ namespace LittlePeeps
                 {
                     g.Root.SetActive(true);
                     Place(g, grid, edge);
-                    if (!(handOver && edge.Equals(edgeGhost.Edge))) Snap(g);
+                    // A stroke is one unbroken run of nodes: every segment after the first meets the one
+                    // before it, or the standing fence the stroke stepped over there.
+                    if (!(handOver && edge.Equals(edgeGhost.Edge))) Snap(g, i > 0 || grid.JoinsFence(edge));
                 }
                 Tint(g.Renderers, plan[i].State == StrokeSegmentState.Build ? validColor : invalidColor);
             }
@@ -227,7 +242,7 @@ namespace LittlePeeps
             if (glideDuration <= 0f)
             {
                 g.Root.transform.position = to;
-                Snap(g);
+                Snap(g, grid.JoinsFence(edge));
                 return;
             }
 
@@ -236,14 +251,17 @@ namespace LittlePeeps
             g.Glide = LMotion.Create(g.Root.transform.position, to, glideDuration)
                 .WithEase(glideEase)
                 .WithScheduler(MotionScheduler.InitializationIgnoreTimeScale)
-                .WithOnComplete(() => Snap(g))
+                .WithOnComplete(() => Snap(g, grid.JoinsFence(g.Edge)))   // asked on landing
                 .Bind(p => g.Root.transform.position = p);
         }
 
-        // The snap onto the edge: the scale follows snapScale from the landing back to rest. Leaves the
-        // travel alone — the snap is what the travel's own completion starts.
-        private void Snap(FenceGhost g)
+        // The snap onto the edge: the scale following snapScale from the landing back to rest, and the click
+        // if it latches onto a fence (`click`, the caller's to judge). Leaves the travel alone — the snap is
+        // what the travel's own completion starts.
+        private void Snap(FenceGhost g, bool click)
         {
+            if (click && soundSystem != null) soundSystem.Play(snapSound);
+
             g.StopSnap();
             if (snapDuration <= 0f) return;
 

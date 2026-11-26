@@ -8,8 +8,8 @@ namespace LittlePeeps
     //
     // A gameplay state, like the perk pick: entered from OfferingEndState when the gods' wrath is accepted,
     // left to PlayingState on Play, with the cashed-in run frozen underneath until then. It started life as an
-    // empty app-FSM stub in the first skeleton, meant for a "Meta" button on a main menu; that menu does not
-    // exist, and the end of a run is the only way here.
+    // empty app-FSM stub in the first skeleton, meant for a "Meta" button on a main menu; the main menu has no
+    // such button, and the end of a run is the only way here.
     public class MetaUpgradesState : IState
     {
         private readonly StateMachine gameplayFsm;

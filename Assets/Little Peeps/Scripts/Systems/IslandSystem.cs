@@ -282,12 +282,61 @@ namespace LittlePeeps
     #endif
         }
 
-        private void Build(int seed, IslandRules rules, BiomeDef startBiome)
+        // The island of a saved run, put back as it was saved: its sections in order, each committed to the
+        // grid with its biome's ground, then drawn once. Nothing is placed — the saved run's structures come
+        // back through StructureSystem (RunManager.TryRestoreRun), natural features included, as they stood
+        // when the run was left: a felled forest stays felled. False with the reason when a section cannot be
+        // read; whatever was built is then thrown away by the fresh run the caller starts instead.
+        public bool TryRestoreForRun(int seed, IslandRules rules, BiomeDef startBiome, IReadOnlyList<SectionSave> sections,
+                                     out string problem)
         {
+            problem = null;
+            house = null;
+            pier = null;
+            extras.Clear();
             ValidateBiomes(startBiome);
-            startBiome = Usable(startBiome);
+            NewIsland(seed, rules ?? new IslandRules());
 
-            var clock = Stopwatch.StartNew();
+            if (sections == null || sections.Count == 0)
+            {
+                problem = "the save holds no island";
+                return false;
+            }
+
+            var biomeById = BiomeById(startBiome);
+            IslandSection last = null;
+            foreach (var save in sections)
+            {
+                if (!IslandSnapshot.TryLoad(save, biomeById, out var cells, out var content, out problem))
+                {
+                    problem = $"section {Generator.Sections.Count}: {problem}";
+                    return false;
+                }
+                last = Generator.Restore(cells, content);
+                CommitToGrid(last);
+            }
+
+            LastSection = last;
+            lastContent.Clear();
+            Drawing.RepaintAll();
+            Debug.Log($"IslandSystem: seed {seed} → restored {sections.Count} sections, {Generator.Land.Count} cells.", this);
+            return true;
+        }
+
+        // A zone's biome by its profile id, among the ones this island can grow and the run's start biome.
+        private System.Func<string, IslandBiome> BiomeById(BiomeDef startBiome) => id =>
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            if (startBiome != null && startBiome.profile != null && startBiome.profile.id == id) return startBiome.profile;
+            foreach (var biome in biomes)
+                if (biome != null && biome.profile != null && biome.profile.id == id) return biome.profile;
+            return null;
+        };
+
+        // A blank island for this run: an empty grid, its drawing and the generator on the run's seed. Shared by
+        // a fresh run (Build) and a saved one (TryRestoreForRun), so both draw and grow alike.
+        private void NewIsland(int seed, IslandRules rules)
+        {
             Grid = new IslandGrid(cellSize);
             var usableBorders = UsableBorders();
             var waves = WaveTiles(usableBorders);
@@ -296,6 +345,15 @@ namespace LittlePeeps
                                         waves != null ? waveHorizontalTilemap : null, waves != null ? waveVerticalTilemap : null,
                                         waves, UsableCoastShadow(usableBorders), coastShadowTile);
             Generator = new IslandGenerator(rules, seed);
+        }
+
+        private void Build(int seed, IslandRules rules, BiomeDef startBiome)
+        {
+            ValidateBiomes(startBiome);
+            startBiome = Usable(startBiome);
+
+            var clock = Stopwatch.StartNew();
+            NewIsland(seed, rules);
             var start = Generator.GenerateStart();
 
             IslandSectionContent content = null;

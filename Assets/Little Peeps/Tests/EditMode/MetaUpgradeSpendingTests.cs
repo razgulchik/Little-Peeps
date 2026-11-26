@@ -146,5 +146,62 @@ namespace LittlePeeps.Tests
             Assert.That(meta.TryTake(null, 1), Is.False);
             Assert.That(meta.FreePoints, Is.EqualTo(3));
         }
+
+        // Settings → Reset Progress: a profile that has never played — and the records with it, or the next
+        // run would be paid as if the old ones still stood.
+        [Test]
+        public void ResetProgress_LeavesAProfileThatHasNeverPlayed()
+        {
+            var meta = new MetaContext { prestigePoints = 5, agePointsAwarded = 3, harvestPointsAwarded = 2 };
+            meta.TryTake(Boots, 2);
+
+            meta.ResetProgress();
+
+            Assert.That(meta.prestigePoints, Is.Zero);
+            Assert.That(meta.agePointsAwarded, Is.Zero);
+            Assert.That(meta.harvestPointsAwarded, Is.Zero);
+            Assert.That(meta.IsTaken(Boots), Is.False);
+            Assert.That(meta.FreePoints, Is.Zero);
+        }
+
+        // A wisdom renamed or removed since the save: what it held is free again, the rest stays taken.
+        [Test]
+        public void ForgetUnknown_FreesWhatAGoneUpgradeHeld()
+        {
+            var meta = new MetaContext { prestigePoints = 5 };
+            meta.TryTake(Boots, 2);
+            meta.TryTake(Houses, 1);
+
+            var dropped = meta.ForgetUnknown(id => id == Houses);
+
+            Assert.That(dropped, Is.EqualTo(new[] { Boots }));
+            Assert.That(meta.IsTaken(Boots), Is.False);
+            Assert.That(meta.IsTaken(Houses), Is.True);
+            Assert.That(meta.FreePoints, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void ForgetUnknown_WithEverythingKnown_DropsNothing()
+        {
+            var meta = new MetaContext { prestigePoints = 5 };
+            meta.TryTake(Boots, 2);
+
+            Assert.That(meta.ForgetUnknown(_ => true), Is.Empty);
+            Assert.That(meta.IsTaken(Boots), Is.True);
+        }
+
+        // In place, because PrestigeSystem keeps the object: the reset profile must still take and bank.
+        [Test]
+        public void ResetProgress_KeepsTheProfileUsable()
+        {
+            var meta = new MetaContext { prestigePoints = 2 };
+            meta.TryTake(Boots, 2);
+            meta.ResetProgress();
+
+            meta.BankPayout(payout: 1, agePointsEarned: 1, harvestPointsEarned: 0);
+
+            Assert.That(meta.TryTake(Houses, 1), Is.True);
+            Assert.That(meta.FreePoints, Is.Zero);
+        }
     }
 }

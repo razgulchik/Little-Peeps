@@ -76,12 +76,21 @@ namespace LittlePeeps
         private bool pointerActive;   // latched true on the first real mouse movement (see EdgeDir)
         private int zoomLevel;        // index into zoomLevels
 
+        // The menus over the game: the island stands still behind them, and the pause is a pause of the
+        // player's hands too. On every other frozen screen the pan stays — the zone pick needs it.
+        private const UIMode HandsOffModes = UIMode.MainMenu | UIMode.Pause;
+
+        // Starts from the boot mode rather than waiting for the first event, for UIVisibility's reason:
+        // GameBootstrap.Awake may announce the menu before this OnEnable has subscribed.
+        private bool handsOff = (UIModeChangedEvent.BootMode & HandsOffModes) != 0;
+
         private void Start() => ResetView();
 
         private void OnEnable()
         {
             EventBus<AgeStartedEvent>.Subscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Subscribe(OnRunStarted);
+            EventBus<UIModeChangedEvent>.Subscribe(OnModeChanged);
             if (inputHandler != null) inputHandler.OnPan += OnPan;
         }
 
@@ -89,8 +98,11 @@ namespace LittlePeeps
         {
             EventBus<AgeStartedEvent>.Unsubscribe(OnAgeStarted);
             EventBus<RunStartedEvent>.Unsubscribe(OnRunStarted);
+            EventBus<UIModeChangedEvent>.Unsubscribe(OnModeChanged);
             if (inputHandler != null) inputHandler.OnPan -= OnPan;
         }
+
+        private void OnModeChanged(UIModeChangedEvent e) => handsOff = (e.Mode & HandsOffModes) != 0;
 
         // The island grows on a new age → its bounds change, so re-cache them.
         private void OnAgeStarted(AgeStartedEvent _) => RefreshBounds();
@@ -162,7 +174,7 @@ namespace LittlePeeps
         {
             if (cameraTarget == null) return;
 
-            HandleZoomKeys();
+            if (!handsOff) HandleZoomKeys();
 
             Vector3 pos = cameraTarget.position;
 
@@ -170,7 +182,7 @@ namespace LittlePeeps
             bool panning = inputHandler != null && inputHandler.IsPanning;
 
             Vector2 dir = Vector2.zero;
-            if (!panning)
+            if (!panning && !handsOff)
             {
                 dir = KeyboardDir();
                 if (edgePanEnabled) dir += EdgeDir();
@@ -213,7 +225,8 @@ namespace LittlePeeps
         // snap, so the grab holds on any resolution.
         private void OnPan(Vector2 deltaPx)
         {
-            if (cameraTarget == null || viewCamera == null) return;
+            // A drag that began on the world just before the menu came up does not carry on under it.
+            if (cameraTarget == null || viewCamera == null || handsOff) return;
 
             float worldPerPixel = (viewCamera.orthographicSize * 2f) / Screen.height;
             Vector3 pos = cameraTarget.position;

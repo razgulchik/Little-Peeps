@@ -44,6 +44,17 @@ namespace LittlePeeps
             Current?.Enter();
         }
 
+        // Leave the machine empty: Exit the top state and drop the ones under it WITHOUT resuming any. Only
+        // the top one needs its Exit — Push already paused each of the others with theirs. For leaving
+        // a whole layer at once (the gameplay states, on the way to the main menu), where a Pop per state
+        // would Enter each one below on the way out.
+        public void Clear()
+        {
+            if (stack.Count == 0) return;
+            stack.Pop().Exit();
+            stack.Clear();
+        }
+
         // Forward update to top state
         public void Tick()
         {

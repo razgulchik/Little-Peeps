@@ -44,5 +44,14 @@ namespace LittlePeeps
         // What this upgrade does to a run that is being built. Called by RunContext.Grant, from
         // RunManager.StartNewRun, before any system reads the run.
         public abstract void ApplyToRun(RunContext run);
+
+        // The part of ApplyToRun that is a stat modifier, and only that part. A saved run is put back with its
+        // run state as it was saved — resources, picks owed, free ages already spent or not — but its stat
+        // sheet is rebuilt, and this is how a meta perk adds to it again (RunManager.TryRestoreRun). So:
+        //   - an upgrade that writes the stat sheet does it HERE, and calls this from its ApplyToRun;
+        //   - anything else it writes into the run (a one-time grant, a flag) stays in ApplyToRun only, where
+        //     it happens once, and the save carries its result.
+        // A new kind that writes the sheet in ApplyToRun directly would lose its bonus in every continued run.
+        public virtual void AddStats(RunStats stats) { }
     }
 }

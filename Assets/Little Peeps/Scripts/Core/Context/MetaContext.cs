@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace LittlePeeps
 {
-    // Persists across runs; serialized to JSON by SaveSystem.
-    // Note: Dictionary<> is not supported by JsonUtility — SaveSystem wraps this in a serializable list.
+    // Persists across runs; written to disk by SaveSystem in ProfileFile's format.
+    // Note: Dictionary<> is not supported by JsonUtility — ProfileFile writes it as a list of id / points.
     [Serializable]
     public class MetaContext
     {
@@ -48,6 +48,34 @@ namespace LittlePeeps
             prestigePoints      += Math.Max(0, payout);
             agePointsAwarded     = Math.Max(agePointsAwarded, agePointsEarned);
             harvestPointsAwarded = Math.Max(harvestPointsAwarded, harvestPointsEarned);
+        }
+
+        // Settings → Reset Progress: back to a profile that has never played — no points, no records, nothing
+        // taken. IN PLACE, not by replacing the object: PrestigeSystem holds this one, and a fresh instance
+        // would leave it banking into and reading from the old.
+        public void ResetProgress()
+        {
+            prestigePoints = 0;
+            agePointsAwarded = 0;
+            harvestPointsAwarded = 0;
+
+            globalUpgrades ??= new Dictionary<string, int>();
+            globalUpgrades.Clear();
+        }
+
+        // Drop the taken upgrades that no longer exist — renamed or removed from the catalogue since the profile
+        // was saved. The points they held come back as free: nothing the player paid for is lost, it just
+        // waits to be spent again. Returns the ids dropped, for the log.
+        public List<string> ForgetUnknown(Func<string, bool> isKnown)
+        {
+            var dropped = new List<string>();
+            if (globalUpgrades == null || isKnown == null) return dropped;
+
+            foreach (string id in globalUpgrades.Keys)
+                if (!isKnown(id)) dropped.Add(id);
+            foreach (string id in dropped) globalUpgrades.Remove(id);
+
+            return dropped;
         }
 
         public bool IsTaken(string id) => id != null && globalUpgrades != null && globalUpgrades.ContainsKey(id);

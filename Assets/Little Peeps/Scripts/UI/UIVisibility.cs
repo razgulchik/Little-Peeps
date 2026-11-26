@@ -40,11 +40,11 @@ namespace LittlePeeps
 
         // The last mode announced and the build panel switch — the table is applied from both, whichever
         // changes. The panel starts shown, as BuildPanelToggle does.
-        private UIMode mode = UIMode.Playing;
+        private UIMode mode = UIModeChangedEvent.BootMode;
         private bool buildPanelShown = true;
 
-        // The mode the game boots into, applied before any event can arrive. GameBootstrap.Awake builds
-        // the FSM — and so publishes the first mode — and Unity gives no order between that Awake and
+        // The mode the game boots into (the main menu), applied before any event can arrive. GameBootstrap.Awake
+        // builds the FSM — and so publishes the first mode — and Unity gives no order between that Awake and
         // this one. Establishing the boot mode here makes the order irrelevant instead of depending on
         // it: either the event arrives and is applied, or it was missed and this already said the same
         // thing. Same rule the build panel's widgets follow: they boot live.

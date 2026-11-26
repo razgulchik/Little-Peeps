@@ -31,7 +31,7 @@ namespace LittlePeeps
     // comes through the sibling ResourceSource, which StructureSystem already injects — one plumbing
     // point instead of two.
     [RequireComponent(typeof(ResourceSource))]
-    public class ForgeHeat : MonoBehaviour, IHitGate, IYieldScale
+    public class ForgeHeat : MonoBehaviour, IHitGate, IYieldScale, IRunState
     {
         [Tooltip("Heat one paying hit adds.")]
         [Min(0f)] [SerializeField] private float heatPerHit = 1f;
@@ -103,6 +103,23 @@ namespace LittlePeeps
 
             // Hysteresis lives here and nowhere else: overheat is lifted only by cooling to zero.
             if (heat <= 0f) overheated = false;
+        }
+
+        // IRunState — a saved run: how hot the forge was, and whether it was locked out cooling down.
+        public string StateKey => "forge";
+
+        public void SaveState(System.Collections.Generic.List<float> into)
+        {
+            into.Add(heat);
+            into.Add(overheated ? 1f : 0f);
+        }
+
+        public void LoadState(System.Collections.Generic.IReadOnlyList<float> from)
+        {
+            if (from == null || from.Count < 2) return;
+
+            heat = Mathf.Max(0f, from[0]);
+            overheated = from[1] > 0.5f && heat > 0f;   // the lock only ever lifts at zero heat
         }
 
         private float ResolveMaxHeat() => Resolve(maxHeat, StatId.ForgeMaxHeat);

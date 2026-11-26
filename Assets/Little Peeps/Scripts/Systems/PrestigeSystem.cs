@@ -27,9 +27,39 @@ namespace LittlePeeps
                 ? upgrades.upgrades
                 : Array.Empty<GlobalUpgradeDef>();
 
+        // A meta perk of the catalogue by its id — how a saved run finds the ones it was built with. Null for an
+        // id the catalogue no longer has.
+        public GlobalUpgradeDef FindUpgrade(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            foreach (var def in Upgrades)
+                if (def != null && def.id == id) return def;
+            return null;
+        }
+
         public void Initialize(MetaContext meta)
         {
             metaContext = meta;
+            ForgetUnknownUpgrades();
+        }
+
+        // The profile may hold wisdoms the catalogue no longer has (renamed or removed since it was saved):
+        // their points come back as free, and the profile is saved without them at once. No catalogue at all
+        // means nothing to judge by — a missing reference must not wipe what the player took.
+        private void ForgetUnknownUpgrades()
+        {
+            if (metaContext == null || upgrades == null || upgrades.upgrades == null) return;
+
+            var known = new HashSet<string>();
+            foreach (var def in Upgrades)
+                if (def != null && !string.IsNullOrEmpty(def.id)) known.Add(def.id);
+
+            List<string> dropped = metaContext.ForgetUnknown(known.Contains);
+            if (dropped.Count == 0) return;
+
+            Debug.LogWarning($"[Prestige] the profile held wisdoms the catalogue no longer has " +
+                             $"({string.Join(", ", dropped)}) — their points are free again.", this);
+            SaveProfile();
         }
 
         // The catalogue holds what a save will key by, so its mistakes are checked once, at startup — the
@@ -61,6 +91,11 @@ namespace LittlePeeps
         {
             if (context == null || metaContext == null) return false;
 
+            // The run's bookmark goes FIRST, before a single point is banked: a run that could be continued
+            // after it was paid could be paid twice. If the game dies between the two, the run is lost unpaid —
+            // a rare loss, where the other order would be a repeatable gain.
+            if (saveSystem != null) saveSystem.DiscardRun();
+
             // Read EVERYTHING the finished run is worth before anything moves: Calculate subtracts the
             // records as they stand now, so raising them first would pay the run nothing.
             int payout          = Calculate(context);
@@ -79,11 +114,23 @@ namespace LittlePeeps
             return true;
         }
 
-        // A no-op until track C implements saving, but these are its call sites: after a cash-in, and before
-        // the next run is built from what was spent.
+        // After every change to the profile: a cash-in, each take and return on the meta screen, and before the
+        // next run is built from what was spent. So quitting on the meta screen keeps what was bought there.
         public void SaveProfile()
         {
             if (saveSystem != null && metaContext != null) saveSystem.Save(metaContext);
+        }
+
+        // Settings → Reset Progress (main menu only): the profile back to a fresh one, and its saved copy
+        // with it — and the saved run, which was built with the perks the reset takes away. Replacing the run
+        // under the menu is the menu's call (MainMenuState).
+        public void ResetProfile()
+        {
+            if (metaContext != null) metaContext.ResetProgress();
+            if (saveSystem == null) return;
+
+            saveSystem.DeleteSave();
+            saveSystem.DiscardRun();
         }
 
         // --- Spending. The rules live in MetaContext; these pass the def's id and price. ---
@@ -97,11 +144,19 @@ namespace LittlePeeps
         public bool CanTake(GlobalUpgradeDef def) =>
             def != null && metaContext != null && metaContext.CanTake(def.id, def.Cost);
 
-        public bool TryTake(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.TryTake(def.id, def.Cost);
+        public bool TryTake(GlobalUpgradeDef def)
+        {
+            if (def == null || metaContext == null || !metaContext.TryTake(def.id, def.Cost)) return false;
+            SaveProfile();
+            return true;
+        }
 
-        public bool TryReturn(GlobalUpgradeDef def) =>
-            def != null && metaContext != null && metaContext.TryReturn(def.id);
+        public bool TryReturn(GlobalUpgradeDef def)
+        {
+            if (def == null || metaContext == null || !metaContext.TryReturn(def.id)) return false;
+            SaveProfile();
+            return true;
+        }
 
         // Put every taken upgrade into a run that is being built. Called by RunManager.StartNewRun next to the
         // start config's modifiers — a meta perk is a run-start bonus, in the sheet before any system reads it.

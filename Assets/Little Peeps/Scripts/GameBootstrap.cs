@@ -18,12 +18,12 @@ namespace LittlePeeps
     // wrath does); its Pier marker component waits for whatever the pier becomes next.
     //
     // Initialization (all in Awake — order-independent, see note on Awake below):
-    //   1. Application.runInBackground
+    //   1. Application.runInBackground, the saved settings (volume), test mode (presets + its own profile)
     //   2. Load MetaContext from disk (RunContext is owned by RunManager)
     //   3. Wire run-independent systems (prestigeSystem)
     //   4. RunManager.StartNewRun → wire run-dependent systems (tapSystem / ageSystem / UIRoot)
-    //   5. Create App FSM → push BootState → auto-transition to GameplayContainer
-    //      (MainMenu skipped until its UI exists)
+    //   5. Create App FSM → push BootState → the main menu, over the first island, frozen; its Play
+    //      enters GameplayContainer
     public class GameBootstrap : MonoBehaviour
     {
         [Header("Systems")]
@@ -63,6 +63,10 @@ namespace LittlePeeps
         private MetaContext metaContext;
         private StateMachine appStateMachine;
 
+        // Asked when the game is closed: whether the run is in normal play, where it can be snapshotted as it
+        // stands (OnApplicationQuit).
+        private GameplayContainerState gameplayState;
+
         // All bootstrap work runs in Awake. Unity guarantees every Awake completes before any
         // Start, so by the time any other system's Start runs, everything is wired and the run
         // has started — initialization is order-independent and needs NO Script Execution Order
@@ -71,6 +75,18 @@ namespace LittlePeeps
         private void Awake()
         {
             Application.runInBackground = true;
+            GameSettings.ApplySaved();
+
+            //    Test mode first: it swaps in its presets and its own profile before anything reads them, so
+            //    the profile loaded below and the first island are already the test ones; they hold for every
+            //    run of this play session.
+            if (TestMode.IsOn)
+            {
+                if (testMode != null) testMode.Apply(runManager, offeringSystem, saveSystem);
+                else Debug.LogWarning("[GameBootstrap] test mode is on (Little Peeps → Test Mode), but no " +
+                                      "TestMode is assigned — the real presets and the real profile are used.",
+                                      this);
+            }
 
             // 1. Load persistent data.
             metaContext = saveSystem.Load();
@@ -79,21 +95,17 @@ namespace LittlePeeps
             prestigeSystem.Initialize(metaContext);
 
             //    Every run starts with the meta perks bought so far, so RunManager learns where they come
-            //    from before it builds the first one.
-            runManager.Initialize(prestigeSystem);
+            //    from before it builds the first one — and what a saved run is rebuilt with.
+            runManager.Initialize(prestigeSystem, ageSystem, perkSystem, saveSystem);
 
-            //    Test mode swaps its presets in before the first run, so the first island is already the
-            //    test one; they hold for every run of this play session.
-            if (TestMode.IsOn)
-            {
-                if (testMode != null) testMode.Apply(runManager, offeringSystem);
-                else Debug.LogWarning("[GameBootstrap] test mode is on (Little Peeps → Test Mode), but no " +
-                                      "TestMode is assigned — the real presets are used.", this);
-            }
-
-            // 3. Start the first run: RunManager creates the RunContext, seeds resources
-            //    (via ResourceSystem.Initialize) and asks IslandSystem to generate the island.
-            runManager.StartNewRun();
+            // 3. The first run: the one left last time when there is one to continue, else a fresh one —
+            //    RunManager creates the RunContext, seeds resources (via ResourceSystem.Initialize) and builds
+            //    the island. Either way it is the main menu's backdrop; a saved one stays on disk until it is
+            //    continued, so quitting from the menu keeps it.
+            RunSnapshot savedRun = saveSystem.LoadRun();
+            bool runRestored = savedRun != null && runManager.TryRestoreRun(savedRun);
+            if (savedRun != null && !runRestored) saveSystem.SetAsideRun();   // kept, before the fresh run discards it
+            if (!runRestored) runManager.StartNewRun();
             RunContext run = runManager.CurrentRun;
 
             // 4. Wire run-dependent systems.
@@ -145,9 +157,13 @@ namespace LittlePeeps
             ZoneSelectionUI zoneScreen = uiRoot != null ? uiRoot.ZoneScreen : null;
             OfferingWindow offeringWindow = uiRoot != null ? uiRoot.OfferingWindow : null;
             MetaUpgradesUI metaScreen = uiRoot != null ? uiRoot.MetaScreen : null;
+            MainMenuUI mainMenuScreen = uiRoot != null ? uiRoot.MainMenu : null;
+            PauseMenuUI pauseScreen = uiRoot != null ? uiRoot.PauseMenu : null;
+            SettingsUI settingsWindow = uiRoot != null ? uiRoot.Settings : null;
+            ConfirmDialog confirmDialog = uiRoot != null ? uiRoot.ConfirmDialog : null;
 
-            // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to
-            //    Gameplay (when async loading lands, BootState.Tick will own this transition).
+            // 5. App FSM. Boot is synchronous for now, so we enter Boot and advance straight to the
+            //    main menu (when async loading lands, BootState.Tick will own this transition).
             //    The inner gameplay FSM starts in PlayingState; bouncing units / spawners run on
             //    their own MonoBehaviours — the FSM is the orchestration backbone for later states.
             appStateMachine = new StateMachine();
@@ -156,8 +172,21 @@ namespace LittlePeeps
             //    The states are handed runManager, NOT the RunContext: they are built once here and live
             //    through every prestige, so a captured context would be the finished run's.
             var gameplayFsm = new StateMachine();
-            var playingState = new PlayingState(placementController);
+
+            //    Every time normal play is left the run is snapshotted as it stands, so a game closed in the
+            //    window that follows is saved as it was just before it (SaveSystem).
+            var playingState = new PlayingState(placementController, CaptureRun);
             var perkSelectionState = new PerkSelectionState(gameplayFsm, perkSystem, perkScreen, runManager, playingState);
+
+            //    The pause's Main Menu writes the run and leaves the gameplay states for the menu, which is built
+            //    last because it enters them — so the pause reaches it through the variable, filled in below
+            //    before anything can be clicked.
+            MainMenuState mainMenuState = null;
+            var pauseState = new PauseState(gameplayFsm, pauseScreen, settingsWindow, confirmDialog, () =>
+            {
+                saveSystem.WriteRun();
+                appStateMachine.ChangeState(mainMenuState);
+            });
 
             //    The one way a run ends: the gods' wrath at the end of an offering cycle → cash-in → the meta
             //    screen, whose Play starts the next run.
@@ -166,34 +195,40 @@ namespace LittlePeeps
             var offeringEndState = new OfferingEndState(gameplayFsm, offeringSystem, prestigeSystem, runManager,
                                                         offeringWindow, playingState, perkSelectionState,
                                                         metaUpgradesState);
-            appStateMachine.ChangeState(new GameplayContainerState(gameplayFsm, playingState,
-                                                                   perkSelectionState, ageSystem, ageSequencer, resourceSystem,
-                                                                   islandSystem, zoneScreen, runManager,
-                                                                   offeringSystem, offeringEndState));
+            gameplayState = new GameplayContainerState(gameplayFsm, playingState,
+                                                       perkSelectionState, ageSystem, ageSequencer, resourceSystem,
+                                                       islandSystem, zoneScreen, runManager,
+                                                       offeringSystem, offeringEndState, pauseState);
 
-            // Exit-to-menu hotkey (GameHotkeys → ExitToMenuRequestedEvent). Owned here because the app FSM
-            // and runManager live here; leaving the container restores timeScale via its Exit().
-            EventBus<ExitToMenuRequestedEvent>.Subscribe(OnExitToMenu);
-        }
-
-        // The hotkey and the event stay wired, but the transition is DECLINED while MainMenuState is
-        // still a stub. Entering it used to strand the player: the container's Exit() drops the age-advance
-        // subscription, the menu draws nothing and listens for nothing, and gameplay
-        // keeps running underneath with no way back. Restoring this is one line once the menu screen
-        // exists — see the ChangeState call this replaced in git history.
-        private void OnExitToMenu(ExitToMenuRequestedEvent _)
-        {
-            Debug.LogWarning("Exit to menu isn't available yet — MainMenuState has no screen. Ignoring.", this);
-        }
-
-        private void OnDestroy()
-        {
-            EventBus<ExitToMenuRequestedEvent>.Unsubscribe(OnExitToMenu);
+            mainMenuState = new MainMenuState(appStateMachine, gameplayState, runManager, prestigeSystem, saveSystem,
+                                              mainMenuScreen, settingsWindow, confirmDialog, runRestored);
+            appStateMachine.ChangeState(mainMenuState);
         }
 
         private void Update()
         {
             appStateMachine.Tick();
+        }
+
+        // The run as it stands, held to be written when the game is left (SaveSystem.HoldRun).
+        private void CaptureRun()
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            RunSnapshot snapshot = runManager.Capture();
+            saveSystem.HoldRun(snapshot, clock.Elapsed.TotalMilliseconds);
+        }
+
+        // Every way the game is left — Quit, the window's close button, Alt+F4, stopping Play in the editor — writes
+        // the run's bookmark: from normal play as it stands, from anywhere else as it was when normal play was last
+        // left. A crash or a killed process never gets here, and then the run is lost by design (RunFile).
+        private void OnApplicationQuit()
+        {
+            if (saveSystem == null) return;
+
+            if (appStateMachine != null && gameplayState != null && appStateMachine.Current == gameplayState &&
+                gameplayState.InNormalPlay)
+                CaptureRun();
+            saveSystem.WriteRun();
         }
     }
 }

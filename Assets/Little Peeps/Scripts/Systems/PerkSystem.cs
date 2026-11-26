@@ -6,7 +6,7 @@ namespace LittlePeeps
     // Rolls and applies perks: a weighted draw without replacement from the authored catalogue.
     //
     // The cadence is one perk per offering (a few minutes of play each), so this runs a couple of dozen
-    // times per run at most — plain lists and Random.value are the right cost here.
+    // times per run at most — plain lists and one small seeded rng per roll are the right cost here.
     public class PerkSystem : MonoBehaviour
     {
         [SerializeField] private PerkCatalogueDef catalogue;
@@ -25,6 +25,16 @@ namespace LittlePeeps
             }
 
             ValidateCatalogue();
+        }
+
+        // A perk of the catalogue by its id — how a saved run finds the perks it had taken. Null for an id
+        // the catalogue no longer has.
+        public PerkDef FindPerk(string id)
+        {
+            if (catalogue == null || catalogue.perks == null || string.IsNullOrEmpty(id)) return null;
+            foreach (var perk in catalogue.perks)
+                if (perk != null && perk.id == id) return perk;
+            return null;
         }
 
         // Perk ids are what a save will store, so a duplicate or an empty one is a bug that only shows
@@ -93,18 +103,29 @@ namespace LittlePeeps
         // authored, all taken, none unlocked at this age — rolls the common pool instead: the offering was
         // paid, and an ordinary perk beats a reward that never comes. Fewer special perks than cards is
         // not that case: they are offered as they are.
+        //
+        // The dice are the run's: derived from its seed and the number of this roll (RunContext.perkRolls,
+        // counted here), never from a global random state. So the same run, at the same roll, with the same
+        // perks taken, is offered the same cards — a game closed on the perk pick and continued comes back to
+        // the cards it left, and quitting cannot reroll them. Without a run the roll is merely random.
         public List<PerkDef> RollPerks(int currentAge, RunContext context, PerkGrade grade = PerkGrade.Common)
         {
-            var offer = Roll(currentAge, context, grade);
+            var rng = context != null
+                ? IslandRng.Derive(context.seed, PerkStream, (ulong)context.perkRolls++)
+                : new IslandRng(Random.Range(1, int.MaxValue));
+
+            var offer = Roll(currentAge, context, grade, rng);
             if (offer.Count == 0 && grade != PerkGrade.Common)
             {
                 Debug.Log($"[Perks] No {grade} perk can be offered — rolling common ones instead.", this);
-                offer = Roll(currentAge, context, PerkGrade.Common);
+                offer = Roll(currentAge, context, PerkGrade.Common, rng);
             }
             return offer;
         }
 
-        private List<PerkDef> Roll(int currentAge, RunContext context, PerkGrade grade)
+        private static readonly ulong PerkStream = IslandRng.Hash("perks");
+
+        private List<PerkDef> Roll(int currentAge, RunContext context, PerkGrade grade, IslandRng rng)
         {
             var offer = new List<PerkDef>();
             if (catalogue == null) return offer;
@@ -122,7 +143,7 @@ namespace LittlePeeps
 
             while (offer.Count < choicesOffered && candidates.Count > 0)
             {
-                int i = PickIndex(weights, Random.value);
+                int i = PickIndex(weights, (float)rng.NextDouble());
                 if (i < 0) break;   // everything left has non-positive weight
 
                 offer.Add(candidates[i]);

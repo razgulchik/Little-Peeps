@@ -3632,6 +3632,7 @@ MonoBehaviour:
   structureSystem: {fileID: 42342360}
   spawnSystem: {fileID: 711440996}
   startConfig: {fileID: 11400000, guid: 627ada24423ec1e4ca22ff04184af04a, type: 2}
+  structureCatalogue: {fileID: 11400000, guid: 3d3c6c8b4975454086cce3ae187fdb85, type: 2}
 --- !u!1 &1088972179
 GameObject:
   m_ObjectHideFlags: 0

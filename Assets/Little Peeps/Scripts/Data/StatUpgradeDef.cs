@@ -18,9 +18,14 @@ namespace LittlePeeps
 
         public override void ApplyToRun(RunContext run)
         {
-            if (run == null || modifiers == null) return;
+            if (run != null) AddStats(run.stats);
+        }
 
-            run.stats.Add(modifiers);
+        public override void AddStats(RunStats stats)
+        {
+            if (stats == null || modifiers == null) return;
+
+            stats.Add(modifiers);
         }
     }
 }

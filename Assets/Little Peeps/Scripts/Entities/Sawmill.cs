@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LittlePeeps
@@ -29,7 +30,7 @@ namespace LittlePeeps
     // prefab. Left and right are the world's: structures are never rotated. What it LOOKS like (the carriage
     // travelling to the awaited end, the log coming apart) belongs to a view, off Awaited and Cut.
     [RequireComponent(typeof(ResourceSource))]
-    public class Sawmill : MonoBehaviour, IHitGate
+    public class Sawmill : MonoBehaviour, IHitGate, IRunState
     {
         public enum End { Left, Right }
 
@@ -105,6 +106,16 @@ namespace LittlePeeps
             var struck = awaited;
             awaited = Other(struck);
             Cut?.Invoke(struck);
+        }
+
+        // IRunState — a saved run: which end the saw waits for. Before the view's Start, which shows it.
+        public string StateKey => "sawmill";
+
+        public void SaveState(List<float> into) => into.Add(awaited == End.Right ? 1f : 0f);
+
+        public void LoadState(IReadOnlyList<float> from)
+        {
+            if (from != null && from.Count >= 1) awaited = from[0] > 0.5f ? End.Right : End.Left;
         }
 
         private Collider2D[] SolidColliders()

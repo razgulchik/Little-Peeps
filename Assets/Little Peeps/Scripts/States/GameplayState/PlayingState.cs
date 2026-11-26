@@ -13,9 +13,16 @@ namespace LittlePeeps
         // (a perk pick, an age transition, the end-of-cycle window) starts by dropping the tool in hand.
         private readonly PlacementController placement;
 
-        public PlayingState(PlacementController placement = null)
+        // Called each time normal play is left — for a window, the pause, the main menu — with the run as it
+        // stands: GameBootstrap snapshots it there, so a game closed in that window is saved as it was just
+        // before it (SaveSystem). Every screen over the game is left from here, which is what makes this the
+        // one place for it.
+        private readonly System.Action onLeave;
+
+        public PlayingState(PlacementController placement = null, System.Action onLeave = null)
         {
             this.placement = placement;
+            this.onLeave = onLeave;
         }
 
         public void Enter()
@@ -29,6 +36,7 @@ namespace LittlePeeps
         public void Exit()
         {
             if (placement != null) placement.End();   // whatever was in hand goes back before the next screen
+            onLeave?.Invoke();
         }
 
         public void Tick()

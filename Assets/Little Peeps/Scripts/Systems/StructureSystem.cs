@@ -97,6 +97,50 @@ namespace LittlePeeps
             return Build(def, cell);
         }
 
+        // A structure of a saved run, put back where it stood (RunManager.TryRestoreRun): free like generated
+        // content and validated like it, and a site goes back up as a site and finishes as usual. The cost was
+        // paid when it was placed, so nothing is charged. Null when the spot no longer takes it — a rule
+        // changed since the save — and the caller reports it. The instance is returned so the caller can put
+        // its parts' state back (IRunState) before any of their Start.
+        public StructureInstance RestoreStructure(StructureDef def, Vector2Int cell, bool site)
+        {
+            if (def == null || !islandSystem.Grid.CanPlace(cell, def)) return null;
+            if (!site) return Build(def, cell);
+
+            var grid = islandSystem.Grid;
+            var instance = new StructureInstance { Def = def, Cell = cell, UnderConstruction = true };
+            ConstructionArea.CellRects(grid, cell, def.Footprint, siteArea);
+            instance.RuntimeObject = ConstructionSite.Create(
+                def, grid.OriginToWorldAnchor(cell, def.size), siteArea,
+                copy => PoseOnCell(copy, cell, def), siteLook, spawnSystem, clearOfAnimals: true,
+                () => CompleteSite(instance));
+            Register(instance);
+            return instance;
+        }
+
+        // A fence of a saved run, put back on its edge — the edge twin of RestoreStructure.
+        public bool RestoreEdgeStructure(StructureDef def, Edge edge, bool site)
+        {
+            if (def == null || !islandSystem.Grid.CanPlaceEdge(edge)) return false;
+
+            var instance = new EdgeInstance { Def = def, Edge = edge, UnderConstruction = site };
+            if (site)
+            {
+                var grid = islandSystem.Grid;
+                siteArea.Clear();
+                siteArea.Add(ConstructionArea.EdgeRect(grid, edge, siteLook.fenceThickness * grid.CellSize));
+                instance.RuntimeObject = ConstructionSite.Create(
+                    def, grid.EdgeToWorld(edge), siteArea, copy => PoseOnEdge(copy, edge), siteLook, spawnSystem,
+                    clearOfAnimals: false, () => CompleteEdgeSite(instance));
+            }
+            else
+            {
+                instance.RuntimeObject = CreateEdgeStructure(instance);
+            }
+            RegisterEdge(instance);
+            return true;
+        }
+
         // Build at once: create the object and register it. Generated content only (PlaceInitial) — the
         // player's placements go through a site. Returns the created instance so callers that need to
         // track it later (e.g. the pier) can hold on to it.
@@ -382,7 +426,7 @@ namespace LittlePeeps
             resourceSystem.Spend(def, run.CountOf(def));
 
             var grid = islandSystem.Grid;
-            var instance = new EdgeInstance { Def = def, Edge = edge };
+            var instance = new EdgeInstance { Def = def, Edge = edge, UnderConstruction = true };
             siteArea.Clear();
             siteArea.Add(ConstructionArea.EdgeRect(grid, edge, siteLook.fenceThickness * grid.CellSize));
             instance.RuntimeObject = ConstructionSite.Create(
@@ -398,6 +442,7 @@ namespace LittlePeeps
         {
             var site = instance.RuntimeObject;
             instance.RuntimeObject = CreateEdgeStructure(instance);
+            instance.UnderConstruction = false;
             if (site != null) Destroy(site.gameObject);
         }
 

@@ -32,7 +32,7 @@ namespace LittlePeeps
     // Mill way). Game time: a paused game (a perk pick, an age transition) grows nothing. What the phases LOOK like
     // is RicePaddyView.
     [RequireComponent(typeof(ResourceSource))]
-    public class RicePaddy : MonoBehaviour, IHitGate
+    public class RicePaddy : MonoBehaviour, IHitGate, IRunState
     {
         public enum Phase { Growing, Ripe, Harvested }
 
@@ -92,6 +92,17 @@ namespace LittlePeeps
 
         // The ground is back: the crop starts again from bare earth.
         private void OnRegrown() => grown = 0f;
+
+        // IRunState — a saved run: how far the crop had grown. Whether the ground was back at all is the
+        // source's own state, put back beside this one.
+        public string StateKey => "paddy";
+
+        public void SaveState(System.Collections.Generic.List<float> into) => into.Add(grown);
+
+        public void LoadState(System.Collections.Generic.IReadOnlyList<float> from)
+        {
+            if (from != null && from.Count >= 1) grown = Mathf.Max(0f, from[0]);
+        }
 
         private void Update()
         {

@@ -38,7 +38,7 @@ namespace LittlePeeps
     // the den (AnimalSpawner, told through Animal) replaces it, while a structure would leave its grid
     // cells taken by nothing — Start refuses that combination loudly.
     [RequireComponent(typeof(CollisionTarget))]
-    public class ResourceSource : MonoBehaviour, ICollisionEffect
+    public class ResourceSource : MonoBehaviour, ICollisionEffect, IRunState
     {
         private enum State { Ready, Harvested }
 
@@ -222,6 +222,30 @@ namespace LittlePeeps
             hitsLeft = def.hitsToDeplete;
             if (!def.keepBodyWhileDepleted) host.SetColliderEnabled(true);
             Regrown?.Invoke();
+        }
+
+        // IRunState — a saved run: the hits left, and a used-up source's regrow with the time it still has to
+        // wait. Put back SILENTLY: no Depleted, so no view plays the reap; the view reads IsReady at its Start
+        // and comes up as the stump it was. The body goes off exactly as Deplete takes it.
+        public string StateKey => "source";
+
+        public void SaveState(List<float> into)
+        {
+            into.Add(hitsLeft);
+            into.Add(state == State.Harvested ? 1f : 0f);
+            into.Add(respawnTimer);
+        }
+
+        public void LoadState(IReadOnlyList<float> from)
+        {
+            if (def == null || from == null || from.Count < 3) return;
+
+            hitsLeft = Mathf.Clamp(Mathf.RoundToInt(from[0]), 1, Mathf.Max(1, def.hitsToDeplete));
+            if (from[1] < 0.5f || def.depletion != Depletion.Regrow) return;
+
+            state = State.Harvested;
+            respawnTimer = Mathf.Max(0f, from[2]);
+            if (!def.keepBodyWhileDepleted && host != null) host.SetColliderEnabled(false);
         }
 
         // Debug: set up what happens around a regrow without waiting on workers (right-click the component

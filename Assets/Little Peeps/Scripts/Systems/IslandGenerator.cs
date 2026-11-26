@@ -16,7 +16,9 @@ namespace LittlePeeps
     // Propose(n) sample candidates that are each valid on their own against the current island,
     // Populate fills one with a biome's content (before or after the choice — it never touches the
     // shape rng), and Commit makes a candidate a section. Every sampled cell is drawn from the seeded
-    // rng, so the same seed plus the same sequence of choices rebuilds the same island.
+    // rng, so the same seed plus the same sequence of choices rebuilds the same island — and each
+    // expansion draws from its own stream (ExpansionRng), so the zones offered depend on the island that
+    // stands, never on how it was got to (a restored save is offered what the original was).
     //
     // Selection is by SHAPE FAMILY (translations and rotations grouped): each distinct family sampled
     // gets one entry, however often it was proposed, and a repeated proposal can only improve that
@@ -32,7 +34,12 @@ namespace LittlePeeps
         private const int ExpansionFamilies = 10;
 
         private readonly IslandRules rules;
-        private readonly IslandRng rng;
+
+        // The shape dice: the seed's own stream for the start, then a fresh one for each expansion
+        // (ExpansionRng), drawn anew at every Commit and Restore.
+        private IslandRng rng;
+
+        private static readonly ulong ExpansionStream = IslandRng.Hash("expansion");
         private readonly MassSource massSource;
         private readonly List<IslandSection> sections = new();
         private readonly HashSet<Vector2Int> land = new();
@@ -212,6 +219,28 @@ namespace LittlePeeps
             var section = new IslandSection(sections.Count, candidate.cells, content);
             sections.Add(section);
             land.UnionWith(candidate.cells);
+            rng = ExpansionRng();
+            return section;
+        }
+
+        // The dice the next expansion's shapes are drawn with: from the seed and how many sections the island
+        // already has, and nothing else. So what an age offers depends only on the run's seed and the island
+        // standing — not on how often anything was proposed before — and a saved island, restored, is offered
+        // exactly what it would have been: a game closed on the zone pick comes back to the same zones.
+        private IslandRng ExpansionRng() => IslandRng.Derive(Seed, ExpansionStream, (ulong)sections.Count);
+
+        // Put back a section a saved run stood on, as it was committed: the island is rebuilt section by
+        // section, in order, before anything is proposed (IslandSnapshot). Not a Commit — there is no proposal
+        // to check it against; the save is the record that it was valid when it was made.
+        public IslandSection Restore(IReadOnlyCollection<Vector2Int> cells, IslandSectionContent content)
+        {
+            if (cells == null) throw new ArgumentNullException(nameof(cells));
+
+            var set = new HashSet<Vector2Int>(cells);
+            var section = new IslandSection(sections.Count, set, content);
+            sections.Add(section);
+            land.UnionWith(set);
+            rng = ExpansionRng();
             return section;
         }
 

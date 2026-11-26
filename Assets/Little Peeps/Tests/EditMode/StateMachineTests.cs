@@ -141,6 +141,45 @@ namespace LittlePeeps.Tests
             Assert.IsNull(machine.Current);
         }
 
+        // --- Clear --------------------------------------------------------------------------------
+
+        // The way out of the gameplay states to the main menu: the pause on top closes, and nothing under it
+        // comes back to life on the way out — a Pop per state would Enter normal play behind the menu.
+        [Test]
+        public void Clear_ExitsOnlyTheTopState_AndResumesNoneBelow()
+        {
+            machine.Push(a);
+            machine.Push(b);
+            log.Clear();
+
+            machine.Clear();
+
+            Assert.AreEqual(new[] { "B.Exit" }, log, "A was already paused with its Exit by the Push");
+            Assert.IsNull(machine.Current);
+        }
+
+        [Test]
+        public void Clear_ThenChangeState_StartsFromAnEmptyStack()
+        {
+            machine.Push(a);
+            machine.Push(b);
+            machine.Clear();
+            log.Clear();
+
+            machine.ChangeState(c);
+            machine.Pop();
+
+            Assert.AreEqual(new[] { "C.Enter", "C.Exit" }, log, "nothing from before the Clear is left to resume");
+            Assert.IsNull(machine.Current);
+        }
+
+        [Test]
+        public void Clear_OnAnEmptyStack_DoesNothing()
+        {
+            Assert.DoesNotThrow(() => machine.Clear());
+            Assert.IsEmpty(log);
+        }
+
         // --- Tick ----------------------------------------------------------------------------------
 
         [Test]

@@ -28,7 +28,7 @@ namespace LittlePeeps
     // production clock: a paused game (a perk pick, an age transition) grinds nothing. The store belongs to
     // this object, so it is gone with the mill and with the run.
     [RequireComponent(typeof(ResourceSource))]
-    public class Mill : MonoBehaviour, IHitGate, IYieldScale
+    public class Mill : MonoBehaviour, IHitGate, IYieldScale, IRunState
     {
         [Header("Production")]
         [Tooltip("Seconds to grind one sack. The clock only runs while the store has room.")]
@@ -73,6 +73,23 @@ namespace LittlePeeps
         public float Factor(Unit unit) => stored;
 
         private void OnPaid() => stored = 0;
+
+        // IRunState — a saved run: the sacks waiting and the one being ground.
+        public string StateKey => "mill";
+
+        public void SaveState(System.Collections.Generic.List<float> into)
+        {
+            into.Add(stored);
+            into.Add(progress);
+        }
+
+        public void LoadState(System.Collections.Generic.IReadOnlyList<float> from)
+        {
+            if (from == null || from.Count < 2) return;
+
+            stored = Mathf.Clamp(Mathf.RoundToInt(from[0]), 0, capacity);
+            progress = stored >= capacity ? 0f : Mathf.Max(0f, from[1]);
+        }
 
         // A long frame may grind more than one sack, never past the cap; reaching the cap drops the part-ground
         // sack, so a full mill banks nothing for later.

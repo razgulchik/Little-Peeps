@@ -6,6 +6,14 @@ namespace LittlePeeps
     // Holds all data for a single run; reset on prestige
     public class RunContext
     {
+        // The run's seed: the island is generated from it, and every roll the run makes is derived from it and
+        // the roll's number — so a game closed on a choice and continued is offered the same choice again. Set
+        // by RunManager as the run is built, and carried by its save.
+        public int seed;
+
+        // How many perk rolls the run has made: the number the next one is derived from (PerkSystem.RollPerks).
+        public int perkRolls;
+
         public Dictionary<ResourceType, float> resources = new();
         public Dictionary<Vector2Int, StructureInstance> structures = new();
         public Dictionary<Edge, EdgeInstance> fences = new();
@@ -127,5 +135,9 @@ namespace LittlePeeps
         public StructureDef Def;
         public Structure RuntimeObject;
         public Edge Edge;
+
+        // Still a construction site (StructureSystem.PlaceEdgeStructure until CompleteEdgeSite), as
+        // StructureInstance.UnderConstruction — a saved run puts it back up as one.
+        public bool UnderConstruction;
     }
 }

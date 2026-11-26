@@ -34,6 +34,12 @@ namespace LittlePeeps
         // by construction, and a special grade can never linger into the next pick.
         private PerkGrade nextGrade = PerkGrade.Common;
 
+        // Set by ForOwedPick: this entry is one of the picks the run is owed at its start, taken off the debt
+        // here, on Enter. Here and not by the caller: normal play is left first (PlayingState.Exit takes the
+        // snapshot a saved run is written from), and that snapshot must still owe the pick — a game closed on
+        // this screen comes back to it.
+        private bool owedPick;
+
         public PerkSelectionState(StateMachine gameplayFsm, PerkSystem perkSystem, PerkSelectionUI ui,
                                   RunManager runManager, PlayingState playingState)
         {
@@ -51,11 +57,21 @@ namespace LittlePeeps
             return this;
         }
 
+        // The first of the picks a run is owed at its start (RunContext.perkPicksOwed), from normal play:
+        // `fsm.ChangeState(pick.ForOwedPick())`. Common, like every owed pick.
+        public PerkSelectionState ForOwedPick()
+        {
+            owedPick = true;
+            return this;
+        }
+
         public void Enter()
         {
             leaveImmediately = false;
             var grade = nextGrade;
             nextGrade = PerkGrade.Common;
+            bool owed = owedPick;
+            owedPick = false;
 
             var run = runManager != null ? runManager.CurrentRun : null;
             if (run == null || perkSystem == null)
@@ -63,6 +79,9 @@ namespace LittlePeeps
                 leaveImmediately = true;
                 return;
             }
+
+            // The one this entry shows comes off the debt; ShowNextOwedPick shows the rest in the same sitting.
+            if (owed && run.perkPicksOwed > 0) run.perkPicksOwed--;
 
             var offer = perkSystem.RollPerks(run.currentAge, run, grade);
 

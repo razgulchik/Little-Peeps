@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 namespace LittlePeeps
 {
@@ -14,7 +15,9 @@ namespace LittlePeeps
     {
         [SerializeField] private Key buildPanelKey = Key.B;    // show / hide the build palette and the sell button
         [SerializeField] private Key sellKey       = Key.X;    // toggle the sell tool (normal play only)
-        [SerializeField] private Key exitToMenuKey = Key.Escape;
+        [Tooltip("One step back: the pause in normal play, closing the topmost window on a menu.")]
+        [FormerlySerializedAs("exitToMenuKey")]
+        [SerializeField] private Key backKey = Key.Escape;
 
         private static readonly Key[] TabKeys =
         {
@@ -34,7 +37,7 @@ namespace LittlePeeps
 
             if (k[buildPanelKey].wasPressedThisFrame) EventBus<BuildPanelToggleRequestedEvent>.Publish(default);
             if (k[sellKey].wasPressedThisFrame)       EventBus<SellModeRequestedEvent>.Publish(default);
-            if (k[exitToMenuKey].wasPressedThisFrame) EventBus<ExitToMenuRequestedEvent>.Publish(default);
+            if (k[backKey].wasPressedThisFrame)       EventBus<BackRequestedEvent>.Publish(default);
 
             for (int i = 0; i < TabKeys.Length; i++)
             {

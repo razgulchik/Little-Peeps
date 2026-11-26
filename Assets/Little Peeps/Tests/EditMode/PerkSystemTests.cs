@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -159,6 +160,51 @@ namespace LittlePeeps.Tests
 
             Assert.That(offer.Count, Is.EqualTo(3));
             Assert.That(offer, Is.Unique);
+        }
+
+        // The roll is the run's dice: the same seed at the same roll number offers the same cards — what lets a
+        // game closed on the perk pick come back to the cards it left, and makes quitting no reroll.
+        [Test]
+        public void RollPerks_TheSameRollOfTheSameRun_OffersTheSameCards()
+        {
+            for (int i = 0; i < 12; i++) Perk($"perk{i}");
+            Configure();
+
+            var first = new RunContext { seed = 1234, perkRolls = 5 };
+            var again = new RunContext { seed = 1234, perkRolls = 5 };
+
+            Assert.That(system.RollPerks(0, again), Is.EqualTo(system.RollPerks(0, first)));
+        }
+
+        [Test]
+        public void RollPerks_CountsTheRollsOfTheRun()
+        {
+            for (int i = 0; i < 4; i++) Perk($"perk{i}");
+            Configure();
+            var counted = new RunContext { seed = 7 };
+
+            system.RollPerks(0, counted);
+            system.RollPerks(0, counted);
+
+            Assert.That(counted.perkRolls, Is.EqualTo(2), "the next roll is the third, whatever came of these");
+        }
+
+        // Not one fixed hand: rolls of a run differ from one another, and runs from one another.
+        [Test]
+        public void RollPerks_DifferentRolls_AreNotAllTheSame()
+        {
+            for (int i = 0; i < 12; i++) Perk($"perk{i}");
+            Configure();
+
+            var offers = new HashSet<string>();
+            for (int seed = 1; seed <= 4; seed++)
+                for (int roll = 0; roll < 4; roll++)
+                {
+                    var offer = system.RollPerks(0, new RunContext { seed = seed, perkRolls = roll });
+                    offers.Add(string.Join(",", offer.Select(p => p.id)));
+                }
+
+            Assert.That(offers.Count, Is.GreaterThan(1));
         }
 
         [Test]

@@ -34,6 +34,19 @@ namespace LittlePeeps
         [Tooltip("The screen after a prestige, where points are spent on meta perks before the next run.")]
         [SerializeField] private MetaUpgradesUI metaScreen;
 
+        [Header("Menus")]
+        [Tooltip("The title screen the game boots into (MainMenuState).")]
+        [SerializeField] private MainMenuUI mainMenu;
+
+        [Tooltip("The pause over normal play, on Esc (PauseState).")]
+        [SerializeField] private PauseMenuUI pauseMenu;
+
+        [Tooltip("The settings, opened from the main menu and from the pause.")]
+        [SerializeField] private SettingsUI settings;
+
+        [Tooltip("The one yes/no question on the Canvas — New Run and Quit ask through it.")]
+        [SerializeField] private ConfirmDialog confirmDialog;
+
         [Header("Age banner, played by AgeSequencer")]
         [Tooltip("The CanvasGroup holding the banner (AgeTransition), faded in around the title and out again.")]
         [SerializeField] private CanvasGroup ageBanner;
@@ -45,6 +58,10 @@ namespace LittlePeeps
         public PerkSelectionUI PerkScreen => perkScreen;
         public OfferingWindow OfferingWindow => offeringWindow;
         public MetaUpgradesUI MetaScreen => metaScreen;
+        public MainMenuUI MainMenu => mainMenu;
+        public PauseMenuUI PauseMenu => pauseMenu;
+        public SettingsUI Settings => settings;
+        public ConfirmDialog ConfirmDialog => confirmDialog;
         public CanvasGroup AgeBanner => ageBanner;
         public TMP_Text AgeTitle => ageTitle;
 
@@ -74,6 +91,16 @@ namespace LittlePeeps
             if (metaScreen == null)
                 Debug.LogError("[UIRoot] Meta Screen is not assigned — after a prestige the next run starts at " +
                                "once, with no way to spend prestige points.", this);
+
+            // The menu's own error (MainMenuState) says the rest: the game then starts with no menu.
+            if (mainMenu == null)
+                Debug.LogError("[UIRoot] Main Menu is not assigned — the game starts straight into the run, with " +
+                               "no title screen.", this);
+
+            if (pauseMenu == null || settings == null || confirmDialog == null)
+                Debug.LogWarning("[UIRoot] Pause Menu, Settings or Confirm Dialog is not assigned — Esc does not " +
+                                 "pause, the settings do not open, or New Run and Quit go ahead without asking.",
+                                 this);
 
             if (ageBanner == null || ageTitle == null)
                 Debug.LogWarning("[UIRoot] Age Banner or Age Title is not assigned — ages change with no banner.",

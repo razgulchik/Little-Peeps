@@ -13,7 +13,7 @@ namespace LittlePeeps
     // regrows (a shorn alpaca) stays out and keeps its slot. Registered with SpawnSystem via
     // IStructureSpawner, like the unit spawners.
     [RequireComponent(typeof(Structure))]
-    public class AnimalSpawner : MonoBehaviour, IStructureSpawner
+    public class AnimalSpawner : MonoBehaviour, IStructureSpawner, IRunState
     {
         [SerializeField] private SpawnSystem spawnSystem;       // scene refs — runtime-injected on placement;
         [SerializeField] private ResourceSystem resourceSystem; // hand-wire only for scene-placed spawners
@@ -44,6 +44,12 @@ namespace LittlePeeps
 
         private readonly List<Animal> animals = new();
         private float respawnTimer;
+
+        // A saved run's den (LoadState), taken by the first Warmup: how many animals it had out, and the
+        // replacement's wait. -1 = none, a fresh den. The animals themselves come out new — what moves starts
+        // over (RunSnapshot) — but no more of them than were out, so a hunt is not undone by a restart.
+        private int restoredOut = -1;
+        private float restoredTimer = -1f;
 
         // The animals out right now. Read by the island rise, which pops a new den's animals up with it.
         public IReadOnlyList<Animal> Animals => animals;
@@ -97,10 +103,30 @@ namespace LittlePeeps
             }
 
             int max = ResolveMaxAnimals();
-            while (animals.Count < max)
+            int target = restoredOut >= 0 ? Mathf.Min(max, restoredOut) : max;
+            while (animals.Count < target)
                 if (!SpawnAnimal()) break;   // sealed in right now — Update keeps retrying on cooldown
 
-            respawnTimer = spawnCooldown;
+            respawnTimer = restoredTimer >= 0f ? restoredTimer : spawnCooldown;
+            restoredOut = -1;
+            restoredTimer = -1f;
+        }
+
+        // IRunState — a saved run: the animals out and the wait for the next. Read by the first Warmup, at Start.
+        public string StateKey => "den";
+
+        public void SaveState(List<float> into)
+        {
+            into.Add(animals.Count);
+            into.Add(respawnTimer);
+        }
+
+        public void LoadState(IReadOnlyList<float> from)
+        {
+            if (from == null || from.Count < 2) return;
+
+            restoredOut = Mathf.Max(0, Mathf.RoundToInt(from[0]));
+            restoredTimer = Mathf.Max(0f, from[1]);
         }
 
         // IStructureSpawner — nothing here is materialised from the stat sheet: DenCapacity is read at

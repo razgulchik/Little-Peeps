@@ -4,12 +4,20 @@ namespace LittlePeeps
 {
     // Outer app state owning the inner gameplay FSM: normal play (PlayingState — building included, the
     // build panel is always up there) and the screens opened over it, the age advance, the perk picks
-    // owed at a run's start and the offering cycle.
+    // owed at a run's start, the offering cycle and the pause.
+    //
+    // Entered from the main menu and left back to it (through the pause's Main Menu). The run itself
+    // outlives both: leaving here only closes the screens, so Continue picks the same run up again.
     public class GameplayContainerState : IState
     {
         private readonly StateMachine innerFsm;
         private readonly PlayingState playingState;
         private readonly PerkSelectionState perkSelectionState;
+
+        // Pushed over normal play by the back key, and only there: the other screens over the game are
+        // decisions it waits on, and frozen already. Being on top of PlayingState is what stops the clocks
+        // below — every Tick here asks for normal play.
+        private readonly PauseState pauseState;
 
         // The offering cycle: its clock runs only while normal play is current — advanced from Tick below —
         // so every screen over the game stops it by construction, with no pause flag to keep in sync.
@@ -35,11 +43,13 @@ namespace LittlePeeps
                                       AgeSystem ageSystem, AgeSequencer ageSequencer,
                                       ResourceSystem resourceSystem, IslandSystem islandSystem,
                                       ZoneSelectionUI zoneSelectionUI, RunManager runManager,
-                                      OfferingSystem offerings = null, OfferingEndState offeringEndState = null)
+                                      OfferingSystem offerings = null, OfferingEndState offeringEndState = null,
+                                      PauseState pauseState = null)
         {
             this.innerFsm = innerFsm;
             this.playingState = playingState;
             this.perkSelectionState = perkSelectionState;
+            this.pauseState = pauseState;
             this.offerings = offerings;
             this.offeringEndState = offeringEndState;
             this.ageSystem = ageSystem;
@@ -50,15 +60,25 @@ namespace LittlePeeps
             this.runManager = runManager;
         }
 
+        // Whether normal play is what is on screen — the only state the run can be snapshotted in as it stands
+        // (every other one is part-way through something). Asked when the game is closed (GameBootstrap).
+        public bool InNormalPlay => innerFsm.Current == playingState;
+
         public void Enter()
         {
             innerFsm.ChangeState(playingState);
             EventBus<AgeAdvanceRequestedEvent>.Subscribe(OnAgeAdvanceRequested);
+            EventBus<BackRequestedEvent>.Subscribe(OnBackRequested);
         }
 
+        // Back to the main menu. The inner states are left too — Clear runs the top one's Exit (the pause:
+        // its screen goes away) — so nothing of the game's UI stays up under the menu, and the next Enter
+        // starts from normal play on a machine that holds nothing stale.
         public void Exit()
         {
             EventBus<AgeAdvanceRequestedEvent>.Unsubscribe(OnAgeAdvanceRequested);
+            EventBus<BackRequestedEvent>.Unsubscribe(OnBackRequested);
+            innerFsm.Clear();
         }
 
         public void Tick()
@@ -96,9 +116,9 @@ namespace LittlePeeps
         }
 
         // Meta perks can owe the run perk picks at its start (StartPerkPickUpgradeDef).
-        // Opened HERE, from normal play, rather than wherever a run is started: runs start in three places —
-        // the first run in GameBootstrap, Play on the meta screen, the debug Restart Run — and this one check
-        // covers all of them, and any added later. Normal play only, by the rule the age advance follows
+        // Opened HERE, from normal play, rather than wherever a run is started: runs start in four places —
+        // the first run in GameBootstrap, Play on the meta screen, New Run on the main menu, the debug Restart
+        // Run — and this one check covers all of them, and any added later. Normal play only, by the rule the age advance follows
         // too: the pick freezes the game and must not cut into another screen. Leaving normal play drops
         // whatever build tool was in hand (PlayingState.Exit).
         private void TryOpenStartPerkPick()
@@ -109,11 +129,23 @@ namespace LittlePeeps
             var run = runManager != null ? runManager.CurrentRun : null;
             if (run == null || run.perkPicksOwed <= 0) return;
 
-            // One pick taken off BEFORE entering, as the one this entry shows; PerkSelectionState shows the
-            // rest in the same sitting, and clears them if it cannot — so a pick that skips itself (nothing
-            // to offer, no screen) lands back in playing with nothing left to reopen every frame.
-            run.perkPicksOwed--;
-            innerFsm.ChangeState(perkSelectionState);
+            // PerkSelectionState takes the pick this entry shows off the debt as it enters — after normal play
+            // is left, so the snapshot taken then still owes it — shows the rest in the same sitting, and
+            // clears them if it cannot: a pick that skips itself (nothing to offer, no screen) lands back in
+            // playing with nothing left to reopen every frame.
+            innerFsm.ChangeState(perkSelectionState.ForOwedPick());
+        }
+
+        // The back key: from normal play it opens the pause, and on the pause it is the pause's own step back
+        // (a question, the settings, then the pause itself). Both here, in one handler, rather than the pause
+        // listening for itself: two listeners of one key would each see the other's change within the same
+        // publish, and which one ran first would decide whether Esc closes the pause or reopens it.
+        private void OnBackRequested(BackRequestedEvent _)
+        {
+            if (pauseState == null) return;
+
+            if (innerFsm.Current == playingState) innerFsm.Push(pauseState);
+            else if (innerFsm.Current == pauseState) pauseState.Back();
         }
 
         // Start an age only from normal play (not mid-transition, not over another screen) and only when

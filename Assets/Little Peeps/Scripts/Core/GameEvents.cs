@@ -107,8 +107,11 @@ namespace LittlePeeps
         public BuildTab Tab;
     }
 
-    // Published by the exit-to-menu hotkey (GameHotkeys). GameBootstrap transitions the app FSM to MainMenu.
-    public struct ExitToMenuRequestedEvent { }
+    // Published by the back key (Esc, GameHotkeys). One step back from wherever the player is: normal play
+    // opens the pause (GameplayContainerState), and on a menu it closes the topmost thing — a question,
+    // then the settings (PauseState, MainMenuState). The screens over the game that freeze it (a zone or
+    // perk pick, the end of a cycle, the meta screen) ignore it: each is a decision the game waits on.
+    public struct BackRequestedEvent { }
 
     // Which screen the game is showing. Published by whichever gameplay state puts that screen up, so
     // "what is on screen" has exactly one source and the FSM stack IS that source — UIVisibility maps it
@@ -129,6 +132,8 @@ namespace LittlePeeps
         // (a run ends at OfferingEnd now). Left unused for the same reason as Build's bit.
         MetaUpgrades    = 1 << 6,
         OfferingEnd     = 1 << 7,
+        MainMenu        = 1 << 8,
+        Pause           = 1 << 9,
     }
 
     // Published by a gameplay state when its screen goes up. Deliberately at the point the screen is
@@ -138,6 +143,13 @@ namespace LittlePeeps
     public struct UIModeChangedEvent
     {
         public UIMode Mode;
+
+        // The mode the game boots into: the main menu, over the first island. A listener starts out in it
+        // instead of waiting for the first event, because GameBootstrap.Awake publishes that event and
+        // Unity gives no order between that Awake and the listener's OnEnable — so either the event
+        // arrives, or it was missed and the listener already says the same thing. One constant, so the
+        // listeners cannot disagree about where the game starts.
+        public const UIMode BootMode = UIMode.MainMenu;
     }
 
     // Published by PlacementController when the player tries to build on a valid cell but can't

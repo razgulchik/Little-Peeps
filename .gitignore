@@ -106,3 +106,9 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 Assets/Little Peeps/Fonts/Micro5-Regular SDF.asset
+
+# Personal test presets: each machine keeps its own (TestMode in SampleScene points at them by GUID)
+/Assets/Little Peeps/ScriptableObjects/StartConfig/Test Start Config.asset
+/Assets/Little Peeps/ScriptableObjects/StartConfig/Test Start Config.asset.meta
+/Assets/Little Peeps/ScriptableObjects/OfferingDef/Test Offering Schedule Def.asset
+/Assets/Little Peeps/ScriptableObjects/OfferingDef/Test Offering Schedule Def.asset.meta

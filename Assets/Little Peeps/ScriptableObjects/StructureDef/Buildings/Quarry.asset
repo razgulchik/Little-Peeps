@@ -36,6 +36,6 @@ MonoBehaviour:
   onWater: 0
   border: 0
   maxCount: 0
-  costStepFlat: 5
-  costStepPercent: 0
-  exponentialCostGrowth: 0
+  costStepFlat: 0
+  costStepPercent: 1
+  exponentialCostGrowth: 1

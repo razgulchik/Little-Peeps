@@ -29,11 +29,11 @@ MonoBehaviour:
   allowedTerrain: 000000000100000002000000
   sellRefundPercent: 0.5
   canSell: 1
-  canMove: 1
   passable: 0
   animalsAvoid: 1
   isWater: 0
   needsWaterSide: 0
+  onWater: 0
   border: 0
   maxCount: 0
   costStepFlat: 5

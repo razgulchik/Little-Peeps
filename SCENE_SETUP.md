@@ -21,7 +21,7 @@
 > `PixelSnapText`) и тень текста на панели эпохи пресетами шрифтов: **2026-10-23**, сверено с `Canvas.prefab`. Отклик
 > на удары (`Systems/BumpVfxSystem`, `CoastBump` на `Ground`, `BumpView` / `LeanView` на префабах, `FX_Bump*` и
 > `FX_Coast_Ripple`): **2026-10-28**, сверено со сценой и префабами. Уровни перков и мета-перков внутри одного
-> ассета, Flat / Percent выбором, цифра уровня в ячейке `PerkSlot`: **2026-10-29**, сверено с кодом и `PerkSlot.prefab`. Своя вода (`WaterSystem`, волны, тень острова, `WaterProjection`): **2026-11-04**, сверено со сценой и префабами. Забег, престиж и мета-перки (очки за время, бесплатные эпохи, тестовый режим): **2026-11-25**, сверено со сценой, ассетами и `Canvas.prefab`; в тот же день — гусятник, мост, бамбук, протяжка забора, горы, камень, рынок, пуф, налог, поля перков и эффекты подбора, окно зон, окно перков, карточка стройки, подъём острова и берег, сверено со сценой, ассетами и префабами. Не описана проводка звука (`SoundSystem` / `SoundDef`):
+> ассета, Flat / Percent выбором, цифра уровня в ячейке `PerkSlot`: **2026-10-29**, сверено с кодом и `PerkSlot.prefab`. Своя вода (`WaterSystem`, волны, тень острова, `WaterProjection`): **2026-11-04**, сверено со сценой и префабами. Забег, престиж и мета-перки (очки за время, бесплатные эпохи, тестовый режим): **2026-11-25**, сверено со сценой, ассетами и `Canvas.prefab`; в тот же день — гусятник, мост, бамбук, протяжка забора, горы, камень, рынок, пуф, налог, поля перков и эффекты подбора, окно зон, окно перков, карточка стройки, подъём острова и берег, сверено со сценой, ассетами и префабами. Главное меню, пауза, настройки и сохранения (профиль, забег-закладка, каталог построек): **2026-11-26**, сверено с кодом, сценой, `Canvas.prefab` и `ConfirmDialog.prefab`. Не описана проводка звука (`SoundSystem` / `SoundDef`):
 > система в сцене есть, её поля и звуковые поля префабов сюда ещё не внесены.
 
 ## Принцип
@@ -228,9 +228,6 @@ SampleScene
     │   ├── TitleText, BodyText → TMP_Text
     │   ├── CostContainer       → Vertical Layout Group         (строки цены в рантайме)
     │   └── FooterText          → TMP_Text
-    ├── ConfirmDialog           → вложенный префаб `Prefabs/Elements/ConfirmDialog`: CanvasGroup + ConfirmDialog
-    │                             (Backdrop, Panel с текстом и кнопками Yes / No) — сейчас его никто не зовёт:
-    │                             конец цикла спрашивает через `OfferingWindow`; оставлен для простых да/нет
     ├── FPSmeter
     │   └── FPSText             → TMP_Text + FpsMeter                     ← счётчик кадров
     ├── MetaScreen              → Image + CanvasGroup + MetaUpgradesUI   ← окно Ancestral Wisdom после престижа (включено, как Screens)
@@ -245,12 +242,43 @@ SampleScene
     │   │   └── Label           → TMP_Text + PixelSnapText
     │   └── Tip                 → Image + CanvasGroup + MetaUpgradeTipUI   ← последний ребёнок, поверх ячеек
     │       └── Text            → TMP_Text + PixelSnapText
+    ├── MainMenu                → Image (#1A1018 α 0.6 — затемнение поверх острова, глотает клики) + CanvasGroup
+    │   │                         + MainMenuUI   ← стартовое окно; игра загружается в него, поэтому в префабе α 1
+    │   └── Panel               → только RectTransform на весь Canvas — заголовок и кнопки; MainMenuUI прячет его,
+    │       │                     пока поверх открыты настройки
+    │       ├── Title           → TMP_Text «Little Peeps», m6x11plus 36 + пресет с тенью, #FFCB59 + PixelSnapText
+    │       │                     (по центру, (0, 56), 400×44)
+    │       └── Buttons         → Vertical Layout Group (Spacing 4, Upper Center, размер детей не трогает)
+    │           │                 (по центру, (0, 14), 100×92, Pivot сверху) — спрятанные кнопки дыр не оставляют
+    │           ├── PlayButton  → Image (белая, без спрайта) + Button (Color Tint, Navigation None) 100×20;
+    │           │                 внутри Label — TMP_Text Micro5 22, #F3F3F7 + PixelSnapText
+    │           ├── ContinueButton → то же (выключена: Play или Continue + New Run включает MainMenuUI)
+    │           ├── NewRunButton → то же (выключена, так же)
+    │           ├── SettingsButton → то же
+    │           └── QuitButton  → то же
+    ├── PauseMenu               → Image (то же затемнение) + CanvasGroup (α 0) + PauseMenuUI   ← пауза по Esc
+    │   └── Panel               → как у MainMenu: Title «Paused» и Buttons — ResumeButton, SettingsButton,
+    │                             MainMenuButton, QuitButton
+    ├── Settings                → CanvasGroup (α 0) + SettingsUI   ← настройки; своего затемнения нет — открываются
+    │   │                         поверх MainMenu или PauseMenu, у которых на это время спрятан Panel
+    │   ├── Title               → TMP_Text «Settings», как заголовок меню
+    │   └── Rows                → Vertical Layout Group, как у кнопок меню   (по центру, (0, 14), 200×92)
+    │       ├── VolumeRow       → 200×20: Label «Volume» (Micro5 22, влево), Slider (106×20; Min 0, Max 10, Whole
+    │       │                     Numbers — громкость шагами по 10 %), Value «100%» (вправо; текст пишет код)
+    │       ├── FullscreenButton → Image + Button 200×20, Label «Fullscreen: Off» (текст пишет код)
+    │       ├── ResetButton     → Image + Button + HoldButton 200×20: Fill (заливка удержания, #C94848 α 0.85) и Label
+    │       │                     «Hold to Reset Progress»; видна только из главного меню
+    │       └── BackButton      → Image + Button 100×20, Label «Back»
+    ├── ConfirmDialog           → вложенный префаб `Prefabs/Elements/ConfirmDialog`: CanvasGroup + ConfirmDialog
+    │                             (Backdrop — то же затемнение; Panel 260×96 — рамка #5C3F52, внутри Inner #241721,
+    │                             Message, кнопки Yes / No 100×20; весь текст Micro5 22 + PixelSnapText). Спрашивает
+    │                             New Run в главном меню
     └── ref (выключен)          → скрин-референс вёрстки, в игре не участвует
 ```
 
-> `HintView` и `ConfirmDialog` по замыслу кода — **последние** дети Canvas, чтобы рисоваться поверх всего.
-> Сейчас после них стоят `FPSmeter`, `MetaScreen` и выключенный `ref`. Мета-экран открывается уже после ответа и
-> подсказок не показывает, так что это не мешает.
+> `ConfirmDialog` — последний включённый ребёнок Canvas: рисуется поверх всего, меню и настроек тоже.
+> `HintView` стоит раньше `MetaScreen` и меню, так что над ними подсказка не покажется — им она и не нужна
+> (у мета-экрана своя, `Tip`).
 
 ## Checklist проводки (критично)
 
@@ -270,10 +298,11 @@ SampleScene
 | | | **uiRoot** | **UIRoot на Canvas** — единственная ссылка из сцены в Канвас. Всё, что UI нужно из сцены, бутстрап отдаёт ему кодом, набором `UIServices`: resourceSystem, ageSystem, offeringSystem, runManager, placementController и два поля ниже |
 | | | testMode | `TestMode` — пресеты плей-теста. Пусто — при включённом тестовом режиме предупреждение, игра идёт на боевых |
 | | | cameraController, zonePreview | `CameraController`, `ZonePreviewOverlay` — бутстрап сам их не использует, только передаёт в UI: выбор зоны двигает камеру и рисует зону на острове. Пусто — предупреждение `[UIServices] … is not assigned`, карточки зон без камеры и превью |
-| Bootstrap | SaveSystem | — | (полей нет; запись на диск пока заглушка) |
+| Bootstrap | SaveSystem | — | полей нет. Файлы — `meta.json` (профиль) и `run.json` (забег-закладка) в `Application.persistentDataPath`, у тестового режима свои (см. «Тестовый режим»); что и когда пишется — ARCHITECTURE, *Saves* |
 | TestMode | TestMode | startConfig, offeringSchedule | `StartConfig/Test Start Config`, `OfferingDef/Test Offering Schedule Def` — чем заменить боевые в тестовом режиме. Пусто = боевой |
 | Systems/RunManager | **RunManager** | **resourceSystem, islandSystem, structureSystem, spawnSystem** | ResourceSystem, Island, StructureSystem, SpawnSystem (spawnSystem обязателен — иначе NPE в StartNewRun) |
 | | | **startConfig** | `ScriptableObjects/StartConfig/Start Config` — сид и правила острова, стартовый биом, дом, пирс, стартовые ресурсы, модификаторы и мета-перки. Пусто = случайный остров без дома и пирса, ноль ресурсов |
+| | | **structureCatalogue** | `ScriptableObjects/StructureDef/Structure Catalogue Def` — все постройки игры: по нему сохранённый забег находит свои постройки по id. Пусто — сохранённый забег не продолжается (ошибка в консоли, файл откладывается в сторону, начинается новый). **Новая постройка → в этот список** (см. «ScriptableObject-ассеты») |
 | Systems/ResourceSystem | ResourceSystem | logChanges | вкл/выкл лог ресурсов в консоль (дебаг) |
 | Systems/StructureSystem | **StructureSystem** | **islandSystem, resourceSystem, spawnSystem** | Island, ResourceSystem, SpawnSystem (без SpawnSystem стройплощадка не видит юнитов на месте и ставит здание сразу) |
 | | | siteLook → blueprintColor, groundColor | вид стройплощадки, пока у неё нет своего арта: множитель спрайтов чертежа (белый α0.45 — альфа = насколько прозрачен) и подложка по клеткам (песочный α0.25) — дефолты |
@@ -292,7 +321,7 @@ SampleScene
 | | | choicesOffered | 3 (дефолт): сколько карточек в выборе перка (особых бывает меньше — сколько осталось) |
 | Systems/OfferingSystem | **OfferingSystem** | **schedule** | `ScriptableObjects/OfferingDef/Offering Schedule Def`. Пусто или без циклов — предупреждение, цикл выключен |
 | | | **resourceSystem** | ResourceSystem — из неё платится квота |
-| Systems/PrestigeSystem | **PrestigeSystem** | **saveSystem** | SaveSystem (на `Bootstrap`) |
+| Systems/PrestigeSystem | **PrestigeSystem** | **saveSystem** | SaveSystem (на `Bootstrap`) — профиль пишется после каждого изменения: кэш-ин, каждое взятие и возврат виздома, перед новым забегом |
 | | | formula → agePoints | очки за вход в каждую эпоху по порядку: элемент 0 — Age II. Эпохи за концом списка платят последний элемент, пустой список — ничего. В сцене по 1 на каждую. Платится только то, что бьёт рекорд профиля |
 | | | formula → minutesPerInterval, pointsPerInterval | 5 и 1 — очки за время: за каждые целые 5 минут живой игры, в каждом забеге, без рекорда. Остаток сгорает вместе с забегом; на любом экране поверх игры время стоит. 0 минут = время не платит |
 | | | formula → weights, defaultWeight, coefficient, exponent | очки за собранное, тоже только сверх рекорда. **В сцене coefficient 0 — сбор очков не даёт** |
@@ -333,9 +362,9 @@ SampleScene
 | | | pixelsPerUnit | 16 — центр волны снапится к пиксельной сетке арта, чтобы линии в 1 px ложились на целые пиксели; 0 = без снапа |
 | Systems/WaterSystem | **WaterSystem** | **waterMaterial** | `Materials/M_Water` — цвет моря и штрихи. У плитки `Sprites/GamePlay/Water/water_flow` нужен Read/Write, иначе штрихов нет. Пусто = предупреждение в консоли и остров на фоне камеры |
 | Input | **InputHandler** | **mainCamera** | Main Camera |
-| Input | GameHotkeys | buildPanelKey, sellKey, exitToMenuKey | клавиши команд: B — спрятать / показать панель стройки, X — Sell, Esc (дефолты, правятся в инспекторе); цифры 1–9 — вкладки стройки (зашиты в коде) |
+| Input | GameHotkeys | buildPanelKey, sellKey, backKey | клавиши команд: B — спрятать / показать панель стройки, X — Sell, Esc — шаг назад (пауза в живой игре; в меню закрывает верхнее окно) (дефолты, правятся в инспекторе); цифры 1–9 — вкладки стройки (зашиты в коде). В YAML сцены `backKey` ещё записан старым именем `exitToMenuKey` — код читает его через `FormerlySerializedAs`, переименовывать в сцене не нужно |
 | CameraController | **CameraController** | **cameraTarget, vcam** | пустой `CameraTarget` (его и двигаем); CinemachineCamera — зум пишется в её `Lens > Orthographic Size`, значение в сцене перезаписывается стартовым видом |
-| | | **islandSystem, viewCamera, inputHandler** | Island (кламп по острову); viewCamera = Main Camera (только для перевода пикселей перетаскивания в мир); inputHandler = InputHandler на `Input` — от него перетаскивание ПКМ. **Пусто — остров правой не двигается, молча** |
+| | | **islandSystem, viewCamera, inputHandler** | Island (кламп по острову); viewCamera = Main Camera (только для перевода пикселей перетаскивания в мир); inputHandler = InputHandler на `Input` — от него перетаскивание ПКМ. **Пусто — остров правой не двигается, молча**. В главном меню и на паузе камера не слушается вовсе (клавиши, край, зум, ПКМ) — по режиму, полей для этого нет |
 | | | zoomLevels, startZoomLevel | виды зума на `+` / `−`: Ortho Size от дальнего к ближнему — 16.875 / 11.25 / 8.4375 (×2 / ×3 / ×4 на 1080p); старт = 1 (классика) — дефолты. Любое значение безопасно: до целого масштаба пикселей его округляет `CinemachinePixelPerfect` |
 | | | panSpeed, edgePanEnabled, edgeThickness | скорость WASD/стрелок (12), край-скролл (в сцене **выключен**, дефолт вкл), толщина края в px (12) |
 | | | boundsMargin | насколько центр (= цель) может уйти за край острова (4) — дефолт |
@@ -383,18 +412,20 @@ SampleScene
 
 | компонент | вопрос | что перечисляет |
 |---|---|---|
-| **UIRoot** | чем код **снаружи** UI управляет сам | 4 экрана (зона, перк, окно подношения, мета) + баннер эпохи (см. ниже) |
+| **UIRoot** | чем код **снаружи** UI управляет сам | 4 экрана (зона, перк, окно подношения, мета), меню (стартовое, пауза, настройки, диалог подтверждения) + баннер эпохи (см. ниже) |
 | **UIVisibility** | кто **когда** виден | CanvasGroup'ы + маска режимов |
 
 Элемент, которому не нужно ни то ни другое, не попадает ни в одну (`BuildToggle`), а видимый
-по режиму — только во вторую (`BuildPalette`, `SellButton`, `BuildTabs`, `TimePanel`). `ConfirmDialog` и `HintView` нет в таблице видимости:
-свою CanvasGroup каждый ведёт сам.
+по режиму — только во вторую (`BuildPalette`, `SellButton`, `BuildTabs`, `TimePanel`). `ConfirmDialog`, `Settings` и `HintView` нет в таблице видимости:
+свою CanvasGroup каждый ведёт сам (диалог и настройки открываются поверх разных режимов — «на экране» для них значит «открыт»).
 
 | Объект | Компонент | Поле | Что назначить |
 |--------|-----------|------|---------------|
 | Canvas | **UIRoot** | **zoneScreen, perkScreen, offeringWindow, metaScreen** | `Screens/ZoneScreen`, `Screens/PerkScreen`, `Screens/OfferingWindow`, `MetaScreen` — их зовут гейплейные стейты. Без окна подношения конец цикла не может спросить, и забег не кончится никогда — ошибка на старте |
+| | | **mainMenu** | `MainMenu` (MainMenuUI) — стартовое окно. Пусто — ошибка, игра стартует сразу в забег, без меню |
+| | | pauseMenu, settings, confirmDialog | `PauseMenu` (PauseMenuUI), `Settings` (SettingsUI), `ConfirmDialog` (компонент на корне вложенного префаба). Пусто — предупреждение: Esc не ставит паузу / настройки не открываются / New Run не спрашивает |
 | | | ageBanner, ageTitle | `AgeTransition` (CanvasGroup), `AgeTransition/BannerText` (TMP_Text) — баннер эпохи; бутстрап отдаёт их `AgeSequencer`. Пусто — предупреждение, эпохи сменяются без баннера |
-| Canvas | **UIVisibility** | groups | 9 строк, таблица ниже |
+| Canvas | **UIVisibility** | groups | 11 строк, таблица ниже |
 | Canvas/Hud/BuildToggle | BuildPanelToggle | button, label, hideLabel, showLabel | свой Button; label — TMP_Text надписи (опц., **в префабе пусто**); «B» / «B» — надпись, пока панель видна / спрятана. Хозяин «показана / спрятана»: клик и B переключают, X и 1–9 возвращают спрятанную панель, прятание кладёт инструмент из руки |
 | Canvas/Hud/BuildTabs | **BuildTabBar** | palette | `ScriptableObjects/BuildMode/Build Palette Def` — без него нет ни вкладок, ни карточек |
 | | | tabPrefab, container | префаб `Prefabs/Elements/BuildTabUi`; container пусто = сам `BuildTabs` (его Vertical Layout Group) |
@@ -436,7 +467,12 @@ SampleScene
 | | | affordableCostColor, unaffordableCostColor | #6B85D2 — свободных очков на цену хватает, #E04840 — нет |
 | Canvas/MetaScreen/Tip | **MetaUpgradeTipUI** | text | `Tip/Text` |
 | | | titleColor, maxWidth, offset, screenMargin | #A8B4D6 — цвет названия; 83 — ширина до переноса; (0, −2) — левый верхний угол подсказки от правого верхнего угла ячейки; 2 — отступ от края экрана |
-| Canvas/ConfirmDialog | ConfirmDialog | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию. Сейчас не вызывается: окно конца цикла — `Screens/OfferingWindow`. На `UIRoot` ссылки на него больше нет |
+| Canvas/MainMenu | **MainMenuUI** | **panel, playButton, continueButton, newRunButton, settingsButton, quitButton** | `Panel` (GameObject — прячется, пока открыты настройки) и кнопки `Panel/Buttons/*`. Чего-то нет — ошибка на старте: меню — единственный вход в игру. Какие кнопки видны, решает код (Play или Continue + New Run); объект не выключать — его прячет UIVisibility |
+| Canvas/PauseMenu | PauseMenuUI | panel, resumeButton, settingsButton, mainMenuButton, quitButton | `Panel` и кнопки `Panel/Buttons/*`. Чего-то нет — предупреждение (Esc всё равно снимает паузу) |
+| Canvas/Settings | **SettingsUI** | **volumeSlider, fullscreenButton, resetButton, backButton** | `Rows/VolumeRow/Slider` (его Max Value = число шагов громкости, Whole Numbers вкл.), `Rows/FullscreenButton`, `Rows/ResetButton` (его HoldButton), `Rows/BackButton`. Чего-то нет — ошибка: настройку не поменять или окно закрывается только Esc |
+| | | volumeValue, fullscreenLabel, resetLabel | `VolumeRow/Value`, `FullscreenButton/Label`, `ResetButton/Label` — подписи; текст `resetLabel` в префабе — то, что кнопка пишет до сброса, после сброса код пишет «Progress Reset» и запирает кнопку до следующего открытия |
+| Canvas/Settings/Rows/ResetButton | HoldButton | holdDuration, fill | 1.5 с удержания; `Fill`. Button на том же объекте — только для вида при наведении, ответ — удержание |
+| Canvas/ConfirmDialog | ConfirmDialog | messageText, yesButton, noButton (+ yesLabel, noLabel опц.) | разведены внутри префаба `ConfirmDialog`; текст кнопок в префабе — по умолчанию, вопрос и подписи New Run / Cancel передаёт код. Esc отвечает «нет» |
 
 #### Новый элемент Канваса, которому нужна система
 
@@ -474,26 +510,30 @@ SampleScene
 режим говорит «да» **и** игрок не спрятал панель стройки (кнопка `BuildToggle` или B). Это всё ещё строка
 таблицы, так что у группы один хозяин — кнопка ничего не пишет поверх того, что выставил режим.
 
-| # | Group | Playing | ZonePick | PerkPick | AgeTransition | MetaUpgrades | OfferingEnd | За панелью |
-|---|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 0 | `Hud` | ✓ | — | — | — | — | — | — |
-| 1 | `Screens/PerkScreen` | — | — | ✓ | — | — | — | — |
-| 2 | `Screens/ZoneScreen` | — | ✓ | — | — | — | — | — |
-| 3 | `MetaScreen` | — | — | — | — | ✓ | — | — |
-| 4 | `Hud/BuildPalette` | ✓ | — | — | — | — | — | ✓ |
-| 5 | `Hud/SellButton` | ✓ | — | — | — | — | — | ✓ |
-| 6 | `Hud/BuildTabs` | ✓ | — | — | — | — | — | ✓ |
-| 7 | `Hud/TimePanel` | ✓ | — | — | — | — | ✓ | — |
-| 8 | `Screens/OfferingWindow` | — | — | — | — | — | ✓ | — |
+| # | Group | Playing | ZonePick | PerkPick | AgeTransition | MetaUpgrades | OfferingEnd | MainMenu | Pause | За панелью |
+|---|-------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 0 | `Hud` | ✓ | — | — | — | — | — | — | — | — |
+| 1 | `Screens/PerkScreen` | — | — | ✓ | — | — | — | — | — | — |
+| 2 | `Screens/ZoneScreen` | — | ✓ | — | — | — | — | — | — | — |
+| 3 | `MetaScreen` | — | — | — | — | ✓ | — | — | — | — |
+| 4 | `Hud/BuildPalette` | ✓ | — | — | — | — | — | — | — | ✓ |
+| 5 | `Hud/SellButton` | ✓ | — | — | — | — | — | — | — | ✓ |
+| 6 | `Hud/BuildTabs` | ✓ | — | — | — | — | — | — | — | ✓ |
+| 7 | `Hud/TimePanel` | ✓ | — | — | — | — | ✓ | — | — | — |
+| 8 | `Screens/OfferingWindow` | — | — | — | — | — | ✓ | — | — | — |
+| 9 | `MainMenu` | — | — | — | — | — | — | ✓ | — | — |
+| 10 | `PauseMenu` | — | — | — | — | — | — | — | ✓ | — |
 
-Строка 0 читается как «только живая игра»: на выборе зоны и перка, подъёме острова, мета-экране и в окне конца
-цикла HUD скрыт целиком, панель эры и панель перков вместе с ним (своих строк у них нет). Поэтому смена цены и
+Строка 0 читается как «только живая игра»: на выборе зоны и перка, подъёме острова, мета-экране, в окне конца
+цикла, в главном меню и на паузе HUD скрыт целиком, панель эры и панель перков вместе с ним (своих строк у них нет). Поэтому смена цены и
 высоты блока эры игроку не видна: HUD возвращается уже с новыми ценами. Строки 4–6 — три виджета стройки всю
 живую игру, пока игрок их не спрятал. Строка 7 — лента времени: у её CanvasGroup включён **Ignore Parent Groups**,
 поэтому она не зависит от `Hud` и видна ещё в окне конца цикла — ромб подношения стоит в кружке над окном (на
 макете окна ленты нет — снять `OfferingEnd` в строке 7, если её там не нужно). Строка 8 — окно подношения, только
 в своём режиме. **В окне конца цикла запасов не видно** — если их нужно видеть, отметить `OfferingEnd` у `Hud`.
-Биты бывших режимов `Build` (`1 << 1`) и `PrestigeConfirm` (`1 << 5`) в коде оставлены пустыми, поэтому
+Строки 9–10 — стартовое окно и пауза, каждое в своём режиме; остров под ними виден, но стоит. Игра загружается в
+режим `MainMenu` (`UIModeChangedEvent.BootMode`): с него `UIVisibility` начинает в своём `Awake`, так что
+альфа групп, выставленная в префабе, на старте не важна. Биты бывших режимов `Build` (`1 << 1`) и `PrestigeConfirm` (`1 << 5`) в коде оставлены пустыми, поэтому
 маски, сохранённые с ними, читаются как раньше.
 
 > Панели **не прячут сами себя** и не лезут в чужие корни. Если экран не появился — смотри сюда, а не
@@ -983,7 +1023,8 @@ Label стоит после Icon — цифра рисуется поверх к
 | Ассет | Меню создания | Главное содержимое |
 |-------|---------------|--------------------|
 | **StartConfig** | LittlePeeps/StartConfig | islandSeed (0 = случайный), islandRules (правила генерации), startBiome, house, pier, startingResources, startingModifiers, **startingUpgrades** (мета-перки, которые забег получает без очков, как купленные: перки, которым они нужны, тоже выпадают; то, что есть и здесь, и в профиле, считается один раз). Боевой — `Start Config` в `RunManager.startConfig`, `Test Start Config` — для тестового режима |
-| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, passable / animalsAvoid, isWater (река: по нему клетки реки стыкуются, а мельница ищет берег), needsWaterSide (мельница), **onWater** (мост: каждая клетка футпринта — клетка реки, река остаётся под ним; включать вместе с passable), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую) |
+| **StructureDef** | LittlePeeps/StructureDef | id, displayName, description, icon, prefab, **placement (Cell = футпринт клеток / Edge = забор на ребре)**, size + **footprintMask** (форма внутри size — рисуется клетками в инспекторе), cost[], requiredAge, lockedUntilPerk (карточка заперта, пока её не откроет перк), allowedTerrain[] (пусто = любой биом), sellRefundPercent (доля возврата при продаже, 0.5), canSell, passable / animalsAvoid, isWater (река: по нему клетки реки стыкуются, а мельница ищет берег), needsWaterSide (мельница), **onWater** (мост: каждая клетка футпринта — клетка реки, река остаётся под ним; включать вместе с passable), border (расширяет занимаемую территорию: дом=1 → 2×2 занимает 4×4), **maxCount** (0 = без лимита; растёт статом `StructureLimit`), costStepFlat / costStepPercent / exponentialCostGrowth (рост цены за каждую стоящую). **Новый StructureDef — сразу добавить в `Structure Catalogue Def`** (строка ниже) |
+| **StructureCatalogueDef** | LittlePeeps/Structure Catalogue | structures — ВСЕ StructureDef игры: здания палитры, природное (деревья, горы, река, норы…), стартовые (дом, пирс, палатка). Порядок не важен. Сохранённый забег хранит постройки по `id` и находит их здесь (`RunManager.structureCatalogue`); забытая в списке постройка пропадает из каждого продолженного забега (предупреждение в консоли). Тест `StructureCatalogueTests` (Test Runner) краснеет, если какого-то StructureDef в списке нет, если есть пустой слот или пустой / повторный id. Ассет — `StructureDef/Structure Catalogue Def` |
 | **ResourceSourceDef** | LittlePeeps/ResourceSourceDef | resource, workerYields[] (кто и сколько добывает; пусто = никто; «любой рабочий» = перечислить всех), **depletion** (Never / Despawn / Regrow), hitsToDeplete, regrowTime, keepBodyWhileDepleted, **pickupFx** (префаб FX_Pickup_*; пусто = эффект ресурса из `ResourceIconSet`) + **pickupFxCount**. `pickupFx` — единственный визуал в дефе, и намеренно: он отвечает на вопрос «что именно добыли», когда тип ресурса этого не скажет. Один тип дефа для статичных нод и зверей |
 | **UnitDef** | LittlePeeps/UnitDef | id, prefab (→ BaseUnit), speed, stamina (секунды работы за вылет), tiredSpeedMultiplier (скорость уставшего), profession (с какой профессией рождается — `Unassigned`, настоящую даёт стойка) |
 | **ProfessionDef** | LittlePeeps/ProfessionDef | type (UnitType), frames[] — кадры ходьбы этой профессии |
@@ -1025,7 +1066,9 @@ Label стоит после Icon — цифра рисуется поверх к
   - **B** → `BuildPanelToggleRequestedEvent` → `BuildPanelToggle` (тот же переключатель, что клик по `BuildToggle`) прячет или показывает `SellButton`, `BuildTabs` и `BuildPalette`. Не режим: игра идёт и так и так; прятание кладёт инструмент из руки;
   - **X** → `SellModeRequestedEvent` → `SellButtonUI` берёт Sell в руку или кладёт — тем же путём, что клик (вид кнопки рисует по факту, из `PlacementController.ToolChanged`; вспышку продажи — из `PlacementController.Sold`); `BuildPanelToggle` показывает спрятанную панель. Поверх другого экрана (выбор перка, подъём острова…) — no-op: вне живой игры контроллер инструмент не даёт, а панель не показывается;
   - **1–9** (верхний ряд и нампад) → `BuildTabRequestedEvent` → `BuildTabBar` открывает N-ю вкладку, `BuildPanelToggle` показывает спрятанную панель; поверх другого экрана — no-op. Клавиши зашиты в коде, не в инспекторе: цифра = позиция вкладки;
-  - **Esc** → `ExitToMenuRequestedEvent` → `GameBootstrap` пока **отклоняет** переход (warning в консоли): у `MainMenuState` нет экрана, и выход в него оставил бы игрока без пути назад. Вернуть — одна строка, когда меню появится.
+  - **Esc** → `BackRequestedEvent` — шаг назад. В живой игре — пауза (`GameplayContainerState` кладёт `PauseState` поверх игры); на паузе — по шагу: закрыть вопрос, потом настройки, потом саму паузу. В главном меню — вопрос, потом настройки (из самого меню назад некуда). Окна, которые ждут решения (выбор зоны и перка, подъём острова, конец цикла, мета-экран), Esc не замечают.
+
+  В главном меню и на паузе руки игрока с камеры сняты: `CameraController` по режиму не слушает ни клавиши, ни край, ни зум, ни ПКМ (на остальных экранах поверх игры пан работает — выбору зоны он нужен).
 
 **Мышь над UI принадлежит UI.** Начало перетаскивания ПКМ, как и `OnWorldClick`, ничего не делает, пока курсор над UI (`InputHandler.IsPointerOverUI()` — ответ EventSystem). Начатое на острове перетаскивание может пройти и над UI. Клик ПКМ (отмена) не фильтруется. WASD, край экрана и `+` / `−` тоже: они ни во что под курсором не целятся. Колесо над миром ничего не делает; над полосой стройки оно её прокручивает — это UI.
 
@@ -1039,7 +1082,7 @@ Label стоит после Icon — цифра рисуется поверх к
 Панель стройки открыта всю живую игру, остров работает под ней.
 
 - **Когда работает:** `PlayingState.Enter` → `PlacementController.Begin`, `Exit` → `End`. Любой другой экран (выбор
-  зоны или перка, подъём острова, окно конца цикла, мета-экран) начинается с того, что инструмент из руки кладётся.
+  зоны или перка, подъём острова, окно конца цикла, мета-экран, пауза) начинается с того, что инструмент из руки кладётся.
 - **Что в руке — знает только `PlacementController`.** Виджеты панели лишь просят (`Select` / `SelectSell` /
   `PutDown`) и рисуют подсветку по его событию `ToolChanged`, своих копий не держат; вне живой игры просьбы отклоняются:
   - карточка → **PLACE** (гост под курсором, клик ставит, забор ещё и протягивается; инструмент остаётся в руке, можно ставить дальше),
@@ -1078,38 +1121,54 @@ Script Execution Order настраивать **не нужно** (это кос
 - **Правило для новых систем:** не читай «вколотое» состояние (контексты, другие системы) в своих `Awake`/`OnEnable` — только начиная со `Start`. Подписки на события и `GetComponent` в `Awake`/`OnEnable` — можно.
 - **То же для элементов Канваса (`IUIElement`):** `Initialize(UIServices)` вызывается из `GameBootstrap.Awake` и может прийти раньше собственного `Awake` элемента — в нём только запомнить нужное, рисовать со `Start`. Поэтому карточки появляются не раньше `Start` (первую вкладку объявляет `BuildTabBar.Start`).
 - **События, отправленные внутри `GameBootstrap.Awake`, элементы Канваса могут не услышать** — их `OnEnable` ещё не
-  отработал. Так бывает с первым `RunStartedEvent` и первым `UIModeChangedEvent` (`Playing`). Поэтому текущий забег
-  читают в `Initialize` (`RunManager.CurrentRun`), а виджеты стройки стартуют так, будто режим уже `Playing` —
-  тем же правилом, что `UIVisibility` в своём `Awake`. Пришло событие — ничего не меняет, пропущено — состояние уже верное.
+  отработал. Так бывает с первым `RunStartedEvent` и первым `UIModeChangedEvent` (`MainMenu`). Поэтому текущий забег
+  читают в `Initialize` (`RunManager.CurrentRun`), а слушатели режима начинают с режима, в котором игра стартует:
+  `UIVisibility` (в своём `Awake`) и `CameraController` — с `UIModeChangedEvent.BootMode`, одной константы на всех.
+  Пришло событие — ничего не меняет, пропущено — состояние уже верное. Виджеты стройки стартуют так, будто режим `Playing`.
 
 ## Что должно произойти при Play
 
-1. `GameBootstrap.Awake`: загрузка MetaContext (с диска пока не читается — каждый запуск с чистого профиля), проводка систем
-   и UI (набор `UIServices` → каждому `IUIElement` под Канвасом, баннер → `AgeSequencer`);
-   включён тестовый режим — до первого забега подставляются его пресеты (предупреждение `[TEST MODE]` в консоли);
+1. `GameBootstrap.Awake`: громкость из настроек; включён тестовый режим — подставляются его пресеты и его файлы
+   сохранений (предупреждение `[TEST MODE]` в консоли); профиль с диска (`[Save] profile loaded …` или `… a fresh one`).
+   Первый забег: есть сохранённый — он восстанавливается (остров, постройки, числа; `[Save] run found …`), иначе
    `RunManager.StartNewRun()` → RunContext, стартовые модификаторы, ресурсы и мета-перки из StartConfig плюс купленные
-   мета-перки, `IslandSystem.GenerateForRun` → стартовая зона с домом и пирсом. App FSM → `Boot → GameplayContainer → Playing`. Камера — в центре острова, музыка — с первого кадра.
-2. На экране: юниты вылетают из домов и отскакивают; `Unassigned` берут инструмент на стойке и работают профессией;
+   мета-перки, `IslandSystem.GenerateForRun` → стартовая зона с домом и пирсом. Проводка систем и UI (набор `UIServices`
+   → каждому `IUIElement` под Канвасом, баннер → `AgeSequencer`). App FSM → `Boot → MainMenu`. Камера — в центре острова.
+2. **Стартовое окно** поверх замершего острова (затемнение, «Little Peeps»): Play / Settings / Quit, а если есть забег,
+   который можно продолжить, — Continue / New Run / Settings / Quit. HUD скрыт, камера не двигается. Play и Continue —
+   в игру (Continue удаляет файл забега); New Run спрашивает («Start a new run? This one won't be cashed in.») и строит
+   новый остров; Settings — громкость, полноэкранный режим и Reset Progress удержанием 1.5 с (профиль с нуля, забег под
+   меню тоже пропадает — Play построит новый); Quit — выход (в редакторе — стоп Play). Esc закрывает вопрос и настройки.
+3. В игре: юниты вылетают из домов и отскакивают; `Unassigned` берут инструмент на стойке и работают профессией;
    удар по ноде платит по её `workerYields`; вокруг нор гуляют звери; уставшие возвращаются в дом. Тап — буст юнитов в
-   радиусе со щелчком.
-3. Если мета-перк дал стартовый выбор перка — он открывается сразу.
-4. Панель стройки внизу открыта всё время, игра под ней идёт: карточка в руке → сетка пятном у курсора и гост,
+   радиусе со щелчком. Продолженный забег (Continue) — всё на своих местах, а все жители сначала дома: отдыхают
+   и вылетают разом; звери выходят из нор заново, гуси — как при старте загона.
+4. Если мета-перк дал стартовый выбор перка — он открывается сразу, как только начинается игра.
+5. Панель стройки внизу открыта всё время, игра под ней идёт: карточка в руке → сетка пятном у курсора и гост,
    клик ставит стройплощадку, которая становится зданием, когда с места все уйдут; Sell продаёт; ПКМ — пустая рука,
    клик снова тап. B прячет / показывает панель.
-5. **Expand Island** (`AgeAdvancePanel`) активна, когда хватает ресурсов или эпоха бесплатна (мета-перк Free Age — вместо
+6. **Expand Island** (`AgeAdvancePanel`) активна, когда хватает ресурсов или эпоха бесплатна (мета-перк Free Age — вместо
    цены «FREE»): клик → выбор зоны → зона поднимается из моря →
    баннер «Age N» → снова игра (перка за эпоху нет). Тап ускоряет подъём, второй — к финалу, тап по баннеру закрывает его.
-6. **Цикл подношений** идёт с первой секунды: лента сверху ползёт к кружку, под засечками годы с начала забега (1, 2,
+7. **Цикл подношений** идёт с первой секунды игры (в меню стоит): лента сверху ползёт к кружку, под засечками годы с начала забега (1, 2,
    3, 4 …); на любом экране поверх игры часы и лента стоят. Перед отъездом большого ромба полоса наползает на точки
    ему навстречу со скоростью ленты. Когда до подношения остаётся ≈4,5 года, большой ромб справа уезжает вместе
    с руками, а на его место из-за края приезжает маленький. Курсор на ленте → подсказка «N years until Offering»
    и квота (красным — чего не хватает).
-7. Ромб дошёл до кружка → пауза, затемнение и окно «Gods Demand the Offering» с квотой (красным — чего не хватает):
+8. Ромб дошёл до кружка → пауза, затемнение и окно «Gods Demand the Offering» с квотой (красным — чего не хватает):
    **Pay the Offering** (бледная и не жмётся, если не хватает) → выбор перка (в особом цикле — особые перки) и
    следующий цикл, на стоянке снова большой ромб с руками; **Face the Wrath** — держать секунду, заливка тёмно-красным
    растёт слева направо (отпустил или увёл курсор — сброс) → очки престижа (новые эпохи сверх рекорда и
    время игры) → мета-экран (тратим очки на мета-перки; цена синяя — хватает, красная — нет, у купленного скрыта) →
-   **Next Island** → новый забег с цикла 1 и года 1; камера снова в центре острова.
+   **Next Island** → новый забег с цикла 1 и года 1; камера снова в центре острова. Профиль на диске уже записан
+   (после кэш-ина и каждой покупки), сохранённого забега нет — его удалил кэш-ин.
+9. **Esc** в живой игре — пауза («Paused»): остров, часы подношения и время игры стоят, камера не двигается. Resume или
+   Esc — назад в игру; Settings — те же, но без Reset Progress; **Main Menu** — забег записывается на диск
+   (`[Save] run saved …`) и ждёт в стартовом окне под Continue; Quit — выход, забег тоже записывается. Ничего не
+   спрашивают.
+10. Закрыть окно игры (крестик, Alt+F4) или остановить Play — то же, что Quit: при следующем запуске стартовое окно
+    предложит Continue. Закрыли посреди окна (выбор зоны или перка, подношение) — после Continue игра вернётся в момент
+    перед этим окном, и оно откроется снова с теми же вариантами. Падение или снятие процесса — забег потерян, профиль цел.
 
 ## Тестовый режим
 
@@ -1120,6 +1179,9 @@ Script Execution Order настраивать **не нужно** (это кос
 - **Что подменяет** — поля объекта `TestMode` в сцене: `startConfig` (что получает забег) и `offeringSchedule` (расписание
   подношений). Пустое поле = боевой ассет. Держится все забеги сессии Play; в консоли — предупреждение `[TEST MODE]` со
   списком подмен.
+- **Свои сохранения:** в тестовом режиме игра пишет `meta_test.json` и `run_test.json` рядом с боевыми — тестовые забеги
+  копят и тратят очки, не трогая настоящий профиль, а Reset Progress сбрасывает только тестовый. Подменяются, даже если
+  оба поля пресетов пусты, — нужен только объект `TestMode` в поле `GameBootstrap.testMode`.
 - Проверить мета-перк без очков — положить его в `startingUpgrades` у `Test Start Config`.
 
 ## Инструменты редактора (меню Little Peeps)
@@ -1129,11 +1191,18 @@ Script Execution Order настраивать **не нужно** (это кос
   которой он сортируется. Всё считается от КОРНЯ: его игра и ставит, двигать нужно `Visual` / `Model`. Префаб без дефа и
   забор разметки не получают.
 - **Little Peeps → Test Mode** — см. «Тестовый режим».
+- **Little Peeps → Saves** — Open Save Folder (папка `persistentDataPath`, общая с локальным билдом на этой машине);
+  Delete Profile / Delete Saved Run и то же для тестовых файлов — каждый с подтверждением. Во время Play пункты
+  удаления недоступны: игра держит профиль и забег в памяти и записала бы их обратно (из игры то же делают Reset
+  Progress и New Run).
 - **Window → Little Peeps → Harvest Feedback / Island Rise** — просмотр отклика сбора и подъёма острова без Play.
 - Инспектор StructureDef внизу показывает, как растёт цена (первые восемь, в обоих режимах роста).
 
 ## Project settings — важное (не в сцене, но влияет)
 
+- **Player → Company Name** (сейчас `DefaultCompany`) и **Product Name** задают папку сохранений
+  (`AppData/LocalLow/<Company>/<Product>/` на Windows). Company Name сменить **до релиза**: после смены игра ищет
+  сохранения в новой папке, и старые профили игроков пропадут из виду.
 - **Physics 2D → Layer Collision Matrix:** Unit×Unit **OFF** (юниты проходят сквозь друг друга), Unit×Default **ON**; слой 7 **Goose**: Goose×Unit и Goose×Goose **OFF**, Goose×Default **ON**.
 - **Physics 2D → Bounce Threshold = 0.1** (иначе скольжение на малых скоростях).
 - **Y-сортировка:** на URP 2D Renderer-ассете (`Assets/Settings/Renderer2D.asset`) — Transparency Sort Mode = Custom Axis, Axis (0,1,0). Юниты и постройки — на одном Sorting Layer (`Entities`) с равным Order, сортируются по Y динамически.
@@ -1150,5 +1219,6 @@ Script Execution Order настраивать **не нужно** (это кос
 
 ## Что ещё заглушка
 
-- **Главное меню:** `MainMenuState` без экрана, Esc переход отклоняет.
-- **Сохранение на диск:** `SaveSystem.Save/Load` — TODO. Очки престижа и мета-перки живут до закрытия игры.
+- **`BootState`** пустой — место под асинхронную загрузку; сейчас Boot сразу переходит в главное меню.
+- **Не сохраняется, где кто был:** после Continue жители, звери и гуси начинают заново (жители — из своих домов).
+  Сохранение их позиций — отдельная задача.

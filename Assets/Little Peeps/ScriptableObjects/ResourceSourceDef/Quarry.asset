@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c3a4a91d14169846ab526ecdb5af30a, type: 3}
+  m_Name: Quarry
+  m_EditorClassIdentifier: 
+  id: quarry
+  resource: 2
+  workerYields:
+  - worker: 0
+    amount: 1
+  - worker: 4
+    amount: 2
+  pickupFx: {fileID: 3137257105596504295, guid: b55387ca2ac67db4b8c5643b02125d68, type: 3}
+  pickupFxCount: 1
+  hitSound: {fileID: 11400000, guid: 35c1cb578bec4a7ead4328219331be46, type: 2}
+  depleteSound: {fileID: 0}
+  depletion: 0
+  hitsToDeplete: 2
+  regrowTime: 30
+  keepBodyWhileDepleted: 0

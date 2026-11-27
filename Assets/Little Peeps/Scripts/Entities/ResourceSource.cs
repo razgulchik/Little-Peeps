@@ -27,8 +27,8 @@ namespace LittlePeeps
     //
     // What the states LOOK like is not this component's business: each kind of source has its own view
     // next to it — ResourceSourceView for nodes (ready and harvested roots, the reap fade), ForgeHeatView
-    // for the forge, and so on — which reads IsReady and listens to Depleted / Regrown. A source with no
-    // view simply never changes its look.
+    // for the forge, QuarryView for the quarry's cracks (HitsLeft), and so on — which reads IsReady and
+    // listens to Depleted / Regrown. A source with no view simply never changes its look.
     //
     // A building with rules of its own (the forge's heat, the paddy's crop, the mill's store) is an add-on
     // next to this, never a second payer: an IHitGate says WHETHER a hit pays, an IYieldScale HOW MUCH, and
@@ -74,6 +74,10 @@ namespace LittlePeeps
 
         // Harvestable right now. Always true for Never and Despawn sources.
         public bool IsReady => state == State.Ready;
+
+        // Paying hits still to take before the source is used up — what a view showing wear reads (QuarryView).
+        // Back to def.hitsToDeplete on the regrow; a Never source never counts down.
+        public int HitsLeft => hitsLeft;
 
         private void Awake()
         {

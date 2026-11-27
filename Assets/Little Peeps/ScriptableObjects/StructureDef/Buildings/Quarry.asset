@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b4b212dbe5910f4cb58b0505bf8bb76, type: 3}
+  m_Name: Quarry
+  m_EditorClassIdentifier: 
+  id: quarry
+  displayName: Quarry
+  description: Anyone harvests Stone, miners more. The faster the hit, the more Stone.
+  icon: {fileID: 21300000, guid: 85be0962c25942d2b009772a7d3bf971, type: 3}
+  prefab: {fileID: 4400000000000000001, guid: 28a83e10841246b5a21bf4431c4c6b12, type: 3}
+  placement: 0
+  size: {x: 1, y: 1}
+  footprintMask:
+    cells: 
+  cost:
+  - resourceType: 1
+    amount: 20
+  requiredAge: 2
+  lockedUntilPerk: 0
+  allowedTerrain: 
+  sellRefundPercent: 0.5
+  canSell: 1
+  passable: 0
+  animalsAvoid: 0
+  isWater: 0
+  needsWaterSide: 0
+  onWater: 0
+  border: 0
+  maxCount: 0
+  costStepFlat: 5
+  costStepPercent: 0
+  exponentialCostGrowth: 0

@@ -30,6 +30,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 44998d81fa4dae248ac9c700d7e5ffbe, type: 2}
     - {fileID: 11400000, guid: e8800f7bf20c441a8c6d50679298d0aa, type: 2}
     - {fileID: 11400000, guid: 93d7be75fac17d04faacfe380f522199, type: 2}
+    - {fileID: 11400000, guid: 9667049648304a04a279bc5cf57a06c7, type: 2}
   - name: Racks
     icon: {fileID: 21300000, guid: e819d9f033f772e4690597ab6db4c601, type: 3}
     structures:

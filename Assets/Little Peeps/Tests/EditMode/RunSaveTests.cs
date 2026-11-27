@@ -192,6 +192,7 @@ namespace LittlePeeps.Tests
             perkPicksOwed = 1,
             freeAgesLeft = 0,
             tiredGoHome = true,
+            chosenZoom = 0,
             structures = { new StructureSave { id = "house", x = 2, y = -1 }, new StructureSave { id = "tree", x = 5, y = 3 } },
             bridges = { new StructureSave { id = "bridge", x = 0, y = 4, site = true } },
             fences = { new FenceSave { id = "fence", x = 1, y = 1, horizontal = true } },
@@ -213,6 +214,7 @@ namespace LittlePeeps.Tests
             Assert.That(run.offeringElapsed, Is.EqualTo(37.125));
             Assert.That(run.playSeconds, Is.EqualTo(612.3456789).Within(1e-9), "the clocks are doubles");
             Assert.That(run.tiredGoHome, Is.True);
+            Assert.That(run.chosenZoom, Is.EqualTo(0), "the view the player picked, 0 included");
             Assert.That(run.structures.Select(s => s.id), Is.EqualTo(new[] { "house", "tree" }));
             Assert.That(run.bridges[0].site, Is.True, "a site goes back up as a site");
             Assert.That(run.fences[0].horizontal, Is.True);
@@ -252,6 +254,20 @@ namespace LittlePeeps.Tests
 
             Assert.That(RunFile.TryRead(older, out RunSnapshot run, out string problem), Is.True, problem);
             Assert.That(run.structures[0].states, Is.Empty);
+        }
+
+        // A run saved before the camera's view was part of it: the player picked none, so the view follows the
+        // age — not view 0, the farthest, which is what a plain int's default would have made it.
+        [Test]
+        public void AFileFromBeforeTheChosenZoom_ReadsAsNotChosen()
+        {
+            string older = System.Text.RegularExpressions.Regex.Replace(RunFile.ToJson(Sample()), ",\"chosenZoom\":-?\\d+", "");
+            older = System.Text.RegularExpressions.Regex.Replace(older, "\"checksum\":\"[0-9a-f]+\"", "\"checksum\":\"\"");
+            Assume.That(older, Does.Not.Contain("chosenZoom"));
+            older = older.Replace("\"checksum\":\"\"", $"\"checksum\":\"{SafeFile.Checksum(older)}\"");
+
+            Assert.That(RunFile.TryRead(older, out RunSnapshot run, out string problem), Is.True, problem);
+            Assert.That(run.chosenZoom, Is.EqualTo(RunContext.NotChosen));
         }
 
         [Test]

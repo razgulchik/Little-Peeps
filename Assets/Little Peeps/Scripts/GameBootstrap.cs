@@ -116,6 +116,7 @@ namespace LittlePeeps
             else Debug.LogError("[GameBootstrap] no CarrySystem assigned — the hand cannot carry units.", this);
 
             ageSystem.Initialize(run);
+            if (cameraController != null) cameraController.Initialize(run);
 
             // Loud but not fatal: without it there is no offering cycle — no quotas, no wrath, no perks
             // from offerings — and the rest of the game plays on.

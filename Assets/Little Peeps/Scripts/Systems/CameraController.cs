@@ -25,14 +25,21 @@ namespace LittlePeeps
     // so no view can break the pixels on any screen, and a gliding zoom could not exist anyway: every
     // size in between is a broken one. The vcam's own Lens > Orthographic Size is overwritten by the
     // start view; the views are here.
+    //
+    // Which view a run is in, until the player picks one: the close one while the island is small, and
+    // the default one from the zone pick of zoomOutAge on — the moment the island is about to outgrow
+    // the close view, and the offers along its coast want the room. The first + or − is the player's
+    // pick, kept for the rest of the run (RunContext.chosenZoom — in the run, so a continued run keeps
+    // it too): from then on the age moves nothing. A press against the end of the range is a pick as
+    // well — the player asked for that end.
     // The target is clamped to the island's world bounds (from IslandSystem) expanded by a configurable
     // margin, so the player can't pan off into empty space; the vcam follows the clamped target so the
     // camera stays in range too. (A Cinemachine Confiner2D is a later iteration.) While zones are on
     // offer the clamp is widened to take them in (SetExtraBounds) and the camera can be sent to look at
     // one (FocusOn) — the pan itself stays the player's.
     //
-    // Every run starts from the same view (ResetView): the island in the middle of the screen at the start
-    // zoom, as a cut.
+    // Every run starts from the same view (ResetView): the island in the middle of the screen at the run's
+    // zoom (above), as a cut.
     // A new run is a new island, and it should look like a fresh start — not inherit wherever the last
     // run left the camera.
     //
@@ -44,7 +51,8 @@ namespace LittlePeeps
     //   - islandSystem  → for the bounds clamp
     //   - inputHandler  → the right-drag pan (OnPan / IsPanning)
     // Reads the grid in Start (not Awake), per the bootstrap rule: the run + island are built in
-    // GameBootstrap.Awake.
+    // GameBootstrap.Awake. The run itself comes from there too (Initialize), and from every
+    // RunStartedEvent after.
     public class CameraController : MonoBehaviour
     {
         [SerializeField] private Transform cameraTarget;      // the logical center the vcam follows; we pan it
@@ -63,8 +71,15 @@ namespace LittlePeeps
                  "safe — the pixel-perfect extension snaps it to the nearest whole pixel scale of the screen " +
                  "at hand; these are exact on 1080p (×2, ×3, ×4) and keep about the same framing elsewhere.")]
         [SerializeField] private float[] zoomLevels = { 16.875f, 11.25f, 8.4375f };
-        [Tooltip("Index into Zoom Levels every run starts at — the classic view.")]
-        [SerializeField] private int startZoomLevel = 1;
+        [Tooltip("Index into Zoom Levels every run starts at — the close view, held until the player picks " +
+                 "one with + / − or the zone pick of Zoom Out Age comes.")]
+        [SerializeField] private int startZoomLevel = 2;
+        [Tooltip("Index into Zoom Levels the run moves to at the zone pick of Zoom Out Age, unless the player " +
+                 "has picked a view with + / − by then.")]
+        [SerializeField] private int defaultZoomLevel = 1;
+        [Tooltip("The age whose zone pick moves an untouched camera to Default Zoom Level, as the player " +
+                 "counts them (the run starts in age 1).")]
+        [SerializeField] private int zoomOutAge = 3;
 
         [Header("Bounds")]
         [SerializeField] private float boundsMargin = 4f;     // how far past the island edge the target may go
@@ -76,6 +91,9 @@ namespace LittlePeeps
         private bool pointerActive;   // latched true on the first real mouse movement (see EdgeDir)
         private int zoomLevel;        // index into zoomLevels
 
+        // The run whose view this is (RunView); replaced on every RunStartedEvent, never kept across one.
+        private RunContext run;
+
         // The menus over the game: the island stands still behind them, and the pause is a pause of the
         // player's hands too. On every other frozen screen the pan stays — the zone pick needs it.
         private const UIMode HandsOffModes = UIMode.MainMenu | UIMode.Pause;
@@ -83,6 +101,9 @@ namespace LittlePeeps
         // Starts from the boot mode rather than waiting for the first event, for UIVisibility's reason:
         // GameBootstrap.Awake may announce the menu before this OnEnable has subscribed.
         private bool handsOff = (UIModeChangedEvent.BootMode & HandsOffModes) != 0;
+
+        // The first run, from GameBootstrap.Awake: its RunStartedEvent may come before OnEnable has subscribed.
+        public void Initialize(RunContext run) => this.run = run;
 
         private void Start() => ResetView();
 
@@ -102,21 +123,45 @@ namespace LittlePeeps
             if (inputHandler != null) inputHandler.OnPan -= OnPan;
         }
 
-        private void OnModeChanged(UIModeChangedEvent e) => handsOff = (e.Mode & HandsOffModes) != 0;
+        // The zone pick is where the age moves the view: the age is bought by then (ZoneSelectionState), so
+        // RunView already reads the new one.
+        private void OnModeChanged(UIModeChangedEvent e)
+        {
+            handsOff = (e.Mode & HandsOffModes) != 0;
+            if (e.Mode == UIMode.ZonePick) SetZoomLevel(RunView());
+        }
 
-        // The island grows on a new age → its bounds change, so re-cache them.
-        private void OnAgeStarted(AgeStartedEvent _) => RefreshBounds();
+        // The island grows on a new age → its bounds change, so re-cache them. The view too, for an age that
+        // had no zones to offer and so no zone pick to move it at.
+        private void OnAgeStarted(AgeStartedEvent _)
+        {
+            RefreshBounds();
+            SetZoomLevel(RunView());
+        }
 
         // A new run stands on a new island — already grown by any ages a meta perk skipped — so the clamp
         // must not keep the finished run's bounds, and the view starts over. The first run is covered by Start.
-        private void OnRunStarted(RunStartedEvent _) => ResetView();
+        private void OnRunStarted(RunStartedEvent e)
+        {
+            run = e.Run;
+            ResetView();
+        }
 
-        // The view a run starts from: the whole island centred on screen at the start zoom. A cut, not a
+        // The view the run is in: the player's pick once there is one, else the one its age gives — close,
+        // then the default view from zoomOutAge on.
+        private int RunView()
+        {
+            if (run == null) return startZoomLevel;
+            if (run.chosenZoom != RunContext.NotChosen) return run.chosenZoom;
+            return run.currentAge >= zoomOutAge ? defaultZoomLevel : startZoomLevel;
+        }
+
+        // The view a run starts from: the whole island centred on screen at the run's zoom. A cut, not a
         // glide — PreviousStateIsValid = false makes the vcam skip its damping for one update.
         private void ResetView()
         {
             RefreshBounds();
-            SetZoomLevel(startZoomLevel);
+            SetZoomLevel(RunView());
             if (cameraTarget != null && hasBounds)
                 ApplyPosition(new Vector3(islandBounds.center.x, islandBounds.center.y, cameraTarget.position.z));
             if (vcam != null) vcam.PreviousStateIsValid = false;
@@ -200,6 +245,7 @@ namespace LittlePeeps
 
         // + steps closer, − farther, stopping at the ends. Keys aim at nothing, so they work over UI and on
         // the frozen screens like the pan keys. `equalsKey` is the + key of the main row (+ without Shift).
+        // Any press is the player's pick for the rest of the run, even one against an end (RunView).
         private void HandleZoomKeys()
         {
             var k = Keyboard.current;
@@ -208,7 +254,10 @@ namespace LittlePeeps
             int step = 0;
             if (k.equalsKey.wasPressedThisFrame || k.numpadPlusKey.wasPressedThisFrame)   step += 1;
             if (k.minusKey.wasPressedThisFrame  || k.numpadMinusKey.wasPressedThisFrame)  step -= 1;
-            if (step != 0) SetZoomLevel(zoomLevel + step);
+            if (step == 0) return;
+
+            SetZoomLevel(zoomLevel + step);
+            if (run != null) run.chosenZoom = zoomLevel;
         }
 
         // Puts the vcam on one of the views; the pixel-perfect extension does the snapping.

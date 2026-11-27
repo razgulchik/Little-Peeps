@@ -51,6 +51,9 @@ namespace LittlePeeps
         public int freeAgesLeft;
         public bool tiredGoHome;
 
+        // RunContext.chosenZoom. A file from before it reads as NotChosen: the view follows the age, as it did.
+        public int chosenZoom = RunContext.NotChosen;
+
         public string checksum = "";
     }
 

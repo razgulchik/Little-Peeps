@@ -96,6 +96,13 @@ namespace LittlePeeps
         // by the units as they tire (SpawnSystem.TiredGoHome).
         public bool tiredGoHome;
 
+        // The camera view the player picked with + and − this run, as an index into CameraController's zoom
+        // levels; NotChosen until the first press. While it is NotChosen the view follows the age instead (close
+        // at the start, the default view from the age CameraController names) — so this one number is both the
+        // player's view and whether there is one, and a continued run looks the way the left one did.
+        public const int NotChosen = -1;
+        public int chosenZoom = NotChosen;
+
         // Structures that stand on the start island beside the house and the pier, from StartStructureUpgradeDef.
         // Read once, as the island is generated (RunManager.StartNewRun).
         public List<StructureDef> startStructures = new();

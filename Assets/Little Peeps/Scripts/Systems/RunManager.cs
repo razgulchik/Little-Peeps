@@ -177,6 +177,7 @@ namespace LittlePeeps
                 perkPicksOwed = run.perkPicksOwed,
                 freeAgesLeft = run.freeAgesLeft,
                 tiredGoHome = run.tiredGoHome,
+                chosenZoom = run.chosenZoom,
             };
 
             foreach (var section in generator.Sections) save.sections.Add(IslandSnapshot.Save(section));
@@ -242,6 +243,7 @@ namespace LittlePeeps
             run.perkPicksOwed = Mathf.Max(0, save.perkPicksOwed);
             run.freeAgesLeft = Mathf.Max(0, save.freeAgesLeft);
             run.tiredGoHome = save.tiredGoHome;
+            run.chosenZoom = Mathf.Max(RunContext.NotChosen, save.chosenZoom);
 
             var missing = new List<string>();
             ReadAmounts(save.resources, run.resources, missing);

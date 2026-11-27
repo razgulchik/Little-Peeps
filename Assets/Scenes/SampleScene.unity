@@ -4900,7 +4900,9 @@ MonoBehaviour:
   - 16.875
   - 11.25
   - 8.4375
-  startZoomLevel: 1
+  startZoomLevel: 2
+  defaultZoomLevel: 1
+  zoomOutAge: 4
   boundsMargin: 4
 --- !u!4 &1766505766
 Transform:

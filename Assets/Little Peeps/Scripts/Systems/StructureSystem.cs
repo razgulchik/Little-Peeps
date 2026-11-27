@@ -91,7 +91,7 @@ namespace LittlePeeps
         {
             if (!islandSystem.Grid.CanPlace(cell, def))
             {
-                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, border overlap, a fence across it, no side along water, or not over water) — skipped.", this);
+                Debug.LogWarning($"StructureSystem: cannot place '{def.id}' at {cell} (out of bounds, occupied, wrong terrain, border overlap, a fence across it, no water beside it, or not over water) — skipped.", this);
                 return null;
             }
             return Build(def, cell);
@@ -279,8 +279,8 @@ namespace LittlePeeps
         //   - a forest carries a DualVisual whose two roots interlock by grid row: even rows show the first
         //     layout, odd rows the second, so adjacent forests form a brick-laid pattern. (row & 1) is
         //     correct for negative rows too on the signed grid;
-        //   - a watermill carries a WaterSideVisual and shows the art for the side the river runs along —
-        //     the south art mirrored where the river stops under its wheel;
+        //   - a watermill carries a WaterSideVisual and shows the art for the spot where the river touches
+        //     it — its wheel turns in that river cell;
         //   - a river cell carries a RiverVisual and shows the piece that joins it to the river cells beside it;
         //   - a mountain cell carries a MountainVisual and shows the piece and the inner corners that join it
         //     to the mountain cells around it.
@@ -291,7 +291,7 @@ namespace LittlePeeps
         {
             if (go.TryGetComponent<DualVisual>(out var rows)) rows.Show((origin.y & 1) == 0);
             if (go.TryGetComponent<WaterSideVisual>(out var sides))
-                sides.Show(WaterSides.Find(grid, origin, footprint), WaterSides.FlipSouth(grid, origin, footprint));
+                sides.Show(WaterSides.Find(grid, origin, footprint));
             if (go.TryGetComponent<RiverVisual>(out var river)) river.Show(RiverShapes.At(grid, origin));
             if (go.TryGetComponent<MountainVisual>(out var mountain)) mountain.Show(MountainShapes.At(grid, origin));
         }

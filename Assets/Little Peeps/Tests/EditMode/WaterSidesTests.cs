@@ -4,178 +4,147 @@ using UnityEngine;
 
 namespace LittlePeeps.Tests
 {
-    // WaterSides decides where a watermill may stand and which art it shows: one WHOLE side along water,
-    // the first of South, West, East, never North. Pinned here: each side on its own, north and half a
-    // side refused, every corner the river can bend around (the order decides), a shaped footprint's side
-    // following its outline rather than its box, and on the grid — what counts as water (a structure whose
-    // def is isWater; not the sea, not any other occupant) and CanPlace(def) holding a water building to it.
-    // And FlipSouth: the south art mirrored only where the river stops under the wheel's (right) end and
-    // runs on past the left one.
+    // WaterSides decides where a watermill may stand and which art it shows: the river right across ANY
+    // one edge of the building, each edge its own wheel spot, and where several are touched the drawn art
+    // first (SouthRight, West, NorthRight), its mirrored stand-ins after (SouthLeft, East, NorthLeft).
+    // Pinned here: each spot on its own, a corner touch refused, the whole order, the outline of a shaped
+    // footprint rather than its box, the halves of an odd width — and on the grid, what counts as water (a
+    // structure whose def is isWater; not the sea, not any other occupant) and CanPlace(def) holding a
+    // water building to it.
     //
     // The geometry runs on a plain set of river cells (the predicate overload), so it needs no
     // ScriptableObject; only the grid tests at the bottom create defs.
     //
-    // A 2x2 mill at (-3,-2) — negative, as half of every island is — covers x -3..-2, y -2..-1, so its
-    // south row is y = -3, north row y = 0, west column x = -4, east column x = -1.
+    // A 2x1 mill at (-3,-2) — negative, as half of every island is — covers the left cell (-3,-2) and the
+    // right cell (-2,-2).
     public class WaterSidesTests
     {
         private static readonly Vector2Int Origin = new Vector2Int(-3, -2);
-        private static readonly Footprint Mill = Footprint.Rect(2, 2);
+        private static readonly Footprint Mill = Footprint.Rect(2, 1);
 
-        private static readonly Vector2Int[] SouthRow = { C(-3, -3), C(-2, -3) };
-        private static readonly Vector2Int[] NorthRow = { C(-3, 0), C(-2, 0) };
-        private static readonly Vector2Int[] WestColumn = { C(-4, -2), C(-4, -1) };
-        private static readonly Vector2Int[] EastColumn = { C(-1, -2), C(-1, -1) };
+        private static readonly Vector2Int BelowRight = C(-2, -3);
+        private static readonly Vector2Int BelowLeft = C(-3, -3);
+        private static readonly Vector2Int AboveRight = C(-2, -1);
+        private static readonly Vector2Int AboveLeft = C(-3, -1);
+        private static readonly Vector2Int PastWest = C(-4, -2);
+        private static readonly Vector2Int PastEast = C(-1, -2);
 
         private static Vector2Int C(int x, int y) => new Vector2Int(x, y);
 
-        private static HashSet<Vector2Int> River(params Vector2Int[][] runs)
-        {
-            var river = new HashSet<Vector2Int>();
-            foreach (var run in runs) river.UnionWith(run);
-            return river;
-        }
+        private static HashSet<Vector2Int> River(params Vector2Int[] cells) => new HashSet<Vector2Int>(cells);
 
         private static WaterSide Find(HashSet<Vector2Int> river) => WaterSides.Find(Origin, Mill, river.Contains);
 
-        private static bool Flip(HashSet<Vector2Int> river) => WaterSides.FlipSouth(Origin, Mill, river.Contains);
-
-        // --- one side -------------------------------------------------------------------------------
+        // --- one spot -------------------------------------------------------------------------------
 
         [Test]
-        public void RiverAlongTheSouthSide_IsSouth()
-            => Assert.AreEqual(WaterSide.South, Find(River(SouthRow)));
+        public void RiverBelowTheRightCell_IsSouthRight()
+            => Assert.AreEqual(WaterSide.SouthRight, Find(River(BelowRight)));
 
         [Test]
-        public void RiverAlongTheWestSide_IsWest()
-            => Assert.AreEqual(WaterSide.West, Find(River(WestColumn)));
+        public void RiverBelowTheLeftCell_IsSouthLeft()
+            => Assert.AreEqual(WaterSide.SouthLeft, Find(River(BelowLeft)));
 
         [Test]
-        public void RiverAlongTheEastSide_IsEast()
-            => Assert.AreEqual(WaterSide.East, Find(River(EastColumn)));
+        public void RiverAboveTheRightCell_IsNorthRight()
+            => Assert.AreEqual(WaterSide.NorthRight, Find(River(AboveRight)));
 
         [Test]
-        public void RiverAlongTheNorthSide_IsNone_TheWheelWouldHideBehindTheBuilding()
-            => Assert.AreEqual(WaterSide.None, Find(River(NorthRow)));
+        public void RiverAboveTheLeftCell_IsNorthLeft()
+            => Assert.AreEqual(WaterSide.NorthLeft, Find(River(AboveLeft)));
+
+        [Test]
+        public void RiverPastTheWestEnd_IsWest()
+            => Assert.AreEqual(WaterSide.West, Find(River(PastWest)));
+
+        [Test]
+        public void RiverPastTheEastEnd_IsEast()
+            => Assert.AreEqual(WaterSide.East, Find(River(PastEast)));
 
         [Test]
         public void NoRiver_IsNone()
             => Assert.AreEqual(WaterSide.None, Find(River()));
 
         [Test]
-        public void ARiverLongerThanTheSide_StillCounts()
-        {
-            var longRun = new[] { C(-6, -3), C(-5, -3), C(-4, -3), C(-3, -3), C(-2, -3), C(-1, -3), C(0, -3) };
+        public void ARiverTouchingOnlyACorner_IsNone()
+            => Assert.AreEqual(WaterSide.None, Find(River(C(-4, -3), C(-1, -3), C(-4, -1), C(-1, -1))));
 
-            Assert.AreEqual(WaterSide.South, Find(River(longRun)));
+        [Test]
+        public void ARiverMilesAway_IsNone()
+            => Assert.AreEqual(WaterSide.None, Find(River(C(-3, -5), C(-2, -5))));
+
+        // --- several spots: the order decides ---------------------------------------------------------
+
+        [Test]
+        public void TheOrder_DrawnArtFirst_ThenItsMirroredStandIns()
+        {
+            // Each spot wins over every spot after it: the river touches it and all the later ones.
+            var order = new[]
+            {
+                (WaterSide.SouthRight, BelowRight), (WaterSide.West, PastWest), (WaterSide.NorthRight, AboveRight),
+                (WaterSide.SouthLeft, BelowLeft), (WaterSide.East, PastEast), (WaterSide.NorthLeft, AboveLeft),
+            };
+
+            for (int i = 0; i < order.Length; i++)
+            {
+                var river = River();
+                for (int j = i; j < order.Length; j++) river.Add(order[j].Item2);
+
+                Assert.AreEqual(order[i].Item1, Find(river), $"from {order[i].Item1} on");
+            }
         }
 
-        // --- half a side ----------------------------------------------------------------------------
+        [Test]
+        public void ARiverAlongTheWholeSouth_IsSouthRight()
+            => Assert.AreEqual(WaterSide.SouthRight, Find(River(C(-5, -3), C(-4, -3), BelowLeft, BelowRight, C(-1, -3))));
 
         [Test]
-        public void HalfASide_IsNone()
-            => Assert.AreEqual(WaterSide.None, Find(River(new[] { C(-3, -3) })));
+        public void ARiverAlongTheWholeNorth_IsNorthRight()
+            => Assert.AreEqual(WaterSide.NorthRight, Find(River(AboveLeft, AboveRight)));
 
         [Test]
-        public void ARiverTurningAtTheCorner_LeavesHalfOfEachSide_IsNone()
+        public void ARiverBendingUnderTheLeftCell_AndUpTheWest_IsWest_TheDrawnArt()
+            => Assert.AreEqual(WaterSide.West, Find(River(PastWest, C(-4, -3), BelowLeft)));
+
+        // --- other footprints -----------------------------------------------------------------------
+
+        [Test]
+        public void ShapedFootprint_TheEdgesFollowTheOutline_NotTheBox()
         {
-            // Down the west side, round the SW corner cell, along the south — but it leaves the west side
-            // at y = -2 and the south side at x = -3, one cell of each.
-            var turn = new[] { C(-4, -2), C(-4, -3), C(-3, -3) };
-
-            Assert.AreEqual(WaterSide.None, Find(River(turn)));
-        }
-
-        // --- corners: two sides qualify, the order decides ------------------------------------------
-
-        [Test]
-        public void CornerSouthWest_IsSouth()
-            => Assert.AreEqual(WaterSide.South, Find(River(WestColumn, new[] { C(-4, -3) }, SouthRow)));
-
-        [Test]
-        public void CornerSouthEast_IsSouth()
-            => Assert.AreEqual(WaterSide.South, Find(River(SouthRow, new[] { C(-1, -3) }, EastColumn)));
-
-        [Test]
-        public void CornerNorthWest_IsWest()
-            => Assert.AreEqual(WaterSide.West, Find(River(NorthRow, new[] { C(-4, 0) }, WestColumn)));
-
-        [Test]
-        public void CornerNorthEast_IsEast()
-            => Assert.AreEqual(WaterSide.East, Find(River(NorthRow, new[] { C(-1, 0) }, EastColumn)));
-
-        [Test]
-        public void BetweenTwoRivers_WestAndEast_IsWest()
-            => Assert.AreEqual(WaterSide.West, Find(River(WestColumn, EastColumn)));
-
-        [Test]
-        public void RiverAroundThreeSides_IsSouth()
-        {
-            var u = River(WestColumn, new[] { C(-4, -3) }, SouthRow, new[] { C(-1, -3) }, EastColumn);
-
-            Assert.AreEqual(WaterSide.South, Find(u));
-        }
-
-        // --- a shaped footprint ---------------------------------------------------------------------
-
-        [Test]
-        public void ShapedFootprint_TheSideFollowsTheOutline_NotTheBox()
-        {
-            // Drawn: a full top row over a stub at the bottom-left; the notch is local (1,0) = (-2,-2).
-            // The south outline is under the stub, (-3,-3), and under the top row's right cell — the
-            // notch itself — not the box edge (-2,-3).
+            // Drawn: a full top row over a stub at the bottom-left; the notch is local (1,0) = (-2,-2). The
+            // right column's lowest cell is the top one, so its south edge looks into the notch — not down
+            // at the box edge (-2,-3).
             var shape = Footprint.Parse("##",
                                         "#.");
 
-            var alongTheBox = River(new[] { C(-3, -3), C(-2, -3) });
-            var alongTheOutline = River(new[] { C(-3, -3), C(-2, -2) });
+            var underTheBox = River(C(-2, -3));
+            var inTheNotch = River(C(-2, -2));
 
-            Assert.AreEqual(WaterSide.None, WaterSides.Find(Origin, shape, alongTheBox.Contains), "the box edge");
-            Assert.AreEqual(WaterSide.South, WaterSides.Find(Origin, shape, alongTheOutline.Contains), "the outline");
-        }
-
-        // --- the south art mirrored ----------------------------------------------------------------
-        // The wheel hangs over the right cell of the south row, (-2,-3); past it is (-1,-3), past the
-        // left cell (-4,-3).
-
-        [Test]
-        public void RiverRunningOnPastBothEnds_NotFlipped()
-            => Assert.IsFalse(Flip(River(new[] { C(-5, -3), C(-4, -3) }, SouthRow, new[] { C(-1, -3), C(0, -3) })));
-
-        [Test]
-        public void RiverEndingUnderTheWheel_Flipped()
-            => Assert.IsTrue(Flip(River(new[] { C(-5, -3), C(-4, -3) }, SouthRow)));
-
-        [Test]
-        public void RiverTurningDownUnderTheWheel_Flipped()
-            => Assert.IsTrue(Flip(River(new[] { C(-4, -3) }, SouthRow, new[] { C(-2, -4), C(-2, -5) })));
-
-        [Test]
-        public void RiverComingDownTheWestSide_AndEndingUnderTheWheel_Flipped()
-        {
-            // South still wins the corner; the river runs on past the left end — up the west side.
-            var river = River(WestColumn, new[] { C(-4, -3) }, SouthRow);
-
-            Assert.AreEqual(WaterSide.South, Find(river));
-            Assert.IsTrue(Flip(river));
+            Assert.AreEqual(WaterSide.None, WaterSides.Find(Origin, shape, underTheBox.Contains), "under the box");
+            Assert.AreEqual(WaterSide.SouthRight, WaterSides.Find(Origin, shape, inTheNotch.Contains), "in the notch");
         }
 
         [Test]
-        public void RiverEndingUnderTheLeftCell_NotFlipped_TheWheelIsOverWaterAlready()
-            => Assert.IsFalse(Flip(River(SouthRow, new[] { C(-1, -3), C(0, -3) })));
-
-        [Test]
-        public void RiverEndingAtBothEnds_NotFlipped_NoMirrorHelps()
-            => Assert.IsFalse(Flip(River(SouthRow)));
-
-        [Test]
-        public void AnotherSide_NeverFlipped()
+        public void OddWidth_TheMiddleColumnCountsForBothHalves()
         {
-            // West along the river, and water past the left end of the (dry) south row.
-            var river = River(WestColumn, new[] { C(-4, -3), C(-5, -3) });
+            // 3x1 at (-3,-2): columns x -3, -2, -1; the middle one, -2, is on the middle line.
+            var wide = Footprint.Rect(3, 1);
 
-            Assert.AreEqual(WaterSide.West, Find(river));
-            Assert.IsFalse(Flip(river));
+            var underTheMiddle = River(C(-2, -3));
+            var underTheLeft = River(C(-3, -3));
+
+            Assert.AreEqual(WaterSide.SouthRight, WaterSides.Find(Origin, wide, underTheMiddle.Contains), "the middle");
+            Assert.AreEqual(WaterSide.SouthLeft, WaterSides.Find(Origin, wide, underTheLeft.Contains), "the left");
+        }
+
+        [Test]
+        public void TallFootprint_AnyRowOfAnEnd_Counts()
+        {
+            // 2x2 at (-3,-2): the west end runs along x = -4 for y -2 and -1; the upper row alone will do.
+            var tall = Footprint.Rect(2, 2);
+            var river = River(C(-4, -1));
+
+            Assert.AreEqual(WaterSide.West, WaterSides.Find(Origin, tall, river.Contains));
         }
 
         // --- on the grid ----------------------------------------------------------------------------
@@ -213,15 +182,15 @@ namespace LittlePeeps.Tests
         public void Grid_ACellHoldingAWaterStructure_IsWater()
         {
             var grid = TestIsland.Square(-6, 3);
-            Occupy(grid, Def(Vector2Int.one, isWater: true), SouthRow);
+            Occupy(grid, Def(Vector2Int.one, isWater: true), BelowRight);
 
-            Assert.AreEqual(WaterSide.South, WaterSides.Find(grid, Origin, Mill));
+            Assert.AreEqual(WaterSide.SouthRight, WaterSides.Find(grid, Origin, Mill));
         }
 
         [Test]
         public void Grid_TheSea_IsNotWater()
         {
-            // The island ends right under the mill: its south row is the sea, no cell at all.
+            // The island ends right under the mill: below it is the sea, no cell at all.
             var grid = TestIsland.Rect(C(-6, -2), C(3, 3));
 
             Assert.AreEqual(WaterSide.None, WaterSides.Find(grid, Origin, Mill));
@@ -231,21 +200,23 @@ namespace LittlePeeps.Tests
         public void Grid_AnyOtherOccupant_IsNotWater()
         {
             var grid = TestIsland.Square(-6, 3);
-            Occupy(grid, Def(Vector2Int.one), SouthRow[0]);   // a dry structure
-            Occupy(grid, null, SouthRow[1]);                  // no def at all
+            Occupy(grid, Def(Vector2Int.one), BelowRight);   // a dry structure
+            Occupy(grid, null, BelowLeft);                   // no def at all
 
             Assert.AreEqual(WaterSide.None, WaterSides.Find(grid, Origin, Mill));
         }
 
         [Test]
-        public void CanPlace_AWaterBuilding_OnlyWithASideAlongTheRiver()
+        public void CanPlace_AWaterBuilding_OnlyWithTheRiverAcrossAnEdge()
         {
+            // One river cell, below the left cell at Origin.
             var grid = TestIsland.Square(-6, 3);
-            Occupy(grid, Def(Vector2Int.one, isWater: true), SouthRow);
-            var mill = Def(C(2, 2), needsWaterSide: true);
+            Occupy(grid, Def(Vector2Int.one, isWater: true), BelowLeft);
+            var mill = Def(C(2, 1), needsWaterSide: true);
 
-            Assert.IsTrue(grid.CanPlace(Origin, mill), "along the river");
-            Assert.IsFalse(grid.CanPlace(Origin + C(1, 0), mill), "one step east: half the south side");
+            Assert.IsTrue(grid.CanPlace(Origin, mill), "one cell above it");
+            Assert.IsTrue(grid.CanPlace(C(-2, -3), mill), "beside it, the river past the west end");
+            Assert.IsFalse(grid.CanPlace(C(-2, -2), mill), "only a corner touching it");
             Assert.IsFalse(grid.CanPlace(C(0, 0), mill), "away from the river");
         }
 
@@ -264,8 +235,8 @@ namespace LittlePeeps.Tests
             // The border ring must be free, and the river's cells are taken — which is why the def's
             // tooltip asks for Border 0.
             var grid = TestIsland.Square(-6, 3);
-            Occupy(grid, Def(Vector2Int.one, isWater: true), SouthRow);
-            var mill = Def(C(2, 2), needsWaterSide: true, border: 1);
+            Occupy(grid, Def(Vector2Int.one, isWater: true), BelowLeft, BelowRight);
+            var mill = Def(C(2, 1), needsWaterSide: true, border: 1);
 
             Assert.IsFalse(grid.CanPlace(Origin, mill));
         }

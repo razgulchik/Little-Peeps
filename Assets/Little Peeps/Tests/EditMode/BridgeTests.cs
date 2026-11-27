@@ -6,7 +6,7 @@ namespace LittlePeeps.Tests
 {
     // A bridge (StructureDef.onWater) goes up over a river cell that stays where it is. Pinned here: where
     // one may stand (a bare river cell, nothing else), what the grid remembers under it and gives back, that
-    // the river is still water to what stands around it — its own neighbours' pieces, a watermill's side —
+    // the river is still water to what stands around it — its own neighbours' pieces, a watermill's wheel —
     // and who may walk over it: a house's launch and a carried unit may, once it stands, not while it is a site.
     //
     // The river runs along y = -3 from x = -5 to -1, on the negative side like half of every island.
@@ -176,13 +176,13 @@ namespace LittlePeeps.Tests
         [Test]
         public void AWatermill_KeepsItsSide_AndMayStillBePlaced()
         {
-            var mill = Def(C(2, 2));
+            var mill = Def(C(2, 1));
             mill.needsWaterSide = true;
-            var origin = C(-3, -2);   // the river runs along its south side
+            var origin = C(-4, -2);   // its right cell stands right above the middle
 
             Put(bridgeDef, Middle);
 
-            Assert.AreEqual(WaterSide.South, WaterSides.Find(grid, origin, mill.Footprint));
+            Assert.AreEqual(WaterSide.SouthRight, WaterSides.Find(grid, origin, mill.Footprint));
             Assert.IsTrue(grid.CanPlace(origin, mill));
         }
 

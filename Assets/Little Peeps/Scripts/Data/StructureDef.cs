@@ -92,15 +92,16 @@ namespace LittlePeeps
         [UnityEngine.Serialization.FormerlySerializedAs("impassable")]
         public bool animalsAvoid = false;
 
-        // The river: its cells count as water for a structure that needs a side along water. Terrain
+        // The river: its cells count as water for a structure that needs water beside it. Terrain
         // can't say it — a river cell is land with this structure standing on it.
-        [Tooltip("This structure is water (the river): a building that needs a side along water counts its cells.")]
+        [Tooltip("This structure is water (the river): a building that needs water beside it counts its cells.")]
         public bool isWater = false;
 
-        // Must stand with one whole side along water — a watermill, its wheel over the river. Which sides
-        // count and which one wins is WaterSides; which art shows is the prefab's WaterSideVisual.
-        [Tooltip("Placeable only with one whole side (south, west or east) along water. Needs Border 0: " +
-                 "the river's cells are taken, so a border ring could never reach them.")]
+        // Must stand with the river right across one of its edges — a watermill, its wheel turning in that
+        // river cell. Which edges count and which one wins is WaterSides; which art shows is the prefab's
+        // WaterSideVisual.
+        [Tooltip("Placeable only with water right across at least one edge of one cell (any side). Needs " +
+                 "Border 0: the river's cells are taken, so a border ring could never reach them.")]
         public bool needsWaterSide = false;
 
         // Built OVER water — a bridge. Its footprint takes river cells and nothing else, and the river stays

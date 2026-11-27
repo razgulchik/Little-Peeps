@@ -112,7 +112,7 @@ namespace LittlePeeps
         }
 
         // The whole placement rule for `def` at origin: the cell rule above, plus what the def adds on top —
-        // a bridge stands on the river, a watermill needs a side along it (WaterSides). Every placement path asks this one (build,
+        // a bridge stands on the river, a watermill needs it across one of its edges (WaterSides). Every placement path asks this one (build,
         // move, generated content), so the ghost can never promise a spot the builder refuses.
         public bool CanPlace(Vector2Int origin, StructureDef def)
         {

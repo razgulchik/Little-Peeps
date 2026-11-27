@@ -15,7 +15,7 @@ MonoBehaviour:
   id: magnet
   title: Peep Magnetism
   icon: {fileID: 21300000, guid: 3681d0708b254a93b65b4dfe0c79a0d2, type: 3}
-  description: Hold the left button to gather peeps and carry them
+  description: Hold the left mouse button to pick up and carry up to three Peeps at once. The Handful perk can now appear.
   cost: 1
   modifiers:
   - id: 19

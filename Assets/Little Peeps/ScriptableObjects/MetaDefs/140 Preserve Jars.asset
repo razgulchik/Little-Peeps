@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36abef9ac78d010459ed24a44131b9e9, type: 3}
+  m_Name: 140 Preserve Jars
+  m_EditorClassIdentifier: 
+  id: bush_boost
+  title: Preserve Jars
+  icon: {fileID: 21300000, guid: 02a7fe0b49704ebdaff9c0e483a76e4c, type: 3}
+  description: Bushes give 1 extra Food per harvest and take 15% less time to regrow.
+  cost: 1
+  modifiers:
+  - id: 1
+    unitScope: 0
+    anyProfession: 1
+    resourceScope: 0
+    sourceScope: {fileID: 11400000, guid: 8bd8056c1cfba16499856cc27baf86bf, type: 2}
+    structureScope: {fileID: 0}
+    kind: 0
+    value: 1
+  - id: 5
+    unitScope: 0
+    anyProfession: 0
+    resourceScope: 0
+    sourceScope: {fileID: 11400000, guid: 8bd8056c1cfba16499856cc27baf86bf, type: 2}
+    structureScope: {fileID: 0}
+    kind: 1
+    value: -0.15

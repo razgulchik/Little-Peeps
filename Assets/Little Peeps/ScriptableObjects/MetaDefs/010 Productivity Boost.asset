@@ -15,7 +15,7 @@ MonoBehaviour:
   id: productivity_boost
   title: Productivity Boost
   icon: {fileID: 21300000, guid: acb5661634b44fcf8223f340febaefb2, type: 3}
-  description: 
+  description: All harvests yield 25% more resources.
   cost: 1
   modifiers:
   - id: 0

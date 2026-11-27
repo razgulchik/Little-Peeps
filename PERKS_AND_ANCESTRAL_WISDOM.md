@@ -19,7 +19,6 @@ All 19 perks use the Common offering pool with a roll weight of 1. Rarity sets t
 |---|---|---|---:|---|---|
 | Bamboo Jungle | I+ | — | 1 | Pure | Bamboo takes 75% less time to regrow, so it grows back four times as fast. |
 | Better Axes | I+ | — | 1 | Common | All Peeps gain +100% Wood yield from every Wood source they can harvest. |
-| Better Bows | I+ | — | 1 | Common | Hunters can target animals 50% farther away. |
 | Bigger Houses | I+ | — | 1 | Legendary | Each House and Tent gains one worker slot. |
 | Good rest | I+ | — | 1 | Epic | Peeps have +100% stamina per outing, so they can work twice as long before tiring. |
 | Green thumbs | I+ | — | 1 | Common | Farmers gain +50% Food yield from every Food source they can harvest. |
@@ -29,13 +28,14 @@ All 19 perks use the Common offering pool with a roll weight of 1. Rarity sets t
 | Peep Talk | I+ | — | 3 | Common | The speed boost multiplier for tapping or releasing Peeps increases by 50% per rank, up to +150% at rank III. |
 | Peer Pressure | I+ | — | 3 | Common | The tap radius grows by 25% per rank, up to +75% at rank III. This also extends pickup reach when carrying is unlocked. |
 | Plentiful harvest | I+ | — | 1 | Common | Wheat regrows 50% faster, taking about one-third less time between harvests. |
-| Shopping spree | I+ | — | 1 | Uncommon | Each Peep gets two extra paying hits per Market visit. |
 | Taxes | I+ | — | 1 | Pure | Each working hit on a completed House pays 0.1 Coins. |
 | Unlock Rice Paddy | I+ | — | 1 | Uncommon | Unlocks the Rice Paddy in the build palette for the rest of the island. |
+| Better Bows | II+ | — | 1 | Common | Hunters can target animals 50% farther away. |
 | Geese x3 | II+ | — | 1 | Pure | Each Goose Coop can support three times its usual number of geese. |
+| Shopping spree | II+ | — | 1 | Uncommon | Each Peep gets two extra paying hits per Market visit. |
 | Forging heat | III+ | — | 1 | Common | The hotter the forge, the more Metal it yields per paying hit, up to +50% at full heat. |
-| Fluffy gold | IV+ | — | 1 | Uncommon | Harvesting alpacas yields 50% more Coins. |
 | Milling | IV+ | — | 1 | Common | Each Mill gives the whole island +5% Food yield. |
+| Fluffy gold | V+ | — | 1 | Uncommon | Harvesting alpacas yields 50% more Coins. |
 
 ### Proposed run perks
 

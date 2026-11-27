@@ -15,7 +15,7 @@ MonoBehaviour:
   id: stamina_boost
   title: Stamina Boost
   icon: {fileID: 21300000, guid: ecb5f7bb85264feaae31c159247e4213, type: 3}
-  description: 
+  description: Peeps start each outing with 50% more stamina.
   cost: 1
   modifiers:
   - id: 4

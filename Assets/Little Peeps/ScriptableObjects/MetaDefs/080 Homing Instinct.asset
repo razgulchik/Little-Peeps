@@ -15,5 +15,5 @@ MonoBehaviour:
   id: tired_go_home
   title: Homing Instinct
   icon: {fileID: 21300000, guid: 4030aef15f554265a68f0439f5e9e359, type: 3}
-  description: 
+  description: Peeps return home instantly when their stamina runs out.
   cost: 2

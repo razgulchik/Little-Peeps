@@ -15,6 +15,6 @@ MonoBehaviour:
   id: start_tent
   title: Vagabonds
   icon: {fileID: 21300000, guid: 8c43e8bbb4b54b229744372ed6e5299e, type: 3}
-  description: A tent with one more peep by the pier in every run
+  description: Start each island with a Tent and one extra Peep by the pier.
   cost: 2
   structure: {fileID: 11400000, guid: 17526b8eea6b495cb69df6e3cfeda809, type: 2}

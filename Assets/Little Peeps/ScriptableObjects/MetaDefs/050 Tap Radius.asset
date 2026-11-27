@@ -15,7 +15,7 @@ MonoBehaviour:
   id: tap_radius
   title: Tap Radius
   icon: {fileID: 21300000, guid: 0d009aa1fb5e4d988e5dfb57e03c0e57, type: 3}
-  description: 
+  description: The tap and pickup radius is three times larger.
   cost: 1
   modifiers:
   - id: 14

@@ -272,6 +272,52 @@ namespace LittlePeeps.Tests
             Expect(HitVerdict.Blocked, mill, Tired(UnitType.Farmer));
         }
 
+        // --- sluice ---------------------------------------------------------------------------------
+
+        [Test]
+        public void Sluice_WithSand_MinerUseful()
+        {
+            var sluice = MakeSluice(out var tray);
+            SetField(tray, "stage", 2);
+
+            Expect(HitVerdict.Useful, sluice, Worker(UnitType.Miner));
+        }
+
+        [Test]
+        public void Sluice_Empty_MinerBlocked() => Expect(HitVerdict.Blocked, MakeSluice(out _), Worker(UnitType.Miner));
+
+        [Test]
+        public void Sluice_WithSand_FarmerUseless()
+        {
+            var sluice = MakeSluice(out var tray);
+            SetField(tray, "stage", 2);
+
+            Expect(HitVerdict.Useless, sluice, Worker(UnitType.Farmer));
+        }
+
+        [Test]
+        public void Sluice_PaidHit_StartsSettlingOver()
+        {
+            var sluice = MakeSluice(out var tray);
+            SetField(tray, "stage", 3);
+            SetField(tray, "progress", 0f);
+
+            Hit(sluice, Worker(UnitType.Miner));
+
+            Assert.That(tray.Stage, Is.Zero, "washed out: the tray is empty again");
+        }
+
+        [Test]
+        public void Sluice_FarmersBounce_LeavesTheSand()
+        {
+            var sluice = MakeSluice(out var tray);
+            SetField(tray, "stage", 2);
+
+            Hit(sluice, Worker(UnitType.Farmer));
+
+            Assert.That(tray.Stage, Is.EqualTo(2), "the sand waits for a Miner");
+        }
+
         // --- market ---------------------------------------------------------------------------------
 
         [Test]
@@ -762,6 +808,14 @@ namespace LittlePeeps.Tests
         {
             var go = Source(Def("Mill", Depletion.Never, 0, Everyone));
             store = go.AddComponent<Mill>();
+            return Build(go);
+        }
+
+        // Listed like the real sluice — the Miner only.
+        private CollisionTarget MakeSluice(out Sluice tray)
+        {
+            var go = Source(Def("Sluice", Depletion.Never, 0, UnitType.Miner));
+            tray = go.AddComponent<Sluice>();
             return Build(go);
         }
 

@@ -326,6 +326,20 @@ namespace LittlePeeps.Tests
         }
 
         [Test]
+        public void Sluice_KeepsItsStage_AndNeverMoreThanFull()
+        {
+            var sluice = go.AddComponent<Sluice>();
+
+            sluice.LoadState(new[] { 1f, 4.5f });
+            Assert.That(sluice.Stage, Is.EqualTo(1));
+            Assert.That(Saved(sluice), Is.EqualTo(new[] { 1f, 4.5f }));
+
+            sluice.LoadState(new[] { 99f, 4.5f });
+            Assert.That(sluice.IsFull, Is.True, "a full tray");
+            Assert.That(Saved(sluice)[1], Is.Zero, "a full tray settles nothing toward the next stage");
+        }
+
+        [Test]
         public void Sawmill_KeepsTheEndItWaitsFor()
         {
             var saw = go.AddComponent<Sawmill>();
@@ -358,6 +372,7 @@ namespace LittlePeeps.Tests
             {
                 go.AddComponent<ResourceSource>(), go.AddComponent<Mill>(), go.AddComponent<Sawmill>(),
                 go.AddComponent<ForgeHeat>(), go.AddComponent<RicePaddy>(), go.AddComponent<AnimalSpawner>(),
+                go.AddComponent<Sluice>(),
             };
 
             Assert.That(parts.Select(p => p.StateKey), Is.Unique);
